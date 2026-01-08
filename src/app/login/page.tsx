@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    // simula verificação inicial (ex: token / sessão)
+    // simula checagem inicial (token / sessão / bootstrap)
     const timer = setTimeout(() => {
       setLoading(false)
       setOpen(true)
@@ -37,11 +37,9 @@ export default function LoginPage() {
                 width={96}
                 height={70}
                 priority
-                className={styles.logoPulse}
+                className={styles.logoFlip}
               />
             </div>
-
-            <div className={styles.spinner} />
           </div>
         </main>
       )}
