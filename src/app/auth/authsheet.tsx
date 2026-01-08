@@ -126,17 +126,28 @@ export default function AuthSheet({
             {/* FORM */}
             <form onSubmit={submit}>
               {mode === 'register' && (
-                <div className="authsheet-input">
+                <div className="authsheet-input authsheet-input-clearable">
                   <input
                     placeholder="Nome completo"
                     value={form.name}
                     onChange={e => update('name', e.target.value)}
                     required
                   />
+
+                  {form.name && (
+                    <button
+                      type="button"
+                      className="authsheet-clear"
+                      onClick={() => update('name', '')}
+                      aria-label="Limpar nome"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               )}
 
-              <div className="authsheet-input">
+              <div className="authsheet-input authsheet-input-clearable">
                 <input
                   type="email"
                   placeholder="E-mail"
@@ -144,9 +155,20 @@ export default function AuthSheet({
                   onChange={e => update('email', e.target.value)}
                   required
                 />
+
+                {form.email && (
+                  <button
+                    type="button"
+                    className="authsheet-clear"
+                    onClick={() => update('email', '')}
+                    aria-label="Limpar e-mail"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
 
-              <div className="authsheet-input">
+              <div className="authsheet-input authsheet-input-clearable">
                 <input
                   type="password"
                   placeholder="Senha"
@@ -155,6 +177,17 @@ export default function AuthSheet({
                   required
                   minLength={6}
                 />
+
+                {form.password && (
+                  <button
+                    type="button"
+                    className="authsheet-clear"
+                    onClick={() => update('password', '')}
+                    aria-label="Limpar senha"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
 
               <button
