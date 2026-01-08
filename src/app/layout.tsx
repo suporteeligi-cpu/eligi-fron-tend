@@ -1,9 +1,9 @@
-import AuthGuard from '../app/auth/AuthGuard';
+import './globals.css'
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return <AuthGuard>{children}</AuthGuard>;
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="pt-BR">
+      <body>{children}</body>
+    </html>
+  )
 }
