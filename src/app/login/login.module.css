@@ -1,0 +1,105 @@
+/* ROOT — isolamento total */
+.root {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: radial-gradient(
+    circle at top,
+    rgba(255, 255, 255, 0.06),
+    rgba(0, 0, 0, 0.92)
+  );
+}
+
+/* HERO */
+.hero {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* GLASS CARD — Apple Vision style */
+.glassCard {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px 28px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+
+  border-radius: 24px;
+
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* LOGO */
+.logo {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+/* SUBTITLE */
+.subtitle {
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.72);
+  margin-bottom: 28px;
+}
+
+/* CTA BUTTON */
+.cta {
+  width: 100%;
+  height: 48px;
+
+  border-radius: 14px;
+  border: none;
+
+  font-size: 15px;
+  font-weight: 600;
+
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    #e50914,
+    #b00610
+  );
+
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(229, 9, 20, 0.35);
+}
+
+.cta:active {
+  transform: translateY(0);
+}
+
+/* RESPONSIVE */
+@media (max-width: 480px) {
+  .glassCard {
+    padding: 28px 20px;
+    border-radius: 20px;
+  }
+
+  .logo {
+    font-size: 30px;
+  }
+}
