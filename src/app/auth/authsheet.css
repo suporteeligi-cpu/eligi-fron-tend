@@ -81,7 +81,7 @@
 }
 
 .authsheet-tabs button.active {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 0, 0, 0.908);
   color: #fff;
 }
 
@@ -141,7 +141,7 @@
 @media (max-width: 520px) {
   .authsheet-card {
     width: 82vw;
-    height: 44px;
+    height: 60vw;
     padding: 32px 24px;
   }
 }
