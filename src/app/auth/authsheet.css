@@ -140,7 +140,7 @@
 /* MOBILE */
 @media (max-width: 520px) {
   .authsheet-card {
-    width: 92vw;
+    width: 82vw;
     padding: 32px 24px;
   }
 }
