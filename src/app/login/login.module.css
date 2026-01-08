@@ -1,105 +1,87 @@
-/* ROOT — isolamento total */
+/* ROOT — tela inteira, centralização absoluta */
 .root {
   min-height: 100vh;
   width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
 
   background: radial-gradient(
     circle at top,
-    rgba(255, 255, 255, 0.06),
-    rgba(0, 0, 0, 0.92)
+    rgba(255, 255, 255, 0.08),
+    rgba(0, 0, 0, 0.94)
   );
 }
 
-/* HERO */
-.hero {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  padding: 24px;
-}
-
-/* GLASS CARD — Apple Vision style */
-.glassCard {
-  width: 100%;
-  max-width: 420px;
-  padding: 32px 28px;
+/* GLASS CONTAINER — Apple clean (sem sombra) */
+.glass {
+  width: 220px;
+  height: 220px;
 
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
+  justify-content: center;
+  gap: 22px;
 
-  border-radius: 24px;
+  border-radius: 28px;
 
   background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
 
   border: 1px solid rgba(255, 255, 255, 0.18);
-
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 /* LOGO */
+.logoWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .logo {
-  font-size: 34px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  margin-bottom: 12px;
+  animation: pulse 2.2s ease-in-out infinite;
 }
 
-/* SUBTITLE */
-.subtitle {
-  font-size: 15px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.72);
-  margin-bottom: 28px;
+/* SPINNER — minimal, elegante */
+.spinner {
+  width: 28px;
+  height: 28px;
+
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: rgba(255, 255, 255, 0.9);
+
+  animation: spin 1s linear infinite;
 }
 
-/* CTA BUTTON */
-.cta {
-  width: 100%;
-  height: 48px;
-
-  border-radius: 14px;
-  border: none;
-
-  font-size: 15px;
-  font-weight: 600;
-
-  color: #fff;
-  background: linear-gradient(
-    135deg,
-    #e50914,
-    #b00610
-  );
-
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.cta:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 30px rgba(229, 9, 20, 0.35);
-}
-
-.cta:active {
-  transform: translateY(0);
-}
-
-/* RESPONSIVE */
-@media (max-width: 480px) {
-  .glassCard {
-    padding: 28px 20px;
-    border-radius: 20px;
+/* ANIMATIONS */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
+}
 
-  .logo {
-    font-size: 30px;
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+}
+
+/* MOBILE REFINEMENT */
+@media (max-width: 480px) {
+  .glass {
+    width: 200px;
+    height: 200px;
+    border-radius: 24px;
   }
 }

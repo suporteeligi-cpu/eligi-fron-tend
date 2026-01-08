@@ -1,35 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import AuthSheet from '../auth/authsheet'
 import styles from './login.module.css'
 
 export default function LoginPage() {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    // simula carregamento inicial (ex: session check)
+    const timer = setTimeout(() => {
+      setOpen(true)
+    }, 600)
+
+    return () => clearTimeout(timer)
+  }, [])
 
   return (
     <>
-      {/* AUTH SHEET */}
       <AuthSheet open={open} onClose={() => setOpen(false)} />
 
-      {/* HERO / LANDING */}
       <main className={styles.root}>
-        <section className={styles.hero}>
-          <div className={styles.glassCard}>
-            <h1 className={styles.logo}>ELIGI</h1>
-
-            <p className={styles.subtitle}>
-              Gestão inteligente para negócios modernos.
-            </p>
-
-            <button
-              className={styles.cta}
-              onClick={() => setOpen(true)}
-            >
-              Entrar ou criar conta
-            </button>
+        <div className={styles.glass}>
+          <div className={styles.logoWrapper}>
+            <Image
+              src='/images/logo.png'
+              alt='ELIGI'
+              width={96}
+              height={96}
+              priority
+              className={styles.logo}
+            />
           </div>
-        </section>
+
+          <div className={styles.spinner} />
+        </div>
       </main>
     </>
   )
