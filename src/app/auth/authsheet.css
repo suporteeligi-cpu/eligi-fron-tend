@@ -141,6 +141,7 @@
 @media (max-width: 520px) {
   .authsheet-card {
     width: 82vw;
+    height: 44px;
     padding: 32px 24px;
   }
 }
