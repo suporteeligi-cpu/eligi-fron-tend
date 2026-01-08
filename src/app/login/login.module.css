@@ -7,15 +7,15 @@
 
   background: radial-gradient(
     circle at top,
-    rgba(255, 255, 255, 0.08),
-    rgba(0, 0, 0, 0.94)
+    rgb(255, 255, 255),
+    rgba(199, 199, 199, 0.94)
   );
 }
 
 /* GLASS CONTAINER — Apple clean (sem sombra) */
 .glass {
-  width: 220px;
-  height: 220px;
+  width: 200px;
+  height: 200px;
 
   display: flex;
   flex-direction: column;
@@ -25,11 +25,11 @@
 
   border-radius: 28px;
 
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.971);
   backdrop-filter: blur(26px) saturate(180%);
   -webkit-backdrop-filter: blur(26px) saturate(180%);
 
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.904);
 }
 
 /* LOGO */
@@ -50,7 +50,7 @@
 
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.25);
-  border-top-color: rgba(255, 255, 255, 0.9);
+  border-top-color: rgba(0, 0, 0, 0.9);
 
   animation: spin 1s linear infinite;
 }

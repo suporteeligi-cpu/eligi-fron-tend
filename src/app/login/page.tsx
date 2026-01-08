@@ -25,10 +25,10 @@ export default function LoginPage() {
         <div className={styles.glass}>
           <div className={styles.logoWrapper}>
             <Image
-              src='/images/logo.png'
+              src='/images/globo-eligi.png'
               alt='ELIGI'
               width={96}
-              height={96}
+              height={70}
               priority
               className={styles.logo}
             />
