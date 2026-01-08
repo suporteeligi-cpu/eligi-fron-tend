@@ -1,0 +1,138 @@
+/* ==========================================================================
+   CORE.CSS — ELIGI Design System
+   Apple Vision / iOS Glass — Base global
+========================================================================== */
+
+/* ===================== FONT ===================== */
+:root {
+  --font-primary: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ===================== TOKENS ===================== */
+:root {
+  /* Radius */
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+
+  /* Colors — Light */
+  --bg-main: #f5f5f7;
+  --bg-elevated: rgba(255,255,255,0.55);
+  --text-main: #0a0a0a;
+  --text-soft: #6b6b6b;
+
+  /* Accent (ELIGI) */
+  --accent: #d00000;
+
+  /* Glass */
+  --glass: rgba(255,255,255,0.42);
+  --glass-border: rgba(255,255,255,0.22);
+
+  /* Shadows */
+  --shadow-sm: 0 6px 18px rgba(0,0,0,0.08);
+  --shadow-md: 0 16px 42px rgba(0,0,0,0.14);
+  --shadow-lg: 0 28px 64px rgba(0,0,0,0.22);
+
+  /* Motion */
+  --ease-soft: cubic-bezier(.25,.7,.35,1);
+  --ease-pop: cubic-bezier(.25,.65,.25,1.25);
+}
+
+/* ===================== DARK MODE ===================== */
+:root[data-theme="dark"] {
+  --bg-main: #0c0c0f;
+  --bg-elevated: rgba(24,24,28,0.55);
+  --text-main: #ffffff;
+  --text-soft: #c8c8c8;
+
+  --glass: rgba(255,255,255,0.08);
+  --glass-border: rgba(255,255,255,0.14);
+
+  --shadow-sm: 0 6px 18px rgba(0,0,0,0.4);
+  --shadow-md: 0 16px 42px rgba(0,0,0,0.6);
+  --shadow-lg: 0 28px 64px rgba(0,0,0,0.8);
+}
+
+/* ===================== RESET BÁSICO ===================== */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-primary);
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+
+/* ===================== CONTAINERS ===================== */
+.container {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+/* ===================== GLASS ===================== */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===================== BUTTONS ===================== */
+.btn {
+  font-family: var(--font-primary);
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  padding: 14px 22px;
+  font-weight: 600;
+  transition: transform .25s var(--ease-soft),
+              box-shadow .25s var(--ease-soft),
+              opacity .2s ease;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  color: var(--text-main);
+}
+
+/* ===================== TEXT ===================== */
+.text-soft {
+  color: var(--text-soft);
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* ===================== ANIMATIONS ===================== */
+.fade-up {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: fadeUp .55s var(--ease-soft) forwards;
+}
+
+@keyframes fadeUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
