@@ -112,7 +112,7 @@
   outline: none;
 
   font-size: 15px;
-  color: #fff;
+  color: #000000;
 }
 
 /* SUBMIT */
@@ -124,7 +124,7 @@
   border-radius: 14px;
   border: none;
 
-  font-size: 15px;
+  font-size: 21px;
   font-weight: 600;
   color: #fff;
 
