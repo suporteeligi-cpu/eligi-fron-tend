@@ -7,12 +7,12 @@
 
   background: radial-gradient(
     circle at top,
-    rgb(255, 255, 255),
-    rgba(199, 199, 199, 0.94)
+    #f5f5f7,
+    #e5e5ea
   );
 }
 
-/* GLASS CONTAINER — Apple clean (sem sombra) */
+/* GLASS CONTAINER — Apple clean */
 .glass {
   width: 200px;
   height: 200px;
@@ -21,15 +21,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 22px;
+  gap: 18px;
 
-  border-radius: 28px;
+  border-radius: 26px;
 
-  background: rgba(255, 255, 255, 0.971);
-  backdrop-filter: blur(26px) saturate(180%);
-  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
 
-  border: 1px solid rgba(255, 255, 255, 0.904);
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
 /* LOGO */
@@ -39,20 +39,20 @@
   justify-content: center;
 }
 
-.logo {
+.logoPulse {
   animation: pulse 2.2s ease-in-out infinite;
 }
 
-/* SPINNER — minimal, elegante */
+/* SPINNER */
 .spinner {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
 
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-top-color: rgba(0, 0, 0, 0.9);
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-top-color: rgba(0, 0, 0, 0.55);
 
-  animation: spin 1s linear infinite;
+  animation: spin 0.9s linear infinite;
 }
 
 /* ANIMATIONS */
@@ -68,7 +68,7 @@
     opacity: 0.85;
   }
   50% {
-    transform: scale(1.06);
+    transform: scale(1.05);
     opacity: 1;
   }
   100% {
@@ -77,11 +77,17 @@
   }
 }
 
-/* MOBILE REFINEMENT */
+/* MOBILE */
 @media (max-width: 480px) {
   .glass {
-    width: 200px;
-    height: 200px;
-    border-radius: 24px;
+    width: 180px;
+    height: 180px;
+    border-radius: 22px;
+    gap: 16px;
+  }
+
+  .spinner {
+    width: 22px;
+    height: 22px;
   }
 }

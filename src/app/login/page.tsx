@@ -6,11 +6,13 @@ import AuthSheet from '../auth/authsheet'
 import styles from './login.module.css'
 
 export default function LoginPage() {
+  const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    // simula carregamento inicial (ex: session check)
+    // simula verificação inicial (ex: token / sessão)
     const timer = setTimeout(() => {
+      setLoading(false)
       setOpen(true)
     }, 600)
 
@@ -19,24 +21,30 @@ export default function LoginPage() {
 
   return (
     <>
-      <AuthSheet open={open} onClose={() => setOpen(false)} />
+      <AuthSheet
+        open={open}
+        onClose={() => setOpen(false)}
+      />
 
-      <main className={styles.root}>
-        <div className={styles.glass}>
-          <div className={styles.logoWrapper}>
-            <Image
-              src='/images/globo-eligi.png'
-              alt='ELIGI'
-              width={96}
-              height={70}
-              priority
-              className={styles.logo}
-            />
+      {/* Splash só existe enquanto loading */}
+      {loading && (
+        <main className={styles.root}>
+          <div className={styles.glass}>
+            <div className={styles.logoWrapper}>
+              <Image
+                src="/images/globo-eligi.png"
+                alt="ELIGI"
+                width={96}
+                height={70}
+                priority
+                className={styles.logoPulse}
+              />
+            </div>
+
+            <div className={styles.spinner} />
           </div>
-
-          <div className={styles.spinner} />
-        </div>
-      </main>
+        </main>
+      )}
     </>
   )
 }
