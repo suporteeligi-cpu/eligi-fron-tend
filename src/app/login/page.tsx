@@ -14,7 +14,7 @@ export default function LoginPage() {
     const timer = setTimeout(() => {
       setLoading(false)
       setOpen(true)
-    }, 600)
+    }, 1600)
 
     return () => clearTimeout(timer)
   }, [])
