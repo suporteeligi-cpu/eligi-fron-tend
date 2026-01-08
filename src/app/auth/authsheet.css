@@ -137,12 +137,15 @@
   background: rgba(255, 255, 255, 0.28);
 }
 
-/* MOBILE */
+/* MOBILE — refinamento Apple iOS 26 */
 @media (max-width: 520px) {
   .authsheet-card {
     width: 82vw;
-    height: 60vw;
-    padding: 32px 24px;
+    max-width: 360px;
+
+    padding: 28px 20px;
+
+    border-radius: 22px;
   }
 }
 
