@@ -1,35 +1,21 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'
+import { ReactNode } from 'react'
 
 interface AuthGuardProps {
-  children: React.ReactNode;
+  children: ReactNode
 }
 
 export default function AuthGuard({ children }: AuthGuardProps) {
-  const router = useRouter();
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const router = useRouter()
 
-  useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+  const isAuthenticated = true // depois vem token / session
 
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
-
-    // 🔐 Aqui futuramente entra:
-    // - refresh token
-    // - validação de sessão
-    // - roles / permissions
-    setAuthorized(true);
-  }, [router]);
-
-  // ⏳ Loading silencioso (evita flicker)
-  if (authorized === null) {
-    return null;
+  if (!isAuthenticated) {
+    router.replace('/login')
+    return null
   }
 
-  return <>{children}</>;
+  return <>{children}</>
 }
