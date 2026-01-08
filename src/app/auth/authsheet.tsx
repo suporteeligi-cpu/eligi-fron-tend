@@ -119,8 +119,8 @@ export default function AuthSheet({
             {/* TITLE */}
             <h2 className="authsheet-title">
               {mode === 'login'
-                ? 'Bem-vindo de volta'
-                : 'Criar nova conta'}
+                ? 'Bem-vindo de volta!'
+                : 'Seja um dos nossos, Cadastre-se'}
             </h2>
 
             {/* FORM */}

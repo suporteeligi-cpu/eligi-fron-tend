@@ -1,6 +1,6 @@
 /* ==========================================================================
    AUTHSHEET — ELIGI Apple Vision / iOS 26
-   CSS ISOLADO • ZERO HERANÇA • ZERO SOMBRA PESADA
+   CSS ISOLADO • VIDRO LIMPO • MOBILE FIRST
 ========================================================================== */
 
 .authsheet-root {
@@ -8,7 +8,7 @@
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* OVERLAY */
+/* ================= OVERLAY ================= */
 .authsheet-overlay {
   position: fixed;
   inset: 0;
@@ -17,94 +17,101 @@
   display: grid;
   place-items: center;
 
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(32px) saturate(180%);
-  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
 
-  animation: fadeIn 0.25s ease;
+  animation: fadeIn 0.22s ease;
 }
 
-/* PANEL */
+/* ================= PANEL ================= */
 .authsheet-panel {
-  animation: scaleIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: scaleIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* CARD */
+/* ================= CARD ================= */
 .authsheet-card {
   width: 420px;
-  padding: 40px 36px;
+  padding: 36px 32px;
 
   display: flex;
   flex-direction: column;
   align-items: center;
 
-  border-radius: 28px;
+  border-radius: 26px;
 
-  background: rgba(255, 255, 255, 0.57);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
 
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+
+  /* suaviza mudança de altura ao trocar modo */
+  transition: padding 0.25s ease, height 0.25s ease;
 }
 
-/* LOGO */
+/* ================= LOGO ================= */
 .authsheet-logo {
-  margin-bottom: 24px;
-  animation: pulse 2.4s ease-in-out infinite;
+  margin-bottom: 22px;
+  animation: pulse 2.6s ease-in-out infinite;
 }
 
-/* TABS */
+/* ================= TABS ================= */
 .authsheet-tabs {
   width: 100%;
   display: flex;
   gap: 6px;
   padding: 6px;
 
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.12);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .authsheet-tabs button {
   flex: 1;
-  height: 38px;
+  height: 36px;
 
-  border-radius: 12px;
+  border-radius: 11px;
   border: none;
   background: transparent;
 
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
+  font-weight: 1000;
+  color: rgba(0, 0, 0, 0.55);
 
   cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease;
+  transition: background 0.22s ease, color 0.22s ease;
 }
 
 .authsheet-tabs button.active {
-  background: rgba(255, 0, 0, 0.908);
+  background: rgba(255, 0, 0, 0.9);
   color: #fff;
 }
 
-/* TITLE */
+/* ================= TITLE ================= */
 .authsheet-title {
-  margin: 26px 0 24px;
-  font-size: 22px;
-  font-weight: 700;
+  margin: 24px 0 22px;
+  font-size: 16px;
+  font-weight: 1000;
   text-align: center;
-  
-  color: #fff;
+  color: #000;
+
+  animation: modeFadeSlide 0.22s ease;
 }
 
-/* INPUT */
+/* ================= INPUT ================= */
 .authsheet-input {
   width: 100%;
   margin-bottom: 14px;
-  padding: 14px 16px;
+  padding: 15px 16px;
 
-  border-radius: 16px;
-  background: rgb(255, 255, 255);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.92);
+
+  animation: modeFadeSlide 0.22s ease;
 }
 
+/* input */
 .authsheet-input input {
   width: 100%;
   background: transparent;
@@ -112,74 +119,24 @@
   outline: none;
 
   font-size: 15px;
-  color: #000000;
+  font-weight: 1000;
+  color: #616161;
 }
 
-/* SUBMIT */
-.authsheet-submit {
-  width: 100%;
-  height: 44px;
-  margin-top: 10px;
-
-  border-radius: 14px;
-  border: none;
-
-  font-size: 21px;
-  font-weight: 600;
-  color: #fff;
-
-  background: rgb(255, 0, 0);
-  cursor: pointer;
-  transition: background 0.25s ease;
-}
-
-.authsheet-submit:hover {
-  background: rgba(255, 255, 255, 0.28);
-}
-
-/* MOBILE — refinamento Apple iOS 26 */
-@media (max-width: 520px) {
-  .authsheet-card {
-    width: 82vw;
-    max-width: 360px;
-
-    padding: 28px 20px;
-
-    border-radius: 22px;
-  }
-}
-
-/* ANIMATIONS */
-@keyframes fadeIn {
-  from { opacity: 0 }
-  to { opacity: 1 }
-}
-
-@keyframes scaleIn {
-  from { transform: scale(0.92); opacity: 0 }
-  to { transform: scale(1); opacity: 1 }
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 0.85 }
-  50% { transform: scale(1.06); opacity: 1 }
-}
-
-/* ================= CLEARABLE INPUT (Apple style) ================= */
-
+/* ================= CLEARABLE ================= */
 .authsheet-input-clearable {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-/* botão X */
+/* botão X — padrão Apple */
 .authsheet-clear {
   position: absolute;
-  right: 14px;
+  right: 12px;
 
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 
   display: flex;
   align-items: center;
@@ -189,32 +146,105 @@
   border: none;
 
   font-size: 20px;
-  line-height: 1;
-  font-weight: 900;
+  font-weight: 700;
 
   background: none;
-  color: rgba(0, 0, 0, 0.85);
+  color: rgba(0, 0, 0, 0.65);
 
   cursor: pointer;
   opacity: 0.85;
 
-  transition:
-    opacity 0.2s ease,
-    background 0.2s ease,
-    transform 0.15s ease;
+  transition: opacity 0.18s ease, transform 0.15s ease;
 }
 
-/* hover / active — bem sutil */
 .authsheet-clear:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.32);
 }
 
 .authsheet-clear:active {
-  transform: scale(0.92);
+  transform: scale(0.9);
 }
 
-/* garante espaço pro botão */
+/* espaço pro botão */
 .authsheet-input-clearable input {
-  padding-right: 44px;
+  padding-right: 42px;
+}
+
+/* ================= SUBMIT ================= */
+.authsheet-submit {
+  width: 100%;
+  height: 44px;
+  margin-top: 12px;
+
+  border-radius: 14px;
+  border: none;
+
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+
+  background: rgba(255, 0, 0, 0.95);
+  cursor: pointer;
+  transition: opacity 0.22s ease;
+
+  animation: modeFadeSlide 0.22s ease;
+}
+
+.authsheet-submit:hover {
+  opacity: 0.92;
+}
+
+/* ================= MOBILE — Apple refinement ================= */
+@media (max-width: 520px) {
+  .authsheet-card {
+    width: 84vw;
+    max-width: 340px;
+
+    padding: 26px 18px;
+    border-radius: 22px;
+  }
+
+  .authsheet-title {
+    font-size: 18px;
+    animation-duration: 0.18s;
+  }
+
+  .authsheet-input {
+    padding: 14px 14px;
+    animation-duration: 0.18s;
+  }
+
+  .authsheet-submit {
+    font-size: 16px;
+    height: 42px;
+    animation-duration: 0.18s;
+  }
+}
+
+/* ================= ANIMATIONS ================= */
+@keyframes fadeIn {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.94); opacity: 0 }
+  to { transform: scale(1); opacity: 1 }
+}
+
+/* animação de troca Entrar ↔ Criar conta */
+@keyframes modeFadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.85 }
+  50% { transform: scale(1.05); opacity: 1 }
 }
