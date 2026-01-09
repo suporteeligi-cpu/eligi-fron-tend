@@ -6,6 +6,13 @@ import { useEffect, useState } from 'react'
 
 type Mode = 'login' | 'register'
 
+type UiState =
+  | 'idle'
+  | 'loading'
+  | 'error'
+  | 'check-email'
+  | 'reset-sent'
+
 interface AuthSheetProps {
   open: boolean
   onClose: () => void
@@ -18,7 +25,8 @@ export default function AuthSheet({
   initialMode = 'login',
 }: AuthSheetProps) {
   const [mode, setMode] = useState<Mode>(initialMode)
-  const [loading, setLoading] = useState(false)
+  const [uiState, setUiState] = useState<UiState>('idle')
+  const [error, setError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -28,6 +36,8 @@ export default function AuthSheet({
 
   useEffect(() => {
     setMode(initialMode)
+    setUiState('idle')
+    setError(null)
   }, [initialMode])
 
   if (!open) return null
@@ -38,7 +48,9 @@ export default function AuthSheet({
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setLoading(true)
+
+    setUiState('loading')
+    setError(null)
 
     try {
       const endpoint =
@@ -62,7 +74,12 @@ export default function AuthSheet({
 
       if (!res.ok) {
         const errData = await res.json()
-        throw new Error(errData.error || 'Erro ao autenticar')
+        throw new Error(errData.error || 'Falha na autenticação')
+      }
+
+      if (mode === 'register') {
+        setUiState('check-email')
+        return
       }
 
       const tokens = await res.json()
@@ -71,10 +88,35 @@ export default function AuthSheet({
       localStorage.setItem('refreshToken', tokens.refreshToken)
 
       window.location.href = '/app'
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Erro inesperado')
-    } finally {
-      setLoading(false)
+    } catch (err) {
+      setUiState('error')
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Erro inesperado'
+      )
+    }
+  }
+
+  // 🔐 RESET PASSWORD (real)
+  async function sendResetPassword() {
+    setUiState('loading')
+    setError(null)
+
+    try {
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: form.email }),
+        }
+      )
+
+      setUiState('reset-sent')
+    } catch {
+      setUiState('error')
+      setError('Erro ao enviar link de redefinição')
     }
   }
 
@@ -98,109 +140,167 @@ export default function AuthSheet({
               />
             </div>
 
-            {/* TABS */}
-            <div className="authsheet-tabs">
-              <button
-                className={mode === 'login' ? 'active' : ''}
-                onClick={() => setMode('login')}
-                type="button"
-              >
-                Entrar
-              </button>
-              <button
-                className={mode === 'register' ? 'active' : ''}
-                onClick={() => setMode('register')}
-                type="button"
-              >
-                Criar conta
-              </button>
-            </div>
+            {/* CHECK EMAIL */}
+            {uiState === 'check-email' && (
+              <>
+                <h2 className="authsheet-title">
+                  Verifique seu e-mail 📧
+                </h2>
+                <p className="authsheet-message">
+                  Enviamos instruções para concluir seu cadastro.
+                </p>
+              </>
+            )}
 
-            {/* TITLE */}
-            <h2 className="authsheet-title">
-              {mode === 'login'
-                ? 'Bem-vindo de volta!'
-                : 'Seja um dos nossos, Cadastre-se'}
-            </h2>
+            {/* RESET SENT */}
+            {uiState === 'reset-sent' && (
+              <>
+                <h2 className="authsheet-title">
+                  Link enviado 🔐
+                </h2>
+                <p className="authsheet-message">
+                  Verifique seu e-mail para redefinir a senha.
+                </p>
+              </>
+            )}
 
-            {/* FORM */}
-            <form onSubmit={submit}>
-              {mode === 'register' && (
-                <div className="authsheet-input authsheet-input-clearable">
-                  <input
-                    placeholder="Nome completo"
-                    value={form.name}
-                    onChange={e => update('name', e.target.value)}
-                    required
-                  />
+            {(uiState !== 'check-email' &&
+              uiState !== 'reset-sent') && (
+              <>
+                {/* TABS */}
+                <div className="authsheet-tabs">
+                  <button
+                    className={mode === 'login' ? 'active' : ''}
+                    onClick={() => setMode('login')}
+                    type="button"
+                  >
+                    Entrar
+                  </button>
+                  <button
+                    className={mode === 'register' ? 'active' : ''}
+                    onClick={() => setMode('register')}
+                    type="button"
+                  >
+                    Criar conta
+                  </button>
+                </div>
 
-                  {form.name && (
+                <h2 className="authsheet-title">
+                  {mode === 'login'
+                    ? 'Bem-vindo de volta'
+                    : 'Crie sua conta'}
+                </h2>
+
+                {error && (
+                  <div className="authsheet-error">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={submit}>
+                  {/* NAME */}
+                  {mode === 'register' && (
+                    <div className="authsheet-input authsheet-input-clearable">
+                      <input
+                        placeholder="Nome completo"
+                        value={form.name}
+                        onChange={e =>
+                          update('name', e.target.value)
+                        }
+                        required
+                      />
+
+                      {form.name && (
+                        <button
+                          type="button"
+                          className="authsheet-clear"
+                          onClick={() =>
+                            update('name', '')
+                          }
+                          aria-label="Limpar nome"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* EMAIL */}
+                  <div className="authsheet-input authsheet-input-clearable">
+                    <input
+                      type="email"
+                      placeholder="E-mail"
+                      value={form.email}
+                      onChange={e =>
+                        update('email', e.target.value)
+                      }
+                      required
+                    />
+
+                    {form.email && (
+                      <button
+                        type="button"
+                        className="authsheet-clear"
+                        onClick={() =>
+                          update('email', '')
+                        }
+                        aria-label="Limpar e-mail"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  {/* PASSWORD */}
+                  <div className="authsheet-input authsheet-input-clearable">
+                    <input
+                      type="password"
+                      placeholder="Senha"
+                      value={form.password}
+                      onChange={e =>
+                        update('password', e.target.value)
+                      }
+                      required
+                      minLength={6}
+                    />
+
+                    {form.password && (
+                      <button
+                        type="button"
+                        className="authsheet-clear"
+                        onClick={() =>
+                          update('password', '')
+                        }
+                        aria-label="Limpar senha"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  {mode === 'login' && (
                     <button
                       type="button"
-                      className="authsheet-clear"
-                      onClick={() => update('name', '')}
-                      aria-label="Limpar nome"
+                      className="authsheet-link"
+                      onClick={sendResetPassword}
                     >
-                      ×
+                      Esqueci minha senha
                     </button>
                   )}
-                </div>
-              )}
 
-              <div className="authsheet-input authsheet-input-clearable">
-                <input
-                  type="email"
-                  placeholder="E-mail"
-                  value={form.email}
-                  onChange={e => update('email', e.target.value)}
-                  required
-                />
-
-                {form.email && (
                   <button
-                    type="button"
-                    className="authsheet-clear"
-                    onClick={() => update('email', '')}
-                    aria-label="Limpar e-mail"
+                    className="authsheet-submit"
+                    disabled={uiState === 'loading'}
                   >
-                    ×
+                    {uiState === 'loading'
+                      ? 'Processando…'
+                      : mode === 'login'
+                      ? 'Entrar'
+                      : 'Criar conta'}
                   </button>
-                )}
-              </div>
-
-              <div className="authsheet-input authsheet-input-clearable">
-                <input
-                  type="password"
-                  placeholder="Senha"
-                  value={form.password}
-                  onChange={e => update('password', e.target.value)}
-                  required
-                  minLength={6}
-                />
-
-                {form.password && (
-                  <button
-                    type="button"
-                    className="authsheet-clear"
-                    onClick={() => update('password', '')}
-                    aria-label="Limpar senha"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-
-              <button
-                className="authsheet-submit"
-                disabled={loading}
-              >
-                {loading
-                  ? 'Carregando…'
-                  : mode === 'login'
-                  ? 'Entrar'
-                  : 'Criar conta'}
-              </button>
-            </form>
+                </form>
+              </>
+            )}
           </div>
         </div>
       </div>
