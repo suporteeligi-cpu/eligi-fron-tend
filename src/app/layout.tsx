@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Eligi',
-  description: 'Agendamento fácil: todos os tipos profissionais ao seu redor.',
+  title: 'Eligi Agendamento fácil ',
+  description: 'Encontre, agende e relaxe. Simples assim.',
 }
 
 export default function RootLayout({
