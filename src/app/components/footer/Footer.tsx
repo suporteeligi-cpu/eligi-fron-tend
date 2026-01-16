@@ -3,8 +3,8 @@ export default function Footer() {
     <footer className="eligi-footer">
       <div className="footer-container">
         <div className="footer-brand">
-          <strong>ELIGI</strong>
-          <span>Sistema inteligente para negócios</span>
+          <strong>Eligi Business</strong>
+          <span>A Gestão inteligente para sua empresa.</span>
         </div>
 
         <div className="footer-links">
