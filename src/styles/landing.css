@@ -1,41 +1,120 @@
-body {
-  background: radial-gradient(circle at top, #1a1a1a, #000);
-  color: white;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
-}
+/* ==========================================================================
+   LANDING.CSS — ELIGI Public Landing
+   Hero cinematográfico + seções institucionais
+========================================================================== */
 
+/* ===================== HERO ===================== */
 .hero {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
+  padding-top: 180px;
+  padding-inline: 24px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
   text-align: center;
-  padding: 120px 24px;
 }
 
 .hero h1 {
-  font-size: 3.5rem;
+  font-size: clamp(2.8rem, 6vw, 4rem);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+
+  max-width: 900px;
+  line-height: 1.05;
 }
 
 .hero p {
-  opacity: 0.8;
-  margin-top: 16px;
+  margin-top: 24px;
+
+  font-size: 1.25rem;
+  line-height: 1.6;
+
+  opacity: 0.75;
+  max-width: 720px;
+}
+
+/* ===================== HERO ACTIONS ===================== */
+.hero-actions {
+  margin-top: 48px;
+
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ===================== BUTTON OVERRIDES (LANDING) ===================== */
+.hero .btn-primary {
+  padding: 14px 28px;
+  border-radius: 999px;
+}
+
+.hero .btn-glass {
+  padding: 14px 28px;
+  border-radius: 999px;
+}
+
+/* ===================== SECTION DEFAULTS ===================== */
+.section-soft {
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.02),
+    rgba(255,255,255,0)
+  );
+}
+
+.section-tight {
+  padding-top: 80px;
+  padding-bottom: 80px;
+}
+
+/* ===================== TYPOGRAPHY HELPERS ===================== */
+.eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.section-description {
+  font-size: 1.1rem;
+  max-width: 720px;
+  opacity: 0.75;
+}
+
+/* ===================== FINAL CTA ===================== */
+.final-cta {
+  padding: 140px 24px;
+  text-align: center;
+}
+
+.final-cta h2 {
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  max-width: 900px;
+  margin-inline: auto;
+}
+
+.final-cta p {
+  margin-top: 24px;
   font-size: 1.2rem;
+  opacity: 0.75;
+  max-width: 720px;
+  margin-inline: auto;
 }
 
-.btn-primary {
-  background: #e50914;
-  color: white;
-  padding: 14px 28px;
-  border-radius: 999px;
-  text-decoration: none;
-}
-
-.btn-secondary {
-  border: 1px solid rgba(255,255,255,0.3);
-  padding: 14px 28px;
-  border-radius: 999px;
-  text-decoration: none;
-  color: white;
+.final-cta .hero-actions {
+  margin-top: 56px;
 }
