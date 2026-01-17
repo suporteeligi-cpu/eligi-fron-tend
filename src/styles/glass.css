@@ -1,9 +1,8 @@
 /* ==========================================================================
    GLASS.CSS — ELIGI Glass System
-   Navbar behavior + VisionOS glass
+   VisionOS glass + mobile polish
 ========================================================================== */
 
-/* ===================== GLASS NAVBAR ===================== */
 .glass-navbar {
   position: fixed;
   top: 0;
@@ -13,30 +12,27 @@
   backdrop-filter: blur(22px) saturate(180%);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
 
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.38);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 
   transition:
     transform 0.45s var(--ease-soft),
-    background 0.45s var(--ease-soft),
-    backdrop-filter 0.45s var(--ease-soft);
+    background 0.45s var(--ease-soft);
 }
 
-/* Navbar escondida (scroll down) */
 .navbar-hidden {
   transform: translateY(-110%);
 }
 
-/* Navbar sólida após hero */
 .navbar-solid {
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.58);
 }
 
 /* ===================== NAV CONTENT ===================== */
 .nav-container {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 16px 24px;
+  padding: 14px 20px;
 
   display: flex;
   align-items: center;
@@ -46,19 +42,44 @@
 .nav-logo {
   font-weight: 600;
   letter-spacing: 0.08em;
+  font-size: 0.95rem;
 }
 
-.nav-links,
+.nav-links {
+  display: none; /* mobile-first */
+}
+
 .nav-actions {
   display: flex;
-  gap: 24px;
+  gap: 12px;
 }
 
-.nav-links a {
-  opacity: 0.75;
-  transition: opacity 0.2s ease;
+/* ===================== DESKTOP ===================== */
+@media (min-width: 960px) {
+  .nav-links {
+    display: flex;
+    gap: 24px;
+  }
+
+  .nav-actions {
+    gap: 20px;
+  }
 }
 
-.nav-links a:hover {
-  opacity: 1;
+/* ===================== GLASS CARD ===================== */
+.glass-card {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.04)
+  );
+
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 22px;
+
+  box-shadow: var(--shadow-sm);
 }
