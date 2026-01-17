@@ -1,6 +1,7 @@
 /* ==========================================================================
    LANDING.CSS — ELIGI Public Landing
    Hero cinematográfico + seções institucionais
+   Apple Vision / Glass refined
 ========================================================================== */
 
 /* ===================== HERO ===================== */
@@ -20,17 +21,16 @@
 .hero h1 {
   font-size: clamp(2.8rem, 6vw, 4rem);
   font-weight: 600;
-  letter-spacing: -0.03em;  
-  text-shadow: 0 10px 40px rgba(0,0,0,0.6);
-
-
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 
   max-width: 900px;
-  line-height: 1.05;
+
+  text-shadow: 0 12px 48px rgba(0, 0, 0, 0.65);
 }
 
 .hero p {
-  margin-top: 24px;
+  margin-top: 28px;
 
   font-size: 1.25rem;
   line-height: 1.6;
@@ -41,37 +41,64 @@
 
 /* ===================== HERO ACTIONS ===================== */
 .hero-actions {
-  margin-top: 48px;
+  margin-top: 52px;
 
   display: flex;
-  gap: 16px;
+  gap: 18px;
   flex-wrap: wrap;
   justify-content: center;
 }
 
 /* ===================== BUTTON OVERRIDES (LANDING) ===================== */
-.hero .btn-primary {
-  padding: 14px 28px;
+.hero .btn-primary,
+.hero .btn-glass {
+  padding: 14px 30px;
   border-radius: 999px;
 }
 
-.hero .btn-glass {
-  padding: 14px 28px;
-  border-radius: 999px;
+/* ===================== HERO GLASS CARDS ===================== */
+.hero-glass-cards {
+  margin-top: 88px;
+  display: flex;
+  gap: 28px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Floating animation — subtle & premium */
+.floating {
+  animation: float 7s var(--ease-soft) infinite;
+  will-change: transform;
+}
+
+.delay-1 { animation-delay: 0s; }
+.delay-2 { animation-delay: 1.8s; }
+.delay-3 { animation-delay: 3.6s; }
+
+@keyframes float {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+  100% {
+    transform: translateY(0);
+  }
 }
 
 /* ===================== SECTION DEFAULTS ===================== */
 .section-soft {
   background: linear-gradient(
     to bottom,
-    rgba(255,255,255,0.02),
-    rgba(255,255,255,0)
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0)
   );
 }
 
 .section-tight {
-  padding-top: 80px;
-  padding-bottom: 80px;
+  padding-top: 88px;
+  padding-bottom: 88px;
 }
 
 /* ===================== TYPOGRAPHY HELPERS ===================== */
@@ -87,18 +114,19 @@
   font-size: clamp(2rem, 4.5vw, 3rem);
   letter-spacing: -0.025em;
   font-weight: 600;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .section-description {
   font-size: 1.1rem;
   max-width: 720px;
   opacity: 0.75;
+  line-height: 1.6;
 }
 
 /* ===================== FINAL CTA ===================== */
 .final-cta {
-  padding: 140px 24px;
+  padding: 150px 24px;
   text-align: center;
 }
 
@@ -106,38 +134,22 @@
   font-size: clamp(2.2rem, 5vw, 3.2rem);
   letter-spacing: -0.03em;
   font-weight: 600;
+
   max-width: 900px;
   margin-inline: auto;
 }
 
 .final-cta p {
-  margin-top: 24px;
+  margin-top: 26px;
+
   font-size: 1.2rem;
+  line-height: 1.6;
+
   opacity: 0.75;
   max-width: 720px;
   margin-inline: auto;
 }
 
 .final-cta .hero-actions {
-  margin-top: 56px;
-}
-
-.hero-glass-cards {
-  margin-top: 80px;
-  display: flex;
-  gap: 24px;
-}
-
-.floating {
-  animation: float 6s ease-in-out infinite;
-}
-
-.delay-1 { animation-delay: 0s; }
-.delay-2 { animation-delay: 1.5s; }
-.delay-3 { animation-delay: 3s; }
-
-@keyframes float {
-  0%   { transform: translateY(0px); }
-  50%  { transform: translateY(-14px); }
-  100% { transform: translateY(0px); }
+  margin-top: 60px;
 }

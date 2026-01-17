@@ -1,0 +1,64 @@
+/* ==========================================================================
+   GLASS.CSS — ELIGI Glass System
+   Navbar behavior + VisionOS glass
+========================================================================== */
+
+/* ===================== GLASS NAVBAR ===================== */
+.glass-navbar {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 100;
+
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+  transition:
+    transform 0.45s var(--ease-soft),
+    background 0.45s var(--ease-soft),
+    backdrop-filter 0.45s var(--ease-soft);
+}
+
+/* Navbar escondida (scroll down) */
+.navbar-hidden {
+  transform: translateY(-110%);
+}
+
+/* Navbar sólida após hero */
+.navbar-solid {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* ===================== NAV CONTENT ===================== */
+.nav-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-logo {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.nav-links,
+.nav-actions {
+  display: flex;
+  gap: 24px;
+}
+
+.nav-links a {
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+
+.nav-links a:hover {
+  opacity: 1;
+}

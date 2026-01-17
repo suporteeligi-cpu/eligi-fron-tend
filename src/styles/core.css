@@ -1,16 +1,14 @@
 /* ==========================================================================
    CORE.CSS — ELIGI Design System
-   Apple Vision / iOS Glass — Base global
+   Apple Vision / iOS Glass — Base global refinada
 ========================================================================== */
 
-/* ===================== FONT ===================== */
+/* ===================== TOKENS FUNDAMENTAIS ===================== */
 :root {
-  --font-primary: "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui,
-    sans-serif;
-}
+  /* Typography */
+  --font-primary: "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    system-ui, sans-serif;
 
-/* ===================== TOKENS ===================== */
-:root {
   /* Radius */
   --radius-sm: 12px;
   --radius-md: 18px;
@@ -23,8 +21,8 @@
   --text-main: #ffffff;
   --text-soft: #c8c8c8;
 
-  /* Accent (ELIGI) */
-  --accent: #d00000;
+  /* Accent — ELIGI */
+  --eligi-red: #e50914;
 
   /* Glass */
   --glass: rgba(255, 255, 255, 0.08);
@@ -36,8 +34,8 @@
   --shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.8);
 
   /* Motion */
-  --ease-soft: cubic-bezier(.25,.7,.35,1);
-  --ease-pop: cubic-bezier(.25,.65,.25,1.25);
+  --ease-soft: cubic-bezier(0.25, 0.7, 0.35, 1);
+  --ease-pop: cubic-bezier(0.25, 0.65, 0.25, 1.25);
 }
 
 /* ===================== LIGHT MODE (opcional) ===================== */
@@ -71,7 +69,6 @@ body {
   font-family: var(--font-primary);
   color: var(--text-main);
 
-  /* Background premium cinematográfico */
   background:
     radial-gradient(
       circle at top,
@@ -94,6 +91,12 @@ a {
   text-decoration: none;
 }
 
+/* ===================== ACESSIBILIDADE ===================== */
+:focus-visible {
+  outline: 2px solid var(--eligi-red);
+  outline-offset: 4px;
+}
+
 /* ===================== LAYOUT BASE ===================== */
 section {
   padding: 160px 24px;
@@ -108,7 +111,12 @@ section {
 
 /* ===================== GLASS ===================== */
 .glass {
-  background: var(--glass);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.04)
+  );
+
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
 
@@ -129,22 +137,33 @@ section {
 
   font-size: 14px;
   font-weight: 600;
+  line-height: 1;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 
   transition:
-    transform .25s var(--ease-soft),
-    box-shadow .25s var(--ease-soft),
-    opacity .2s ease;
+    transform 0.25s var(--ease-soft),
+    box-shadow 0.25s var(--ease-soft),
+    opacity 0.2s ease;
 }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--eligi-red), #b00610);
-  box-shadow: 0 10px 30px rgba(229,9,20,0.25);
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(229, 9, 20, 0.25);
 }
-
 
 .btn-primary:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
+}
+
+.btn-primary:active {
+  transform: translateY(-1px);
+  opacity: 0.95;
 }
 
 .btn-glass {
@@ -166,7 +185,7 @@ section {
 .fade-up {
   opacity: 0;
   transform: translateY(18px);
-  animation: fadeUp .55s var(--ease-soft) forwards;
+  animation: fadeUp 0.55s var(--ease-soft) forwards;
 }
 
 @keyframes fadeUp {
@@ -174,8 +193,4 @@ section {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-:root {
-  --eligi-red: #e50914;
 }

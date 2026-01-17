@@ -1,5 +1,6 @@
-import '@/app/styles/glass.css';
-import '@/app/styles/landing.css';
+import '@/styles/core.css';
+import '@/styles/glass.css';
+import '@/styles/landing.css';
 
 import Navbar from '../components/navbar/Navbar';
 import Footer from '../components/footer/Footer';
