@@ -77,23 +77,25 @@ export default function Navbar() {
 
         {/* Actions */}
         <div className="nav-actions">
+          <div className="auth-actions">
+            <Link href="/login" className="nav-link subtle">
+              Entrar
+            </Link>
+
+            <Link href="/register" className="btn btn-primary glass">
+              Começar
+            </Link>
+          </div>
+
           <button
             onClick={toggleTheme}
-            className="theme-toggle"
+            className="theme-toggle prominent"
             aria-label="Alternar tema"
           >
             <span className="theme-icon">
               {theme === 'dark' ? '☀︎' : '☾'}
             </span>
           </button>
-
-          <Link href="/login" className="nav-link subtle">
-            Entrar
-          </Link>
-
-          <Link href="/register" className="btn btn-primary glass">
-            Começar
-          </Link>
         </div>
       </div>
     </header>
