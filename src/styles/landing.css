@@ -50,7 +50,6 @@
 }
 
 /* ===================== DASHBOARD PREVIEW — DESKTOP ===================== */
-
 .dashboard-header {
   max-width: 640px;
   margin: 0 auto var(--space-7);
@@ -95,14 +94,14 @@
   color: var(--text-soft);
 }
 
-/* MAIN GRID */
+/* ===================== DASHBOARD GRID ===================== */
 .dashboard-main {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   gap: var(--space-5);
 }
 
-/* CARD */
+/* ===================== DASHBOARD CARD ===================== */
 .dashboard-card {
   padding: var(--space-4);
   border-radius: var(--radius-md);
@@ -116,7 +115,7 @@
   font-size: 0.9rem;
 }
 
-/* CHART */
+/* ===================== CHART ===================== */
 .dashboard-chart {
   display: flex;
   flex-direction: column;
@@ -135,7 +134,7 @@
   color: var(--text-soft);
 }
 
-/* AGENDA */
+/* ===================== AGENDA ===================== */
 .agenda-list {
   list-style: none;
   padding: 0;
@@ -149,7 +148,7 @@
   font-size: 0.85rem;
 }
 
-/* TEAM */
+/* ===================== TEAM ===================== */
 .team-list {
   list-style: none;
   padding: 0;
@@ -174,17 +173,12 @@
 .status.idle   { background: #f1c40f; }
 .status.busy   { background: #e74c3c; }
 
-/* ========================================================================
-   DASHBOARD PREVIEW — MOBILE
-======================================================================== */
-
+/* ===================== DASHBOARD PREVIEW — MOBILE ===================== */
 @media (max-width: 768px) {
-
   .dashboard-mock {
     padding: var(--space-5);
   }
 
-  /* MÉTRICAS → SCROLL HORIZONTAL */
   .dashboard-top {
     display: flex;
     overflow-x: auto;
@@ -197,12 +191,10 @@
     text-align: left;
   }
 
-  /* MAIN → STACK */
   .dashboard-main {
     grid-template-columns: 1fr;
   }
 
-  /* GRÁFICO É O FOCO */
   .dashboard-chart {
     order: 1;
   }
@@ -211,12 +203,10 @@
     height: 130px;
   }
 
-  /* AGENDA / EQUIPE */
   .dashboard-card {
     order: 2;
   }
 }
-
 
 /* ===================== FINAL CTA ===================== */
 .final-cta {
@@ -237,19 +227,13 @@
 .footer-container {
   max-width: 1200px;
   margin-inline: auto;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-/* ========================================================================
-   MOBILE OVERRIDES — ISOLATED
-======================================================================== */
-
+/* ===================== MOBILE OVERRIDES ===================== */
 @media (max-width: 768px) {
-
-  /* HERO — MOBILE */
   .hero {
     padding-top: 140px;
   }
@@ -276,21 +260,10 @@
     align-items: stretch;
   }
 
-  /* ECOSYSTEM */
   .ecosystem-grid {
     grid-template-columns: 1fr;
   }
 
-  /* DASHBOARD */
-  .dashboard-top {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-main {
-    grid-template-columns: 1fr;
-  }
-
-  /* FOOTER */
   .footer-container {
     flex-direction: column;
     gap: var(--space-4);
@@ -298,22 +271,13 @@
 }
 
 /* ===================== MICRO ANIMATIONS ===================== */
-
 @keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeIn {
-  to {
-    opacity: 1;
-  }
+  to { opacity: 1; }
 }
 
 @keyframes drawLine {
@@ -327,7 +291,6 @@
 }
 
 /* ===================== SKELETON ===================== */
-
 .skeleton-line {
   height: 12px;
   border-radius: 6px;
@@ -355,20 +318,7 @@
   width: 100%;
 }
 
-
-.sparkline {
-  width: 100%;
-  height: 26px;
-  margin: var(--space-2) 0;
-}
-
-.sparkline path {
-  animation: drawLine 0.8s var(--ease) both;
-  opacity: 0.9;
-}
-
-
-
+/* ===================== SPARKLINES ===================== */
 .sparkline {
   width: 100%;
   height: 28px;
@@ -377,35 +327,25 @@
 
 .sparkline path {
   animation: drawLine 0.9s var(--ease) both;
+  opacity: 0.9;
 }
 
 /* ===================== TRENDS ===================== */
-
-.metric-card.trend-up .sparkline path {
-  stroke: #2ecc71;
-}
-
-.metric-card.trend-down .sparkline path {
-  stroke: #e74c3c;
-}
-
-.metric-card.trend-flat .sparkline path {
-  stroke: #f1c40f;
-}
+.metric-card.trend-up .sparkline path   { stroke: #2ecc71; }
+.metric-card.trend-down .sparkline path { stroke: #e74c3c; }
+.metric-card.trend-flat .sparkline path { stroke: #f1c40f; }
 
 /* ===================== SKELETON CURVE ===================== */
-
 .skeleton-curve {
   width: 100%;
   height: 30px;
   border-radius: var(--radius-sm);
-  background:
-    linear-gradient(
-      90deg,
-      rgba(255,255,255,0.05),
-      rgba(255,255,255,0.12),
-      rgba(255,255,255,0.05)
-    );
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.05),
+    rgba(255,255,255,0.12),
+    rgba(255,255,255,0.05)
+  );
   animation: shimmer 1.2s infinite;
 }
 
@@ -413,15 +353,13 @@
   height: 140px;
 }
 
-/* ===================== ANIMATIONS ===================== */
-
+/* ===================== SHIMMER ===================== */
 @keyframes shimmer {
   0% { background-position: -200px 0; }
   100% { background-position: 200px 0; }
 }
 
 /* ===================== DASHBOARD EXTRAS ===================== */
-
 .dashboard-cta {
   margin-top: var(--space-3);
   width: 100%;
@@ -461,51 +399,6 @@
   padding: 6px 0;
 }
 
-.alert.warning { color: #f1c40f }
-.alert.info    { color: #3498db }
-.alert.danger  { color: #e74c3c }
-
-/* ===================== DASHBOARD EXTRAS ===================== */
-
-.dashboard-cta {
-  margin-top: var(--space-3);
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  background: var(--eligi-red);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-}
-
-.dashboard-cta.secondary {
-  background: transparent;
-  border: 1px solid var(--border-soft);
-  color: var(--text-main);
-}
-
-.agenda-mini li {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  padding: 6px 0;
-}
-
-.ranking {
-  padding-left: 18px;
-}
-
-.alerts {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.alert {
-  font-size: 0.8rem;
-  padding: 6px 0;
-}
-
-.alert.warning { color: #f1c40f }
-.alert.info    { color: #3498db }
-.alert.danger  { color: #e74c3c }
+.alert.warning { color: #f1c40f; }
+.alert.info    { color: #3498db; }
+.alert.danger  { color: #e74c3c; }

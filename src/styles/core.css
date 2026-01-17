@@ -83,7 +83,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ===================== LINKS — RESET GLOBAL (FIX DEFINITIVO) ===================== */
+/* ===================== LINKS — RESET GLOBAL ===================== */
 a {
   color: inherit;
   text-decoration: none;
@@ -164,11 +164,7 @@ p {
   color: #ffffff;
 }
 
-
-/* ========================================================================
-   MOBILE OVERRIDES — ISOLATED
-======================================================================== */
-
+/* ===================== MOBILE — GLOBAL ===================== */
 @media (max-width: 768px) {
   section {
     padding: var(--space-8) var(--space-5);
@@ -242,10 +238,7 @@ p {
   color: var(--eligi-red);
 }
 
-/* ========================================================================
-   MOBILE OVERRIDES — ISOLATED
-======================================================================== */
-
+/* ===================== AUTH — MOBILE ===================== */
 @media (max-width: 768px) {
   .auth-card {
     padding: var(--space-6) var(--space-5);

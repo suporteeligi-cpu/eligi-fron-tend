@@ -15,7 +15,7 @@
   transition: transform 0.35s ease, background 0.35s ease;
 }
 
-.navbar-scrolled {
+.glass-navbar.navbar-scrolled {
   background: rgba(255, 255, 255, 0.103);
 }
 
@@ -32,21 +32,29 @@
   justify-content: space-between;
 }
 
+/* ===================== LOGO ===================== */
 .nav-logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
 }
 
 .logo-mark {
-  color: var(--color-primary);
+  color: var(--eligi-red);
   font-size: 14px;
+}
+
+/* ===================== NAV LINKS ===================== */
+.nav-links {
+  display: flex;
+  gap: 40px;
 }
 
 .nav-links a {
   position: relative;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   opacity: 0.85;
 }
 
@@ -57,7 +65,7 @@
   left: 0;
   width: 0;
   height: 2px;
-  background: var(--color-primary);
+  background: var(--eligi-red);
   transition: width 0.25s ease;
 }
 
@@ -65,52 +73,19 @@
   width: 100%;
 }
 
-.theme-toggle {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 30px;
-  opacity: 0.8;
-  transition: transform 0.25s ease, opacity 0.25s ease;
-  color:aliceblue;
-}
-
-.theme-toggle:hover {
-  transform: rotate(12deg);
-  opacity: 1;
-}
-
-.btn.glass {
-  backdrop-filter: blur(8px);
-  box-shadow: 0 0 0 rgba(255, 255, 255, 0.721);
-  transition: box-shadow 0.25s ease;
-}
-
-.btn.glass:hover {
-  box-shadow: 0 0 18px rgba(255, 0, 0, 0.25);
-}
-
-/* ===================== NAVBAR — LIGHT MODE ===================== */
-:root[data-theme='light'] .glass-navbar {
-  background: rgba(255, 255, 255, 0.78); /* branco gelo */
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08); /* cinza fino */
-}
-
 /* ===================== NAV ACTIONS ===================== */
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 32px; /* separa auth do toggle */
+  gap: 32px;
 }
 
 .auth-actions {
   display: flex;
   align-items: center;
-  gap: 24px; /* espaço correto entre Entrar e Começar */
+  gap: 24px;
 }
 
-/* Link Entrar */
 .nav-link.subtle {
   font-size: 14px;
   font-weight: 500;
@@ -122,7 +97,7 @@
 }
 
 /* ===================== THEME TOGGLE ===================== */
-.theme-toggle.prominent {
+.theme-toggle {
   width: 38px;
   height: 38px;
   border-radius: 50%;
@@ -136,7 +111,7 @@
   transition: all 0.3s var(--ease);
 }
 
-.theme-toggle.prominent:hover {
+.theme-toggle:hover {
   transform: rotate(12deg) scale(1.05);
   box-shadow: var(--shadow-sm);
 }
@@ -146,21 +121,27 @@
   opacity: 0.85;
 }
 
-
-/* ===================== NAVBAR LINKS SPACING ===================== */
-.nav-links {
-  display: flex;
-  gap: 40px; /* espaçamento premium entre categorias */
+/* ===================== CTA GLASS ===================== */
+.btn.glass {
+  backdrop-filter: blur(8px);
+  transition: box-shadow 0.25s ease;
 }
 
-.nav-links a {
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.04em; /* espaçamento na escrita */
-  text-transform: none;
+.btn.glass:hover {
+  box-shadow: 0 0 18px rgba(255, 0, 0, 0.25);
 }
 
-/* ===================== LOGO PULSE ANIMATION ===================== */
+/* ===================== NAVBAR — LIGHT MODE ===================== */
+:root[data-theme='light'] .glass-navbar {
+  background: rgba(255, 255, 255, 0.78);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme='light'] .glass-navbar.navbar-scrolled {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+/* ===================== LOGO ANIMATION ===================== */
 .logo-pulse {
   animation: logoPulse 4.5s ease-in-out infinite;
 }
@@ -190,7 +171,6 @@
 .footer-container {
   max-width: 1200px;
   margin-inline: auto;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -218,12 +198,8 @@
   color: var(--text-soft);
 }
 
-/* ========================================================================
-   MOBILE OVERRIDES — ISOLATED
-======================================================================== */
-
+/* ===================== MOBILE OVERRIDES ===================== */
 @media (max-width: 768px) {
-
   .nav-links {
     display: none;
   }
