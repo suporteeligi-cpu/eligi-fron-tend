@@ -16,15 +16,23 @@ type UiState =
 interface AuthSheetProps {
   open: boolean
   onClose: () => void
+
+  /** modo direto (usado por /login e /register) */
+  mode?: Mode
+
+  /** compatibilidade com uso antigo */
   initialMode?: Mode
 }
 
 export default function AuthSheet({
   open,
   onClose,
+  mode,
   initialMode = 'login',
 }: AuthSheetProps) {
-  const [mode, setMode] = useState<Mode>(initialMode)
+  const resolvedMode: Mode = mode ?? initialMode ?? 'login'
+
+  const [currentMode, setCurrentMode] = useState<Mode>(resolvedMode)
   const [uiState, setUiState] = useState<UiState>('idle')
   const [error, setError] = useState<string | null>(null)
 
@@ -34,11 +42,15 @@ export default function AuthSheet({
     password: '',
   })
 
+  /* ======================================================
+     Sync externo de modo (login / register)
+  ====================================================== */
   useEffect(() => {
-    setMode(initialMode)
+    setCurrentMode(resolvedMode)
     setUiState('idle')
     setError(null)
-  }, [initialMode])
+    setForm({ name: '', email: '', password: '' })
+  }, [resolvedMode])
 
   if (!open) return null
 
@@ -54,12 +66,12 @@ export default function AuthSheet({
 
     try {
       const endpoint =
-        mode === 'login'
+        currentMode === 'login'
           ? '/auth/login'
           : '/auth/register'
 
       const payload =
-        mode === 'login'
+        currentMode === 'login'
           ? { email: form.email, password: form.password }
           : form
 
@@ -77,7 +89,7 @@ export default function AuthSheet({
         throw new Error(errData.error || 'Falha na autenticação')
       }
 
-      if (mode === 'register') {
+      if (currentMode === 'register') {
         setUiState('check-email')
         return
       }
@@ -98,7 +110,9 @@ export default function AuthSheet({
     }
   }
 
-  // 🔐 RESET PASSWORD (real)
+  /* ======================================================
+     RESET PASSWORD
+  ====================================================== */
   async function sendResetPassword() {
     setUiState('loading')
     setError(null)
@@ -170,23 +184,24 @@ export default function AuthSheet({
                 {/* TABS */}
                 <div className="authsheet-tabs">
                   <button
-                    className={mode === 'login' ? 'active' : ''}
-                    onClick={() => setMode('login')}
                     type="button"
+                    className={currentMode === 'login' ? 'active' : ''}
+                    onClick={() => setCurrentMode('login')}
                   >
                     Entrar
                   </button>
+
                   <button
-                    className={mode === 'register' ? 'active' : ''}
-                    onClick={() => setMode('register')}
                     type="button"
+                    className={currentMode === 'register' ? 'active' : ''}
+                    onClick={() => setCurrentMode('register')}
                   >
                     Criar conta
                   </button>
                 </div>
 
                 <h2 className="authsheet-title">
-                  {mode === 'login'
+                  {currentMode === 'login'
                     ? 'Bem-vindo de volta'
                     : 'Crie sua conta'}
                 </h2>
@@ -199,7 +214,7 @@ export default function AuthSheet({
 
                 <form onSubmit={submit}>
                   {/* NAME */}
-                  {mode === 'register' && (
+                  {currentMode === 'register' && (
                     <div className="authsheet-input authsheet-input-clearable">
                       <input
                         placeholder="Nome completo"
@@ -214,9 +229,7 @@ export default function AuthSheet({
                         <button
                           type="button"
                           className="authsheet-clear"
-                          onClick={() =>
-                            update('name', '')
-                          }
+                          onClick={() => update('name', '')}
                           aria-label="Limpar nome"
                         >
                           ×
@@ -241,9 +254,7 @@ export default function AuthSheet({
                       <button
                         type="button"
                         className="authsheet-clear"
-                        onClick={() =>
-                          update('email', '')
-                        }
+                        onClick={() => update('email', '')}
                         aria-label="Limpar e-mail"
                       >
                         ×
@@ -268,9 +279,7 @@ export default function AuthSheet({
                       <button
                         type="button"
                         className="authsheet-clear"
-                        onClick={() =>
-                          update('password', '')
-                        }
+                        onClick={() => update('password', '')}
                         aria-label="Limpar senha"
                       >
                         ×
@@ -278,7 +287,7 @@ export default function AuthSheet({
                     )}
                   </div>
 
-                  {mode === 'login' && (
+                  {currentMode === 'login' && (
                     <button
                       type="button"
                       className="authsheet-link"
@@ -294,7 +303,7 @@ export default function AuthSheet({
                   >
                     {uiState === 'loading'
                       ? 'Processando…'
-                      : mode === 'login'
+                      : currentMode === 'login'
                       ? 'Entrar'
                       : 'Criar conta'}
                   </button>
