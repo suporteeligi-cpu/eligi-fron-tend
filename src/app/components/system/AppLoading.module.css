@@ -1,0 +1,58 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Fundo glass Apple */
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(22px);
+}
+
+:root[data-theme='light'] .root {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+/* Card central (splash) */
+.glass {
+  padding: 48px 56px;
+  border-radius: 28px;
+
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-md);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Logo */
+.logoWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Animação suave (igual login) */
+.logoFlip {
+  animation: logoFloat 2.8s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(-6px) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.9;
+  }
+}
