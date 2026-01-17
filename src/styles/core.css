@@ -83,6 +83,22 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ===================== LINKS — RESET GLOBAL (FIX DEFINITIVO) ===================== */
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s var(--ease), opacity 0.2s var(--ease);
+}
+
+a:visited {
+  color: inherit;
+}
+
+a:hover {
+  text-decoration: none;
+  opacity: 0.9;
+}
+
 /* ===================== LAYOUT — DESKTOP ===================== */
 section {
   padding: var(--space-9) var(--space-6);
@@ -95,7 +111,9 @@ section {
 }
 
 /* ===================== TEXT ===================== */
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-weight: 600;
   letter-spacing: -0.03em;
   margin: 0;
@@ -121,7 +139,7 @@ p {
 
   font-size: 14px;
   font-weight: 600;
-  transition: all .35s var(--ease);
+  transition: all 0.35s var(--ease);
 }
 
 .btn-primary {
@@ -145,7 +163,6 @@ p {
 ======================================================================== */
 
 @media (max-width: 768px) {
-
   section {
     padding: var(--space-8) var(--space-5);
   }
@@ -223,7 +240,6 @@ p {
 ======================================================================== */
 
 @media (max-width: 768px) {
-
   .auth-card {
     padding: var(--space-6) var(--space-5);
   }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 export default function Navbar() {
   const [hidden, setHidden] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   // ===== Scroll behavior =====
@@ -13,7 +14,10 @@ export default function Navbar() {
 
     const onScroll = () => {
       const current = window.scrollY;
+
       setHidden(current > lastScroll && current > 120);
+      setScrolled(current > 20);
+
       lastScroll = current;
     };
 
@@ -38,11 +42,18 @@ export default function Navbar() {
   };
 
   return (
-    <header className={`glass-navbar ${hidden ? 'navbar-hidden' : ''}`}>
+    <header
+      className={`
+        glass-navbar
+        ${hidden ? 'navbar-hidden' : ''}
+        ${scrolled ? 'navbar-scrolled' : ''}
+      `}
+    >
       <div className="nav-container">
         {/* Logo */}
         <Link href="/" className="nav-logo">
-          ELIGI
+          <span className="logo-mark">◉</span>
+          <span className="logo-text">ELIGI</span>
         </Link>
 
         {/* Desktop links */}
@@ -59,14 +70,16 @@ export default function Navbar() {
             className="theme-toggle"
             aria-label="Alternar tema"
           >
-            {theme === 'dark' ? '☀︎' : '☾'}
+            <span className="theme-icon">
+              {theme === 'dark' ? '☀︎' : '☾'}
+            </span>
           </button>
 
-          <Link href="/login" className="nav-link">
+          <Link href="/login" className="nav-link subtle">
             Entrar
           </Link>
 
-          <Link href="/register" className="btn btn-primary">
+          <Link href="/register" className="btn btn-primary glass">
             Começar
           </Link>
         </div>
