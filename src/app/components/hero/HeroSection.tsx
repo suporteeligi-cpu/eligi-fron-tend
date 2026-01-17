@@ -21,10 +21,11 @@ export default function HeroSection() {
       </div>
 
       <div className="hero-glass-cards">
-        <div className="glass-card">Agenda</div>
-        <div className="glass-card">Faturamento</div>
-        <div className="glass-card">Equipe</div>
+       <div className="glass-card floating delay-1">Agenda</div>
+       <div className="glass-card floating delay-2">Faturamento</div>
+       <div className="glass-card floating delay-3">Equipe</div>
       </div>
+
     </section>
   );
 }

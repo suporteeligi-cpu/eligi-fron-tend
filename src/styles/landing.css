@@ -118,3 +118,23 @@
 .final-cta .hero-actions {
   margin-top: 56px;
 }
+
+.hero-glass-cards {
+  margin-top: 80px;
+  display: flex;
+  gap: 24px;
+}
+
+.floating {
+  animation: float 6s ease-in-out infinite;
+}
+
+.delay-1 { animation-delay: 0s; }
+.delay-2 { animation-delay: 1.5s; }
+.delay-3 { animation-delay: 3s; }
+
+@keyframes float {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-14px); }
+  100% { transform: translateY(0px); }
+}
