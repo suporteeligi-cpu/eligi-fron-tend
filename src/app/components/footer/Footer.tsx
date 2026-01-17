@@ -2,17 +2,13 @@ export default function Footer() {
   return (
     <footer className="eligi-footer">
       <div className="footer-container">
-        <div className="footer-brand">
-          <strong>Eligi Business</strong>
-          <span>A Gestão inteligente para sua empresa.</span>
-        </div>
+        <span className="footer-brand">ELIGI</span>
 
-        <div className="footer-links">
+        <nav className="footer-links">
+          <a href="/barbearias">Barbearias</a>
+          <a href="/saloes">Salões</a>
           <a href="/login">Entrar</a>
-          <a href="/register">Criar conta</a>
-          <a href="#">Privacidade</a>
-          <a href="#">Termos</a>
-        </div>
+        </nav>
       </div>
 
       <div className="footer-copy">

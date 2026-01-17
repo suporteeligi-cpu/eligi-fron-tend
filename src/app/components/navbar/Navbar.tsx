@@ -5,53 +5,69 @@ import Link from 'next/link';
 
 export default function Navbar() {
   const [hidden, setHidden] = useState(false);
-  const [solid, setSolid] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
+  // ===== Scroll behavior =====
   useEffect(() => {
-    let lastScrollY = window.scrollY;
+    let lastScroll = window.scrollY;
 
-    function onScroll() {
-      const currentScrollY = window.scrollY;
+    const onScroll = () => {
+      const current = window.scrollY;
+      setHidden(current > lastScroll && current > 120);
+      lastScroll = current;
+    };
 
-      // esconder ao rolar para baixo
-      if (currentScrollY > lastScrollY && currentScrollY > 120) {
-        setHidden(true);
-      } else {
-        setHidden(false);
-      }
-
-      // solidificar após sair do hero
-      setSolid(currentScrollY > 80);
-
-      lastScrollY = currentScrollY;
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  return (
-    <header
-      className={[
-        'glass-navbar',
-        hidden ? 'navbar-hidden' : '',
-        solid ? 'navbar-solid' : ''
-      ].join(' ')}
-    >
-      <div className="nav-container">
-        <div className="nav-logo">ELIGI</div>
+  // ===== Theme handling =====
+  useEffect(() => {
+    const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const initial = saved ?? 'dark';
 
+    document.documentElement.setAttribute('data-theme', initial);
+    setTheme(initial);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    setTheme(next);
+  };
+
+  return (
+    <header className={`glass-navbar ${hidden ? 'navbar-hidden' : ''}`}>
+      <div className="nav-container">
+        {/* Logo */}
+        <Link href="/" className="nav-logo">
+          ELIGI
+        </Link>
+
+        {/* Desktop links */}
         <nav className="nav-links">
-          <Link href="#produto">Produto</Link>
-          <Link href="#solucoes">Soluções</Link>
-          <Link href="#como-funciona">Como funciona</Link>
-          <Link href="#precos">Preços</Link>
+          <Link href="/barbearias">Barbearias</Link>
+          <Link href="/saloes">Salões</Link>
+          <Link href="/ads">Soluções</Link>
         </nav>
 
+        {/* Actions */}
         <div className="nav-actions">
-          <Link href="/login">Entrar</Link>
+          <button
+            onClick={toggleTheme}
+            className="theme-toggle"
+            aria-label="Alternar tema"
+          >
+            {theme === 'dark' ? '☀︎' : '☾'}
+          </button>
+
+          <Link href="/login" className="nav-link">
+            Entrar
+          </Link>
+
           <Link href="/register" className="btn btn-primary">
-            Começar agora
+            Começar
           </Link>
         </div>
       </div>

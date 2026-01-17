@@ -1,162 +1,111 @@
 /* ==========================================================================
    LANDING.CSS — ELIGI Public Landing
-   Desktop first + Mobile isolated
+   Desktop First • Apple-like • Mobile Isolated
 ========================================================================== */
 
-/* ===================== HERO (DESKTOP / BASE) ===================== */
+/* ===================== HERO — DESKTOP ===================== */
 .hero {
   min-height: 100vh;
   padding-top: 220px;
-  padding-inline: 24px;
 
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-
   text-align: center;
 }
 
 .hero h1 {
-  font-size: 4rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-
-  max-width: 900px;
-  text-shadow: 0 12px 48px rgba(0, 0, 0, 0.65);
+  max-width: 880px;
+  font-size: 3.8rem;
 }
 
 .hero p {
-  margin-top: 28px;
-
-  font-size: 1.25rem;
-  line-height: 1.6;
-
-  opacity: 0.75;
-  max-width: 720px;
+  max-width: 680px;
+  margin-top: var(--space-5);
+  font-size: 1.2rem;
 }
 
-/* ===================== HERO ACTIONS ===================== */
 .hero-actions {
-  margin-top: 52px;
-
+  margin-top: var(--space-7);
   display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  justify-content: center;
+  gap: var(--space-4);
 }
 
-.hero .btn-primary,
-.hero .btn-glass {
-  padding: 14px 30px;
-  border-radius: 999px;
-}
-
-/* ===================== HERO GLASS CARDS ===================== */
 .hero-glass-cards {
-  margin-top: 88px;
-
+  margin-top: var(--space-8);
   display: flex;
-  gap: 28px;
-  justify-content: center;
-  flex-wrap: wrap;
+  gap: var(--space-5);
 }
 
-/* Floating animation */
-.floating {
-  animation: float 7s var(--ease-soft) infinite;
-  will-change: transform;
+/* ===================== ECOSYSTEM ===================== */
+.ecosystem {
+  text-align: center;
 }
 
-.delay-1 { animation-delay: 0s; }
-.delay-2 { animation-delay: 1.8s; }
-.delay-3 { animation-delay: 3.6s; }
-
-@keyframes float {
-  0%   { transform: translateY(0); }
-  50%  { transform: translateY(-16px); }
-  100% { transform: translateY(0); }
+.ecosystem-grid {
+  margin-top: var(--space-7);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
 }
 
-/* ===================== SECTION DEFAULTS ===================== */
-.section-soft {
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.02),
-    rgba(255, 255, 255, 0)
-  );
+/* ===================== DASHBOARD PREVIEW ===================== */
+.dashboard-preview {
+  text-align: center;
 }
 
-.section-tight {
-  padding-top: 88px;
-  padding-bottom: 88px;
+.dashboard-mock {
+  margin-top: var(--space-7);
+  padding: var(--space-6);
 }
 
-/* ===================== TYPOGRAPHY HELPERS ===================== */
-.eyebrow {
-  font-size: 0.75rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  opacity: 0.6;
-  margin-bottom: 16px;
+.dashboard-top {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
-.section-title {
-  font-size: 3rem;
-  letter-spacing: -0.025em;
-  font-weight: 600;
-  margin-bottom: 28px;
-}
-
-.section-description {
-  font-size: 1.1rem;
-  max-width: 720px;
-  opacity: 0.75;
-  line-height: 1.6;
+.dashboard-main {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: var(--space-5);
 }
 
 /* ===================== FINAL CTA ===================== */
 .final-cta {
-  padding: 150px 24px;
   text-align: center;
 }
 
 .final-cta h2 {
-  font-size: 3.2rem;
-  letter-spacing: -0.03em;
-  font-weight: 600;
-
-  max-width: 900px;
+  max-width: 760px;
   margin-inline: auto;
 }
 
-.final-cta p {
-  margin-top: 26px;
-
-  font-size: 1.2rem;
-  line-height: 1.6;
-
-  opacity: 0.75;
-  max-width: 720px;
-  margin-inline: auto;
+/* ===================== FOOTER ===================== */
+.eligi-footer {
+  padding: var(--space-7) var(--space-5);
+  border-top: 1px solid var(--border-soft);
 }
 
-.final-cta .hero-actions {
-  margin-top: 60px;
+.footer-container {
+  max-width: 1200px;
+  margin-inline: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* ========================================================================
    MOBILE OVERRIDES — ISOLATED
-   Everything below affects mobile only
 ======================================================================== */
 
 @media (max-width: 768px) {
 
+  /* HERO — MOBILE */
   .hero {
-    min-height: 100svh;
     padding-top: 140px;
-    padding-inline: 20px;
   }
 
   .hero h1 {
@@ -165,252 +114,39 @@
 
   .hero p {
     font-size: 1.05rem;
-    margin-top: 20px;
   }
 
   .hero-actions {
-    margin-top: 36px;
-    gap: 14px;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
   }
 
   .hero-glass-cards {
-    margin-top: 56px;
-    gap: 18px;
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .section-tight {
-    padding-top: 64px;
-    padding-bottom: 64px;
-  }
-
-  .eyebrow {
-    font-size: 0.7rem;
-  }
-
-  .section-title {
-    font-size: 1.9rem;
-  }
-
-  .section-description {
-    font-size: 1rem;
-  }
-
-  .final-cta {
-    padding: 96px 20px;
-  }
-
-  .final-cta h2 {
-    font-size: 2.1rem;
-  }
-
-  .final-cta p {
-    font-size: 1.05rem;
-    margin-top: 20px;
-  }
-
-  .final-cta .hero-actions {
-    margin-top: 44px;
-  }
-}
-
-/* ===================== DASHBOARD PREVIEW ===================== */
-.dashboard-preview {
-  text-align: center;
-}
-
-.dashboard-header {
-  margin-bottom: 64px;
-}
-
-.dashboard-mock {
-  padding: 32px;
-  border-radius: var(--radius-lg);
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-.dashboard-card {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: var(--radius-md);
-  padding: 24px;
-  text-align: left;
-
-  box-shadow: var(--shadow-sm);
-}
-
-.dashboard-card strong {
-  display: block;
-  margin-bottom: 16px;
-  font-weight: 600;
-}
-
-.dashboard-card ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.dashboard-card li {
-  font-size: 0.9rem;
-  opacity: 0.85;
-  margin-bottom: 10px;
-}
-
-.dashboard-metric {
-  font-size: 2rem;
-  font-weight: 600;
-}
-
-.dashboard-metric span {
-  display: block;
-  font-size: 0.8rem;
-  opacity: 0.6;
-  margin-top: 6px;
-}
-
-/* ===================== DASHBOARD MOBILE ===================== */
-@media (max-width: 768px) {
-  .dashboard-grid {
+  /* ECOSYSTEM */
+  .ecosystem-grid {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-mock {
-    padding: 20px;
-  }
-}
-
-/* ===================== DASHBOARD PREVIEW ===================== */
-.dashboard-preview {
-  text-align: center;
-}
-
-.dashboard-header {
-  margin-bottom: 64px;
-}
-
-.dashboard-mock {
-  padding: 32px;
-  border-radius: var(--radius-lg);
-}
-
-/* TOP METRICS */
-.dashboard-top {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  margin-bottom: 32px;
-}
-
-.metric-card {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: var(--radius-md);
-  padding: 20px;
-  text-align: left;
-}
-
-.metric-label {
-  font-size: 0.7rem;
-  opacity: 0.6;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.metric-value {
-  display: block;
-  font-size: 1.8rem;
-  margin: 8px 0;
-}
-
-.metric-sub {
-  font-size: 0.75rem;
-  opacity: 0.6;
-}
-
-/* MAIN GRID */
-.dashboard-main {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 24px;
-}
-
-.dashboard-card {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: var(--radius-md);
-  padding: 24px;
-  text-align: left;
-}
-
-.dashboard-card strong {
-  display: block;
-  margin-bottom: 16px;
-  font-weight: 600;
-}
-
-/* CHART */
-.dashboard-chart {
-  display: flex;
-  flex-direction: column;
-}
-
-.chart-svg {
-  width: 100%;
-  height: 160px;
-}
-
-.chart-labels {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  margin-top: 10px;
-  font-size: 0.7rem;
-  opacity: 0.6;
-  text-align: center;
-}
-
-/* AGENDA & TEAM */
-.agenda-list,
-.team-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.agenda-list li,
-.team-list li {
-  font-size: 0.9rem;
-  opacity: 0.85;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.agenda-list span {
-  font-size: 0.75rem;
-  opacity: 0.6;
-}
-
-/* STATUS */
-.status {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.status.online { background: #4ade80; }
-.status.idle   { background: #facc15; }
-.status.busy   { background: #fb7185; }
-
-/* MOBILE */
-@media (max-width: 768px) {
+  /* DASHBOARD */
   .dashboard-top {
     grid-template-columns: 1fr;
   }
 
   .dashboard-main {
     grid-template-columns: 1fr;
+  }
+
+  /* FOOTER */
+  .footer-container {
+    flex-direction: column;
+    gap: var(--space-4);
   }
 }

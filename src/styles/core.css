@@ -1,196 +1,234 @@
 /* ==========================================================================
    CORE.CSS — ELIGI Design System
-   Apple Vision / iOS Glass — Base global refinada
+   Desktop First • Apple-like • Light / Dark
 ========================================================================== */
 
-/* ===================== TOKENS FUNDAMENTAIS ===================== */
+/* ===================== FONT ===================== */
 :root {
-  /* Typography */
-  --font-primary: "SF Pro Display", -apple-system, BlinkMacSystemFont,
-    system-ui, sans-serif;
+  --font-primary: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+}
 
-  /* Radius */
-  --radius-sm: 12px;
-  --radius-md: 18px;
-  --radius-lg: 28px;
+/* ===================== SPACING SCALE ===================== */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+}
 
-  /* Colors — Base */
-  --bg-main: #0c0c0f;
-  --bg-elevated: rgba(24, 24, 28, 0.55);
+/* ===================== RADIUS ===================== */
+:root {
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+}
+
+/* ===================== COLORS — DARK (DEFAULT) ===================== */
+:root {
+  --bg-main: #0b0b0d;
+  --bg-elevated: rgba(255, 255, 255, 0.04);
 
   --text-main: #ffffff;
-  --text-soft: #c8c8c8;
+  --text-soft: rgba(255, 255, 255, 0.65);
 
-  /* Accent — ELIGI */
+  --border-soft: rgba(255, 255, 255, 0.08);
+
   --eligi-red: #e50914;
-
-  /* Glass */
-  --glass: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.14);
-
-  /* Shadows */
-  --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 16px 42px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.8);
-
-  /* Motion */
-  --ease-soft: cubic-bezier(0.25, 0.7, 0.35, 1);
-  --ease-pop: cubic-bezier(0.25, 0.65, 0.25, 1.25);
 }
 
-/* ===================== LIGHT MODE (opcional) ===================== */
-:root[data-theme="light"] {
+/* ===================== COLORS — LIGHT ===================== */
+:root[data-theme='light'] {
   --bg-main: #f5f5f7;
-  --bg-elevated: rgba(255, 255, 255, 0.55);
+  --bg-elevated: rgba(0, 0, 0, 0.04);
 
   --text-main: #0a0a0a;
-  --text-soft: #6b6b6b;
+  --text-soft: rgba(0, 0, 0, 0.6);
 
-  --glass: rgba(255, 255, 255, 0.42);
-  --glass-border: rgba(255, 255, 255, 0.22);
-
-  --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 16px 42px rgba(0, 0, 0, 0.14);
-  --shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.22);
+  --border-soft: rgba(0, 0, 0, 0.08);
 }
 
-/* ===================== RESET GLOBAL ===================== */
+/* ===================== SHADOWS ===================== */
+:root {
+  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 24px 64px rgba(0, 0, 0, 0.35);
+}
+
+/* ===================== MOTION ===================== */
+:root {
+  --ease: cubic-bezier(.25,.8,.25,1);
+}
+
+/* ===================== RESET ===================== */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-html,
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
-  padding: 0;
-
   font-family: var(--font-primary);
+  background: var(--bg-main);
   color: var(--text-main);
-
-  background:
-    radial-gradient(
-      circle at top,
-      #1b1b1b 0%,
-      #000000 60%
-    );
-
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
-img,
-video {
-  max-width: 100%;
-  display: block;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* ===================== ACESSIBILIDADE ===================== */
-:focus-visible {
-  outline: 2px solid var(--eligi-red);
-  outline-offset: 4px;
-}
-
-/* ===================== LAYOUT BASE ===================== */
+/* ===================== LAYOUT — DESKTOP ===================== */
 section {
-  padding: 160px 24px;
+  padding: var(--space-9) var(--space-6);
 }
 
 .container {
-  width: 100%;
-  max-width: 1280px;
+  max-width: 1200px;
   margin-inline: auto;
-  padding-inline: 24px;
+  width: 100%;
 }
 
-/* ===================== GLASS ===================== */
-.glass {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.12),
-    rgba(255, 255, 255, 0.04)
-  );
+/* ===================== TEXT ===================== */
+h1, h2, h3 {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
 
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-
-  border-radius: var(--radius-md);
-  border: 1px solid var(--glass-border);
-
-  box-shadow: var(--shadow-sm);
+p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--text-soft);
 }
 
 /* ===================== BUTTONS ===================== */
 .btn {
-  font-family: var(--font-primary);
-  border: none;
-  cursor: pointer;
-
-  border-radius: var(--radius-md);
-  padding: 14px 22px;
-
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1;
-
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-2);
 
-  transition:
-    transform 0.25s var(--ease-soft),
-    box-shadow 0.25s var(--ease-soft),
-    opacity 0.2s ease;
+  padding: 14px 28px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+
+  font-size: 14px;
+  font-weight: 600;
+  transition: all .35s var(--ease);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--eligi-red), #b00610);
-  color: #ffffff;
-  box-shadow: 0 10px 30px rgba(229, 9, 20, 0.25);
+  background: var(--eligi-red);
+  color: #fff;
 }
 
 .btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
-}
-
-.btn-primary:active {
-  transform: translateY(-1px);
-  opacity: 0.95;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-glass {
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
+  background: transparent;
+  border: 1px solid var(--border-soft);
   color: var(--text-main);
 }
 
-/* ===================== TEXT UTILITIES ===================== */
-.text-soft {
-  color: var(--text-soft);
+/* ========================================================================
+   MOBILE OVERRIDES — ISOLATED
+======================================================================== */
+
+@media (max-width: 768px) {
+
+  section {
+    padding: var(--space-8) var(--space-5);
+  }
+
+  .container {
+    padding-inline: 0;
+  }
+
+  h1 {
+    font-size: 2.1rem;
+  }
+
+  h2 {
+    font-size: 1.8rem;
+  }
 }
 
-.text-center {
+/* ===================== AUTH — DESKTOP ===================== */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-7);
   text-align: center;
 }
 
-/* ===================== ANIMATIONS ===================== */
-.fade-up {
-  opacity: 0;
-  transform: translateY(18px);
-  animation: fadeUp 0.55s var(--ease-soft) forwards;
+.auth-card h1 {
+  font-size: 1.9rem;
+  margin-bottom: var(--space-3);
 }
 
-@keyframes fadeUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
+.auth-description {
+  font-size: 0.95rem;
+  margin-bottom: var(--space-6);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth-form input {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-main);
+  font-size: 0.95rem;
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: var(--eligi-red);
+}
+
+.auth-footer {
+  margin-top: var(--space-5);
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+.auth-footer a {
+  color: var(--eligi-red);
+}
+
+/* ========================================================================
+   MOBILE OVERRIDES — ISOLATED
+======================================================================== */
+
+@media (max-width: 768px) {
+
+  .auth-card {
+    padding: var(--space-6) var(--space-5);
+  }
+
+  .auth-card h1 {
+    font-size: 1.6rem;
   }
 }

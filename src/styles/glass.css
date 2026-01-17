@@ -1,38 +1,30 @@
 /* ==========================================================================
-   GLASS.CSS — ELIGI Glass System
-   VisionOS glass + mobile polish
+   GLASS.CSS — Navbar & Footer
+   Desktop First • Mobile Isolated • Apple-like
 ========================================================================== */
 
+/* ===================== NAVBAR — DESKTOP ===================== */
 .glass-navbar {
   position: fixed;
   top: 0;
   width: 100%;
   z-index: 100;
 
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  background: var(--bg-elevated);
+  backdrop-filter: blur(24px) saturate(160%);
+  border-bottom: 1px solid var(--border-soft);
 
-  background: rgba(0, 0, 0, 0.38);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-
-  transition:
-    transform 0.45s var(--ease-soft),
-    background 0.45s var(--ease-soft);
+  transition: transform .45s var(--ease), background .45s var(--ease);
 }
 
 .navbar-hidden {
-  transform: translateY(-110%);
+  transform: translateY(-100%);
 }
 
-.navbar-solid {
-  background: rgba(0, 0, 0, 0.58);
-}
-
-/* ===================== NAV CONTENT ===================== */
 .nav-container {
-  max-width: 1280px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 14px 20px;
+  padding: var(--space-4) var(--space-6);
 
   display: flex;
   align-items: center;
@@ -42,44 +34,92 @@
 .nav-logo {
   font-weight: 600;
   letter-spacing: 0.08em;
-  font-size: 0.95rem;
 }
 
 .nav-links {
-  display: none; /* mobile-first */
+  display: flex;
+  gap: var(--space-6);
+}
+
+.nav-links a {
+  color: var(--text-soft);
+  transition: color .3s var(--ease);
+}
+
+.nav-links a:hover {
+  color: var(--text-main);
 }
 
 .nav-actions {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: var(--space-4);
 }
 
-/* ===================== DESKTOP ===================== */
-@media (min-width: 960px) {
+/* Theme toggle */
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--text-main);
+}
+
+/* ===================== FOOTER ===================== */
+.eligi-footer {
+  margin-top: var(--space-9);
+  padding: var(--space-7) var(--space-5);
+  border-top: 1px solid var(--border-soft);
+}
+
+.footer-container {
+  max-width: 1200px;
+  margin-inline: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-brand {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.footer-links {
+  display: flex;
+  gap: var(--space-5);
+}
+
+.footer-links a {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.footer-copy {
+  margin-top: var(--space-4);
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+/* ========================================================================
+   MOBILE OVERRIDES — ISOLATED
+======================================================================== */
+
+@media (max-width: 768px) {
+
   .nav-links {
-    display: flex;
-    gap: 24px;
+    display: none;
   }
 
-  .nav-actions {
-    gap: 20px;
+  .nav-container {
+    padding: var(--space-4) var(--space-5);
   }
-}
 
-/* ===================== GLASS CARD ===================== */
-.glass-card {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.12),
-    rgba(255, 255, 255, 0.04)
-  );
-
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  padding: 22px;
-
-  box-shadow: var(--shadow-sm);
+  .footer-container {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
 }

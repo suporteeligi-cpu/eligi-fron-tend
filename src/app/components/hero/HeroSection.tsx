@@ -2,20 +2,22 @@ import { COPY } from '@/lib/copy';
 
 type Variant = 'default' | 'barbearia' | 'salao' | 'ads';
 
-const variant: Variant = 'default'; // troque aqui quando quiser
+interface HeroSectionProps {
+  variant?: Variant;
+}
 
-export default function HeroSection() {
+export default function HeroSection({ variant = 'default' }: HeroSectionProps) {
   const hero = COPY[variant].hero;
 
   return (
-    <section className="hero">
+    <section className="hero container">
       <span className="eyebrow">{hero.eyebrow}</span>
 
       <h1>{hero.title}</h1>
 
       <p>
-        {hero.subtitle.split('\n').map((line, i) => (
-          <span key={i}>
+        {hero.subtitle.split('\n').map((line, index) => (
+          <span key={index}>
             {line}
             <br />
           </span>
@@ -39,6 +41,12 @@ export default function HeroSection() {
           {hero.microcopy}
         </p>
       )}
+
+      <div className="hero-glass-cards">
+        <div className="glass-card">Agenda inteligente</div>
+        <div className="glass-card">Equipe e comissões</div>
+        <div className="glass-card">Pagamentos integrados</div>
+      </div>
     </section>
   );
 }
