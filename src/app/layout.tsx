@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: {
-    default: 'ELIGI — Sistema inteligente para barbearias e salões',
-    template: '%s | ELIGI'
+    default: 'ELIGI — Sistema inteligente para negócios da beleza',
+    template: 'Agenda, pagamentos, equipe e métricas em um único sistema profissional.'
   },
   description:
     'ELIGI é um sistema inteligente para barbearias e salões de beleza. Agenda, equipe, clientes, pagamentos e métricas em um único painel.',
