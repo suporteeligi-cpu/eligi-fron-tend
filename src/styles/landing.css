@@ -49,13 +49,15 @@
   gap: var(--space-5);
 }
 
-/* ===================== DASHBOARD PREVIEW ===================== */
-.dashboard-preview {
-  text-align: center;
+/* ===================== DASHBOARD PREVIEW — DESKTOP ===================== */
+
+.dashboard-header {
+  max-width: 640px;
+  margin: 0 auto var(--space-7);
 }
 
 .dashboard-mock {
-  margin-top: var(--space-7);
+  margin-top: var(--space-6);
   padding: var(--space-6);
 }
 
@@ -66,11 +68,155 @@
   margin-bottom: var(--space-6);
 }
 
+.metric-card {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  text-align: center;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.metric-value {
+  display: block;
+  margin: var(--space-2) 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.metric-sub {
+  font-size: 0.75rem;
+  color: var(--text-soft);
+}
+
+/* MAIN GRID */
 .dashboard-main {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   gap: var(--space-5);
 }
+
+/* CARD */
+.dashboard-card {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+}
+
+.dashboard-card-title {
+  display: block;
+  margin-bottom: var(--space-3);
+  font-size: 0.9rem;
+}
+
+/* CHART */
+.dashboard-chart {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 140px;
+  margin: var(--space-3) 0;
+}
+
+.chart-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--text-soft);
+}
+
+/* AGENDA */
+.agenda-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.agenda-list li {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: 0.85rem;
+}
+
+/* TEAM */
+.team-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.team-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: 0.85rem;
+}
+
+.status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status.online { background: #2ecc71; }
+.status.idle   { background: #f1c40f; }
+.status.busy   { background: #e74c3c; }
+
+/* ========================================================================
+   DASHBOARD PREVIEW — MOBILE
+======================================================================== */
+
+@media (max-width: 768px) {
+
+  .dashboard-mock {
+    padding: var(--space-5);
+  }
+
+  /* MÉTRICAS → SCROLL HORIZONTAL */
+  .dashboard-top {
+    display: flex;
+    overflow-x: auto;
+    gap: var(--space-4);
+    padding-bottom: var(--space-3);
+  }
+
+  .metric-card {
+    min-width: 220px;
+    text-align: left;
+  }
+
+  /* MAIN → STACK */
+  .dashboard-main {
+    grid-template-columns: 1fr;
+  }
+
+  /* GRÁFICO É O FOCO */
+  .dashboard-chart {
+    order: 1;
+  }
+
+  .chart-svg {
+    height: 130px;
+  }
+
+  /* AGENDA / EQUIPE */
+  .dashboard-card {
+    order: 2;
+  }
+}
+
 
 /* ===================== FINAL CTA ===================== */
 .final-cta {
