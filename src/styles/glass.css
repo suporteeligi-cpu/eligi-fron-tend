@@ -89,6 +89,39 @@
   box-shadow: 0 0 18px rgba(255, 0, 0, 0.25);
 }
 
+/* ===================== NAVBAR LINKS SPACING ===================== */
+.nav-links {
+  display: flex;
+  gap: 40px; /* espaçamento premium entre categorias */
+}
+
+.nav-links a {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em; /* espaçamento na escrita */
+  text-transform: none;
+}
+
+/* ===================== LOGO PULSE ANIMATION ===================== */
+.logo-pulse {
+  animation: logoPulse 4.5s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+}
+
 /* ===================== FOOTER ===================== */
 .eligi-footer {
   margin-top: var(--space-9);

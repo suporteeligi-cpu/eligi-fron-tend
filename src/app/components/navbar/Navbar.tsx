@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Navbar() {
   const [hidden, setHidden] = useState(false);
@@ -41,6 +42,11 @@ export default function Navbar() {
     setTheme(next);
   };
 
+  const logoSrc =
+    theme === 'dark'
+      ? '/images/globo-dark.png'
+      : '/images/globo-light.png';
+
   return (
     <header
       className={`
@@ -52,8 +58,14 @@ export default function Navbar() {
       <div className="nav-container">
         {/* Logo */}
         <Link href="/" className="nav-logo">
-          <span className="logo-mark">◉</span>
-          <span className="logo-text">ELIGI</span>
+          <Image
+            src={logoSrc}
+            alt="ELIGI"
+            width={34}
+            height={34}
+            priority
+            className="logo-pulse"
+          />
         </Link>
 
         {/* Desktop links */}
