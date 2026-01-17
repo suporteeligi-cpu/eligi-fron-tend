@@ -378,3 +378,134 @@
 .sparkline path {
   animation: drawLine 0.9s var(--ease) both;
 }
+
+/* ===================== TRENDS ===================== */
+
+.metric-card.trend-up .sparkline path {
+  stroke: #2ecc71;
+}
+
+.metric-card.trend-down .sparkline path {
+  stroke: #e74c3c;
+}
+
+.metric-card.trend-flat .sparkline path {
+  stroke: #f1c40f;
+}
+
+/* ===================== SKELETON CURVE ===================== */
+
+.skeleton-curve {
+  width: 100%;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255,255,255,0.05),
+      rgba(255,255,255,0.12),
+      rgba(255,255,255,0.05)
+    );
+  animation: shimmer 1.2s infinite;
+}
+
+.skeleton-curve.large {
+  height: 140px;
+}
+
+/* ===================== ANIMATIONS ===================== */
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+
+/* ===================== DASHBOARD EXTRAS ===================== */
+
+.dashboard-cta {
+  margin-top: var(--space-3);
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--eligi-red);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.dashboard-cta.secondary {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+}
+
+.agenda-mini li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 6px 0;
+}
+
+.ranking {
+  padding-left: 18px;
+}
+
+.alerts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.alert {
+  font-size: 0.8rem;
+  padding: 6px 0;
+}
+
+.alert.warning { color: #f1c40f }
+.alert.info    { color: #3498db }
+.alert.danger  { color: #e74c3c }
+
+/* ===================== DASHBOARD EXTRAS ===================== */
+
+.dashboard-cta {
+  margin-top: var(--space-3);
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--eligi-red);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.dashboard-cta.secondary {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+}
+
+.agenda-mini li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 6px 0;
+}
+
+.ranking {
+  padding-left: 18px;
+}
+
+.alerts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.alert {
+  font-size: 0.8rem;
+  padding: 6px 0;
+}
+
+.alert.warning { color: #f1c40f }
+.alert.info    { color: #3498db }
+.alert.danger  { color: #e74c3c }
