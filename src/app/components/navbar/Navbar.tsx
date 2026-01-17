@@ -61,8 +61,8 @@ export default function Navbar() {
           <Image
             src={logoSrc}
             alt="ELIGI"
-            width={34}
-            height={34}
+            width={60}
+            height={40}
             priority
             className="logo-pulse"
           />
