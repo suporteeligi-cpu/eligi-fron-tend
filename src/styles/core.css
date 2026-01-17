@@ -96,7 +96,7 @@ a {
 
 /* ===================== LAYOUT BASE ===================== */
 section {
-  padding: 120px 24px;
+  padding: 160px 24px;
 }
 
 .container {
@@ -137,10 +137,10 @@ section {
 }
 
 .btn-primary {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(135deg, var(--eligi-red), #b00610);
+  box-shadow: 0 10px 30px rgba(229,9,20,0.25);
 }
+
 
 .btn-primary:hover {
   transform: translateY(-3px);
@@ -174,4 +174,8 @@ section {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+:root {
+  --eligi-red: #e50914;
 }

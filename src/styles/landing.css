@@ -6,7 +6,7 @@
 /* ===================== HERO ===================== */
 .hero {
   min-height: 100vh;
-  padding-top: 180px;
+  padding-top: 220px;
   padding-inline: 24px;
 
   display: flex;
@@ -20,7 +20,10 @@
 .hero h1 {
   font-size: clamp(2.8rem, 6vw, 4rem);
   font-weight: 600;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.03em;  
+  text-shadow: 0 10px 40px rgba(0,0,0,0.6);
+
+
 
   max-width: 900px;
   line-height: 1.05;
