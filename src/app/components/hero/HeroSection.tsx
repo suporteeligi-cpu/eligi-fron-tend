@@ -1,31 +1,44 @@
+import { COPY } from '@/lib/copy';
+
+type Variant = 'default' | 'barbearia' | 'salao' | 'ads';
+
+const variant: Variant = 'default'; // troque aqui quando quiser
+
 export default function HeroSection() {
+  const hero = COPY[variant].hero;
+
   return (
     <section className="hero">
-      <div className="hero-content">
-        <h1>O sistema operacional da sua empresa.</h1>
+      <span className="eyebrow">{hero.eyebrow}</span>
 
-        <p>
-          Agenda, equipe, clientes, pagamentos e crescimento.
-          <br />
-          Tudo conectado. Tudo sob controle.
+      <h1>{hero.title}</h1>
+
+      <p>
+        {hero.subtitle.split('\n').map((line, i) => (
+          <span key={i}>
+            {line}
+            <br />
+          </span>
+        ))}
+      </p>
+
+      <div className="hero-actions">
+        <a href="/register" className="btn btn-primary">
+          {hero.primaryCta}
+        </a>
+
+        {hero.secondaryCta && (
+          <a href="#como-funciona" className="btn btn-glass">
+            {hero.secondaryCta}
+          </a>
+        )}
+      </div>
+
+      {hero.microcopy && (
+        <p className="text-soft" style={{ marginTop: 16, fontSize: '0.9rem' }}>
+          {hero.microcopy}
         </p>
-
-        <div className="hero-actions">
-          <a href="/register" className="btn-primary">
-            Criar minha empresa
-          </a>
-          <a href="#como-funciona" className="btn-secondary">
-            Ver como funciona
-          </a>
-        </div>
-      </div>
-
-      <div className="hero-glass-cards">
-       <div className="glass-card floating delay-1">Agenda</div>
-       <div className="glass-card floating delay-2">Faturamento</div>
-       <div className="glass-card floating delay-3">Equipe</div>
-      </div>
-
+      )}
     </section>
   );
 }
