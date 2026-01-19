@@ -9,7 +9,7 @@ export default function AppLoading() {
       <div className={styles.glass}>
         <div className={styles.logoWrapper}>
           <Image
-            src="/images/globo-light.png"
+            src="/images/globo-dark.png"
             alt="ELIGI"
             width={96}
             height={70}

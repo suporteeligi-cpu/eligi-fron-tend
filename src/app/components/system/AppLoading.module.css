@@ -7,16 +7,17 @@
   align-items: center;
   justify-content: center;
 
-  /* Fundo glass Apple */
+  /* Dark default */
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(22px);
 }
 
+/* Light override */
 :root[data-theme='light'] .root {
   background: rgba(255, 255, 255, 0.78);
 }
 
-/* Card central (splash) */
+/* Card central */
 .glass {
   padding: 48px 56px;
   border-radius: 28px;
@@ -37,10 +38,19 @@
   justify-content: center;
 }
 
-/* Animação suave (igual login) */
+/* Animação */
 .logoFlip {
   animation: logoFlip 1.2s ease-in-out infinite;
   transform-style: preserve-3d;
+}
+
+/* Alternância automática do logo */
+:root[data-theme='light'] .logoFlip {
+  content: url('/images/globo-light.png');
+}
+
+:root[data-theme='dark'] .logoFlip {
+  content: url('/images/globo-dark.png');
 }
 
 @keyframes logoFlip {
