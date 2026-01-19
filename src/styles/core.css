@@ -125,6 +125,24 @@ p {
   color: var(--text-soft);
 }
 
+/* ===================== TYPOGRAPHY — DESKTOP OPTICAL FIX ===================== */
+/* Ajuste óptico para Windows / Linux / Chrome / Edge
+   Mantém mobile (iOS) totalmente intacto */
+@media (min-width: 1024px) {
+  body {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-weight: 500;        /* 600 no desktop fica pesado demais */
+    letter-spacing: -0.04em; /* aproxima do SF Pro */
+  }
+}
+
 /* ===================== BUTTONS ===================== */
 .btn {
   display: inline-flex;
