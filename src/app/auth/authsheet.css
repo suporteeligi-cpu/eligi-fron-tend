@@ -3,6 +3,14 @@
    CSS ISOLADO • VIDRO LIMPO • DARK / LIGHT
 ========================================================================== */
 
+/* ================= PATCH DE BLINDAGEM (GPU / GLASS FIX) ================= */
+.authsheet-overlay,
+.authsheet-card {
+  transform: translateZ(0);
+  will-change: backdrop-filter, transform, opacity;
+}
+
+/* ================= ROOT ================= */
 .authsheet-root {
   all: unset;
   font-family: var(--font-primary);
@@ -22,9 +30,9 @@
   -webkit-backdrop-filter: blur(26px) saturate(160%);
 
   animation: fadeIn 0.22s ease;
+  will-change: backdrop-filter, opacity;
 }
 
-/* LIGHT MODE */
 :root[data-theme='light'] .authsheet-overlay {
   background: rgba(255, 255, 255, 0.45);
 }
@@ -52,10 +60,9 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
 
-  transition: padding 0.25s ease, height 0.25s ease;
+  transition: padding 0.25s ease;
 }
 
-/* LIGHT MODE CARD */
 :root[data-theme='light'] .authsheet-card {
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -104,9 +111,9 @@
   color: #fff;
 }
 
-/* ================= TITLE ================= */
+/* ================= TITLE / MESSAGE ================= */
 .authsheet-title {
-  margin: 24px 0 22px;
+  margin: 24px 0 18px;
   font-size: 16px;
   font-weight: 600;
   text-align: center;
@@ -115,7 +122,6 @@
   animation: modeFadeSlide 0.22s ease;
 }
 
-/* ================= MESSAGE ================= */
 .authsheet-message {
   font-size: 0.9rem;
   text-align: center;
@@ -139,17 +145,15 @@
   background: rgba(255, 255, 255, 0.9);
 }
 
-/* ================= INPUT — FOCUS GLOW ================= */
+/* focus glow */
 .authsheet-input:focus-within {
   border-color: rgba(229, 9, 20, 0.55);
   box-shadow:
     0 0 0 1px rgba(229, 9, 20, 0.35),
     0 8px 24px rgba(229, 9, 20, 0.12);
-  transition: box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
-
-/* input */
+/* input element */
 .authsheet-input input {
   width: 100%;
   background: transparent;
@@ -161,31 +165,26 @@
   color: var(--text-main);
 }
 
-/* ================= CLEARABLE ================= */
+/* ================= CLEAR ================= */
 .authsheet-input-clearable {
   position: relative;
-  display: flex;
-  align-items: center;
 }
 
 .authsheet-clear {
   position: absolute;
   right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
 
   width: 20px;
   height: 20px;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
   border-radius: 50%;
   border: none;
+  background: none;
 
   font-size: 18px;
   font-weight: 600;
-
-  background: none;
   color: var(--text-soft);
 
   cursor: pointer;
@@ -195,7 +194,7 @@
 }
 
 .authsheet-clear:hover { opacity: 1; }
-.authsheet-clear:active { transform: scale(0.9); }
+.authsheet-clear:active { transform: translateY(-50%) scale(0.9); }
 
 .authsheet-input-clearable input {
   padding-right: 42px;
@@ -216,19 +215,37 @@
 
   background: var(--eligi-red);
   cursor: pointer;
-  transition: opacity 0.22s ease;
 
+  transition: opacity 0.22s ease;
   animation: modeFadeSlide 0.22s ease;
 }
 
 .authsheet-submit:hover { opacity: 0.92; }
 
+.authsheet-submit.loading {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* spinner */
+.authsheet-spinner {
+  width: 18px;
+  height: 18px;
+
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+
+  animation: spin 0.7s linear infinite;
+}
+
 /* ================= LINK ================= */
 .authsheet-link {
+  margin-top: 6px;
+
   background: none;
   border: none;
   padding: 0;
-  margin: 6px 0 0;
 
   font-size: 0.85rem;
   font-weight: 600;
@@ -260,8 +277,8 @@
 }
 
 @keyframes scaleIn {
-  from { transform: scale(1.94); opacity: 0 }
-  to { transform: scale(3); opacity: 1 }
+  from { transform: scale(0.94); opacity: 0 }
+  to { transform: scale(1); opacity: 1 }
 }
 
 @keyframes modeFadeSlide {
@@ -272,29 +289,6 @@
 @keyframes pulse {
   0%, 100% { transform: scale(1); opacity: 0.85 }
   50% { transform: scale(1.05); opacity: 1 }
-}
-
-/* ================= HAPTIC FEEDBACK (SIMULATED) ================= */
-.authsheet-submit:active,
-.authsheet-tabs button:active,
-.authsheet-clear:active {
-  transform: scale(0.96);
-  transition: transform 0.08s ease;
-}
-
-/* ================= BUTTON LOADING (APPLE SPINNER) ================= */
-.authsheet-submit.loading {
-  pointer-events: none;
-  opacity: 0.85;
-}
-
-.authsheet-spinner {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
-  animation: spin 0.7s linear infinite;
 }
 
 @keyframes spin {

@@ -1,27 +1,25 @@
-'use client';
+'use client'
 
-import './authsheet.css';
-import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import './authsheet.css'
+import Image from 'next/image'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register'
+type Theme = 'light' | 'dark'
 
 type UiState =
   | 'idle'
   | 'loading'
   | 'error'
   | 'check-email'
-  | 'reset-sent';
+  | 'reset-sent'
 
 interface AuthSheetProps {
-  open: boolean;
-  onClose: () => void;
-
-  /** modo direto (usado por /login e /register) */
-  mode?: Mode;
-
-  /** compatibilidade com uso antigo */
-  initialMode?: Mode;
+  open: boolean
+  onClose: () => void
+  mode?: Mode
+  initialMode?: Mode
 }
 
 export default function AuthSheet({
@@ -30,75 +28,92 @@ export default function AuthSheet({
   mode,
   initialMode = 'login',
 }: AuthSheetProps) {
-  const resolvedMode: Mode = mode ?? initialMode ?? 'login';
+  const resolvedMode: Mode = mode ?? initialMode ?? 'login'
 
-  const [currentMode, setCurrentMode] = useState<Mode>(resolvedMode);
-  const [uiState, setUiState] = useState<UiState>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [currentMode, setCurrentMode] = useState<Mode>(resolvedMode)
+  const [uiState, setUiState] = useState<UiState>('idle')
+  const [error, setError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
-  });
+  })
+
+  const [theme, setTheme] = useState<Theme>('dark')
+  const [ready, setReady] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   /* ======================================================
-     Detecta tema atual (data-theme no <html>)
+     MOUNT GUARD (portal safe)
   ====================================================== */
   useEffect(() => {
-    const root = document.documentElement;
-    const current =
-      (root.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
+    setMounted(true)
+  }, [])
 
-    setTheme(current);
+  /* ======================================================
+     THEME SYNC + FORCE REPAINT (glass fix)
+  ====================================================== */
+  useEffect(() => {
+    const root = document.documentElement
 
-    const observer = new MutationObserver(() => {
-      const updated =
-        (root.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
-      setTheme(updated);
-    });
+    const syncTheme = () => {
+      const current =
+        (root.getAttribute('data-theme') as Theme) ?? 'dark'
 
+      setTheme(current)
+
+      requestAnimationFrame(() => {
+        document.body.style.transform = 'translateZ(0)'
+        requestAnimationFrame(() => {
+          document.body.style.transform = ''
+          setReady(true)
+        })
+      })
+    }
+
+    syncTheme()
+
+    const observer = new MutationObserver(syncTheme)
     observer.observe(root, {
       attributes: true,
       attributeFilter: ['data-theme'],
-    });
+    })
 
-    return () => observer.disconnect();
-  }, []);
+    return () => observer.disconnect()
+  }, [])
 
   /* ======================================================
-     Sync externo de modo (login / register)
+     Sync externo de modo
   ====================================================== */
   useEffect(() => {
-    setCurrentMode(resolvedMode);
-    setUiState('idle');
-    setError(null);
-    setForm({ name: '', email: '', password: '' });
-  }, [resolvedMode]);
+    setCurrentMode(resolvedMode)
+    setUiState('idle')
+    setError(null)
+    setForm({ name: '', email: '', password: '' })
+  }, [resolvedMode])
 
-  if (!open) return null;
+  if (!open || !mounted || !ready) return null
 
   function update(field: keyof typeof form, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }));
+    setForm(prev => ({ ...prev, [field]: value }))
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    setUiState('loading');
-    setError(null);
+    e.preventDefault()
+    setUiState('loading')
+    setError(null)
 
     try {
       const endpoint =
         currentMode === 'login'
           ? '/auth/login'
-          : '/auth/register';
+          : '/auth/register'
 
       const payload =
         currentMode === 'login'
           ? { email: form.email, password: form.password }
-          : form;
+          : form
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
@@ -107,38 +122,33 @@ export default function AuthSheet({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         }
-      );
+      )
 
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Falha na autenticação');
+        const errData = await res.json()
+        throw new Error(errData.error || 'Falha na autenticação')
       }
 
       if (currentMode === 'register') {
-        setUiState('check-email');
-        return;
+        setUiState('check-email')
+        return
       }
 
-      const tokens = await res.json();
-
-      localStorage.setItem('accessToken', tokens.accessToken);
-      localStorage.setItem('refreshToken', tokens.refreshToken);
-
-      window.location.href = '/app';
+      const tokens = await res.json()
+      localStorage.setItem('accessToken', tokens.accessToken)
+      localStorage.setItem('refreshToken', tokens.refreshToken)
+      window.location.href = '/app'
     } catch (err) {
-      setUiState('error');
+      setUiState('error')
       setError(
         err instanceof Error ? err.message : 'Erro inesperado'
-      );
+      )
     }
   }
 
-  /* ======================================================
-     RESET PASSWORD
-  ====================================================== */
   async function sendResetPassword() {
-    setUiState('loading');
-    setError(null);
+    setUiState('loading')
+    setError(null)
 
     try {
       await fetch(
@@ -148,22 +158,16 @@ export default function AuthSheet({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: form.email }),
         }
-      );
-
-      setUiState('reset-sent');
+      )
+      setUiState('reset-sent')
     } catch {
-      setUiState('error');
-      setError('Erro ao enviar link de redefinição');
+      setUiState('error')
+      setError('Erro ao enviar link de redefinição')
     }
   }
 
-  const logoSrc =
-    theme === 'dark'
-      ? '/images/logo.branco.png'
-      : '/images/logo.png';
-
-  return (
-    <div className="authsheet-root">
+  return createPortal(
+    <div className="authsheet-root" data-theme={theme}>
       <div className="authsheet-overlay" onClick={onClose}>
         <div
           className="authsheet-panel"
@@ -176,15 +180,14 @@ export default function AuthSheet({
                 : 'mode-register'
             }`}
           >
-            {/* LOGO (DARK / LIGHT) */}
+            {/* LOGO */}
             <div className="authsheet-logo">
               <Image
-                src={logoSrc}
+                src="/images/logo.png"
                 alt="ELIGI"
                 width={96}
                 height={96}
                 priority
-                draggable={false}
               />
             </div>
 
@@ -212,157 +215,142 @@ export default function AuthSheet({
               </>
             )}
 
-            {(uiState !== 'check-email' &&
-              uiState !== 'reset-sent') && (
-              <>
-                {/* TABS */}
-                <div className="authsheet-tabs">
-                  <button
-                    type="button"
-                    className={
-                      currentMode === 'login' ? 'active' : ''
-                    }
-                    onClick={() => {
-                      setCurrentMode('login');
-                      setUiState('idle');
-                      setError(null);
-                    }}
-                  >
-                    Entrar
-                  </button>
+            {uiState !== 'check-email' &&
+              uiState !== 'reset-sent' && (
+                <>
+                  {/* TABS */}
+                  <div className="authsheet-tabs">
+                    <button
+                      type="button"
+                      className={currentMode === 'login' ? 'active' : ''}
+                      onClick={() => {
+                        setCurrentMode('login')
+                        setUiState('idle')
+                        setError(null)
+                      }}
+                    >
+                      Entrar
+                    </button>
 
-                  <button
-                    type="button"
-                    className={
-                      currentMode === 'register' ? 'active' : ''
-                    }
-                    onClick={() => {
-                      setCurrentMode('register');
-                      setUiState('idle');
-                      setError(null);
-                    }}
-                  >
-                    Criar conta
-                  </button>
-                </div>
-
-                <h2 className="authsheet-title">
-                  {currentMode === 'login'
-                    ? 'Bem-vindo de volta'
-                    : 'Crie sua conta'}
-                </h2>
-
-                {error && (
-                  <div className="authsheet-error">
-                    {error}
+                    <button
+                      type="button"
+                      className={currentMode === 'register' ? 'active' : ''}
+                      onClick={() => {
+                        setCurrentMode('register')
+                        setUiState('idle')
+                        setError(null)
+                      }}
+                    >
+                      Criar conta
+                    </button>
                   </div>
-                )}
 
-                <form onSubmit={submit}>
-                  {/* NAME */}
-                  {currentMode === 'register' && (
+                  <h2 className="authsheet-title">
+                    {currentMode === 'login'
+                      ? 'Bem-vindo de volta'
+                      : 'Crie sua conta'}
+                  </h2>
+
+                  {error && (
+                    <div className="authsheet-error">{error}</div>
+                  )}
+
+                  <form onSubmit={submit}>
+                    {/* NAME */}
+                    {currentMode === 'register' && (
+                      <div className="authsheet-input authsheet-input-clearable">
+                        <input
+                          placeholder="Nome completo"
+                          value={form.name}
+                          onChange={e =>
+                            update('name', e.target.value)
+                          }
+                          required
+                        />
+                        {form.name && (
+                          <button
+                            type="button"
+                            className="authsheet-clear"
+                            onClick={() => update('name', '')}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* EMAIL */}
                     <div className="authsheet-input authsheet-input-clearable">
                       <input
-                        placeholder="Nome completo"
-                        value={form.name}
+                        type="email"
+                        placeholder="E-mail"
+                        value={form.email}
                         onChange={e =>
-                          update('name', e.target.value)
+                          update('email', e.target.value)
                         }
                         required
                       />
-
-                      {form.name && (
+                      {form.email && (
                         <button
                           type="button"
                           className="authsheet-clear"
-                          onClick={() => update('name', '')}
-                          aria-label="Limpar nome"
+                          onClick={() => update('email', '')}
                         >
                           ×
                         </button>
                       )}
                     </div>
-                  )}
 
-                  {/* EMAIL */}
-                  <div className="authsheet-input authsheet-input-clearable">
-                    <input
-                      type="email"
-                      placeholder="E-mail"
-                      value={form.email}
-                      onChange={e =>
-                        update('email', e.target.value)
-                      }
-                      required
-                    />
+                    {/* PASSWORD */}
+                    <div className="authsheet-input authsheet-input-clearable">
+                      <input
+                        type="password"
+                        placeholder="Senha"
+                        value={form.password}
+                        onChange={e =>
+                          update('password', e.target.value)
+                        }
+                        required
+                        minLength={6}
+                      />
+                      {form.password && (
+                        <button
+                          type="button"
+                          className="authsheet-clear"
+                          onClick={() => update('password', '')}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
 
-                    {form.email && (
+                    {currentMode === 'login' && (
                       <button
                         type="button"
-                        className="authsheet-clear"
-                        onClick={() => update('email', '')}
-                        aria-label="Limpar e-mail"
+                        className="authsheet-link"
+                        onClick={sendResetPassword}
                       >
-                        ×
+                        Esqueci minha senha
                       </button>
                     )}
-                  </div>
 
-                  {/* PASSWORD */}
-                  <div className="authsheet-input authsheet-input-clearable">
-                    <input
-                      type="password"
-                      placeholder="Senha"
-                      value={form.password}
-                      onChange={e =>
-                        update('password', e.target.value)
-                      }
-                      required
-                      minLength={6}
-                    />
-
-                    {form.password && (
-                      <button
-                        type="button"
-                        className="authsheet-clear"
-                        onClick={() => update('password', '')}
-                        aria-label="Limpar senha"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-
-                  {currentMode === 'login' && (
                     <button
-                      type="button"
-                      className="authsheet-link"
-                      onClick={sendResetPassword}
+                      className="authsheet-submit"
+                      disabled={uiState === 'loading'}
                     >
-                      Esqueci minha senha
+                      {uiState === 'loading'
+                        ? 'Processando…'
+                        : currentMode === 'login'
+                        ? 'Entrar'
+                        : 'Criar conta'}
                     </button>
-                  )}
-
-                  <button
-                    className={`authsheet-submit ${
-                      uiState === 'loading' ? 'loading' : ''
-                    }`}
-                    disabled={uiState === 'loading'}
-                  >
-                    {uiState === 'loading' ? (
-                      <span className="authsheet-spinner" />
-                    ) : currentMode === 'login' ? (
-                      'Entrar'
-                    ) : (
-                      'Criar conta'
-                    )}
-                  </button>
-                </form>
-              </>
-            )}
+                  </form>
+                </>
+              )}
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>,
+    document.getElementById('portal-root')!
+  )
 }
