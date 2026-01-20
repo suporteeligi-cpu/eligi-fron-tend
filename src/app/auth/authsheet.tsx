@@ -1,27 +1,27 @@
-'use client'
+'use client';
 
-import './authsheet.css'
-import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import './authsheet.css';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
-type Mode = 'login' | 'register'
+type Mode = 'login' | 'register';
 
 type UiState =
   | 'idle'
   | 'loading'
   | 'error'
   | 'check-email'
-  | 'reset-sent'
+  | 'reset-sent';
 
 interface AuthSheetProps {
-  open: boolean
-  onClose: () => void
+  open: boolean;
+  onClose: () => void;
 
   /** modo direto (usado por /login e /register) */
-  mode?: Mode
+  mode?: Mode;
 
   /** compatibilidade com uso antigo */
-  initialMode?: Mode
+  initialMode?: Mode;
 }
 
 export default function AuthSheet({
@@ -30,50 +30,75 @@ export default function AuthSheet({
   mode,
   initialMode = 'login',
 }: AuthSheetProps) {
-  const resolvedMode: Mode = mode ?? initialMode ?? 'login'
+  const resolvedMode: Mode = mode ?? initialMode ?? 'login';
 
-  const [currentMode, setCurrentMode] = useState<Mode>(resolvedMode)
-  const [uiState, setUiState] = useState<UiState>('idle')
-  const [error, setError] = useState<string | null>(null)
+  const [currentMode, setCurrentMode] = useState<Mode>(resolvedMode);
+  const [uiState, setUiState] = useState<UiState>('idle');
+  const [error, setError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
-  })
+  });
+
+  /* ======================================================
+     Detecta tema atual (data-theme no <html>)
+  ====================================================== */
+  useEffect(() => {
+    const root = document.documentElement;
+    const current =
+      (root.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
+
+    setTheme(current);
+
+    const observer = new MutationObserver(() => {
+      const updated =
+        (root.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
+      setTheme(updated);
+    });
+
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   /* ======================================================
      Sync externo de modo (login / register)
   ====================================================== */
   useEffect(() => {
-    setCurrentMode(resolvedMode)
-    setUiState('idle')
-    setError(null)
-    setForm({ name: '', email: '', password: '' })
-  }, [resolvedMode])
+    setCurrentMode(resolvedMode);
+    setUiState('idle');
+    setError(null);
+    setForm({ name: '', email: '', password: '' });
+  }, [resolvedMode]);
 
-  if (!open) return null
+  if (!open) return null;
 
   function update(field: keyof typeof form, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }))
+    setForm(prev => ({ ...prev, [field]: value }));
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+    e.preventDefault();
 
-    setUiState('loading')
-    setError(null)
+    setUiState('loading');
+    setError(null);
 
     try {
       const endpoint =
         currentMode === 'login'
           ? '/auth/login'
-          : '/auth/register'
+          : '/auth/register';
 
       const payload =
         currentMode === 'login'
           ? { email: form.email, password: form.password }
-          : form
+          : form;
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
@@ -82,31 +107,29 @@ export default function AuthSheet({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         }
-      )
+      );
 
       if (!res.ok) {
-        const errData = await res.json()
-        throw new Error(errData.error || 'Falha na autenticação')
+        const errData = await res.json();
+        throw new Error(errData.error || 'Falha na autenticação');
       }
 
       if (currentMode === 'register') {
-        setUiState('check-email')
-        return
+        setUiState('check-email');
+        return;
       }
 
-      const tokens = await res.json()
+      const tokens = await res.json();
 
-      localStorage.setItem('accessToken', tokens.accessToken)
-      localStorage.setItem('refreshToken', tokens.refreshToken)
+      localStorage.setItem('accessToken', tokens.accessToken);
+      localStorage.setItem('refreshToken', tokens.refreshToken);
 
-      window.location.href = '/app'
+      window.location.href = '/app';
     } catch (err) {
-      setUiState('error')
+      setUiState('error');
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Erro inesperado'
-      )
+        err instanceof Error ? err.message : 'Erro inesperado'
+      );
     }
   }
 
@@ -114,8 +137,8 @@ export default function AuthSheet({
      RESET PASSWORD
   ====================================================== */
   async function sendResetPassword() {
-    setUiState('loading')
-    setError(null)
+    setUiState('loading');
+    setError(null);
 
     try {
       await fetch(
@@ -125,14 +148,19 @@ export default function AuthSheet({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: form.email }),
         }
-      )
+      );
 
-      setUiState('reset-sent')
+      setUiState('reset-sent');
     } catch {
-      setUiState('error')
-      setError('Erro ao enviar link de redefinição')
+      setUiState('error');
+      setError('Erro ao enviar link de redefinição');
     }
   }
+
+  const logoSrc =
+    theme === 'dark'
+      ? '/images/logo.branco.png'
+      : '/images/logo.png';
 
   return (
     <div className="authsheet-root">
@@ -141,7 +169,6 @@ export default function AuthSheet({
           className="authsheet-panel"
           onClick={e => e.stopPropagation()}
         >
-          {/* 👉 WRAPPER COM CLASSE CONDICIONAL */}
           <div
             className={`authsheet-card ${
               currentMode === 'login'
@@ -149,10 +176,10 @@ export default function AuthSheet({
                 : 'mode-register'
             }`}
           >
-            {/* LOGO */}
+            {/* LOGO (DARK / LIGHT) */}
             <div className="authsheet-logo">
               <Image
-                src="/images/logo.png"
+                src={logoSrc}
                 alt="ELIGI"
                 width={96}
                 height={96}
@@ -196,9 +223,9 @@ export default function AuthSheet({
                       currentMode === 'login' ? 'active' : ''
                     }
                     onClick={() => {
-                      setCurrentMode('login')
-                      setUiState('idle')
-                      setError(null)
+                      setCurrentMode('login');
+                      setUiState('idle');
+                      setError(null);
                     }}
                   >
                     Entrar
@@ -210,9 +237,9 @@ export default function AuthSheet({
                       currentMode === 'register' ? 'active' : ''
                     }
                     onClick={() => {
-                      setCurrentMode('register')
-                      setUiState('idle')
-                      setError(null)
+                      setCurrentMode('register');
+                      setUiState('idle');
+                      setError(null);
                     }}
                   >
                     Criar conta
@@ -317,14 +344,18 @@ export default function AuthSheet({
                   )}
 
                   <button
-                    className="authsheet-submit"
+                    className={`authsheet-submit ${
+                      uiState === 'loading' ? 'loading' : ''
+                    }`}
                     disabled={uiState === 'loading'}
                   >
-                    {uiState === 'loading'
-                      ? 'Processando…'
-                      : currentMode === 'login'
-                      ? 'Entrar'
-                      : 'Criar conta'}
+                    {uiState === 'loading' ? (
+                      <span className="authsheet-spinner" />
+                    ) : currentMode === 'login' ? (
+                      'Entrar'
+                    ) : (
+                      'Criar conta'
+                    )}
                   </button>
                 </form>
               </>
@@ -333,5 +364,5 @@ export default function AuthSheet({
         </div>
       </div>
     </div>
-  )
+  );
 }
