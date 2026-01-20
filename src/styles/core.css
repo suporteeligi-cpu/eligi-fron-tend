@@ -143,6 +143,25 @@ p {
   }
 }
 
+/* ===================== APPLE-LIKE FONT TUNING — DESKTOP ===================== */
+/* Aproxima Inter do SF Pro visualmente */
+@media (min-width: 1024px) {
+  body {
+    font-feature-settings: "liga" 1, "kern" 1;
+    letter-spacing: -0.01em;
+  }
+
+  h1, h2, h3 {
+    font-weight: 500;
+    letter-spacing: -0.045em;
+  }
+
+  p {
+    letter-spacing: -0.005em;
+  }
+}
+
+
 /* ===================== BUTTONS ===================== */
 .btn {
   display: inline-flex;

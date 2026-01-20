@@ -18,6 +18,20 @@
   max-width: 880px;
   font-size: 3.8rem;
 }
+/* ===================== HERO — APPLE TYPOGRAPHY TUNING (DESKTOP) ===================== */
+@media (min-width: 1024px) {
+  .hero h1 {
+    font-weight: 500;          /* menos pesado que 600 no desktop */
+    letter-spacing: -0.055em;  /* tracking estilo SF Pro Display */
+    line-height: 1.05;         /* mais compacto, mais Apple */
+  }
+
+  .hero p {
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+}
+
 
 .hero p {
   max-width: 680px;

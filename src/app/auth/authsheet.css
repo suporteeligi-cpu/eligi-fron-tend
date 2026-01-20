@@ -1,11 +1,11 @@
 /* ==========================================================================
    AUTHSHEET — ELIGI Apple Vision / iOS 26
-   CSS ISOLADO • VIDRO LIMPO • MOBILE FIRST
+   CSS ISOLADO • VIDRO LIMPO • DARK / LIGHT
 ========================================================================== */
 
 .authsheet-root {
   all: unset;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-primary);
 }
 
 /* ================= OVERLAY ================= */
@@ -17,11 +17,16 @@
   display: grid;
   place-items: center;
 
-  background: rgba(0, 0, 0, 0.52);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
 
   animation: fadeIn 0.22s ease;
+}
+
+/* LIGHT MODE */
+:root[data-theme='light'] .authsheet-overlay {
+  background: rgba(255, 255, 255, 0.45);
 }
 
 /* ================= PANEL ================= */
@@ -38,16 +43,23 @@
   flex-direction: column;
   align-items: center;
 
-  border-radius: 26px;
+  border-radius: 28px;
 
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
 
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
 
-  /* suaviza mudança de altura ao trocar modo */
   transition: padding 0.25s ease, height 0.25s ease;
+}
+
+/* LIGHT MODE CARD */
+:root[data-theme='light'] .authsheet-card {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.15);
 }
 
 /* ================= LOGO ================= */
@@ -64,7 +76,11 @@
   padding: 6px;
 
   border-radius: 15px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+:root[data-theme='light'] .authsheet-tabs {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .authsheet-tabs button {
@@ -75,16 +91,16 @@
   border: none;
   background: transparent;
 
-  font-size: 16px;
-  font-weight: 1000;
-  color: rgba(0, 0, 0, 0.55);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-soft);
 
   cursor: pointer;
   transition: background 0.22s ease, color 0.22s ease;
 }
 
 .authsheet-tabs button.active {
-  background: rgba(255, 0, 0, 0.9);
+  background: var(--eligi-red);
   color: #fff;
 }
 
@@ -92,11 +108,18 @@
 .authsheet-title {
   margin: 24px 0 22px;
   font-size: 16px;
-  font-weight: 1000;
+  font-weight: 600;
   text-align: center;
-  color: #000;
+  color: var(--text-main);
 
   animation: modeFadeSlide 0.22s ease;
+}
+
+/* ================= MESSAGE ================= */
+.authsheet-message {
+  font-size: 0.9rem;
+  text-align: center;
+  color: var(--text-soft);
 }
 
 /* ================= INPUT ================= */
@@ -106,10 +129,25 @@
   padding: 15px 16px;
 
   border-radius: 15px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-soft);
 
   animation: modeFadeSlide 0.22s ease;
 }
+
+:root[data-theme='light'] .authsheet-input {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* ================= INPUT — FOCUS GLOW ================= */
+.authsheet-input:focus-within {
+  border-color: rgba(229, 9, 20, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(229, 9, 20, 0.35),
+    0 8px 24px rgba(229, 9, 20, 0.12);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
 
 /* input */
 .authsheet-input input {
@@ -119,8 +157,8 @@
   outline: none;
 
   font-size: 15px;
-  font-weight: 1000;
-  color: #616161;
+  font-weight: 500;
+  color: var(--text-main);
 }
 
 /* ================= CLEARABLE ================= */
@@ -130,7 +168,6 @@
   align-items: center;
 }
 
-/* botão X — padrão Apple */
 .authsheet-clear {
   position: absolute;
   right: 12px;
@@ -145,27 +182,21 @@
   border-radius: 50%;
   border: none;
 
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 600;
 
   background: none;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--text-soft);
 
   cursor: pointer;
-  opacity: 0.85;
+  opacity: 0.8;
 
   transition: opacity 0.18s ease, transform 0.15s ease;
 }
 
-.authsheet-clear:hover {
-  opacity: 1;
-}
+.authsheet-clear:hover { opacity: 1; }
+.authsheet-clear:active { transform: scale(0.9); }
 
-.authsheet-clear:active {
-  transform: scale(0.9);
-}
-
-/* espaço pro botão */
 .authsheet-input-clearable input {
   padding-right: 42px;
 }
@@ -174,50 +205,51 @@
 .authsheet-submit {
   width: 100%;
   height: 44px;
-  margin-top: 12px;
+  margin-top: 14px;
 
   border-radius: 14px;
   border: none;
 
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 600;
   color: #fff;
 
-  background: rgba(255, 0, 0, 0.95);
+  background: var(--eligi-red);
   cursor: pointer;
   transition: opacity 0.22s ease;
 
   animation: modeFadeSlide 0.22s ease;
 }
 
-.authsheet-submit:hover {
-  opacity: 0.92;
+.authsheet-submit:hover { opacity: 0.92; }
+
+/* ================= LINK ================= */
+.authsheet-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 6px 0 0;
+
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--eligi-red);
+
+  cursor: pointer;
+  opacity: 0.85;
 }
 
-/* ================= MOBILE — Apple refinement ================= */
+.authsheet-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ================= MOBILE ================= */
 @media (max-width: 520px) {
   .authsheet-card {
     width: 84vw;
     max-width: 340px;
-
     padding: 26px 18px;
-    border-radius: 22px;
-  }
-
-  .authsheet-title {
-    font-size: 18px;
-    animation-duration: 0.18s;
-  }
-
-  .authsheet-input {
-    padding: 14px 14px;
-    animation-duration: 0.18s;
-  }
-
-  .authsheet-submit {
-    font-size: 16px;
-    height: 42px;
-    animation-duration: 0.18s;
+    border-radius: 24px;
   }
 }
 
@@ -232,16 +264,9 @@
   to { transform: scale(1); opacity: 1 }
 }
 
-/* animação de troca Entrar ↔ Criar conta */
 @keyframes modeFadeSlide {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes pulse {
@@ -249,34 +274,29 @@
   50% { transform: scale(1.05); opacity: 1 }
 }
 
-.authsheet-link {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 6px 0 0;
-  
-
-  font-size: 0.85rem;
-  font-weight: 900;
-  color: rgba(255, 0, 0, 0.7);
-
-  text-align: left;
-  cursor: pointer;
-
-  transition: color 0.2s ease, opacity 0.2s ease;
+/* ================= HAPTIC FEEDBACK (SIMULATED) ================= */
+.authsheet-submit:active,
+.authsheet-tabs button:active,
+.authsheet-clear:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
 }
 
-.authsheet-link:hover {
-  color: #ff0000;
-  opacity: 0.9;
-  text-decoration: underline;
+/* ================= BUTTON LOADING (APPLE SPINNER) ================= */
+.authsheet-submit.loading {
+  pointer-events: none;
+  opacity: 0.85;
 }
 
-.authsheet-link:active {
-  opacity: 0.7;
+.authsheet-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: spin 0.7s linear infinite;
 }
 
-.authsheet-link:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

@@ -141,7 +141,14 @@ export default function AuthSheet({
           className="authsheet-panel"
           onClick={e => e.stopPropagation()}
         >
-          <div className="authsheet-card">
+          {/* 👉 WRAPPER COM CLASSE CONDICIONAL */}
+          <div
+            className={`authsheet-card ${
+              currentMode === 'login'
+                ? 'mode-login'
+                : 'mode-register'
+            }`}
+          >
             {/* LOGO */}
             <div className="authsheet-logo">
               <Image
@@ -185,16 +192,28 @@ export default function AuthSheet({
                 <div className="authsheet-tabs">
                   <button
                     type="button"
-                    className={currentMode === 'login' ? 'active' : ''}
-                    onClick={() => setCurrentMode('login')}
+                    className={
+                      currentMode === 'login' ? 'active' : ''
+                    }
+                    onClick={() => {
+                      setCurrentMode('login')
+                      setUiState('idle')
+                      setError(null)
+                    }}
                   >
                     Entrar
                   </button>
 
                   <button
                     type="button"
-                    className={currentMode === 'register' ? 'active' : ''}
-                    onClick={() => setCurrentMode('register')}
+                    className={
+                      currentMode === 'register' ? 'active' : ''
+                    }
+                    onClick={() => {
+                      setCurrentMode('register')
+                      setUiState('idle')
+                      setError(null)
+                    }}
                   >
                     Criar conta
                   </button>
