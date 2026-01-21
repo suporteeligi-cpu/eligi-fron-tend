@@ -9,7 +9,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
-  // ===== Scroll behavior =====
+  /* ================= Scroll behavior ================= */
   useEffect(() => {
     let lastScroll = window.scrollY;
 
@@ -22,17 +22,31 @@ export default function Navbar() {
       lastScroll = current;
     };
 
-    window.addEventListener('scroll', onScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // ===== Theme handling =====
+  /* ================= Theme sync ================= */
   useEffect(() => {
-    const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    const initial = saved ?? 'dark';
+    const root = document.documentElement;
 
-    document.documentElement.setAttribute('data-theme', initial);
-    setTheme(initial);
+    const saved = (localStorage.getItem('theme') as 'light' | 'dark') ?? 'dark';
+    root.setAttribute('data-theme', saved);
+    setTheme(saved);
+
+    // escuta mudanças externas (AuthForm, AppLoading, etc)
+    const observer = new MutationObserver(() => {
+      const current =
+        (root.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
+      setTheme(current);
+    });
+
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   const toggleTheme = () => {

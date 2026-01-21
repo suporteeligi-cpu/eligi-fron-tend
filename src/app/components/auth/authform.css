@@ -1,9 +1,31 @@
 /* ==========================================================================
    AUTHSHEET — ELIGI Apple Vision / iOS 26
-   CSS ISOLADO • VIDRO LIMPO • DARK / LIGHT
+   CSS ISOLADO • VIDRO LIMPO • DARK / LIGHT • FIX RELOAD
 ========================================================================== */
+/* ================= CONTROLE DE VIDA (ANTI-SUSPENSE BUG) ================= */
+.authsheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
 
-/* ================= PATCH DE BLINDAGEM (GPU / GLASS FIX) ================= */
+.authsheet-root.is-open {
+  pointer-events: auto;
+}
+
+.authsheet-overlay {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease;
+}
+
+.authsheet-root.is-open .authsheet-overlay {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ================= GPU / GLASS BLIND ================= */
 .authsheet-overlay,
 .authsheet-card {
   transform: translateZ(0);
@@ -30,9 +52,25 @@
   -webkit-backdrop-filter: blur(26px) saturate(160%);
 
   animation: fadeIn 0.22s ease;
-  will-change: backdrop-filter, opacity;
 }
 
+/* highlight radial — evita “cinza morto” no reload */
+.authsheet-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.18),
+    rgba(255, 255, 255, 0.08) 40%,
+    transparent 65%
+  );
+
+  pointer-events: none;
+}
+
+/* LIGHT MODE */
 :root[data-theme='light'] .authsheet-overlay {
   background: rgba(255, 255, 255, 0.45);
 }
@@ -63,6 +101,7 @@
   transition: padding 0.25s ease;
 }
 
+/* LIGHT CARD */
 :root[data-theme='light'] .authsheet-card {
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -145,7 +184,6 @@
   background: rgba(255, 255, 255, 0.9);
 }
 
-/* focus glow */
 .authsheet-input:focus-within {
   border-color: rgba(229, 9, 20, 0.55);
   box-shadow:
@@ -153,7 +191,6 @@
     0 8px 24px rgba(229, 9, 20, 0.12);
 }
 
-/* input element */
 .authsheet-input input {
   width: 100%;
   background: transparent;
@@ -293,4 +330,82 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ================= AUTH SWITCHER ================= */
+
+/* ================= AUTH SWITCHER (SEGMENTED CONTROL) ================= */
+
+.auth-switcher {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  margin-bottom: 26px;
+
+  display: flex;
+  align-items: center;
+
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+
+  padding: 4px;
+}
+
+:root[data-theme='light'] .auth-switcher {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* BOTÕES */
+.auth-switcher-btn {
+  flex: 1;
+  height: 100%;
+  z-index: 2;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.947);
+
+  text-decoration: none;
+  cursor: pointer;
+
+  transition: color 0.25s ease;
+}
+
+:root[data-theme='light'] .auth-switcher-btn {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.auth-switcher-btn.active {
+  color: #fff;
+}
+
+/* INDICADOR GELATINOSO */
+.auth-switcher-indicator {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+
+  width: calc(50% - 4px);
+  height: calc(100% - 8px);
+
+  border-radius: 14px;
+  background: #e50914;
+
+  box-shadow:
+    0 6px 16px rgba(229, 9, 20, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+
+  transition:
+    transform 0.5s cubic-bezier(0.22, 1.25, 0.36, 1),
+    box-shadow 0.35s ease;
+}
+
+.auth-switcher-indicator.right {
+  transform: translateX(100%);
 }
