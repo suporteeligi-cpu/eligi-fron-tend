@@ -1,0 +1,125 @@
+/* src/app/components/sections/DashboardPreview.module.css */
+
+.section {
+  padding: 140px 24px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  max-width: 720px;
+  margin-bottom: 72px;
+}
+
+.kicker {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin-bottom: 14px;
+  display: inline-block;
+}
+
+.title {
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  margin-bottom: 18px;
+}
+
+.subtitle {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.board {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 40px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.card {
+  padding: 28px 26px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-glass);
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
+  border: 1px solid var(--border-soft);
+}
+
+.cardLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cardValue {
+  display: block;
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.cardMeta {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.placeholder {
+  padding: 32px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.fakeChart {
+  height: 180px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    rgba(225, 6, 0, 0.15),
+    rgba(225, 6, 0, 0.05)
+  );
+}
+
+.fakeList div {
+  height: 16px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.08);
+  margin-bottom: 12px;
+}
+
+:root[data-theme='dark'] .fakeList div {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 1024px) {
+  .board {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .section {
+    padding: 100px 20px;
+  }
+
+  .title {
+    font-size: 34px;
+  }
+}

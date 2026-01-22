@@ -1,52 +1,49 @@
-import { COPY } from '@/lib/copy';
+// src/app/components/hero/HeroSection.tsx
+'use client'
 
-type Variant = 'default' | 'barbearia' | 'salao' | 'ads';
+import Image from 'next/image'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import styles from './HeroSection.module.css'
 
-interface HeroSectionProps {
-  variant?: Variant;
-}
+export default function HeroSection() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
-export default function HeroSection({ variant = 'default' }: HeroSectionProps) {
-  const hero = COPY[variant].hero;
+  useEffect(() => {
+    const current = document.documentElement.getAttribute('data-theme') as 'light' | 'dark'
+    setTheme(current || 'light')
+  }, [])
 
   return (
-    <section className="hero container">
-      <span className="eyebrow">{hero.eyebrow}</span>
+    <section className={styles.hero}>
+      <div className={styles.background} />
 
-      <h1>{hero.title}</h1>
+      <div className={styles.container}>
+        <div className={styles.content}>
+          <Image
+            src={theme === 'dark' ? '/images/globo-dark.png' : '/images/globo-light.png'}
+            alt="ELIGI"
+            width={96}
+            height={96}
+            priority
+          />
 
-      <p>
-        {hero.subtitle.split('\n').map((line, index) => (
-          <span key={index}>
-            {line}
-            <br />
-          </span>
-        ))}
-      </p>
+          <h1 className={styles.title}>
+            Gestão inteligente para
+            <span className={styles.highlight}> barbearias e salões</span>
+          </h1>
 
-      <div className="hero-actions">
-        <a href="/register" className="btn btn-primary">
-          {hero.primaryCta}
-        </a>
+          <p className={styles.subtitle}>
+            Agendamentos, profissionais, pagamentos, crescimento e controle —
+            tudo em uma plataforma simples, rápida e elegante.
+          </p>
 
-        {hero.secondaryCta && (
-          <a href="#como-funciona" className="btn btn-glass">
-            {hero.secondaryCta}
-          </a>
-        )}
-      </div>
-
-      {hero.microcopy && (
-        <p className="text-soft" style={{ marginTop: 16, fontSize: '0.9rem' }}>
-          {hero.microcopy}
-        </p>
-      )}
-
-      <div className="hero-glass-cards">
-        <div className="glass-card">Agenda inteligente</div>
-        <div className="glass-card">Equipe e comissões</div>
-        <div className="glass-card">Pagamentos integrados</div>
+          <div className={styles.actions}>
+            <Link href="/register" className={styles.primary}>Criar conta</Link>
+            <Link href="/login" className={styles.secondary}>Entrar</Link>
+          </div>
+        </div>
       </div>
     </section>
-  );
+  )
 }
