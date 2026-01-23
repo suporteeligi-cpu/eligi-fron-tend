@@ -3,16 +3,19 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import styles from './HeroSection.module.css'
 
 export default function HeroSection() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [theme] = useState<'light' | 'dark'>(() => {
+    if (typeof document === 'undefined') return 'light'
 
-  useEffect(() => {
-    const current = document.documentElement.getAttribute('data-theme') as 'light' | 'dark'
-    setTheme(current || 'light')
-  }, [])
+    return (
+      (document.documentElement.getAttribute('data-theme') as
+        | 'light'
+        | 'dark') ?? 'light'
+    )
+  })
 
   return (
     <section className={styles.hero}>
@@ -21,7 +24,11 @@ export default function HeroSection() {
       <div className={styles.container}>
         <div className={styles.content}>
           <Image
-            src={theme === 'dark' ? '/images/globo-dark.png' : '/images/globo-light.png'}
+            src={
+              theme === 'dark'
+                ? '/images/globo-dark.png'
+                : '/images/globo-light.png'
+            }
             alt="ELIGI"
             width={96}
             height={96}
@@ -39,8 +46,12 @@ export default function HeroSection() {
           </p>
 
           <div className={styles.actions}>
-            <Link href="/register" className={styles.primary}>Criar conta</Link>
-            <Link href="/login" className={styles.secondary}>Entrar</Link>
+            <Link href="/register" className={styles.primary}>
+              Criar conta
+            </Link>
+            <Link href="/login" className={styles.secondary}>
+              Entrar
+            </Link>
           </div>
         </div>
       </div>

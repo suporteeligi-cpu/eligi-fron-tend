@@ -2,18 +2,21 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Navbar from '../components/navbar/Navbar'
 import Footer from '../components/footer/Footer'
 import styles from './Home.module.css'
 
 export default function HomePage() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [theme] = useState<'light' | 'dark'>(() => {
+    if (typeof document === 'undefined') return 'light'
 
-  useEffect(() => {
-    const stored = document.documentElement.getAttribute('data-theme') as 'light' | 'dark'
-    setTheme(stored || 'light')
-  }, [])
+    return (
+      (document.documentElement.getAttribute('data-theme') as
+        | 'light'
+        | 'dark') ?? 'light'
+    )
+  })
 
   return (
     <div className={styles.root}>
@@ -23,7 +26,11 @@ export default function HomePage() {
         <section className={styles.hero}>
           <div className={styles.heroCard}>
             <Image
-              src={theme === 'dark' ? '/images/globo-dark.png' : '/images/globo-light.png'}
+              src={
+                theme === 'dark'
+                  ? '/images/globo-dark.png'
+                  : '/images/globo-light.png'
+              }
               alt="ELIGI"
               width={96}
               height={96}
@@ -35,19 +42,27 @@ export default function HomePage() {
             </h1>
 
             <p className={styles.subtitle}>
-              Agendamentos, gestão, pagamentos e crescimento — tudo em um único ecossistema.
+              Agendamentos, gestão, pagamentos e crescimento — tudo em um único
+              ecossistema.
             </p>
 
             <div className={styles.actions}>
-              <a href="/register" className={styles.primaryBtn}>Criar conta</a>
-              <a href="/login" className={styles.secondaryBtn}>Entrar</a>
+              <a href="/register" className={styles.primaryBtn}>
+                Criar conta
+              </a>
+              <a href="/login" className={styles.secondaryBtn}>
+                Entrar
+              </a>
             </div>
           </div>
         </section>
 
         <section className={styles.preview}>
           <div className={styles.previewCard}>
-            <h2 className={styles.sectionTitle}>Conheça o Dashboard ELIGI</h2>
+            <h2 className={styles.sectionTitle}>
+              Conheça o Dashboard ELIGI
+            </h2>
+
             <p className={styles.sectionSubtitle}>
               Um painel claro, rápido e inteligente, inspirado no padrão Apple.
             </p>
