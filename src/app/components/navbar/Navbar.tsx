@@ -48,12 +48,11 @@ export default function Navbar() {
                 ? '/images/globo-dark.png'
                 : '/images/globo-light.png'
             }
-            alt="ELIGI"
-            width={36}
+            alt="Logo ELIGI"
+            width={56}
             height={36}
             priority
           />
-          <span className={styles.brandName}>ELIGI</span>
         </Link>
 
         <nav className={styles.nav}>
