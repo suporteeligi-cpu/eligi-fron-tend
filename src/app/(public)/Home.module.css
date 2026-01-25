@@ -103,10 +103,10 @@
 /* TYPOGRAPHY */
 .title {
   font-size: 36px;
-  font-weight: 600;
+  font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text-main);
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .subtitle {
