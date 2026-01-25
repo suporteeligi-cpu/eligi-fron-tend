@@ -19,14 +19,14 @@
     box-shadow 0.35s ease;
 }
 
-/* Estado com scroll (mais presença, sem escurecer demais) */
+/* Estado com scroll */
 .scrolled {
   background: rgba(255, 255, 255, 0.82);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.08);
 }
 
-/* Dark mode automático via data-theme */
+/* Dark mode */
 :root[data-theme='dark'] .navbar {
   background: rgba(14, 14, 14, 0.72);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -34,9 +34,10 @@
 
 :root[data-theme='dark'] .scrolled {
   background: rgba(14, 14, 14, 0.82);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.35);
 }
 
+/* Container */
 .container {
   max-width: 1200px;
   height: 100%;
@@ -52,13 +53,21 @@
 .brand {
   display: flex;
   align-items: center;
+  gap: 10px;              /* 👈 mais justo */
   text-decoration: none;
+}
+
+/* Logo refinado */
+.brand img {
+  display: block;
+  height: 32px;           /* 👈 menos “flutuante” */
+  width: auto;
 }
 
 /* Nav */
 .nav {
   display: flex;
-  gap: 28px;
+  gap: 26px;              /* 👈 levemente mais compacto */
 }
 
 .nav a {
@@ -95,8 +104,8 @@
 
 /* Theme toggle */
 .themeToggle {
-  width: 36px;
-  height: 36px;
+  width: 34px;            /* 👈 levemente menor */
+  height: 34px;
   border-radius: 50%;
 
   display: flex;
@@ -153,7 +162,7 @@
 
 /* CTA */
 .cta {
-  padding: 10px 18px;
+  padding: 9px 18px;      /* 👈 menos altura visual */
   border-radius: 999px;
 
   background: linear-gradient(135deg, #ff2b2b, #d60000);
