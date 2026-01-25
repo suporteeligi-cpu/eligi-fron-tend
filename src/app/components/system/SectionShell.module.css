@@ -1,0 +1,39 @@
+/* src/app/components/system/SectionShell.module.css */
+
+.section {
+  padding: clamp(96px, 10vw, 160px) 24px;
+}
+
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+/* Variantes visuais */
+.default {
+  background: transparent;
+}
+
+.soft {
+  background: linear-gradient(
+    180deg,
+    rgba(225, 6, 0, 0.025),
+    transparent
+  );
+}
+
+.elevated {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(0, 0, 0, 0.04)
+  );
+}
+
+:root[data-theme='dark'] .elevated {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 255, 255, 0.04)
+  );
+}

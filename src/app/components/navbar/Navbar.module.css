@@ -1,77 +1,99 @@
-/* src/app/components/navbar/Navbar.module.css */
-
 .navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 50;
-
+  left: 0;
   width: 100%;
+  height: 72px;
+  z-index: 1000;
 
-  background: var(--bg-glass);
-  backdrop-filter: blur(var(--blur-md));
-  -webkit-backdrop-filter: blur(var(--blur-md));
+  /* Apple glass claro */
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
 
-  border-bottom: 1px solid transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 
   transition:
-    background 0.4s var(--ease),
-    border-color 0.4s var(--ease),
-    box-shadow 0.4s var(--ease);
+    background 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
 }
 
+/* Estado com scroll (mais presença, sem escurecer demais) */
 .scrolled {
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-soft);
-  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.82);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* Dark mode automático via data-theme */
+:root[data-theme='dark'] .navbar {
+  background: rgba(14, 14, 14, 0.72);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme='dark'] .scrolled {
+  background: rgba(14, 14, 14, 0.82);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .container {
   max-width: 1200px;
+  height: 100%;
   margin: 0 auto;
-  padding: 16px 24px;
+  padding: 0 24px;
 
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
+/* Brand */
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-
   text-decoration: none;
-  color: var(--text);
 }
 
-.brandName {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
+/* Nav */
 .nav {
   display: flex;
   gap: 28px;
 }
 
 .nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
   font-size: 15px;
+  font-weight: 500;
+
   color: var(--text-muted);
   text-decoration: none;
-  transition: color 0.3s var(--ease);
+
+  opacity: 0.85;
+
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    color 0.25s ease;
 }
 
 .nav a:hover {
-  color: var(--text);
+  opacity: 1;
+  color: var(--text-main);
+  transform: translateY(-1px);
 }
 
+/* Actions */
 .actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
+/* Theme toggle */
 .themeToggle {
   width: 36px;
   height: 36px;
@@ -81,47 +103,77 @@
   align-items: center;
   justify-content: center;
 
-  background: transparent;
-  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: var(--text-main);
+
+  cursor: pointer;
 
   transition:
-    background 0.3s var(--ease),
-    border-color 0.3s var(--ease),
-    transform 0.3s var(--ease);
+    background 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .themeToggle:hover {
-  background: var(--bg-elevated);
+  background: rgba(255, 255, 255, 0.55);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+:root[data-theme='dark'] .themeToggle {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+:root[data-theme='dark'] .themeToggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Login */
+.login {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  font-size: 15px;
+  font-weight: 500;
+
+  color: var(--text-main);
+  text-decoration: none;
+
+  opacity: 0.85;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.login:hover {
+  opacity: 1;
   transform: translateY(-1px);
 }
 
-.login {
-  font-size: 15px;
-  color: var(--text);
-  text-decoration: none;
-}
-
+/* CTA */
 .cta {
-  padding: 10px 16px;
-  border-radius: var(--radius-md);
+  padding: 10px 18px;
+  border-radius: 999px;
 
-  background: var(--brand);
-  color: var(--brand-contrast);
+  background: linear-gradient(135deg, #ff2b2b, #d60000);
+  color: #fff;
 
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   text-decoration: none;
 
   transition:
-    transform 0.3s var(--ease),
-    box-shadow 0.3s var(--ease);
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .cta:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 10px 26px rgba(214, 0, 0, 0.35);
 }
 
+/* Mobile */
 @media (max-width: 768px) {
   .nav {
     display: none;
