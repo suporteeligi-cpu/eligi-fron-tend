@@ -37,7 +37,7 @@ export default function HomePage() {
             </div>
 
             <h1 className={styles.title}>
-              O sistema inteligente para barbearias e salões
+              Gerencie, cresça e transforme seu negócio.
             </h1>
 
             <p className={styles.subtitle}>
