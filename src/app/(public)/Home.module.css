@@ -1,21 +1,180 @@
-/* src/app/(public)/Home.module.css */
-
+/* ROOT */
 .root {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--bg-main);
 }
 
+/* MAIN */
 .main {
-  flex: 1;
+  padding-top: 72px;
   display: flex;
   flex-direction: column;
 }
 
-/*
-  A Home é apenas um orquestrador de seções.
-  Nenhum estilo visual específico deve viver aqui.
-  Todas as decisões visuais pertencem às sections.
-*/
+/* HERO */
+.hero {
+  padding: 96px 24px 72px;
+  display: flex;
+  justify-content: center;
+}
+
+.heroCard {
+  max-width: 720px;
+  width: 100%;
+
+  padding: 56px 48px;
+  border-radius: 28px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme='dark'] .heroCard {
+  background: rgba(14, 14, 14, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+}
+
+/* LOGO */
+.logoWrapper {
+  position: relative;
+  width: 180px;      /* 👈 tamanho ideal pro card */
+  height: 180px;
+  margin-bottom: 20px;
+
+  animation: logo-gel 1.6s cubic-bezier(0.22, 1.28, 0.36, 1) both;
+}
+
+.logoLight,
+.logoDark {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Tema */
+.logoLight {
+  opacity: 1;
+}
+
+.logoDark {
+  opacity: 0;
+}
+
+:root[data-theme='dark'] .logoLight {
+  opacity: 0;
+}
+
+:root[data-theme='dark'] .logoDark {
+  opacity: 1;
+}
+
+/* Animação gelatinosa premium */
+@keyframes logo-gel {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+
+  70% {
+    transform: scale(0.97);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* TYPOGRAPHY */
+.title {
+  font-size: 36px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  margin-bottom: 18px;
+}
+
+.subtitle {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin-bottom: 36px;
+}
+
+/* ACTIONS */
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.primaryBtn {
+  padding: 14px 26px;
+  border-radius: 999px;
+
+  background: linear-gradient(135deg, #ff2b2b, #d60000);
+  color: #fff;
+
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.primaryBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px rgba(214, 0, 0, 0.35);
+}
+
+.secondaryBtn {
+  padding: 14px 26px;
+  border-radius: 999px;
+
+  background: transparent;
+  color: var(--text-main);
+
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme='dark'] .secondaryBtn {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .heroCard {
+    padding: 40px 24px;
+  }
+
+  .logoWrapper {
+    width: 140px;
+    height: 140px;
+    margin-bottom: 28px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+}
