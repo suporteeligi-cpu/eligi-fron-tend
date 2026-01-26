@@ -303,24 +303,36 @@
   }
 
   .agendaContainer {
-    padding: 0 24px;
-    gap: 48px;
+    padding: 0 20px;
+    gap: 32px;
+
+    /* força layout mais justo */
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: center;
   }
 
   .agendaContent {
-    text-align: left;
+    max-width: none;
   }
 
   .sectionTitle {
-    font-size: 28px;
+    font-size: 26px;
+    line-height: 1.2;
   }
 
   .sectionText {
-    font-size: 16px;
+    font-size: 15.5px;
+  }
+
+  .agendaVisual {
+    justify-content: flex-end;
   }
 
   .agendaImage {
-    max-width: 320px;
-    border-radius: 22px;
+    max-width: 240px;
+    border-radius: 20px;
+
+    /* aproxima visualmente do texto */
+    margin-right: -12px;
   }
 }
