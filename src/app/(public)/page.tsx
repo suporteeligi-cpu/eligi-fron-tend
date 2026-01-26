@@ -1,4 +1,3 @@
-// src/app/(public)/page.tsx
 'use client'
 
 import Image from 'next/image'
@@ -12,7 +11,9 @@ export default function HomePage() {
       <Navbar />
 
       <main className={styles.main}>
-        {/* HERO */}
+        {/* =====================
+            HERO
+        ===================== */}
         <section className={styles.hero}>
           <div className={styles.heroCard}>
             {/* LOGO — troca via CSS / data-theme */}
@@ -56,32 +57,43 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* DASHBOARD PREVIEW */}
-        <section className={styles.preview}>
-          <div className={styles.previewCard}>
-            <h2 className={styles.sectionTitle}>
-              Conheça o Dashboard ELIGI
-            </h2>
-
-            <p className={styles.sectionSubtitle}>
-              Um painel claro, rápido e inteligente, inspirado no padrão Apple.
-            </p>
-
-            <div className={styles.miniGrid}>
-              <div className={styles.miniCard}>
-                <span className={styles.miniLabel}>Faturamento</span>
-                <strong>R$ 12.450</strong>
+        {/* =====================
+            AGENDA (NOVA SEÇÃO)
+        ===================== */}
+        <section className={styles.agenda}>
+          <div className={styles.agendaContainer}>
+            {/* TEXTO */}
+            <div className={styles.agendaContent}>
+              <div className={styles.agendaBadge}>
+                <span className={styles.agendaIcon}>📅</span>
+                <span>Agenda</span>
               </div>
 
-              <div className={styles.miniCard}>
-                <span className={styles.miniLabel}>Agenda do dia</span>
-                <strong>18 horários</strong>
-              </div>
+              <h2 className={styles.sectionTitle}>
+                Chega de perder tempo com ligações e mensagens
+              </h2>
 
-              <div className={styles.miniCard}>
-                <span className={styles.miniLabel}>Ocupação</span>
-                <strong>92%</strong>
-              </div>
+              <p className={styles.sectionText}>
+                Seus clientes agendam sozinhos, a qualquer hora do dia.
+                Enquanto isso, você visualiza sua agenda em tempo real,
+                organiza sua rotina e ganha mais tranquilidade no dia a dia.
+                <strong>
+                  {' '}
+                  Mais comodidade para eles, mais controle para você.
+                </strong>
+              </p>
+            </div>
+
+            {/* IMAGEM */}
+            <div className={styles.agendaVisual}>
+              <Image
+                src="/images/agenda-preview.png"
+                alt="Agenda ELIGI"
+                width={420}
+                height={760}
+                className={styles.agendaImage}
+                priority
+              />
             </div>
           </div>
         </section>
