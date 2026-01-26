@@ -1,11 +1,34 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Navbar from '../components/navbar/Navbar'
 import Footer from '../components/footer/Footer'
 import styles from './Home.module.css'
 
 export default function HomePage() {
+  const agendaRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const section = agendaRef.current
+    if (!section) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          section.classList.add(styles.agendaVisible)
+        }
+      },
+      {
+        threshold: 0.25,
+      }
+    )
+
+    observer.observe(section)
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <div className={styles.root}>
       <Navbar />
@@ -56,21 +79,19 @@ export default function HomePage() {
         </section>
 
         {/* =====================
-            AGENDA
+            AGENDA (ANIMADA)
         ===================== */}
-        <section className={styles.agenda}>
+        <section ref={agendaRef} className={styles.agenda}>
           <div className={styles.agendaContainer}>
             {/* TEXTO */}
             <div className={styles.agendaContent}>
               <div className={styles.agendaBadge}>
-                {/* ÍCONE SVG (calendário minimal) */}
                 <svg
                   className={styles.agendaIcon}
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
                   fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
                 >
                   <rect
                     x="3"

@@ -180,12 +180,23 @@
 }
 
 /* =========================
-   AGENDA
+   AGENDA – BASE
 ========================= */
 
 .agenda {
   padding: 140px 0;
   background: var(--bg-default);
+
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.agendaVisible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .agendaContainer {
@@ -222,7 +233,6 @@
 
 .agendaIcon {
   display: block;
-  color: currentColor;
 }
 
 .sectionTitle {
@@ -245,10 +255,21 @@
   font-weight: 600;
 }
 
-/* IMAGEM (SEM FUNDO / SEM CARD) */
+/* IMAGEM */
 .agendaVisual {
   display: flex;
   justify-content: flex-start;
+
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.15s,
+    transform 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+}
+
+.agendaVisible .agendaVisual {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .agendaImage {
@@ -256,22 +277,23 @@
   height: auto;
   max-width: 420px;
 
-  border-radius: 28px;
-
-  /* zero fundo, zero card */
   background: none;
   box-shadow: none;
+  border-radius: 28px;
 }
 
-/* RESPONSIVO */
+/* =========================
+   MOBILE – PROFISSIONAL
+========================= */
+
 @media (max-width: 1024px) {
   .agendaContainer {
     grid-template-columns: 1fr;
-    gap: 56px;
+    gap: 64px;
   }
 
   .agendaVisual {
-    justify-content: flex-start;
+    justify-content: center;
   }
 }
 
@@ -282,14 +304,23 @@
 
   .agendaContainer {
     padding: 0 24px;
+    gap: 48px;
+  }
+
+  .agendaContent {
+    text-align: left;
   }
 
   .sectionTitle {
-    font-size: 30px;
+    font-size: 28px;
+  }
+
+  .sectionText {
+    font-size: 16px;
   }
 
   .agendaImage {
-    max-width: 340px;
-    border-radius: 24px;
+    max-width: 320px;
+    border-radius: 22px;
   }
 }
