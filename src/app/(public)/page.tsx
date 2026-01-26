@@ -16,7 +16,6 @@ export default function HomePage() {
         ===================== */}
         <section className={styles.hero}>
           <div className={styles.heroCard}>
-            {/* LOGO — troca via CSS / data-theme */}
             <div className={styles.logoWrapper}>
               <Image
                 src="/images/logo.png"
@@ -26,7 +25,6 @@ export default function HomePage() {
                 priority
                 className={styles.logoLight}
               />
-
               <Image
                 src="/images/logo.branco.png"
                 alt="ELIGI"
@@ -58,14 +56,59 @@ export default function HomePage() {
         </section>
 
         {/* =====================
-            AGENDA (NOVA SEÇÃO)
+            AGENDA
         ===================== */}
         <section className={styles.agenda}>
           <div className={styles.agendaContainer}>
             {/* TEXTO */}
             <div className={styles.agendaContent}>
               <div className={styles.agendaBadge}>
-                <span className={styles.agendaIcon}>📅</span>
+                {/* ÍCONE SVG (calendário minimal) */}
+                <svg
+                  className={styles.agendaIcon}
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="3"
+                    y="4"
+                    width="18"
+                    height="17"
+                    rx="3"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+                  <line
+                    x1="3"
+                    y1="9"
+                    x2="21"
+                    y2="9"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+                  <line
+                    x1="8"
+                    y1="2.5"
+                    x2="8"
+                    y2="6"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <line
+                    x1="16"
+                    y1="2.5"
+                    x2="16"
+                    y2="6"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+
                 <span>Agenda</span>
               </div>
 
@@ -75,8 +118,8 @@ export default function HomePage() {
 
               <p className={styles.sectionText}>
                 Seus clientes agendam sozinhos, a qualquer hora do dia.
-                Enquanto isso, você visualiza sua agenda em tempo real,
-                organiza sua rotina e ganha mais tranquilidade no dia a dia.
+                Enquanto isso, você acompanha sua agenda em tempo real,
+                organiza sua rotina e trabalha com mais tranquilidade.
                 <strong>
                   {' '}
                   Mais comodidade para eles, mais controle para você.

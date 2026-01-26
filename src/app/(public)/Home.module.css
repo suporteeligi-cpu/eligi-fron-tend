@@ -180,7 +180,7 @@
 }
 
 /* =========================
-   AGENDA SECTION
+   AGENDA
 ========================= */
 
 .agenda {
@@ -189,13 +189,13 @@
 }
 
 .agendaContainer {
-  max-width: 1200px;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 0 48px;
 
   display: grid;
-  grid-template-columns: 1fr 520px;
-  gap: 80px;
+  grid-template-columns: 1fr 460px;
+  gap: 56px;
   align-items: center;
 }
 
@@ -212,7 +212,7 @@
   padding: 10px 16px;
   border-radius: 999px;
 
-  background: rgba(0, 180, 180, 0.08);
+  background: rgba(0, 150, 150, 0.08);
   color: #0aa;
 
   font-size: 14px;
@@ -221,15 +221,15 @@
 }
 
 .agendaIcon {
-  font-size: 16px;
+  display: block;
+  color: currentColor;
 }
 
 .sectionTitle {
   font-size: 36px;
-  line-height: 1.2;
+  line-height: 1.15;
   font-weight: 600;
   letter-spacing: -0.02em;
-
   color: var(--text-primary);
   margin-bottom: 20px;
 }
@@ -245,12 +245,10 @@
   font-weight: 600;
 }
 
-/* IMAGEM */
+/* IMAGEM (SEM FUNDO / SEM CARD) */
 .agendaVisual {
-  position: relative;
-
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .agendaImage {
@@ -258,24 +256,18 @@
   height: auto;
   max-width: 420px;
 
-  border-radius: 36px;
+  border-radius: 28px;
 
-  box-shadow:
-    0 40px 80px rgba(0, 0, 0, 0.18),
-    0 10px 24px rgba(0, 0, 0, 0.12);
-
-  background: var(--bg-elevated);
+  /* zero fundo, zero card */
+  background: none;
+  box-shadow: none;
 }
 
 /* RESPONSIVO */
 @media (max-width: 1024px) {
   .agendaContainer {
     grid-template-columns: 1fr;
-    gap: 64px;
-  }
-
-  .agendaContent {
-    max-width: 100%;
+    gap: 56px;
   }
 
   .agendaVisual {
@@ -298,6 +290,6 @@
 
   .agendaImage {
     max-width: 340px;
-    border-radius: 28px;
+    border-radius: 24px;
   }
 }
