@@ -83,3 +83,32 @@
   font-weight: 600;
   color: #22c55e;
 }
+
+/* CORES */
+.green .line {
+  stroke: #22c55e;
+}
+.green .percent {
+  color: #22c55e;
+}
+
+.red .line {
+  stroke: #ef4444;
+}
+.red .percent {
+  color: #ef4444;
+}
+
+.blue .line {
+  stroke: #3b82f6;
+}
+.blue .percent {
+  color: #3b82f6;
+}
+
+.purple .line {
+  stroke: #8b5cf6;
+}
+.purple .percent {
+  color: #8b5cf6;
+}

@@ -1,0 +1,56 @@
+.card {
+  background: var(--bg-elevated);
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+}
+
+.value {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.meta {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.chart {
+  margin: 12px 0;
+  width: 100%;
+  height: auto;
+}
+
+.line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.percent {
+  font-size: 14px;
+  font-weight: 600;
+  align-self: flex-end;
+}
+
+/* VARIANTS */
+.green .line,
+.green .percent { color: #22c55e; stroke: #22c55e; }
+
+.blue .line,
+.blue .percent { color: #3b82f6; stroke: #3b82f6; }
+
+.red .line,
+.red .percent { color: #ffea00; stroke: #ffea00; }
+
+.purple .line,
+.purple .percent { color: #8b5cf6; stroke: #8b5cf6; }
