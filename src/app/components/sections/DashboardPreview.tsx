@@ -58,7 +58,7 @@ export default function DashboardPreview() {
 
             <DashboardMetricCard
               label="OCUPAÇÃO"
-              value="82%"
+              value="27%"
               meta="Média semanal"
               percent="-5,67%"
               variant="red"

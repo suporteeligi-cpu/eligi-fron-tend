@@ -50,7 +50,26 @@
 .blue .percent { color: #3b82f6; stroke: #3b82f6; }
 
 .red .line,
-.red .percent { color: #ffea00; stroke: #ffea00; }
+.red .percent { color: #ff0000; stroke: #ff0000; }
 
 .purple .line,
 .purple .percent { color: #8b5cf6; stroke: #8b5cf6; }
+
+.label {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+
+  /* 🔥 MAIS BOLD, IGUAL AO TRENCHART */
+  font-weight: 700;
+
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+.line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+
+  transition: stroke-dashoffset 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -13,6 +13,38 @@ interface DashboardMetricCardProps {
   variant: Variant
 }
 
+/* PATHS DIFERENTES POR VARIANT */
+const chartPaths: Record<Variant, string> = {
+  green: `
+    M2 26
+    C12 20, 22 28, 32 22
+    S52 16, 62 18
+    S82 24, 92 14
+    S108 10, 118 12
+  `,
+  blue: `
+    M2 30
+    C14 18, 26 20, 38 24
+    S58 30, 68 20
+    S88 12, 98 18
+    S112 22, 118 14
+  `,
+  red: `
+    M2 22
+    C12 28, 24 18, 36 26
+    S56 34, 66 22
+    S86 12, 96 28
+    S110 20, 118 24
+  `,
+  purple: `
+    M2 28
+    C14 24, 26 16, 38 18
+    S58 22, 68 30
+    S88 34, 98 20
+    S112 12, 118 16
+  `,
+}
+
 export default function DashboardMetricCard({
   label,
   value,
@@ -22,6 +54,7 @@ export default function DashboardMetricCard({
 }: DashboardMetricCardProps) {
   const pathRef = useRef<SVGPathElement | null>(null)
 
+  /* 🔒 Efeito SEMPRE com deps fixo */
   useEffect(() => {
     const path = pathRef.current
     if (!path) return
@@ -46,14 +79,11 @@ export default function DashboardMetricCard({
         viewBox="0 0 120 40"
         fill="none"
         className={styles.chart}
-        aria-hidden
+        aria-hidden="true"
       >
         <path
           ref={pathRef}
-          d="M2 30
-             C15 20, 30 22, 45 18
-             S75 14, 95 10
-             S110 8, 118 6"
+          d={chartPaths[variant]}
           className={styles.line}
         />
       </svg>
