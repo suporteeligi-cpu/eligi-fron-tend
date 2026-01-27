@@ -2,7 +2,7 @@
 
 .hero {
   position: relative;
-  padding: 160px 24px 140px;
+  padding: 50px 10px 10px;
   overflow: hidden;
 }
 
@@ -12,7 +12,7 @@
   background:
     radial-gradient(
       circle at 50% 0%,
-      rgba(225, 6, 0, 0.18),
+      rgba(223, 223, 223, 0.193),
       transparent 60%
     );
   pointer-events: none;
