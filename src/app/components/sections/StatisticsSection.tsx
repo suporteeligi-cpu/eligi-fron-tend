@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import Image from 'next/image'
 import styles from './StatisticsSection.module.css'
+import TrendChart from '../ui/TrendChart'
 
 export default function StatisticsSection() {
   const sectionRef = useRef<HTMLElement | null>(null)
@@ -28,21 +28,15 @@ export default function StatisticsSection() {
   return (
     <section ref={sectionRef} className={styles.stats}>
       <div className={styles.container}>
-        {/* IMAGEM (ESQUERDA) */}
+        {/* VISUAL (ESQUERDA) */}
         <div className={styles.visual}>
-          <Image
-            src="/images/stats-preview.png"
-            alt="Estatísticas ELIGI"
-            width={420}
-            height={760}
-            className={styles.image}
-            priority
-          />
+          <TrendChart />
         </div>
 
         {/* TEXTO (DIREITA) */}
         <div className={styles.content}>
           <div className={styles.badge}>
+            {/* ÍCONE SVG – GRÁFICO */}
             <svg
               className={styles.icon}
               width="18"
@@ -95,8 +89,8 @@ export default function StatisticsSection() {
 
           <p className={styles.text}>
             Visualize seu faturamento e o comportamento dos clientes em tempo
-            real. Tudo o que você precisa para crescer com estratégia, decisões
-            mais inteligentes e controle total do seu negócio.
+            real. Tudo o que você precisa para crescer com estratégia,
+            decisões mais inteligentes e controle total do seu negócio.
           </p>
         </div>
       </div>

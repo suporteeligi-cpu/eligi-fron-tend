@@ -3,7 +3,7 @@
 ========================= */
 
 .stats {
-  padding: 140px 0;
+  padding: -100px 0;
   background: var(--bg-default);
 
   opacity: 0;
@@ -21,11 +21,11 @@
 .container {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 0 48px;
+  padding: 0 10px;
 
   display: grid;
   grid-template-columns: 460px 1fr; /* imagem | texto */
-  gap: 56px;
+  gap: 30px;
   align-items: center;
 }
 
@@ -69,8 +69,8 @@
   padding: 10px 16px;
   border-radius: 999px;
 
-  background: rgba(120, 0, 200, 0.08);
-  color: #8b5cf6;
+  background: rgba(10, 200, 0, 0.08);
+  color: #22c55e;
 
   font-size: 14px;
   font-weight: 600;

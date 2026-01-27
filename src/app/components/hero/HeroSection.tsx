@@ -7,15 +7,16 @@ import styles from './HeroSection.module.css'
 
 type Theme = 'light' | 'dark'
 
-export default function HeroSection() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof document === 'undefined') return 'light'
+const readThemeFromDOM = (): Theme => {
+  if (typeof document === 'undefined') return 'light'
+  return (
+    (document.documentElement.getAttribute('data-theme') as Theme) ??
+    'light'
+  )
+}
 
-    return (
-      (document.documentElement.getAttribute('data-theme') as Theme) ??
-      'light'
-    )
-  })
+export default function HeroSection() {
+  const [theme, setTheme] = useState<Theme>(readThemeFromDOM)
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -23,10 +24,10 @@ export default function HeroSection() {
     const root = document.documentElement
 
     const observer = new MutationObserver(() => {
-      const current =
-        (root.getAttribute('data-theme') as Theme) ?? 'light'
+      const nextTheme = readThemeFromDOM()
 
-      setTheme(current)
+      // evita render desnecessário
+      setTheme(prev => (prev === nextTheme ? prev : nextTheme))
     })
 
     observer.observe(root, {
@@ -56,8 +57,11 @@ export default function HeroSection() {
           />
 
           <h1 className={styles.title}>
-            Gestão inteligente para
-            <span className={styles.highlight}> barbearias e salões</span>
+            Gestão inteligente para o
+            <span className={styles.highlight}>
+              {' '}
+              seu negócio e sua equipe.
+            </span>
           </h1>
 
           <p className={styles.subtitle}>
