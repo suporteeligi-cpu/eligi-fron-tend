@@ -1,21 +1,41 @@
-// src/app/components/hero/HeroSection.tsx
 'use client'
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import styles from './HeroSection.module.css'
 
+type Theme = 'light' | 'dark'
+
 export default function HeroSection() {
-  const [theme] = useState<'light' | 'dark'>(() => {
+  const [theme, setTheme] = useState<Theme>(() => {
     if (typeof document === 'undefined') return 'light'
 
     return (
-      (document.documentElement.getAttribute('data-theme') as
-        | 'light'
-        | 'dark') ?? 'light'
+      (document.documentElement.getAttribute('data-theme') as Theme) ??
+      'light'
     )
   })
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    const root = document.documentElement
+
+    const observer = new MutationObserver(() => {
+      const current =
+        (root.getAttribute('data-theme') as Theme) ?? 'light'
+
+      setTheme(current)
+    })
+
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
+
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <section className={styles.hero}>
@@ -26,12 +46,12 @@ export default function HeroSection() {
           <Image
             src={
               theme === 'dark'
-                ? '/images/globo-dark.png'
-                : '/images/globo-light.png'
+                ? '/images/logo.branco.png'
+                : '/images/logo.png'
             }
             alt="ELIGI"
-            width={96}
-            height={96}
+            width={150}
+            height={150}
             priority
           />
 

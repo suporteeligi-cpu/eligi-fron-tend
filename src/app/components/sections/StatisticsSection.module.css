@@ -1,0 +1,147 @@
+/* =========================
+   ESTATÍSTICAS (INVERTIDO)
+========================= */
+
+.stats {
+  padding: 140px 0;
+  background: var(--bg-default);
+
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 48px;
+
+  display: grid;
+  grid-template-columns: 460px 1fr; /* imagem | texto */
+  gap: 56px;
+  align-items: center;
+}
+
+/* IMAGEM */
+.visual {
+  display: flex;
+  justify-content: flex-start;
+
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.15s,
+    transform 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+}
+
+.visible .visual {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.image {
+  width: 100%;
+  height: auto;
+  max-width: 420px;
+
+  background: none;
+  box-shadow: none;
+  border-radius: 28px;
+}
+
+/* TEXTO */
+.content {
+  max-width: 520px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 16px;
+  border-radius: 999px;
+
+  background: rgba(120, 0, 200, 0.08);
+  color: #8b5cf6;
+
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.icon {
+  display: block;
+}
+
+.title {
+  font-size: 36px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+.text {
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+/* =========================
+   MOBILE – IGUAL À AGENDA
+========================= */
+
+@media (max-width: 1024px) {
+  .container {
+    grid-template-columns: 1fr;
+    gap: 64px;
+  }
+
+  .visual {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .stats {
+    padding: 96px 0;
+  }
+
+  .container {
+    padding: 0 20px;
+    gap: 32px;
+
+    /* layout justo lado a lado */
+    grid-template-columns: 0.9fr 1.1fr;
+    align-items: center;
+  }
+
+  .visual {
+    justify-content: flex-start;
+  }
+
+  .image {
+    max-width: 240px;
+    border-radius: 20px;
+
+    /* entra levemente pela esquerda */
+    margin-left: -12px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .text {
+    font-size: 15.5px;
+  }
+}
