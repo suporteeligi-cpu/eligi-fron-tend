@@ -23,7 +23,8 @@
 }
 
 .kicker {
-  font-size: 13px;
+  font-size: 16px;
+  font-weight: 700;
   letter-spacing: 0.14em;
   color: var(--text-tertiary);
 }

@@ -38,8 +38,8 @@
   padding: 10px 16px;
   border-radius: 999px;
 
-  background: rgba(0, 150, 150, 0.08);
-  color: #0aa;
+  background: rgba(150, 0, 0, 0.08);
+  color: rgb(170, 0, 0);
 
   font-size: 14px;
   font-weight: 600;

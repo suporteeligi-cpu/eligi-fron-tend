@@ -8,7 +8,8 @@ import AgendaSection from '../components/sections/AgendaSection'
 import Statistics from '../components/sections/StatisticsSection'
 import DashboardPreview from '../components/sections/DashboardPreview'
 import ProfessionalsSection from '../components/sections/ProfessionalsSection'
-
+import Philosophy from '../components/sections/Philosophy'
+import Ecosystem from '../components/sections/Ecosystem'
 
 import styles from './Home.module.css'
 
@@ -22,7 +23,9 @@ export default function HomePage() {
         <AgendaSection />
         <Statistics />
         <ProfessionalsSection />
+        <Philosophy />
         <DashboardPreview />
+        <Ecosystem />
       </main>
 
       <Footer />

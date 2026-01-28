@@ -2,10 +2,11 @@
 
 .section {
   padding: 140px 24px;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(225, 6, 0, 0.04)
+  background:
+    linear-gradient(
+      180deg,
+      rgba(206, 206, 206, 0.265),
+      rgb(255, 255, 255)
   );
 }
 
@@ -16,12 +17,12 @@
 
 .kicker {
   display: inline-block;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--brand);
-  margin-bottom: 16px;
+  margin-bottom: 5px;
 }
 
 .title {

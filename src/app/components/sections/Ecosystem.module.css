@@ -1,97 +1,169 @@
-/* src/app/components/sections/Ecosystem.module.css */
-
 .section {
-  padding: 140px 24px;
+  padding: 96px 0;
+  background: var(--bg-default);
+
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1180px;
   margin: 0 auto;
+  padding: 0 40px;
 }
 
+/* HEADER */
 .header {
-  max-width: 720px;
-  margin-bottom: 80px;
+  max-width: 620px;
+  margin-bottom: 56px;
 }
 
 .kicker {
-  display: inline-block;
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--brand);
+  color: var(--text-tertiary);
   margin-bottom: 16px;
+  display: inline-block;
 }
 
 .title {
-  font-size: 44px;
+  font-size: 36px;
   font-weight: 600;
-  letter-spacing: -0.025em;
-  margin-bottom: 18px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
 }
 
 .subtitle {
-  font-size: 18px;
-  color: var(--text-muted);
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--text-secondary);
 }
 
+/* GRID */
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 32px;
+  gap: 24px;
 }
 
+/* CARD */
 .card {
-  padding: 32px 30px;
-  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border-radius: 28px;
+  padding: 28px;
 
-  background: var(--bg-glass);
-  backdrop-filter: blur(var(--blur-sm));
-  -webkit-backdrop-filter: blur(var(--blur-sm));
-
-  border: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 
   transition:
-    transform 0.4s var(--ease),
-    box-shadow 0.4s var(--ease),
-    background 0.4s var(--ease);
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-md);
-  background: var(--bg-elevated);
 }
 
+/* ICON */
+.iconWrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.iconWrap svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+}
+
+/* TITLES */
 .cardTitle {
   font-size: 18px;
   font-weight: 600;
-  margin-bottom: 10px;
+  letter-spacing: -0.01em;
 }
 
 .cardDescription {
-  font-size: 15px;
-  color: var(--text-muted);
+  font-size: 15.5px;
   line-height: 1.6;
+  color: var(--text-secondary);
 }
 
+/* COLOR VARIANTS */
+.blue { color: #3b82f6; }
+.green { color: #22c55e; }
+.red { color: #ef4444; }
+.purple { color: #8b5cf6; }
+.orange { color: #f97316; }
+.teal { color: #14b8a6; }
+
+/* TABLET */
 @media (max-width: 1024px) {
   .grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .title {
+    font-size: 32px;
+  }
 }
 
+/* MOBILE */
 @media (max-width: 640px) {
   .section {
-    padding: 100px 20px;
+    padding: 96px 0;
+  }
+
+  .container {
+    padding: 0 20px;
+  }
+
+  .header {
+    margin-bottom: 40px;
   }
 
   .title {
-    font-size: 34px;
+    font-size: 26px;
+  }
+
+  .subtitle {
+    font-size: 15.5px;
   }
 
   .grid {
     grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .card {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .cardTitle {
+    font-size: 17px;
+  }
+
+  .cardDescription {
+    font-size: 14.5px;
   }
 }
