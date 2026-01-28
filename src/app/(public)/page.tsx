@@ -7,6 +7,8 @@ import Hero from '../components/hero/HeroSection'
 import AgendaSection from '../components/sections/AgendaSection'
 import Statistics from '../components/sections/StatisticsSection'
 import DashboardPreview from '../components/sections/DashboardPreview'
+import ProfessionalsSection from '../components/sections/ProfessionalsSection'
+
 
 import styles from './Home.module.css'
 
@@ -19,6 +21,7 @@ export default function HomePage() {
         <Hero />
         <AgendaSection />
         <Statistics />
+        <ProfessionalsSection />
         <DashboardPreview />
       </main>
 
