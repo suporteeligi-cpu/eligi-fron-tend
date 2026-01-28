@@ -2,12 +2,24 @@
 
 .section {
   padding: 140px 24px;
+
+  /* LIGHT MODE */
   background:
     linear-gradient(
       180deg,
       rgba(206, 206, 206, 0.265),
       rgb(255, 255, 255)
-  );
+    );
+}
+
+:root[data-theme='dark'] .section {
+  /* DARK MODE */
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(0, 0, 0, 0.35)
+    );
 }
 
 .container {
