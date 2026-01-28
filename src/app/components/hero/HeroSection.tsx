@@ -10,7 +10,7 @@ export default function HeroSection() {
 
       <div className={styles.container}>
         <div className={styles.content}>
-          {/* LOGO — PROTAGONISTA */}
+          {/* LOGO — LIGHT / DARK CONTROLADO POR CSS */}
           <div className={styles.logoWrapper}>
             <Image
               src="/images/logo.png"
@@ -18,11 +18,20 @@ export default function HeroSection() {
               width={220}
               height={220}
               priority
-              className={styles.logo}
+              className={styles.logoLight}
+            />
+
+            <Image
+              src="/images/logo.branco.png"
+              alt="ELIGI"
+              width={220}
+              height={220}
+              priority
+              className={styles.logoDark}
             />
           </div>
 
-          {/* TÍTULO — QUASE COLADO */}
+          {/* TÍTULO */}
           <h1 className={styles.title}>
             Gerencie, cresça e
             <br />
