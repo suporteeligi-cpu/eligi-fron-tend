@@ -127,7 +127,7 @@
   }
 }
 
-/* MOBILE */
+/* MOBILE — AJUSTADO */
 @media (max-width: 640px) {
   .section {
     padding: 96px 0;
@@ -138,7 +138,7 @@
   }
 
   .header {
-    margin-bottom: 40px;
+    margin-bottom: 32px;
   }
 
   .title {
@@ -149,18 +149,34 @@
     font-size: 15.5px;
   }
 
+  /* 🔥 GRID HORIZONTAL (3 COLUNAS) */
   .grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 80%;
+    grid-template-columns: unset;
+
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .grid::-webkit-scrollbar {
+    display: none;
   }
 
   .card {
-    padding: 22px;
+    scroll-snap-align: start;
+
+    padding: 20px;
     border-radius: 22px;
   }
 
   .cardTitle {
-    font-size: 17px;
+    font-size: 16.5px;
   }
 
   .cardDescription {
