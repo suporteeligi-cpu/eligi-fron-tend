@@ -4,6 +4,8 @@ import Navbar from '../components/navbar/Navbar'
 import Footer from '../components/footer/Footer'
 
 import Hero from '../components/hero/HeroSection'
+import FloatingWhatsApp from '../components/ui/FloatingWhatsApp'
+
 import AgendaSection from '../components/sections/AgendaSection'
 import Statistics from '../components/sections/StatisticsSection'
 import DashboardPreview from '../components/sections/DashboardPreview'
@@ -26,6 +28,7 @@ export default function HomePage() {
         <Philosophy />
         <DashboardPreview />
         <Ecosystem />
+        <FloatingWhatsApp />
       </main>
 
       <Footer />
