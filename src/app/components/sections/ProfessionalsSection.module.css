@@ -20,7 +20,7 @@
   padding: 0 40px;
 
   display: grid;
-  grid-template-columns: 1fr 460px; /* texto | imagem */
+  grid-template-columns: 1fr 460px;
   gap: 40px;
   align-items: center;
 }
@@ -34,20 +34,13 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-
   padding: 10px 16px;
   border-radius: 999px;
-
   background: rgba(150, 0, 0, 0.08);
   color: rgb(170, 0, 0);
-
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 24px;
-}
-
-.icon {
-  display: block;
 }
 
 .title {
@@ -70,67 +63,65 @@
   font-weight: 600;
 }
 
-/* IMAGEM */
+/* CARROSSEL */
 .visual {
-  display: flex;
-  justify-content: flex-end;
-
-  opacity: 0;
-  transform: translateY(24px);
-  transition:
-    opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.15s,
-    transform 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+  overflow: hidden;
 }
 
-.visible .visual {
-  opacity: 1;
-  transform: translateY(0);
+.carousel {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  cursor: grab;
+  padding-bottom: 8px;
+
+  scrollbar-width: none;
+}
+
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.grabbing {
+  cursor: grabbing;
+}
+
+.card {
+  flex: 0 0 auto;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  transform: translateY(-6px) scale(1.015);
 }
 
 .image {
   width: 100%;
+  max-width: 320px;
   height: auto;
-  max-width: 420px;
-
-  background: none;
-  box-shadow: none;
   border-radius: 28px;
+  user-select: none;
+  pointer-events: none;
 }
 
-/* MOBILE – MESMO PADRÃO DAS OUTRAS */
+/* MOBILE */
 @media (max-width: 1024px) {
   .container {
     grid-template-columns: 1fr;
     gap: 56px;
   }
-
-  .visual {
-    justify-content: center;
-  }
 }
 
 @media (max-width: 640px) {
-  .section {
-    padding: 96px 0;
-  }
-
   .container {
     padding: 0 20px;
     gap: 32px;
-
-    /* layout justo lado a lado */
-    grid-template-columns: 1.1fr 0.9fr;
-    align-items: center;
-  }
-
-  .visual {
-    justify-content: flex-end;
   }
 
   .image {
-    max-width: 240px;
+    max-width: 220px;
     border-radius: 20px;
-    margin-right: -12px;
   }
 
   .title {
