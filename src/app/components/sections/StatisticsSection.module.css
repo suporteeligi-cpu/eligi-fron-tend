@@ -105,7 +105,7 @@
 
 @media (max-width: 640px) {
   .container {
-    padding: 0 20px;
+    padding: 30px 20px;
     gap: 32px;
   }
 
