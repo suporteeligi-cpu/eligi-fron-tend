@@ -14,8 +14,9 @@ const images = [
 
 export default function ProfessionalsSection() {
   const sectionRef = useRef<HTMLElement | null>(null)
-  const trackRef = useRef<HTMLDivElement | null>(null)
+  const carouselRef = useRef<HTMLDivElement | null>(null)
 
+  /* reveal */
   useEffect(() => {
     const section = sectionRef.current
     if (!section) return
@@ -33,102 +34,68 @@ export default function ProfessionalsSection() {
     return () => observer.disconnect()
   }, [])
 
+  /* carrossel infinito + drag */
   useEffect(() => {
-    const track = trackRef.current
-    if (!track) return
+    const carousel = carouselRef.current
+    if (!carousel) return
 
     let isDown = false
-    let lastX = 0
-    let velocity = 0
-    let raf: number
+    let startX = 0
+    let scrollLeft = 0
 
-    const cards = Array.from(track.children) as HTMLElement[]
-    const cardWidth = cards[0].offsetWidth + 32
+    const pause = () =>
+      carousel.style.animationPlayState = 'paused'
+    const play = () =>
+      carousel.style.animationPlayState = 'running'
 
-    const update = () => {
-      const center = track.scrollLeft + track.offsetWidth / 2
+    const getX = (e: MouseEvent | TouchEvent) =>
+      'touches' in e ? e.touches[0].pageX : e.pageX
 
-      cards.forEach(card => {
-        const cardCenter = card.offsetLeft + card.offsetWidth / 2
-        const distance = center - cardCenter
-        const abs = Math.abs(distance)
-
-        const max = track.offsetWidth / 2
-        const ratio = Math.min(abs / max, 1)
-
-        const scale = 1 - ratio * 0.25
-        const opacity = 1 - ratio * 0.6
-        const z = -ratio * 120
-
-        card.style.transform = `
-          translateX(${distance * -0.04}px)
-          scale(${scale})
-          translateZ(${z}px)
-        `
-        card.style.opacity = `${opacity}`
-        card.style.zIndex = `${100 - Math.floor(ratio * 100)}`
-      })
-
-      // LOOP INFINITO
-      if (track.scrollLeft <= cardWidth) {
-        track.scrollLeft += cardWidth * images.length
-      } else if (
-        track.scrollLeft >=
-        cardWidth * (images.length * 2)
-      ) {
-        track.scrollLeft -= cardWidth * images.length
-      }
-    }
-
-    const momentum = () => {
-      track.scrollLeft += velocity
-      velocity *= 0.94
-      update()
-      if (Math.abs(velocity) > 0.1) {
-        raf = requestAnimationFrame(momentum)
-      }
-    }
-
-    const start = (x: number) => {
+    const down = (e: MouseEvent | TouchEvent) => {
       isDown = true
-      lastX = x
-      velocity = 0
-      cancelAnimationFrame(raf)
-      track.classList.add(styles.grabbing)
+      pause()
+      startX = getX(e)
+      scrollLeft = carousel.scrollLeft
+      carousel.classList.add(styles.grabbing)
     }
 
-    const move = (x: number) => {
+    const move = (e: MouseEvent | TouchEvent) => {
       if (!isDown) return
-      const delta = lastX - x
-      track.scrollLeft += delta
-      velocity = delta
-      lastX = x
-      update()
+      const x = getX(e)
+      const walk = startX - x
+      carousel.scrollLeft = scrollLeft + walk
     }
 
-    const end = () => {
+    const up = () => {
       isDown = false
-      track.classList.remove(styles.grabbing)
-      raf = requestAnimationFrame(momentum)
+      carousel.classList.remove(styles.grabbing)
     }
 
-    track.addEventListener('mousedown', e => start(e.pageX))
-    track.addEventListener('mousemove', e => move(e.pageX))
-    track.addEventListener('mouseup', end)
-    track.addEventListener('mouseleave', end)
+    carousel.addEventListener('mousedown', down)
+    carousel.addEventListener('mousemove', move)
+    carousel.addEventListener('mouseup', up)
+    carousel.addEventListener('mouseleave', up)
 
-    track.addEventListener('touchstart', e =>
-      start(e.touches[0].pageX)
-    )
-    track.addEventListener('touchmove', e =>
-      move(e.touches[0].pageX)
-    )
-    track.addEventListener('touchend', end)
+    carousel.addEventListener('touchstart', down, { passive: true })
+    carousel.addEventListener('touchmove', move, { passive: true })
+    carousel.addEventListener('touchend', up)
 
-    track.scrollLeft = cardWidth * images.length
-    update()
+    carousel.addEventListener('mouseenter', pause)
+    carousel.addEventListener('mouseleave', play)
 
-    return () => cancelAnimationFrame(raf)
+    return () => {
+      carousel.removeEventListener('mousedown', down)
+      carousel.removeEventListener('mousemove', move)
+      carousel.removeEventListener('mouseup', up)
+      carousel.removeEventListener('mouseleave', up)
+
+      carousel.removeEventListener('touchstart', down)
+      carousel.removeEventListener('touchmove', move)
+      carousel.removeEventListener('touchend', up)
+
+      carousel.removeEventListener('mouseenter', pause)
+      carousel.removeEventListener('mouseleave', play)
+    }
   }, [])
 
   return (
@@ -136,11 +103,13 @@ export default function ProfessionalsSection() {
       <div className={styles.container}>
         <div className={styles.content}>
           <div className={styles.badge}>Profissionais</div>
+
           <h2 className={styles.title}>
             Profissionais realizados,
             <br />
             clientes encantados.
           </h2>
+
           <p className={styles.text}>
             Agendamento inteligente, experiência fluida e controle total da
             agenda.
@@ -148,8 +117,8 @@ export default function ProfessionalsSection() {
         </div>
 
         <div className={styles.visual}>
-          <div ref={trackRef} className={styles.carousel}>
-            {[...images, ...images, ...images].map((src, i) => (
+          <div ref={carouselRef} className={styles.carousel}>
+            {[...images, ...images].map((src, i) => (
               <div key={i} className={styles.card}>
                 <Image
                   src={src}

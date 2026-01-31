@@ -33,7 +33,6 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
   padding: 10px 16px;
   border-radius: 999px;
   background: rgba(150, 0, 0, 0.08);
@@ -48,7 +47,6 @@
   line-height: 1.15;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
@@ -58,25 +56,21 @@
   color: var(--text-secondary);
 }
 
-.text strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-/* CARROSSEL */
+/* VISUAL */
 .visual {
   overflow: hidden;
 }
 
+/* CARROSSEL INFINITO */
 .carousel {
   display: flex;
   gap: 24px;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  cursor: grab;
-  padding-bottom: 8px;
+  width: max-content;
+  animation: scrollX 42s linear infinite;
 
+  overflow-x: auto;
   scrollbar-width: none;
+  cursor: grab;
 }
 
 .carousel::-webkit-scrollbar {
@@ -87,15 +81,30 @@
   cursor: grabbing;
 }
 
+/* animação */
+@keyframes scrollX {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* CARD */
 .card {
   flex: 0 0 auto;
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.35s ease;
 }
 
 .card:hover {
-  transform: translateY(-6px) scale(1.015);
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: var(--shadow-md);
 }
 
+/* IMAGE */
 .image {
   width: 100%;
   max-width: 320px;
@@ -105,7 +114,7 @@
   pointer-events: none;
 }
 
-/* MOBILE */
+/* RESPONSIVO */
 @media (max-width: 1024px) {
   .container {
     grid-template-columns: 1fr;
