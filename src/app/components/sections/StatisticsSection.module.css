@@ -1,5 +1,5 @@
 .section {
-  padding: 96px 0;
+  padding: 48px 0px;
   background: var(--bg-default);
 
   opacity: 0;
@@ -17,7 +17,7 @@
 .container {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 0 40px;
+  padding: 50px 40px;
 
   display: grid;
   grid-template-columns: 1fr 460px;

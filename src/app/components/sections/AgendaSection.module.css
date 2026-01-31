@@ -21,11 +21,11 @@
 .container {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 0 10px;
+  padding: 0px 0px;
 
   display: grid;
   grid-template-columns: 1fr 460px; /* texto | imagem */
-  gap: 30px;
+  gap: 40px;
   align-items: center;
 }
 
