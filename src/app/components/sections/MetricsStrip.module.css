@@ -4,7 +4,7 @@
     #b30000,
     #8f0000
   );
-  padding: 20px 20px;
+  padding: 20px;
 }
 
 .container {
@@ -26,6 +26,7 @@
   font-size: 42px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  line-height: 1.05;
 }
 
 .metric span {
@@ -35,20 +36,37 @@
   opacity: 0.9;
 }
 
-/* Responsivo */
+/* Tablet */
 @media (max-width: 900px) {
   .container {
     grid-template-columns: repeat(2, 1fr);
-    gap: 28px;
-  }
-}
-
-@media (max-width: 480px) {
-  .container {
-    grid-template-columns: 1fr;
+    gap: 24px;
   }
 
   .metric strong {
-    font-size: 36px;
+    font-size: 38px;
+  }
+}
+
+/* Mobile refinado (vertical, compacto, igual desktop) */
+@media (max-width: 480px) {
+  .strip {
+    padding: 16px 14px;
+  }
+
+  .container {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    max-width: 360px; /* 🔥 mantém visual “desktop em miniatura” */
+  }
+
+  .metric strong {
+    font-size: 30px;
+    letter-spacing: -0.015em;
+  }
+
+  .metric span {
+    font-size: 13px;
+    margin-top: 4px;
   }
 }

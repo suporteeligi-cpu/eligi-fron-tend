@@ -49,22 +49,57 @@
   color: var(--text-secondary);
 }
 
-/* GRID */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+/* =========================
+   CARROSSEL
+========================= */
+
+.carousel {
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: grab;
+}
+
+.carousel:active {
+  cursor: grabbing;
+}
+
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.track {
+  display: flex;
+  gap: 20px;
+  width: max-content;
+  animation: scrollX 50s linear infinite;
+}
+
+.carousel:hover .track {
+  animation-play-state: paused;
+}
+
+@keyframes scrollX {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 /* CARD */
 .card {
+  min-width: 260px;
+  max-width: 260px;
+  flex-shrink: 0;
+
   background: var(--bg-elevated);
-  border-radius: 28px;
-  padding: 28px;
+  border-radius: 22px;
+  padding: 22px;
 
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 
   transition:
     transform 0.25s ease,
@@ -95,20 +130,20 @@
   stroke: currentColor;
 }
 
-/* TITLES */
+/* TEXT */
 .cardTitle {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .cardDescription {
-  font-size: 15.5px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.55;
   color: var(--text-secondary);
 }
 
-/* COLOR VARIANTS */
+/* COLORS */
 .blue { color: #3b82f6; }
 .green { color: #22c55e; }
 .red { color: #ef4444; }
@@ -116,70 +151,13 @@
 .orange { color: #f97316; }
 .teal { color: #14b8a6; }
 
-/* TABLET */
-@media (max-width: 1024px) {
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .title {
-    font-size: 32px;
-  }
-}
-
-/* MOBILE — AJUSTADO */
+/* MOBILE */
 @media (max-width: 640px) {
-  .section {
-    padding: 96px 0;
-  }
-
   .container {
     padding: 0 20px;
   }
 
-  .header {
-    margin-bottom: 32px;
-  }
-
   .title {
     font-size: 26px;
-  }
-
-  .subtitle {
-    font-size: 15.5px;
-  }
-
-  /* 🔥 GRID HORIZONTAL (3 COLUNAS) */
-  .grid {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 80%;
-    grid-template-columns: unset;
-
-    gap: 16px;
-    overflow-x: auto;
-    padding-bottom: 8px;
-
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .grid::-webkit-scrollbar {
-    display: none;
-  }
-
-  .card {
-    scroll-snap-align: start;
-
-    padding: 20px;
-    border-radius: 22px;
-  }
-
-  .cardTitle {
-    font-size: 16.5px;
-  }
-
-  .cardDescription {
-    font-size: 14.5px;
   }
 }

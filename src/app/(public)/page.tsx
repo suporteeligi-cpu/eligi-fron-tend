@@ -26,10 +26,10 @@ export default function HomePage() {
         <AgendaSection />
         <MetricsStrip />
         <Statistics />
+        <Ecosystem />
         <ProfessionalsSection />
         <Philosophy />
         <DashboardPreview />
-        <Ecosystem />
         <FloatingWhatsApp />
       </main>
 

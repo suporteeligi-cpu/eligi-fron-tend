@@ -109,17 +109,55 @@ export default function Ecosystem() {
     const section = sectionRef.current
     if (!section) return
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          section.classList.add(styles.visible)
-        }
-      },
-      { threshold: 0.25 }
-    )
+    section.classList.add(styles.visible)
 
-    observer.observe(section)
-    return () => observer.disconnect()
+    const carousel = section.querySelector(`.${styles.carousel}`) as HTMLElement
+    const track = section.querySelector(`.${styles.track}`) as HTMLElement
+    if (!carousel || !track) return
+
+    let isDown = false
+    let startX = 0
+    let scrollLeft = 0
+
+    const getX = (e: MouseEvent | TouchEvent) =>
+      'touches' in e ? e.touches[0].pageX : e.pageX
+
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      isDown = true
+      track.style.animationPlayState = 'paused'
+      startX = getX(e)
+      scrollLeft = carousel.scrollLeft
+    }
+
+    const onMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDown) return
+      const walk = getX(e) - startX
+      carousel.scrollLeft = scrollLeft - walk
+    }
+
+    const onUp = () => {
+      isDown = false
+    }
+
+    carousel.addEventListener('mousedown', onDown)
+    carousel.addEventListener('mousemove', onMove)
+    carousel.addEventListener('mouseup', onUp)
+    carousel.addEventListener('mouseleave', onUp)
+
+    carousel.addEventListener('touchstart', onDown, { passive: true })
+    carousel.addEventListener('touchmove', onMove, { passive: true })
+    carousel.addEventListener('touchend', onUp)
+
+    return () => {
+      carousel.removeEventListener('mousedown', onDown)
+      carousel.removeEventListener('mousemove', onMove)
+      carousel.removeEventListener('mouseup', onUp)
+      carousel.removeEventListener('mouseleave', onUp)
+
+      carousel.removeEventListener('touchstart', onDown)
+      carousel.removeEventListener('touchmove', onMove)
+      carousel.removeEventListener('touchend', onUp)
+    }
   }, [])
 
   return (
@@ -139,20 +177,22 @@ export default function Ecosystem() {
           </p>
         </header>
 
-        <div className={styles.grid}>
-          {ITEMS.map(item => (
-            <div
-              key={item.title}
-              className={`${styles.card} ${styles[item.color]}`}
-            >
-              <div className={styles.iconWrap}>
-                <Icon name={item.icon} />
-              </div>
+        <div className={styles.carousel}>
+          <div className={styles.track}>
+            {[...ITEMS, ...ITEMS].map((item, index) => (
+              <div
+                key={`${item.title}-${index}`}
+                className={`${styles.card} ${styles[item.color]}`}
+              >
+                <div className={styles.iconWrap}>
+                  <Icon name={item.icon} />
+                </div>
 
-              <h3 className={styles.cardTitle}>{item.title}</h3>
-              <p className={styles.cardDescription}>{item.description}</p>
-            </div>
-          ))}
+                <h3 className={styles.cardTitle}>{item.title}</h3>
+                <p className={styles.cardDescription}>{item.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
