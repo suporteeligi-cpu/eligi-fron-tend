@@ -5,6 +5,7 @@
     #8f0000
   );
   padding: 20px;
+  overflow-x: hidden;
 }
 
 .container {
@@ -39,34 +40,37 @@
 /* Tablet */
 @media (max-width: 900px) {
   .container {
-    grid-template-columns: repeat(2, 1fr);
     gap: 24px;
   }
 
   .metric strong {
-    font-size: 38px;
+    font-size: 36px;
   }
 }
 
-/* Mobile refinado (vertical, compacto, igual desktop) */
+/* Mobile — HORIZONTAL IGUAL DESKTOP */
 @media (max-width: 480px) {
   .strip {
-    padding: 16px 14px;
+    padding: 14px 10px;
   }
 
   .container {
-    grid-template-columns: 1fr;
-    gap: 18px;
-    max-width: 360px; /* 🔥 mantém visual “desktop em miniatura” */
+    grid-template-columns: repeat(4, minmax(80px, 1fr));
+    gap: 14px;
+
+    /* 🔥 garante leitura horizontal sem quebrar */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .metric strong {
-    font-size: 30px;
+    font-size: 24px;
     letter-spacing: -0.015em;
   }
 
   .metric span {
-    font-size: 13px;
-    margin-top: 4px;
+    font-size: 11px;
+    margin-top: 3px;
+    white-space: nowrap;
   }
 }
