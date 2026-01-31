@@ -32,8 +32,6 @@
 
 .badge {
   display: inline-flex;
-  align-items: center;
-  gap: 10px;
   padding: 10px 16px;
   border-radius: 999px;
   background: rgba(150, 0, 0, 0.08);
@@ -47,7 +45,6 @@
   font-size: 36px;
   line-height: 1.15;
   font-weight: 600;
-  letter-spacing: -0.02em;
   color: var(--text-primary);
   margin-bottom: 20px;
 }
@@ -58,11 +55,6 @@
   color: var(--text-secondary);
 }
 
-.text strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
 /* CARROSSEL */
 .visual {
   overflow: hidden;
@@ -70,11 +62,10 @@
 
 .carousel {
   display: flex;
-  gap: 28px;
+  gap: 32px;
   overflow-x: auto;
-  scroll-behavior: smooth;
   cursor: grab;
-  padding: 12px 0;
+  padding: 16px 0;
 
   scrollbar-width: none;
 }
@@ -90,29 +81,14 @@
 .card {
   flex: 0 0 auto;
   transition:
-    transform 0.55s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.55s ease,
-    filter 0.55s ease;
-}
-
-/* 🔥 CENTRO */
-.active {
-  transform: scale(1.05) translateY(-6px);
-  opacity: 1;
-  filter: blur(0);
-  z-index: 2;
-}
-
-/* 🔥 LATERAIS */
-.side {
-  transform: scale(0.92);
-  opacity: 0.55;
-  filter: blur(0.4px);
+    transform 0.35s ease-out,
+    opacity 0.35s ease-out;
+  will-change: transform, opacity;
 }
 
 .image {
   width: 100%;
-  max-width: 320px;
+  max-width: 300px;
   height: auto;
   border-radius: 28px;
   user-select: none;
@@ -134,7 +110,7 @@
   }
 
   .image {
-    max-width: 220px;
+    max-width: 210px;
     border-radius: 20px;
   }
 
@@ -144,5 +120,57 @@
 
   .text {
     font-size: 15.5px;
+  }
+}
+ .visual {
+  perspective: 1200px;
+  overflow: hidden;
+}
+
+.carousel {
+  display: flex;
+  gap: 32px;
+  overflow-x: auto;
+  padding: 24px 0;
+  cursor: grab;
+
+  transform-style: preserve-3d;
+  scrollbar-width: none;
+}
+
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.grabbing {
+  cursor: grabbing;
+}
+
+.card {
+  flex: 0 0 auto;
+  transform-style: preserve-3d;
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.45s ease;
+}
+
+.image {
+  width: 100%;
+  max-width: 300px;
+  border-radius: 28px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* CENTRO – sempre limpo */
+.card {
+  opacity: 1;
+}
+
+/* MOBILE */
+@media (max-width: 640px) {
+  .image {
+    max-width: 210px;
+    border-radius: 20px;
   }
 }

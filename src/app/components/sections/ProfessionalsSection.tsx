@@ -38,116 +38,122 @@ export default function ProfessionalsSection() {
     if (!track) return
 
     let isDown = false
-    let startX = 0
-    let scrollLeft = 0
+    let lastX = 0
+    let velocity = 0
+    let raf: number
 
-    const updateActive = () => {
-      const cards = Array.from(track.children) as HTMLElement[]
+    const cards = Array.from(track.children) as HTMLElement[]
+    const cardWidth = cards[0].offsetWidth + 32
+
+    const update = () => {
       const center = track.scrollLeft + track.offsetWidth / 2
 
       cards.forEach(card => {
-        const cardCenter =
-          card.offsetLeft + card.offsetWidth / 2
-        const distance = Math.abs(center - cardCenter)
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2
+        const distance = center - cardCenter
+        const abs = Math.abs(distance)
 
-        card.classList.remove(styles.active, styles.side)
+        const max = track.offsetWidth / 2
+        const ratio = Math.min(abs / max, 1)
 
-        if (distance < card.offsetWidth * 0.6) {
-          card.classList.add(styles.active)
-        } else {
-          card.classList.add(styles.side)
-        }
+        const scale = 1 - ratio * 0.25
+        const opacity = 1 - ratio * 0.6
+        const z = -ratio * 120
+
+        card.style.transform = `
+          translateX(${distance * -0.04}px)
+          scale(${scale})
+          translateZ(${z}px)
+        `
+        card.style.opacity = `${opacity}`
+        card.style.zIndex = `${100 - Math.floor(ratio * 100)}`
       })
+
+      // LOOP INFINITO
+      if (track.scrollLeft <= cardWidth) {
+        track.scrollLeft += cardWidth * images.length
+      } else if (
+        track.scrollLeft >=
+        cardWidth * (images.length * 2)
+      ) {
+        track.scrollLeft -= cardWidth * images.length
+      }
+    }
+
+    const momentum = () => {
+      track.scrollLeft += velocity
+      velocity *= 0.94
+      update()
+      if (Math.abs(velocity) > 0.1) {
+        raf = requestAnimationFrame(momentum)
+      }
     }
 
     const start = (x: number) => {
       isDown = true
-      startX = x
-      scrollLeft = track.scrollLeft
+      lastX = x
+      velocity = 0
+      cancelAnimationFrame(raf)
       track.classList.add(styles.grabbing)
     }
 
     const move = (x: number) => {
       if (!isDown) return
-      const walk = (startX - x) * 1.15
-      track.scrollLeft = scrollLeft + walk
-      updateActive()
+      const delta = lastX - x
+      track.scrollLeft += delta
+      velocity = delta
+      lastX = x
+      update()
     }
 
     const end = () => {
       isDown = false
       track.classList.remove(styles.grabbing)
+      raf = requestAnimationFrame(momentum)
     }
-
-    track.addEventListener('scroll', updateActive)
 
     track.addEventListener('mousedown', e => start(e.pageX))
     track.addEventListener('mousemove', e => move(e.pageX))
     track.addEventListener('mouseup', end)
     track.addEventListener('mouseleave', end)
 
-    track.addEventListener('touchstart', e => start(e.touches[0].pageX))
-    track.addEventListener('touchmove', e => move(e.touches[0].pageX))
+    track.addEventListener('touchstart', e =>
+      start(e.touches[0].pageX)
+    )
+    track.addEventListener('touchmove', e =>
+      move(e.touches[0].pageX)
+    )
     track.addEventListener('touchend', end)
 
-    updateActive()
+    track.scrollLeft = cardWidth * images.length
+    update()
 
-    return () => {
-      track.removeEventListener('scroll', updateActive)
-    }
+    return () => cancelAnimationFrame(raf)
   }, [])
 
   return (
     <section ref={sectionRef} className={styles.section}>
       <div className={styles.container}>
-        {/* TEXTO */}
         <div className={styles.content}>
-          <div className={styles.badge}>
-            <svg
-              className={styles.icon}
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <circle
-                cx="12"
-                cy="8"
-                r="4"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              />
-              <path
-                d="M4 20 C4 15, 20 15, 20 20"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span>Profissionais</span>
-          </div>
-
+          <div className={styles.badge}>Profissionais</div>
           <h2 className={styles.title}>
             Profissionais realizados,
             <br />
             clientes encantados.
           </h2>
-
           <p className={styles.text}>
-            Com o agendamento inteligente do Eligi, seu cliente reserva um
-            horário em segundos e você ganha total controle da sua agenda.
-            <strong> Praticidade que gera satisfação.</strong>
+            Agendamento inteligente, experiência fluida e controle total da
+            agenda.
           </p>
         </div>
 
-        {/* ROLETINHA PREMIUM */}
         <div className={styles.visual}>
           <div ref={trackRef} className={styles.carousel}>
-            {[...images, ...images].map((src, index) => (
-              <div key={index} className={styles.card}>
+            {[...images, ...images, ...images].map((src, i) => (
+              <div key={i} className={styles.card}>
                 <Image
                   src={src}
-                  alt="Profissional ELIGI"
+                  alt="Profissional"
                   width={420}
                   height={760}
                   className={styles.image}
