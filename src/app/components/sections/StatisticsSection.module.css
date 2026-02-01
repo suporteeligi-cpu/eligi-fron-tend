@@ -1,12 +1,13 @@
 .section {
-  padding: 48px 0px;
+  position: relative;
+  padding: 48px 0;
   background: var(--bg-default);
 
   opacity: 0;
-  transform: translateY(32px);
+  transform: translateY(16px);
   transition:
-    opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity 0.7s var(--ease),
+    transform 0.7s var(--ease);
 }
 
 .visible {
@@ -25,7 +26,10 @@
   align-items: center;
 }
 
-/* TEXTO */
+/* ======================
+   TEXTO
+====================== */
+
 .content {
   max-width: 520px;
 }
@@ -55,35 +59,46 @@
   color: var(--text-secondary);
 }
 
-/* CARROSSEL */
+/* ======================
+   VISUAL / CARROSSEL
+====================== */
+
 .visual {
+  perspective: 1200px;
   overflow: hidden;
 }
 
 .carousel {
   display: flex;
   gap: 32px;
-  overflow-x: auto;
-  cursor: grab;
-  padding: 16px 0;
+  padding: 24px 0;
 
+  overflow-x: auto;
   scrollbar-width: none;
+  cursor: grab;
+
+  transform-style: preserve-3d;
 }
 
 .carousel::-webkit-scrollbar {
   display: none;
 }
 
-.grabbing {
+.carousel:active {
   cursor: grabbing;
 }
 
 .card {
   flex: 0 0 auto;
+  transform-style: preserve-3d;
+
   transition:
-    transform 0.35s ease-out,
-    opacity 0.35s ease-out;
-  will-change: transform, opacity;
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.3s var(--ease);
+}
+
+.card:hover {
+  transform: translateY(-4px) scale(1.02);
 }
 
 .image {
@@ -91,11 +106,14 @@
   max-width: 300px;
   height: auto;
   border-radius: 28px;
-  user-select: none;
   pointer-events: none;
+  user-select: none;
 }
 
-/* MOBILE */
+/* ======================
+   RESPONSIVO
+====================== */
+
 @media (max-width: 1024px) {
   .container {
     grid-template-columns: 1fr;
@@ -120,57 +138,5 @@
 
   .text {
     font-size: 15.5px;
-  }
-}
- .visual {
-  perspective: 1200px;
-  overflow: hidden;
-}
-
-.carousel {
-  display: flex;
-  gap: 32px;
-  overflow-x: auto;
-  padding: 24px 0;
-  cursor: grab;
-
-  transform-style: preserve-3d;
-  scrollbar-width: none;
-}
-
-.carousel::-webkit-scrollbar {
-  display: none;
-}
-
-.grabbing {
-  cursor: grabbing;
-}
-
-.card {
-  flex: 0 0 auto;
-  transform-style: preserve-3d;
-  transition:
-    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.45s ease;
-}
-
-.image {
-  width: 100%;
-  max-width: 300px;
-  border-radius: 28px;
-  pointer-events: none;
-  user-select: none;
-}
-
-/* CENTRO – sempre limpo */
-.card {
-  opacity: 1;
-}
-
-/* MOBILE */
-@media (max-width: 640px) {
-  .image {
-    max-width: 210px;
-    border-radius: 20px;
   }
 }

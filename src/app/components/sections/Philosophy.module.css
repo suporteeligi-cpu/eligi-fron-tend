@@ -1,6 +1,7 @@
 /* src/app/components/sections/Philosophy.module.css */
 
 .section {
+  position: relative;
   padding: 140px 24px;
 
   /* LIGHT MODE */
@@ -10,6 +11,17 @@
       rgba(206, 206, 206, 0.265),
       rgb(255, 255, 255)
     );
+
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.7s var(--ease),
+    transform 0.7s var(--ease);
+}
+
+.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 :root[data-theme='dark'] .section {
@@ -50,6 +62,10 @@
   line-height: 1.7;
   margin-bottom: 18px;
 }
+
+/* ======================
+   MOBILE
+====================== */
 
 @media (max-width: 640px) {
   .section {

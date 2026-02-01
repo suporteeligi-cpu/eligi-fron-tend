@@ -1,10 +1,34 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import styles from './PricingSection.module.css'
 
 export default function PricingSection() {
+  const sectionRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.add(styles.visible)
+          observer.disconnect()
+        }
+      },
+      {
+        threshold: 0.2,
+      }
+    )
+
+    observer.observe(el)
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <section className={styles.section}>
+    <section ref={sectionRef} className={styles.section}>
       <div className={styles.container}>
         <header className={styles.header}>
           <span className={styles.badge}>Preços</span>

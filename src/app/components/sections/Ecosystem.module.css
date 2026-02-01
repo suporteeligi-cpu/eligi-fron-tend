@@ -1,12 +1,13 @@
 .section {
+  position: relative;
   padding: 96px 0;
   background: var(--bg-default);
 
   opacity: 0;
-  transform: translateY(32px);
+  transform: translateY(16px);
   transition:
-    opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity 0.7s var(--ease),
+    transform 0.7s var(--ease);
 }
 
 .visible {
@@ -20,7 +21,10 @@
   padding: 0 40px;
 }
 
-/* HEADER */
+/* ======================
+   HEADER
+====================== */
+
 .header {
   max-width: 620px;
   margin-bottom: 56px;
@@ -71,7 +75,8 @@
   display: flex;
   gap: 20px;
   width: max-content;
-  animation: scrollX 50s linear infinite;
+
+  animation: scrollX 48s linear infinite;
 }
 
 .carousel:hover .track {
@@ -87,7 +92,10 @@
   }
 }
 
-/* CARD */
+/* ======================
+   CARD
+====================== */
+
 .card {
   min-width: 260px;
   max-width: 260px;
@@ -102,8 +110,8 @@
   gap: 12px;
 
   transition:
-    transform 0.25s ease,
-    box-shadow 0.25s ease;
+    transform 0.25s var(--ease),
+    box-shadow 0.25s var(--ease);
 }
 
 .card:hover {
@@ -111,7 +119,10 @@
   box-shadow: var(--shadow-md);
 }
 
-/* ICON */
+/* ======================
+   ICON
+====================== */
+
 .iconWrap {
   width: 42px;
   height: 42px;
@@ -130,7 +141,10 @@
   stroke: currentColor;
 }
 
-/* TEXT */
+/* ======================
+   TEXT
+====================== */
+
 .cardTitle {
   font-size: 17px;
   font-weight: 600;
@@ -143,7 +157,10 @@
   color: var(--text-secondary);
 }
 
-/* COLORS */
+/* ======================
+   COLORS
+====================== */
+
 .blue { color: #3b82f6; }
 .green { color: #22c55e; }
 .red { color: #ef4444; }
@@ -151,7 +168,10 @@
 .orange { color: #f97316; }
 .teal { color: #14b8a6; }
 
-/* MOBILE */
+/* ======================
+   MOBILE
+====================== */
+
 @media (max-width: 640px) {
   .container {
     padding: 0 20px;
