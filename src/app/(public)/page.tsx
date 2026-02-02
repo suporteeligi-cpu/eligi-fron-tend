@@ -14,6 +14,8 @@ import ProfessionalsSection from '../components/sections/ProfessionalsSection'
 import Philosophy from '../components/sections/Philosophy'
 import Ecosystem from '../components/sections/Ecosystem'
 import PricingSection from '../components/sections/PricingSection'
+import FAQSection from '../components/sections/FAQSection'
+import FinalCTA from '../components/sections/FinalCTA'
 
 import styles from './Home.module.css'
 
@@ -32,6 +34,8 @@ export default function HomePage() {
         <Philosophy />
         <DashboardPreview />
         <PricingSection />
+        <FAQSection />
+        <FinalCTA />
         <FloatingWhatsApp />
       </main>
 

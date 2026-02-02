@@ -13,7 +13,7 @@ export default function Footer() {
           <Image
             src="/images/globo-light.png"
             alt="ELIGI"
-            width={28}
+            width={36}
             height={28}
           />
           <span className={styles.brandName}>ELIGI</span>
