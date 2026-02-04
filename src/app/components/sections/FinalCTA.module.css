@@ -1,19 +1,7 @@
 /* src/app/components/sections/FinalCTA.module.css */
 
 .section {
-  position: relative;
   padding: 160px 24px 180px;
-
-  opacity: 0;
-  transform: translateY(16px);
-  transition:
-    opacity 0.7s var(--ease),
-    transform 0.7s var(--ease);
-}
-
-.visible {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .container {
@@ -61,10 +49,7 @@
   font-size: 15px;
   font-weight: 500;
   text-decoration: none;
-
-  transition:
-    transform 0.3s var(--ease),
-    box-shadow 0.3s var(--ease);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
 
 .primary:hover {
@@ -80,10 +65,6 @@
   color: var(--text);
   text-decoration: none;
 }
-
-/* ======================
-   MOBILE
-====================== */
 
 @media (max-width: 640px) {
   .section {
