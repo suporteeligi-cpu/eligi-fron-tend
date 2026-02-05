@@ -43,7 +43,7 @@ export default function LoginForm() {
 
   return (
     <AuthCard
-      title="Entrar no ELIGI"
+      title="Login"
       subtitle="Acesse sua conta para continuar"
     >
       {/* 🔁 Switch protegido Login / Register */}

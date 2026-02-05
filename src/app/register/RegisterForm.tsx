@@ -57,8 +57,8 @@ export default function RegisterForm() {
 
   return (
     <AuthCard
-      title="Criar conta no ELIGI"
-      subtitle="Comece agora a organizar seu negócio"
+      title="Cadastre-se"
+      subtitle="Comece agora mesmo a usar o ELIGI"
     >
       {/* 🔁 Switch protegido Login / Register */}
       <div className={styles.authSwitch}>
