@@ -55,7 +55,7 @@
 .input {
   height: 46px;
   padding: 0 14px;
-  border-radius: 12px;
+  border-radius: 22px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: rgba(255, 255, 255, 0.9);
   font-size: 15px;
@@ -63,7 +63,7 @@
 
 .button {
   height: 48px;
-  border-radius: 14px;
+  border-radius: 22px;
   background: linear-gradient(180deg, #c40000, #8f0000);
   color: #fff;
   font-weight: 600;
@@ -79,7 +79,7 @@
 .roleButton {
   flex: 1;
   height: 42px;
-  border-radius: 12px;
+  border-radius: 22px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: transparent;
   cursor: pointer;

@@ -23,11 +23,8 @@ export default function LoginForm() {
 
     try {
       const tokens = await loginRequest(email, password)
-
-      // ✅ salva token corretamente (Axios vai usar depois)
       localStorage.setItem('accessToken', tokens.accessToken)
 
-      // ✅ agora o getMe lê o token via interceptor / storage
       const me = await getMe()
 
       if (me.role === 'BUSINESS_OWNER') {
@@ -49,7 +46,25 @@ export default function LoginForm() {
       title="Entrar no ELIGI"
       subtitle="Acesse sua conta para continuar"
     >
-      <form className={styles.form} onSubmit={handleSubmit}>
+      {/* 🔁 Switch protegido Login / Register */}
+      <div className={styles.authSwitch}>
+        <button
+          type="button"
+          className={`${styles.authSwitchButton} ${styles.authSwitchButtonActive}`}
+        >
+          Entrar
+        </button>
+
+        <button
+          type="button"
+          className={styles.authSwitchButton}
+          onClick={() => router.push('/register')}
+        >
+          Criar conta
+        </button>
+      </div>
+
+      <form className={styles.authForm} onSubmit={handleSubmit}>
         <AuthInput
           label="Email"
           type="email"
@@ -66,19 +81,11 @@ export default function LoginForm() {
           required
         />
 
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.authError}>{error}</p>}
 
         <AuthButton type="submit" loading={loading}>
           Entrar
         </AuthButton>
-
-        <button
-          type="button"
-          className={styles.link}
-          onClick={() => router.push('/register')}
-        >
-          Criar conta
-        </button>
       </form>
     </AuthCard>
   )

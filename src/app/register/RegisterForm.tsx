@@ -60,7 +60,25 @@ export default function RegisterForm() {
       title="Criar conta no ELIGI"
       subtitle="Comece agora a organizar seu negócio"
     >
-      <form className={styles.form} onSubmit={handleSubmit}>
+      {/* 🔁 Switch protegido Login / Register */}
+      <div className={styles.authSwitch}>
+        <button
+          type="button"
+          className={styles.authSwitchButton}
+          onClick={() => router.push('/login')}
+        >
+          Entrar
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.authSwitchButton} ${styles.authSwitchButtonActive}`}
+        >
+          Criar conta
+        </button>
+      </div>
+
+      <form className={styles.authForm} onSubmit={handleSubmit}>
         <AuthInput
           label="Nome completo"
           value={name}
@@ -86,19 +104,11 @@ export default function RegisterForm() {
           required
         />
 
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.authError}>{error}</p>}
 
         <AuthButton type="submit" loading={loading}>
           Criar conta
         </AuthButton>
-
-        <button
-          type="button"
-          className={styles.link}
-          onClick={() => router.push('/login')}
-        >
-          Já tenho conta
-        </button>
       </form>
     </AuthCard>
   )
