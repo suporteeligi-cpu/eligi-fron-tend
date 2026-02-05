@@ -1,6 +1,6 @@
 .section {
   position: relative;
-  padding: 48px 0;
+  padding: 48px 0; /* 🔽 reduzido para aproximar seções */
   background: var(--bg-default);
 
   opacity: 0;
@@ -18,11 +18,11 @@
 .container {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 50px 40px;
+  padding: 28px 40px; /* 🔽 antes 32px */
 
   display: grid;
   grid-template-columns: 1fr 460px;
-  gap: 40px;
+  gap: 36px; /* 🔽 mais compacto */
   align-items: center;
 }
 
@@ -36,26 +36,26 @@
 
 .badge {
   display: inline-flex;
-  padding: 10px 16px;
+  padding: 8px 14px; /* 🔽 mais elegante */
   border-radius: 999px;
   background: rgba(150, 0, 0, 0.08);
   color: rgb(170, 0, 0);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
-  margin-bottom: 24px;
+  margin-bottom: 20px; /* 🔽 aproxima conteúdo */
 }
 
 .title {
-  font-size: 36px;
+  font-size: 34px; /* 🔽 leve refinamento */
   line-height: 1.15;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .text {
-  font-size: 17px;
-  line-height: 1.7;
+  font-size: 16.5px; /* 🔽 micro ajuste */
+  line-height: 1.65;
   color: var(--text-secondary);
 }
 
@@ -70,8 +70,8 @@
 
 .carousel {
   display: flex;
-  gap: 32px;
-  padding: 24px 0;
+  gap: 28px; /* 🔽 aproxima cards */
+  padding: 20px 0;
 
   overflow-x: auto;
   scrollbar-width: none;
@@ -103,9 +103,9 @@
 
 .image {
   width: 100%;
-  max-width: 300px;
+  max-width: 280px; /* 🔽 reduz impacto visual */
   height: auto;
-  border-radius: 28px;
+  border-radius: 26px;
   pointer-events: none;
   user-select: none;
 }
@@ -117,26 +117,30 @@
 @media (max-width: 1024px) {
   .container {
     grid-template-columns: 1fr;
-    gap: 56px;
+    gap: 44px; /* 🔽 antes 56px */
   }
 }
 
 @media (max-width: 640px) {
+  .section {
+    padding: 36px 0; /* 🔥 mobile mais colado */
+  }
+
   .container {
-    padding: 30px 20px;
-    gap: 32px;
+    padding: 24px 20px;
+    gap: 28px;
   }
 
   .image {
-    max-width: 210px;
-    border-radius: 20px;
+    max-width: 200px;
+    border-radius: 18px;
   }
 
   .title {
-    font-size: 26px;
+    font-size: 24px;
   }
 
   .text {
-    font-size: 15.5px;
+    font-size: 15px;
   }
 }

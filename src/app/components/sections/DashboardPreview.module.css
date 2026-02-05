@@ -1,6 +1,6 @@
 .section {
   position: relative;
-  padding: 96px 0;
+  padding: 56px 0; /* 🔽 antes 96px */
   background: var(--bg-default);
 
   opacity: 0;
@@ -27,24 +27,24 @@
 
 .header {
   max-width: 520px;
-  margin-bottom: 48px;
+  margin-bottom: 32px; /* 🔽 antes 48px */
 }
 
 .kicker {
-  font-size: 16px;
+  font-size: 15px; /* 🔽 refinado */
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   color: var(--text-tertiary);
 }
 
 .title {
-  font-size: 36px;
+  font-size: 34px; /* 🔽 leve ajuste */
   font-weight: 600;
-  margin: 12px 0;
+  margin: 10px 0;
 }
 
 .subtitle {
-  font-size: 17px;
+  font-size: 16.5px;
   color: var(--text-secondary);
 }
 
@@ -55,7 +55,7 @@
 .board {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 28px; /* 🔽 antes 32px */
 }
 
 /* ===== CARDS SUPERIORES ===== */
@@ -63,7 +63,7 @@
 .cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  gap: 20px; /* 🔽 antes 24px */
 }
 
 /* ===== BLOCO INFERIOR ===== */
@@ -71,14 +71,14 @@
 .bottom {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 24px;
+  gap: 20px; /* 🔽 antes 24px */
 }
 
 .largeCard,
 .sideCard {
   background: var(--bg-elevated);
-  border-radius: 28px;
-  padding: 28px;
+  border-radius: 26px;
+  padding: 24px; /* 🔽 antes 28px */
 }
 
 /* ======================
@@ -87,20 +87,20 @@
 
 .largeCard h4,
 .sideCard h4 {
-  font-size: 16px;
-  margin-bottom: 16px;
+  font-size: 15.5px;
+  margin-bottom: 14px;
 }
 
 .fakeBars {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: flex-end;
-  height: 120px;
+  height: 110px; /* 🔽 antes 120px */
 }
 
 .fakeBars span {
-  width: 18px;
-  border-radius: 12px;
+  width: 16px; /* 🔽 antes 18px */
+  border-radius: 10px;
 }
 
 .barBlue { height: 80%; background: #3b82f6; }
@@ -117,16 +117,16 @@
 .sideCard li {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  font-size: 14px;
+  gap: 8px; /* 🔽 antes 10px */
+  padding: 8px 0;
+  font-size: 13.5px;
 }
 
 .dotGreen,
 .dotBlue,
 .dotPurple {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 
@@ -139,6 +139,10 @@
 =========================== */
 
 @media (max-width: 768px) {
+  .section {
+    padding: 40px 0; /* 🔥 mais compacto no mobile */
+  }
+
   .container {
     padding: 0 20px;
   }
@@ -150,8 +154,8 @@
     grid-template-columns: unset;
 
     overflow-x: auto;
-    gap: 16px;
-    padding-bottom: 8px;
+    gap: 14px;
+    padding-bottom: 6px;
 
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
@@ -172,8 +176,8 @@
     grid-template-columns: unset;
 
     overflow-x: auto;
-    gap: 16px;
-    padding-bottom: 8px;
+    gap: 14px;
+    padding-bottom: 6px;
 
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
@@ -189,7 +193,7 @@
 
   .largeCard,
   .sideCard {
-    padding: 22px;
-    border-radius: 22px;
+    padding: 20px;
+    border-radius: 20px;
   }
 }

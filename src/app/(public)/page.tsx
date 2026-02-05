@@ -31,7 +31,6 @@ export default function HomePage() {
         <Statistics />
         <Ecosystem />
         <ProfessionalsSection />
-        <Philosophy />
         <DashboardPreview />
         <PricingSection />
         <FAQSection />
