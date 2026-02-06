@@ -29,7 +29,6 @@ export default function LoginForm() {
     e.preventDefault()
     setErrors({})
 
-    // 🔍 emailCheck local
     if (!isValidEmail(email)) {
       setErrors({ email: 'Email inválido' })
       return
@@ -45,8 +44,19 @@ export default function LoginForm() {
 
       if (me.role === 'BUSINESS_OWNER') router.push('/onboarding')
       if (me.role === 'AFFILIATE') router.push('/dashboard')
-    } catch (err: any) {
-      const code = err?.response?.data?.code
+    } catch (err: unknown) {
+      const code =
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        err.response &&
+        typeof err.response === 'object' &&
+        'data' in err.response &&
+        err.response.data &&
+        typeof err.response.data === 'object' &&
+        'code' in err.response.data
+          ? (err.response.data as { code?: string }).code
+          : undefined
 
       if (code === 'EMAIL_NOT_FOUND') {
         setErrors({ email: 'Email não encontrado' })

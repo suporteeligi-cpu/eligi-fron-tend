@@ -36,7 +36,6 @@ export default function RegisterForm() {
     e.preventDefault()
     setErrors({})
 
-    // 🔍 validações locais
     if (!name.trim()) {
       setErrors({ name: 'Informe seu nome completo' })
       return
@@ -68,8 +67,19 @@ export default function RegisterForm() {
 
       if (me.role === 'BUSINESS_OWNER') router.push('/onboarding')
       if (me.role === 'AFFILIATE') router.push('/dashboard')
-    } catch (err: any) {
-      const code = err?.response?.data?.code
+    } catch (err: unknown) {
+      const code =
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        err.response &&
+        typeof err.response === 'object' &&
+        'data' in err.response &&
+        err.response.data &&
+        typeof err.response.data === 'object' &&
+        'code' in err.response.data
+          ? (err.response.data as { code?: string }).code
+          : undefined
 
       if (code === 'EMAIL_ALREADY_EXISTS') {
         setErrors({ email: 'Este email já está cadastrado' })
