@@ -11,6 +11,12 @@ import styles from './Register.module.css'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
+type ApiErrorResponse = {
+  code?: string
+  field?: 'name' | 'email' | 'password'
+  message?: string
+}
+
 export default function RegisterForm() {
   const router = useRouter()
 
@@ -28,28 +34,9 @@ export default function RegisterForm() {
     general?: string
   }>({})
 
-  function isValidEmail(value: string) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrors({})
-
-    if (!name.trim()) {
-      setErrors({ name: 'Informe seu nome completo' })
-      return
-    }
-
-    if (!isValidEmail(email)) {
-      setErrors({ email: 'Email inválido' })
-      return
-    }
-
-    if (password.length < 6) {
-      setErrors({ password: 'Senha deve ter no mínimo 6 caracteres' })
-      return
-    }
 
     setLoading(true)
 
@@ -68,26 +55,26 @@ export default function RegisterForm() {
       if (me.role === 'BUSINESS_OWNER') router.push('/onboarding')
       if (me.role === 'AFFILIATE') router.push('/dashboard')
     } catch (err: unknown) {
-      const code =
+      let apiError: ApiErrorResponse | undefined
+
+      if (
         err &&
         typeof err === 'object' &&
         'response' in err &&
         err.response &&
         typeof err.response === 'object' &&
-        'data' in err.response &&
-        err.response.data &&
-        typeof err.response.data === 'object' &&
-        'code' in err.response.data
-          ? (err.response.data as { code?: string }).code
-          : undefined
+        'data' in err.response
+      ) {
+        apiError = err.response.data as ApiErrorResponse
+      }
 
-      if (code === 'EMAIL_ALREADY_EXISTS') {
-        setErrors({ email: 'Este email já está cadastrado' })
-      } else if (code === 'WEAK_PASSWORD') {
-        setErrors({ password: 'Senha muito fraca' })
+      if (apiError?.field && apiError?.message) {
+        setErrors({ [apiError.field]: apiError.message })
       } else {
         setErrors({
-          general: 'Erro ao criar conta. Verifique os dados.'
+          general:
+            apiError?.message ??
+            'Erro ao criar conta. Verifique os dados.'
         })
       }
     } finally {

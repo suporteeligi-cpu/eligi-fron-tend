@@ -8,6 +8,12 @@ import { AuthButton } from '../components/auth/AuthButton'
 import { loginRequest, getMe } from '@/lib/auth.api'
 import styles from './Login.module.css'
 
+type ApiErrorResponse = {
+  code?: string
+  field?: 'email' | 'password'
+  message?: string
+}
+
 export default function LoginForm() {
   const router = useRouter()
 
@@ -21,18 +27,9 @@ export default function LoginForm() {
     general?: string
   }>({})
 
-  function isValidEmail(value: string) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrors({})
-
-    if (!isValidEmail(email)) {
-      setErrors({ email: 'Email inválido' })
-      return
-    }
 
     setLoading(true)
 
@@ -45,25 +42,25 @@ export default function LoginForm() {
       if (me.role === 'BUSINESS_OWNER') router.push('/onboarding')
       if (me.role === 'AFFILIATE') router.push('/dashboard')
     } catch (err: unknown) {
-      const code =
+      let apiError: ApiErrorResponse | undefined
+
+      if (
         err &&
         typeof err === 'object' &&
         'response' in err &&
         err.response &&
         typeof err.response === 'object' &&
-        'data' in err.response &&
-        err.response.data &&
-        typeof err.response.data === 'object' &&
-        'code' in err.response.data
-          ? (err.response.data as { code?: string }).code
-          : undefined
+        'data' in err.response
+      ) {
+        apiError = err.response.data as ApiErrorResponse
+      }
 
-      if (code === 'EMAIL_NOT_FOUND') {
-        setErrors({ email: 'Email não encontrado' })
-      } else if (code === 'INVALID_PASSWORD') {
-        setErrors({ password: 'Senha incorreta' })
+      if (apiError?.field && apiError?.message) {
+        setErrors({ [apiError.field]: apiError.message })
       } else {
-        setErrors({ general: 'Email ou senha inválidos' })
+        setErrors({
+          general: apiError?.message ?? 'Erro ao realizar login'
+        })
       }
     } finally {
       setLoading(false)
