@@ -2,12 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
 import { AuthRoleSelect } from '../components/auth/AuthRoleSelect'
-
 import { registerRequest, getMe } from '@/lib/auth.api'
 import styles from './Register.module.css'
 
@@ -22,11 +20,38 @@ export default function RegisterForm() {
   const [role, setRole] = useState<Role>('BUSINESS_OWNER')
 
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+
+  const [errors, setErrors] = useState<{
+    name?: string
+    email?: string
+    password?: string
+    general?: string
+  }>({})
+
+  function isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
+    setErrors({})
+
+    // 🔍 validações locais
+    if (!name.trim()) {
+      setErrors({ name: 'Informe seu nome completo' })
+      return
+    }
+
+    if (!isValidEmail(email)) {
+      setErrors({ email: 'Email inválido' })
+      return
+    }
+
+    if (password.length < 6) {
+      setErrors({ password: 'Senha deve ter no mínimo 6 caracteres' })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -41,15 +66,20 @@ export default function RegisterForm() {
 
       const me = await getMe()
 
-      if (me.role === 'BUSINESS_OWNER') {
-        router.push('/onboarding')
-      }
+      if (me.role === 'BUSINESS_OWNER') router.push('/onboarding')
+      if (me.role === 'AFFILIATE') router.push('/dashboard')
+    } catch (err: any) {
+      const code = err?.response?.data?.code
 
-      if (me.role === 'AFFILIATE') {
-        router.push('/dashboard')
+      if (code === 'EMAIL_ALREADY_EXISTS') {
+        setErrors({ email: 'Este email já está cadastrado' })
+      } else if (code === 'WEAK_PASSWORD') {
+        setErrors({ password: 'Senha muito fraca' })
+      } else {
+        setErrors({
+          general: 'Erro ao criar conta. Verifique os dados.'
+        })
       }
-    } catch {
-      setError('Erro ao criar conta. Verifique os dados.')
     } finally {
       setLoading(false)
     }
@@ -59,8 +89,8 @@ export default function RegisterForm() {
     <AuthCard
       title="Cadastre-se"
       subtitle="Comece agora mesmo a usar o ELIGI"
+      loading={loading}
     >
-      {/* 🔁 Switch protegido Login / Register */}
       <div className={styles.authSwitch}>
         <button
           type="button"
@@ -82,7 +112,8 @@ export default function RegisterForm() {
         <AuthInput
           label="Nome completo"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={setName}
+          error={errors.name}
           required
         />
 
@@ -92,7 +123,8 @@ export default function RegisterForm() {
           label="Email"
           type="email"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={setEmail}
+          error={errors.email}
           required
         />
 
@@ -100,11 +132,14 @@ export default function RegisterForm() {
           label="Senha"
           type="password"
           value={password}
-          onChange={e => setPassword(e.target.value)}
+          onChange={setPassword}
+          error={errors.password}
           required
         />
 
-        {error && <p className={styles.authError}>{error}</p>}
+        {errors.general && (
+          <p className={styles.authError}>{errors.general}</p>
+        )}
 
         <AuthButton type="submit" loading={loading}>
           Criar conta

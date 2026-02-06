@@ -3,25 +3,31 @@
 import React from 'react'
 import styles from './AuthInput.module.css'
 
-interface AuthInputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+interface AuthInputProps {
   label: string
   value: string
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onChange: (value: string) => void
+  placeholder?: string
+  type?: string
+  error?: string
+  required?: boolean
 }
 
 export function AuthInput({
   label,
   value,
   onChange,
-  ...props
+  placeholder,
+  type = 'text',
+  error,
+  required = false
 }: AuthInputProps) {
-  function handleClear() {
-    const event = {
-      target: { value: '' }
-    } as React.ChangeEvent<HTMLInputElement>
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    onChange(e.target.value)
+  }
 
-    onChange(event)
+  function handleClear() {
+    onChange('')
   }
 
   return (
@@ -30,10 +36,14 @@ export function AuthInput({
 
       <div className={styles.inputWrapper}>
         <input
-          className={styles.input}
+          className={`${styles.input} ${
+            error ? styles.inputError : ''
+          }`}
+          type={type}
           value={value}
-          onChange={onChange}
-          {...props}
+          placeholder={placeholder}
+          required={required}
+          onChange={handleChange}
         />
 
         {value && (
@@ -60,6 +70,8 @@ export function AuthInput({
           </button>
         )}
       </div>
+
+      {error && <span className={styles.error}>{error}</span>}
     </div>
   )
 }

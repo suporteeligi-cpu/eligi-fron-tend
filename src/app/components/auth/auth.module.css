@@ -399,3 +399,19 @@
   border-color: rgba(255, 255, 255, 0.2);
   border-top-color: #c40000;
 }
+
+/* ==============================
+   CARD ERROR FEEDBACK
+================================ */
+
+.cardError {
+  animation: cardShake 0.35s ease;
+}
+
+@keyframes cardShake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}

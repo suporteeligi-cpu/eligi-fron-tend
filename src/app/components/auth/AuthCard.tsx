@@ -25,7 +25,7 @@ export function AuthCard({
         {/* LOGO ELIGI */}
         <div className={styles.logoWrapper}>
           <Image
-            src="/images/eligi.png"
+            src="/images/globo-light.png"
             alt="Eligi"
             width={42}
             height={42}

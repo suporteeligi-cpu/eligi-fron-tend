@@ -14,11 +14,27 @@ export default function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+
+  const [errors, setErrors] = useState<{
+    email?: string
+    password?: string
+    general?: string
+  }>({})
+
+  function isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
+    setErrors({})
+
+    // 🔍 emailCheck local
+    if (!isValidEmail(email)) {
+      setErrors({ email: 'Email inválido' })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -27,15 +43,18 @@ export default function LoginForm() {
 
       const me = await getMe()
 
-      if (me.role === 'BUSINESS_OWNER') {
-        router.push('/onboarding')
-      }
+      if (me.role === 'BUSINESS_OWNER') router.push('/onboarding')
+      if (me.role === 'AFFILIATE') router.push('/dashboard')
+    } catch (err: any) {
+      const code = err?.response?.data?.code
 
-      if (me.role === 'AFFILIATE') {
-        router.push('/dashboard')
+      if (code === 'EMAIL_NOT_FOUND') {
+        setErrors({ email: 'Email não encontrado' })
+      } else if (code === 'INVALID_PASSWORD') {
+        setErrors({ password: 'Senha incorreta' })
+      } else {
+        setErrors({ general: 'Email ou senha inválidos' })
       }
-    } catch {
-      setError('Email ou senha inválidos')
     } finally {
       setLoading(false)
     }
@@ -45,8 +64,8 @@ export default function LoginForm() {
     <AuthCard
       title="Login"
       subtitle="Acesse sua conta para continuar"
+      loading={loading}
     >
-      {/* 🔁 Switch protegido Login / Register */}
       <div className={styles.authSwitch}>
         <button
           type="button"
@@ -69,7 +88,8 @@ export default function LoginForm() {
           label="Email"
           type="email"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={setEmail}
+          error={errors.email}
           required
         />
 
@@ -77,11 +97,14 @@ export default function LoginForm() {
           label="Senha"
           type="password"
           value={password}
-          onChange={e => setPassword(e.target.value)}
+          onChange={setPassword}
+          error={errors.password}
           required
         />
 
-        {error && <p className={styles.authError}>{error}</p>}
+        {errors.general && (
+          <p className={styles.authError}>{errors.general}</p>
+        )}
 
         <AuthButton type="submit" loading={loading}>
           Entrar
