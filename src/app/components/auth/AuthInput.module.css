@@ -8,29 +8,45 @@
   gap: 6px;
 }
 
+/* ==============================
+   LABEL
+================================ */
+
 .label {
   font-size: 13px;
   font-weight: 500;
   color: #555;
+  letter-spacing: 0.01em;
 }
+
+/* ==============================
+   INPUT WRAPPER
+================================ */
 
 .inputWrapper {
   position: relative;
 }
 
+/* ==============================
+   INPUT — LIGHT MODE
+================================ */
+
 .input {
   width: 100%;
   height: 48px;
-  padding: 0 40px 0 18px; /* espaço pro X */
+  padding: 0 40px 0 18px;
 
   border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.093);
 
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
 
-  font-size: 14px;
-  color: #111;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+
+  color: #9a9a9a;
 
   outline: none;
 
@@ -40,15 +56,24 @@
     background 0.25s ease;
 }
 
+.input::placeholder {
+  color: #9a9a9a;
+}
+
+/* foco Apple-like */
 .input:focus {
   border-color: rgba(196, 0, 0, 0.55);
   box-shadow:
     0 0 0 4px rgba(196, 0, 0, 0.12),
     0 8px 24px rgba(0, 0, 0, 0.08);
-  background: #fff;
+
+  background: rgba(255, 255, 255, 0.85);
 }
 
-/* ❌ X APPLE STYLE */
+/* ==============================
+   CLEAR (X) — APPLE STYLE
+================================ */
+
 .clearButton {
   position: absolute;
   top: 50%;
@@ -59,23 +84,23 @@
   background: none;
   padding: 0;
 
-  color: #9b9b9b; /* Apple-like */
+  color: #8e8e8e;
   cursor: pointer;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
+  opacity: 0.75;
+
   transition:
     color 0.15s ease,
     transform 0.15s ease,
     opacity 0.15s ease;
-
-  opacity: 0.7;
 }
 
 .clearButton:hover {
-  color: #555;
+  color: #444;
   opacity: 1;
   transform: translateY(-50%) scale(1.05);
 }
@@ -84,7 +109,40 @@
   transform: translateY(-50%) scale(0.95);
 }
 
-/* garante precisão visual */
 .clearButton svg {
   display: block;
+}
+
+/* ==============================
+   DARK MODE — GLASS TRANSPARENTE
+================================ */
+
+:global(html.dark) .label {
+  color: #b5b5b5;
+}
+
+/* INPUT MAIS TRANSPARENTE NO DARK */
+:global(html.dark) .input {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.08);
+
+  color: #f5f5f5;
+  backdrop-filter: blur(20px);
+}
+
+:global(html.dark) .input::placeholder {
+  color: #9a9a9a;
+}
+
+:global(html.dark) .input:focus {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* CLEAR (X) CORRETO NO DARK */
+:global(html.dark) .clearButton {
+  color: #9a9a9a;
+}
+
+:global(html.dark) .clearButton:hover {
+  color: #f5f5f5;
 }
