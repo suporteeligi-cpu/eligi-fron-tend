@@ -1,24 +1,36 @@
 'use client'
 
+import Image from 'next/image'
 import styles from './auth.module.css'
 
 interface AuthCardProps {
   title: string
   subtitle?: string
   children: React.ReactNode
+  loading?: boolean
 }
 
-export function AuthCard({ title, subtitle, children }: AuthCardProps) {
+export function AuthCard({
+  title,
+  subtitle,
+  children,
+  loading = false
+}: AuthCardProps) {
   return (
     <div className={styles.wrapper}>
-      <div className={styles.card}>
+      <div
+        className={`${styles.card} ${loading ? styles.loading : ''}`}
+        aria-busy={loading}
+      >
         {/* LOGO ELIGI */}
         <div className={styles.logoWrapper}>
-          <img
-            src="/images/globo-light.png"
+          <Image
+            src="/images/eligi.png"
             alt="Eligi"
+            width={42}
+            height={42}
             className={styles.logo}
-            draggable={false}
+            priority
           />
         </div>
 
@@ -30,6 +42,13 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
 
         {/* CONTEÚDO */}
         <div className={styles.content}>{children}</div>
+
+        {/* LOADING OVERLAY */}
+        {loading && (
+          <div className={styles.loadingOverlay}>
+            <div className={styles.spinner} />
+          </div>
+        )}
       </div>
     </div>
   )

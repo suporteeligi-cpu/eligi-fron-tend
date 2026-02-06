@@ -216,3 +216,8 @@
     display: none !important;
   }
 }
+
+.loading {
+  pointer-events: none;
+  opacity: 0.6;
+}

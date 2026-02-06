@@ -30,6 +30,9 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
+  // 🔥 loading local para auth navigation
+  const [authLoading, setAuthLoading] = useState(false)
+
   // 2️⃣ useEffect apenas para scroll
   useEffect(() => {
     const onScroll = () => {
@@ -48,6 +51,10 @@ export default function Navbar() {
     const next = theme === 'light' ? 'dark' : 'light'
     document.documentElement.setAttribute('data-theme', next)
     setTheme(next)
+  }
+
+  function handleAuthClick() {
+    setAuthLoading(true)
   }
 
   return (
@@ -95,16 +102,29 @@ export default function Navbar() {
             onClick={toggleTheme}
             aria-label="Alternar tema"
             className={styles.themeToggle}
+            disabled={authLoading}
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
-          <Link href="/login" className={styles.login}>
+          <Link
+            href="/login"
+            className={`${styles.login} ${
+              authLoading ? styles.loading : ''
+            }`}
+            onClick={handleAuthClick}
+          >
             <LogIn size={18} />
             Entrar
           </Link>
 
-          <Link href="/register" className={styles.cta}>
+          <Link
+            href="/register"
+            className={`${styles.cta} ${
+              authLoading ? styles.loading : ''
+            }`}
+            onClick={handleAuthClick}
+          >
             Criar conta
           </Link>
 
@@ -114,6 +134,7 @@ export default function Navbar() {
             className={styles.menuToggle}
             onClick={() => setMenuOpen(v => !v)}
             aria-label="Abrir menu"
+            disabled={authLoading}
           >
             <Menu size={22} />
           </button>
@@ -143,15 +164,27 @@ export default function Navbar() {
 
         <div className={styles.mobileDivider} />
 
-        <Link href="/login" onClick={() => setMenuOpen(false)}>
+        <Link
+          href="/login"
+          onClick={() => {
+            setMenuOpen(false)
+            handleAuthClick()
+          }}
+          className={authLoading ? styles.loading : ''}
+        >
           <LogIn size={18} />
           Entrar
         </Link>
 
         <Link
           href="/register"
-          className={styles.mobileCTA}
-          onClick={() => setMenuOpen(false)}
+          className={`${styles.mobileCTA} ${
+            authLoading ? styles.loading : ''
+          }`}
+          onClick={() => {
+            setMenuOpen(false)
+            handleAuthClick()
+          }}
         >
           Criar conta
         </Link>
