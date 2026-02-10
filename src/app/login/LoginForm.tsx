@@ -29,8 +29,11 @@ export default function LoginForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setErrors({})
 
+    // 🔥 BLOQUEIA RE-SUBMIT / LOOP
+    if (loading) return
+
+    setErrors({})
     setLoading(true)
 
     try {
@@ -56,6 +59,7 @@ export default function LoginForm() {
       }
 
       if (apiError?.field && apiError?.message) {
+        // 🎯 Erro no campo correto
         setErrors({ [apiError.field]: apiError.message })
       } else {
         setErrors({
@@ -85,6 +89,7 @@ export default function LoginForm() {
           type="button"
           className={styles.authSwitchButton}
           onClick={() => router.push('/register')}
+          disabled={loading}
         >
           Criar conta
         </button>
@@ -98,6 +103,7 @@ export default function LoginForm() {
           onChange={setEmail}
           error={errors.email}
           required
+          disabled={loading}
         />
 
         <AuthInput
@@ -107,13 +113,18 @@ export default function LoginForm() {
           onChange={setPassword}
           error={errors.password}
           required
+          disabled={loading}
         />
 
         {errors.general && (
           <p className={styles.authError}>{errors.general}</p>
         )}
 
-        <AuthButton type="submit" loading={loading}>
+        <AuthButton
+          type="submit"
+          loading={loading}
+          disabled={loading}
+        >
           Entrar
         </AuthButton>
       </form>

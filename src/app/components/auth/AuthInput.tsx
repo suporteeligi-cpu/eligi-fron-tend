@@ -11,6 +11,7 @@ interface AuthInputProps {
   type?: string
   error?: string
   required?: boolean
+  disabled?: boolean // ✅ ADIÇÃO NECESSÁRIA
 }
 
 export function AuthInput({
@@ -20,19 +21,25 @@ export function AuthInput({
   placeholder,
   type = 'text',
   error,
-  required = false
+  required = false,
+  disabled = false
 }: AuthInputProps) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (disabled) return
     onChange(e.target.value)
   }
 
   function handleClear() {
+    if (disabled) return
     onChange('')
   }
 
   return (
     <div className={styles.authInput}>
-      <label className={styles.label}>{label}</label>
+      <label className={styles.label}>
+        {label}
+        {required && ' *'}
+      </label>
 
       <div className={styles.inputWrapper}>
         <input
@@ -43,10 +50,11 @@ export function AuthInput({
           value={value}
           placeholder={placeholder}
           required={required}
+          disabled={disabled} // ✅ APLICADO
           onChange={handleChange}
         />
 
-        {value && (
+        {value && !disabled && (
           <button
             type="button"
             className={styles.clearButton}
