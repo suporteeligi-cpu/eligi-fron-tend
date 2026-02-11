@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation'
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
-import { loginRequest, getMe } from '@/lib/auth.api'
+import { loginRequest } from '@/lib/auth.api'
 import styles from './Login.module.css'
 
 type ApiErrorResponse = {
-  code?: string
   field?: 'email' | 'password'
   message?: string
 }
@@ -19,7 +18,9 @@ export default function LoginForm() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+
   const [loading, setLoading] = useState(false)
+  const [hasSubmitted, setHasSubmitted] = useState(false)
 
   const [errors, setErrors] = useState<{
     email?: string
@@ -27,23 +28,21 @@ export default function LoginForm() {
     general?: string
   }>({})
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
-    // 🔥 BLOQUEIA RE-SUBMIT / LOOP
     if (loading) return
 
-    setErrors({})
+    setHasSubmitted(true)
     setLoading(true)
+    setErrors({})
 
     try {
       const tokens = await loginRequest(email, password)
+
       localStorage.setItem('accessToken', tokens.accessToken)
 
-      const me = await getMe()
-
-      if (me.role === 'BUSINESS_OWNER') router.push('/onboarding')
-      if (me.role === 'AFFILIATE') router.push('/dashboard')
+      router.push('/onboarding')
     } catch (err: unknown) {
       let apiError: ApiErrorResponse | undefined
 
@@ -59,11 +58,10 @@ export default function LoginForm() {
       }
 
       if (apiError?.field && apiError?.message) {
-        // 🎯 Erro no campo correto
         setErrors({ [apiError.field]: apiError.message })
       } else {
         setErrors({
-          general: apiError?.message ?? 'Erro ao realizar login'
+          general: apiError?.message ?? 'Email ou senha inválidos'
         })
       }
     } finally {
@@ -77,33 +75,19 @@ export default function LoginForm() {
       subtitle="Acesse sua conta para continuar"
       loading={loading}
     >
-      <div className={styles.authSwitch}>
-        <button
-          type="button"
-          className={`${styles.authSwitchButton} ${styles.authSwitchButtonActive}`}
-        >
-          Entrar
-        </button>
-
-        <button
-          type="button"
-          className={styles.authSwitchButton}
-          onClick={() => router.push('/register')}
-          disabled={loading}
-        >
-          Criar conta
-        </button>
-      </div>
-
-      <form className={styles.authForm} onSubmit={handleSubmit}>
+      <form
+        className={styles.authForm}
+        onSubmit={handleSubmit}
+        noValidate
+      >
         <AuthInput
           label="Email"
           type="email"
           value={email}
           onChange={setEmail}
-          error={errors.email}
-          required
+          error={hasSubmitted ? errors.email : undefined}
           disabled={loading}
+          required
         />
 
         <AuthInput
@@ -111,12 +95,12 @@ export default function LoginForm() {
           type="password"
           value={password}
           onChange={setPassword}
-          error={errors.password}
-          required
+          error={hasSubmitted ? errors.password : undefined}
           disabled={loading}
+          required
         />
 
-        {errors.general && (
+        {hasSubmitted && errors.general && (
           <p className={styles.authError}>{errors.general}</p>
         )}
 

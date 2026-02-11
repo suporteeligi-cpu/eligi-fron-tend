@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import styles from './auth.module.css'
 
 interface AuthButtonProps
@@ -8,17 +9,20 @@ interface AuthButtonProps
 }
 
 export function AuthButton({
-  loading,
   children,
-  ...props
+  loading = false,
+  disabled,
+  type,
+  ...rest
 }: AuthButtonProps) {
   return (
     <button
+      type={type}
+      disabled={disabled || loading}
       className={styles.button}
-      disabled={loading || props.disabled}
-      {...props}
+      {...rest}
     >
-      {loading ? 'Aguarde…' : children}
+      {loading ? 'Carregando...' : children}
     </button>
   )
 }
