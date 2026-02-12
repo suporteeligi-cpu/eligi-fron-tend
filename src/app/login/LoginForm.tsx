@@ -64,6 +64,9 @@ export default function LoginForm() {
           general: apiError?.message ?? 'Email ou senha inválidos'
         })
       }
+
+      console.log('Erro completo:', err)
+
     } finally {
       setLoading(false)
     }
