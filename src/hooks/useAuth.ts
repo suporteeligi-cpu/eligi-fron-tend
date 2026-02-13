@@ -1,39 +1,99 @@
-'use client';
+'use client'
 
-type AuthUser = {
-  id: string;
-};
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { loginRequest, registerRequest, getMe } from '@/lib/auth.api'
 
-type UseAuthResult = {
-  user: AuthUser | null;
-  isAuthenticated: boolean;
-  loading: boolean;
-};
+type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
-export function useAuth(): UseAuthResult {
-  if (typeof window === 'undefined') {
-    return {
-      user: null,
-      isAuthenticated: false,
-      loading: true,
-    };
+interface User {
+  id: string
+  name: string
+  email: string
+  role: Role
+}
+
+export function useAuth() {
+  const router = useRouter()
+
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // 🔎 Verifica token ao iniciar
+  useEffect(() => {
+    async function loadUser() {
+      const token = localStorage.getItem('accessToken')
+
+      if (!token) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const me = await getMe()
+        setUser(me)
+      } catch {
+        localStorage.removeItem('accessToken')
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadUser()
+  }, [])
+
+  async function login(email: string, password: string) {
+    const tokens = await loginRequest(email, password)
+
+    localStorage.setItem('accessToken', tokens.accessToken)
+
+    const me = await getMe()
+    setUser(me)
+
+    if (me.role === 'BUSINESS_OWNER') {
+      router.push('/onboarding')
+    } else {
+      router.push('/dashboard')
+    }
   }
 
-  const token = localStorage.getItem('accessToken');
+  async function register(
+    name: string,
+    email: string,
+    password: string,
+    role: Role
+  ) {
+    const tokens = await registerRequest(
+      name,
+      email,
+      password,
+      role
+    )
 
-  if (!token) {
-    return {
-      user: null,
-      isAuthenticated: false,
-      loading: false,
-    };
+    localStorage.setItem('accessToken', tokens.accessToken)
+
+    const me = await getMe()
+    setUser(me)
+
+    if (me.role === 'BUSINESS_OWNER') {
+      router.push('/onboarding')
+    } else {
+      router.push('/dashboard')
+    }
   }
 
-  // Auth baseada apenas na existência do token
-  // (futuro: substituir por /me)
+  function logout() {
+    localStorage.removeItem('accessToken')
+    setUser(null)
+    router.push('/login')
+  }
+
   return {
-    user: { id: 'me' },
-    isAuthenticated: true,
-    loading: false,
-  };
+    user,
+    loading,
+    login,
+    register,
+    logout
+  }
 }

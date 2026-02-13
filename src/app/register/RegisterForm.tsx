@@ -7,14 +7,15 @@ import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
 import { AuthRoleSelect } from '../components/auth/AuthRoleSelect'
 import { registerRequest, getMe } from '@/lib/auth.api'
+import { mapAuthError } from '@/lib/auth.error.map'
 import styles from './Register.module.css'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
-type ApiErrorResponse = {
-  code?: string
-  field?: 'name' | 'email' | 'password'
+interface ApiError {
+  code: string
   message?: string
+  field?: 'name' | 'email' | 'password'
 }
 
 export default function RegisterForm() {
@@ -23,7 +24,8 @@ export default function RegisterForm() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<Role>('BUSINESS_OWNER')
+  const [role, setRole] =
+    useState<Role>('BUSINESS_OWNER')
 
   const [loading, setLoading] = useState(false)
 
@@ -36,9 +38,11 @@ export default function RegisterForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setErrors({})
+
+    if (loading) return
 
     setLoading(true)
+    setErrors({})
 
     try {
       const tokens = await registerRequest(
@@ -48,33 +52,42 @@ export default function RegisterForm() {
         role
       )
 
-      localStorage.setItem('accessToken', tokens.accessToken)
+      localStorage.setItem(
+        'accessToken',
+        tokens.accessToken
+      )
 
       const me = await getMe()
 
-      if (me.role === 'BUSINESS_OWNER') router.push('/onboarding')
-      if (me.role === 'AFFILIATE') router.push('/dashboard')
-    } catch (err: unknown) {
-      let apiError: ApiErrorResponse | undefined
-
-      if (
-        err &&
-        typeof err === 'object' &&
-        'response' in err &&
-        err.response &&
-        typeof err.response === 'object' &&
-        'data' in err.response
-      ) {
-        apiError = err.response.data as ApiErrorResponse
+      if (me.role === 'BUSINESS_OWNER') {
+        router.push('/onboarding')
+      } else {
+        router.push('/dashboard')
       }
 
-      if (apiError?.field && apiError?.message) {
-        setErrors({ [apiError.field]: apiError.message })
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        typeof (error as { code: unknown }).code === 'string'
+      ) {
+        const apiError = error as ApiError
+
+        const mapped = mapAuthError(apiError.code)
+
+        if (mapped.field) {
+          setErrors({
+            [mapped.field]: mapped.message
+          })
+        } else {
+          setErrors({
+            general: mapped.message
+          })
+        }
       } else {
         setErrors({
-          general:
-            apiError?.message ??
-            'Erro ao criar conta. Verifique os dados.'
+          general: 'Erro inesperado'
         })
       }
     } finally {
@@ -87,6 +100,7 @@ export default function RegisterForm() {
       title="Cadastre-se"
       subtitle="Comece agora mesmo a usar o ELIGI"
       loading={loading}
+      errorMessage={errors.general}
     >
       <div className={styles.authSwitch}>
         <button
@@ -105,16 +119,24 @@ export default function RegisterForm() {
         </button>
       </div>
 
-      <form className={styles.authForm} onSubmit={handleSubmit}>
+      <form
+        className={styles.authForm}
+        onSubmit={handleSubmit}
+        noValidate
+      >
         <AuthInput
           label="Nome completo"
           value={name}
           onChange={setName}
           error={errors.name}
+          disabled={loading}
           required
         />
 
-        <AuthRoleSelect value={role} onChange={setRole} />
+        <AuthRoleSelect
+          value={role}
+          onChange={setRole}
+        />
 
         <AuthInput
           label="Email"
@@ -122,6 +144,7 @@ export default function RegisterForm() {
           value={email}
           onChange={setEmail}
           error={errors.email}
+          disabled={loading}
           required
         />
 
@@ -131,14 +154,15 @@ export default function RegisterForm() {
           value={password}
           onChange={setPassword}
           error={errors.password}
+          disabled={loading}
           required
         />
 
-        {errors.general && (
-          <p className={styles.authError}>{errors.general}</p>
-        )}
-
-        <AuthButton type="submit" loading={loading}>
+        <AuthButton
+          type="submit"
+          loading={loading}
+          disabled={loading}
+        >
           Criar conta
         </AuthButton>
       </form>

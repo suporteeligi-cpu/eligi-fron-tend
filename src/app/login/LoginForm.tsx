@@ -2,19 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
-import { loginRequest } from '@/lib/auth.api'
+import { mapAuthError } from '@/lib/auth.error.map'
 import styles from './Login.module.css'
 
-type ApiErrorResponse = {
-  field?: 'email' | 'password'
-  message?: string
+type ApiError = {
+  code: string
 }
 
 export default function LoginForm() {
   const router = useRouter()
+  const { login } = useAuth()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -28,7 +29,9 @@ export default function LoginForm() {
     general?: string
   }>({})
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault()
 
     if (loading) return
@@ -38,35 +41,27 @@ export default function LoginForm() {
     setErrors({})
 
     try {
-      const tokens = await loginRequest(email, password)
-
-      localStorage.setItem('accessToken', tokens.accessToken)
-
-      router.push('/onboarding')
-    } catch (err: unknown) {
-      let apiError: ApiErrorResponse | undefined
-
+      await login(email, password)
+    } catch (error: unknown) {
       if (
-        err &&
-        typeof err === 'object' &&
-        'response' in err &&
-        err.response &&
-        typeof err.response === 'object' &&
-        'data' in err.response
+        error &&
+        typeof error === 'object' &&
+        'code' in error
       ) {
-        apiError = err.response.data as ApiErrorResponse
+        const apiError = error as ApiError
+
+        const mapped = mapAuthError(apiError.code)
+
+        if (mapped.field) {
+          setErrors({
+            [mapped.field]: mapped.message
+          })
+        } else {
+          setErrors({
+            general: mapped.message
+          })
+        }
       }
-
-      if (apiError?.field && apiError?.message) {
-        setErrors({ [apiError.field]: apiError.message })
-      } else {
-        setErrors({
-          general: apiError?.message ?? 'Email ou senha inválidos'
-        })
-      }
-
-      console.log('Erro completo:', err)
-
     } finally {
       setLoading(false)
     }
@@ -77,6 +72,9 @@ export default function LoginForm() {
       title="Login"
       subtitle="Acesse sua conta para continuar"
       loading={loading}
+      errorMessage={
+        hasSubmitted ? errors.general : undefined
+      }
     >
       <form
         className={styles.authForm}
@@ -88,7 +86,9 @@ export default function LoginForm() {
           type="email"
           value={email}
           onChange={setEmail}
-          error={hasSubmitted ? errors.email : undefined}
+          error={
+            hasSubmitted ? errors.email : undefined
+          }
           disabled={loading}
           required
         />
@@ -98,14 +98,24 @@ export default function LoginForm() {
           type="password"
           value={password}
           onChange={setPassword}
-          error={hasSubmitted ? errors.password : undefined}
+          error={
+            hasSubmitted
+              ? errors.password
+              : undefined
+          }
           disabled={loading}
           required
         />
 
-        {hasSubmitted && errors.general && (
-          <p className={styles.authError}>{errors.general}</p>
-        )}
+        <div className={styles.forgotPassword}>
+          <button
+            type="button"
+            onClick={() => router.push('/forgot-password')}
+            className={styles.forgotLink}
+          >
+            Esqueci minha senha
+          </button>
+        </div>
 
         <AuthButton
           type="submit"

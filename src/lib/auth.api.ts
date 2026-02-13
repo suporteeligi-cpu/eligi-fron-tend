@@ -1,43 +1,60 @@
-import { api } from './api'
+import { api, request } from './api'
 
-export async function loginRequest(email: string, password: string) {
-  const { data } = await api.post('/auth/login', {
-    email,
-    password
-  })
+/* =========================================
+   TYPES
+========================================= */
 
-  return data as {
-    accessToken: string
-    refreshToken: string
-  }
+export interface AuthTokens {
+  accessToken: string
+  refreshToken: string
 }
+
+export interface MeResponse {
+  id: string
+  name: string
+  email: string
+  role: 'BUSINESS_OWNER' | 'AFFILIATE'
+}
+
+/* =========================================
+   LOGIN
+========================================= */
+
+export async function loginRequest(
+  email: string,
+  password: string
+): Promise<AuthTokens> {
+  return request<AuthTokens>(
+    api.post('/auth/login', { email, password })
+  )
+}
+
+/* =========================================
+   REGISTER
+========================================= */
 
 export async function registerRequest(
   name: string,
   email: string,
   password: string,
   role: 'BUSINESS_OWNER' | 'AFFILIATE'
-) {
-  const { data } = await api.post('/auth/register', {
-    name,
-    email,
-    password,
-    role
-  })
-
-  return data as {
-    accessToken: string
-    refreshToken: string
-  }
+): Promise<AuthTokens> {
+  return request<AuthTokens>(
+    api.post('/auth/register', {
+      name,
+      email,
+      password,
+      role
+    })
+  )
 }
 
-export async function getMe() {
-  const { data } = await api.get('/auth/me')
+/* =========================================
+   ME
+========================================= */
 
-  return data as {
-    id: string
-    name: string
-    email: string
-    role: 'BUSINESS_OWNER' | 'AFFILIATE'
-  }
+export async function getMe(): Promise<MeResponse> {
+  return request<MeResponse>(
+    api.get('/auth/me')
+  )
 }

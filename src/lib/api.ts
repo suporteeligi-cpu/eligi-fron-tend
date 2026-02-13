@@ -1,23 +1,32 @@
 'use client'
 
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
+
+interface ApiErrorResponse {
+  success: false
+  error: {
+    code: string
+    message: string
+  }
+}
+
+interface ApiSuccessResponse<T> {
+  success: true
+  data: T
+}
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     'Content-Type': 'application/json'
   },
-
-  // 🔒 REGRA DE OURO:
-  // Qualquer status >= 400 é ERRO de verdade
   validateStatus: status => status >= 200 && status < 300
 })
 
-/* ===============================
+/* ======================================================
    REQUEST INTERCEPTOR
-   - Injeta token APENAS quando válido
-   - Nunca envia "Bearer undefined"
-================================ */
+====================================================== */
+
 api.interceptors.request.use(config => {
   if (typeof window === 'undefined') return config
 
@@ -36,22 +45,38 @@ api.interceptors.request.use(config => {
   return config
 })
 
-/* ===============================
+/* ======================================================
    RESPONSE INTERCEPTOR
-   - Remove token inválido
-   - Impede loop silencioso
-================================ */
-api.interceptors.response.use(
-  response => response,
+====================================================== */
 
-  error => {
-    const status = error?.response?.status
+api.interceptors.response.use(
+  response => {
+    // 🔍 Se backend retornou success:false
+    if (response.data?.success === false) {
+      return Promise.reject(response.data)
+    }
+
+    return response
+  },
+
+  (error: AxiosError<ApiErrorResponse>) => {
+    const status = error.response?.status
 
     if (status === 401) {
-      // 🔥 Sessão inválida → limpa imediatamente
       localStorage.removeItem('accessToken')
     }
 
-    return Promise.reject(error)
+    return Promise.reject(error.response?.data || error)
   }
 )
+
+/* ======================================================
+   HELPER PADRÃO
+====================================================== */
+
+export async function request<T>(
+  promise: Promise<{ data: ApiSuccessResponse<T> }>
+): Promise<T> {
+  const response = await promise
+  return response.data.data
+}

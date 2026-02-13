@@ -8,13 +8,17 @@ interface AuthCardProps {
   subtitle?: string
   children: React.ReactNode
   loading?: boolean
+  errorMessage?: string | null
+  successMessage?: string | null
 }
 
 export function AuthCard({
   title,
   subtitle,
   children,
-  loading = false
+  loading = false,
+  errorMessage,
+  successMessage
 }: AuthCardProps) {
   return (
     <div className={styles.wrapper}>
@@ -22,7 +26,7 @@ export function AuthCard({
         className={`${styles.card} ${loading ? styles.loading : ''}`}
         aria-busy={loading}
       >
-        {/* LOGO ELIGI */}
+        {/* LOGO */}
         <div className={styles.logoWrapper}>
           <Image
             src="/images/globo-light.png"
@@ -34,14 +38,38 @@ export function AuthCard({
           />
         </div>
 
-        {/* TÍTULO */}
+        {/* TITLE */}
         <h1 className={styles.title}>{title}</h1>
 
-        {/* SUBTÍTULO */}
-        {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+        {/* SUBTITLE */}
+        {subtitle && (
+          <p className={styles.subtitle}>{subtitle}</p>
+        )}
 
-        {/* CONTEÚDO */}
-        <div className={styles.content}>{children}</div>
+        {/* GLOBAL ERROR */}
+        {errorMessage && (
+          <div
+            className={styles.errorBox}
+            role="alert"
+          >
+            {errorMessage}
+          </div>
+        )}
+
+        {/* GLOBAL SUCCESS */}
+        {successMessage && (
+          <div
+            className={styles.successBox}
+            role="status"
+          >
+            {successMessage}
+          </div>
+        )}
+
+        {/* CONTENT */}
+        <div className={styles.content}>
+          {children}
+        </div>
 
         {/* LOADING OVERLAY */}
         {loading && (
