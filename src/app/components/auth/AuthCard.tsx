@@ -29,13 +29,15 @@ export function AuthCard({
         {/* LOGO */}
         <div className={styles.logoWrapper}>
           <Image
-            src="/images/globo-light.png"
-            alt="Eligi"
-            width={42}
-            height={42}
-            className={styles.logo}
-            priority
+           src="/images/globo-light.png"
+           alt="Eligi"
+           width={42}
+           height={42}
+           className={styles.logo}
+           priority
+           style={{ height: 'auto' }}
           />
+
         </div>
 
         {/* TITLE */}
