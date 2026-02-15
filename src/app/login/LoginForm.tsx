@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '@/hooks/useAuth'
+import { api } from '@/lib/api'
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
@@ -37,7 +39,6 @@ export default function LoginForm() {
     e: React.FormEvent<HTMLFormElement>
   ) {
     e.preventDefault()
-
     if (loading) return
 
     setHasSubmitted(true)
@@ -54,7 +55,6 @@ export default function LoginForm() {
         'code' in error
       ) {
         const apiError = error as ApiError
-
         const mapped = mapAuthError(apiError.code)
 
         if (mapped.field) {
@@ -71,6 +71,44 @@ export default function LoginForm() {
           general: 'Erro inesperado. Tente novamente.'
         })
       }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleGoogleLogin(
+    credentialResponse: any
+  ) {
+    if (!credentialResponse.credential) {
+      setErrors({
+        general: 'Falha ao autenticar com Google.'
+      })
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      const { data } = await api.post('/auth/google', {
+        idToken: credentialResponse.credential
+      })
+
+      localStorage.setItem(
+        'accessToken',
+        data.accessToken
+      )
+
+      localStorage.setItem(
+        'refreshToken',
+        data.refreshToken
+      )
+
+      router.push('/dashboard')
+    } catch {
+      setErrors({
+        general:
+          'Erro ao autenticar com Google.'
+      })
     } finally {
       setLoading(false)
     }
@@ -93,7 +131,7 @@ export default function LoginForm() {
         hasSubmitted ? errors.general : undefined
       }
     >
-      {/* 🔴 AUTH SWITCH ELIGI */}
+      {/* AUTH SWITCH */}
       <div className={styles.authSwitch}>
         <button
           type="button"
@@ -171,6 +209,26 @@ export default function LoginForm() {
           Entrar
         </AuthButton>
       </form>
+
+      {/* GOOGLE LOGIN */}
+      <div className={styles.googleWrapper}>
+        <div className={styles.googleButton}>
+          <GoogleLogin
+            onSuccess={handleGoogleLogin}
+            onError={() =>
+              setErrors({
+                general:
+                  'Falha na autenticação Google.'
+              })
+            }
+            theme="outline"
+            size="large"
+            shape="pill"
+            text="signin_with"
+            width="100%"
+          />
+        </div>
+      </div>
     </AuthCard>
   )
 }
