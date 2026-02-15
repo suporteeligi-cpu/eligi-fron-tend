@@ -13,9 +13,13 @@ type ApiError = {
   code: string
 }
 
+type Mode = 'login' | 'register'
+
 export default function LoginForm() {
   const router = useRouter()
   const { login } = useAuth()
+
+  const [mode, setMode] = useState<Mode>('login')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -42,6 +46,7 @@ export default function LoginForm() {
 
     try {
       await login(email, password)
+      router.push('/dashboard')
     } catch (error: unknown) {
       if (
         error &&
@@ -61,21 +66,60 @@ export default function LoginForm() {
             general: mapped.message
           })
         }
+      } else {
+        setErrors({
+          general: 'Erro inesperado. Tente novamente.'
+        })
       }
     } finally {
       setLoading(false)
     }
   }
 
+  function handleSwitch(newMode: Mode) {
+    setMode(newMode)
+
+    if (newMode === 'register') {
+      router.push('/register')
+    }
+  }
+
   return (
     <AuthCard
-      title="Login"
-      subtitle="Acesse sua conta para continuar"
+      title="Acessar conta"
+      subtitle="Entre para continuar no ELIGI"
       loading={loading}
       errorMessage={
         hasSubmitted ? errors.general : undefined
       }
     >
+      {/* 🔴 AUTH SWITCH ELIGI */}
+      <div className={styles.authSwitch}>
+        <button
+          type="button"
+          className={
+            mode === 'login'
+              ? `${styles.authSwitchButton} ${styles.authSwitchButtonActive}`
+              : styles.authSwitchButton
+          }
+          onClick={() => handleSwitch('login')}
+        >
+          Login
+        </button>
+
+        <button
+          type="button"
+          className={
+            mode === 'register'
+              ? `${styles.authSwitchButton} ${styles.authSwitchButtonActive}`
+              : styles.authSwitchButton
+          }
+          onClick={() => handleSwitch('register')}
+        >
+          Criar conta
+        </button>
+      </div>
+
       <form
         className={styles.authForm}
         onSubmit={handleSubmit}
@@ -110,7 +154,9 @@ export default function LoginForm() {
         <div className={styles.forgotPassword}>
           <button
             type="button"
-            onClick={() => router.push('/forgot-password')}
+            onClick={() =>
+              router.push('/forgot-password')
+            }
             className={styles.forgotLink}
           >
             Esqueci minha senha
