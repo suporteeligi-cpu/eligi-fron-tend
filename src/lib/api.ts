@@ -1,14 +1,6 @@
 'use client'
 
-import axios, { AxiosError } from 'axios'
-
-interface ApiErrorResponse {
-  success: false
-  error: {
-    code: string
-    message: string
-  }
-}
+import axios from 'axios'
 
 interface ApiSuccessResponse<T> {
   success: true
@@ -46,24 +38,53 @@ api.interceptors.request.use(config => {
 })
 
 /* ======================================================
-   RESPONSE INTERCEPTOR
+   RESPONSE INTERCEPTOR (REFRESH AUTOMÁTICO)
 ====================================================== */
 
 api.interceptors.response.use(
-  response => {
-    // 🔍 Se backend retornou success:false
-    if (response.data?.success === false) {
-      return Promise.reject(response.data)
+  response => response,
+
+  async error => {
+    const originalRequest = error.config as typeof error.config & {
+      _retry?: boolean
     }
 
-    return response
-  },
+    const status = error?.response?.status
 
-  (error: AxiosError<ApiErrorResponse>) => {
-    const status = error.response?.status
+    if (status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
 
-    if (status === 401) {
-      localStorage.removeItem('accessToken')
+      const refreshToken =
+        localStorage.getItem('refreshToken')
+
+      if (!refreshToken) {
+        localStorage.removeItem('accessToken')
+        return Promise.reject(error.response?.data || error)
+      }
+
+      try {
+        const response = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+          { refreshToken }
+        )
+
+        const newAccessToken =
+          response.data.data.accessToken
+
+        localStorage.setItem(
+          'accessToken',
+          newAccessToken
+        )
+
+        originalRequest.headers.Authorization =
+          `Bearer ${newAccessToken}`
+
+        return api(originalRequest)
+      } catch {
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        return Promise.reject(error.response?.data || error)
+      }
     }
 
     return Promise.reject(error.response?.data || error)

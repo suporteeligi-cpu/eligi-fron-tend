@@ -29,5 +29,19 @@ export function mapAuthError(code?: string): {
       return {
         message: 'Ocorreu um erro inesperado'
       }
+
+    case 'INVALID_REFRESH_TOKEN':
+      return {
+        message: 'Sessão inválida. Faça login novamente.'
+     }
+
+    case 'SESSION_INVALID':
+    case 'SESSION_REVOKED':
+    case 'SESSION_EXPIRED':
+      return {
+        message: 'Sua sessão expirou. Faça login novamente.'
+      }
+  
   }
+
 }

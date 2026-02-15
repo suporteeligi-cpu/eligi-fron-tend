@@ -34,6 +34,7 @@ export function useAuth() {
         setUser(me)
       } catch {
         localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
         setUser(null)
       } finally {
         setLoading(false)
@@ -47,6 +48,7 @@ export function useAuth() {
     const tokens = await loginRequest(email, password)
 
     localStorage.setItem('accessToken', tokens.accessToken)
+    localStorage.setItem('refreshToken', tokens.refreshToken)
 
     const me = await getMe()
     setUser(me)
@@ -72,6 +74,7 @@ export function useAuth() {
     )
 
     localStorage.setItem('accessToken', tokens.accessToken)
+    localStorage.setItem('refreshToken', tokens.refreshToken)
 
     const me = await getMe()
     setUser(me)
@@ -85,6 +88,7 @@ export function useAuth() {
 
   function logout() {
     localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
     setUser(null)
     router.push('/login')
   }
