@@ -9,6 +9,7 @@ import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
 import { mapAuthError } from '@/lib/auth.error.map'
+import { GoogleIcon } from '../components/ui/GoogleIcon'
 import styles from './Login.module.css'
 
 type ApiError = {
@@ -174,15 +175,49 @@ export default function LoginForm() {
         </AuthButton>
       </form>
 
+      {/* GOOGLE BUTTON COM MICRO-INTERAÇÃO */}
       <button
         type="button"
-        onClick={() => googleLogin()}
         disabled={loading}
         className={styles.googleButton}
+        onMouseMove={(e) => {
+          const target = e.currentTarget
+          const rect = target.getBoundingClientRect()
+
+          const x = e.clientX - rect.left
+          const y = e.clientY - rect.top
+
+          const centerX = rect.width / 2
+          const centerY = rect.height / 2
+
+          const moveX = (x - centerX) / 18
+          const moveY = (y - centerY) / 18
+
+          const icon =
+            target.querySelector('svg') as HTMLElement
+
+          if (icon) {
+            icon.style.transform =
+              `translate(${moveX}px, ${moveY}px) scale(1.05)`
+          }
+        }}
+        onMouseLeave={(e) => {
+          const icon =
+            e.currentTarget.querySelector('svg') as HTMLElement
+
+          if (icon) {
+            icon.style.transform =
+              'translate(0px, 0px) scale(1)'
+          }
+        }}
+        onClick={() => googleLogin()}
       >
-        <span className={styles.googleIcon}>G</span>
-        <span className={styles.googleText}>Continuar com Google</span>
+        <GoogleIcon />
+        <span className={styles.googleText}>
+          Continuar com Google
+        </span>
       </button>
+
     </AuthCard>
   )
 }
