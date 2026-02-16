@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CredentialResponse, GoogleLogin } from '@react-oauth/google'
+import { useGoogleLogin } from '@react-oauth/google'
 import { useAuth } from '@/hooks/useAuth'
 import { api } from '@/lib/api'
 import { AuthCard } from '../components/auth/AuthCard'
@@ -22,10 +22,8 @@ export default function LoginForm() {
   const { login } = useAuth()
 
   const [mode, setMode] = useState<Mode>('login')
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-
   const [loading, setLoading] = useState(false)
   const [hasSubmitted, setHasSubmitted] = useState(false)
 
@@ -76,47 +74,32 @@ export default function LoginForm() {
     }
   }
 
-  async function handleGoogleLogin(
-    credentialResponse: CredentialResponse
-  ) {
-    if (!credentialResponse.credential) {
-      setErrors({
-        general: 'Falha ao autenticar com Google.'
-      })
-      return
+  const googleLogin = useGoogleLogin({
+    flow: 'implicit',
+    onSuccess: async (tokenResponse) => {
+      try {
+        setLoading(true)
+
+        const { data } = await api.post('/auth/google', {
+          idToken: tokenResponse.access_token
+        })
+
+        localStorage.setItem('accessToken', data.accessToken)
+        localStorage.setItem('refreshToken', data.refreshToken)
+
+        router.push('/dashboard')
+      } catch {
+        setErrors({
+          general: 'Erro ao autenticar com Google.'
+        })
+      } finally {
+        setLoading(false)
+      }
     }
-
-    try {
-      setLoading(true)
-
-      const { data } = await api.post('/auth/google', {
-        idToken: credentialResponse.credential
-      })
-
-      localStorage.setItem(
-        'accessToken',
-        data.accessToken
-      )
-
-      localStorage.setItem(
-        'refreshToken',
-        data.refreshToken
-      )
-
-      router.push('/dashboard')
-    } catch {
-      setErrors({
-        general:
-          'Erro ao autenticar com Google.'
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+  })
 
   function handleSwitch(newMode: Mode) {
     setMode(newMode)
-
     if (newMode === 'register') {
       router.push('/register')
     }
@@ -131,7 +114,6 @@ export default function LoginForm() {
         hasSubmitted ? errors.general : undefined
       }
     >
-      {/* AUTH SWITCH */}
       <div className={styles.authSwitch}>
         <button
           type="button"
@@ -168,9 +150,7 @@ export default function LoginForm() {
           type="email"
           value={email}
           onChange={setEmail}
-          error={
-            hasSubmitted ? errors.email : undefined
-          }
+          error={hasSubmitted ? errors.email : undefined}
           disabled={loading}
           required
         />
@@ -180,26 +160,10 @@ export default function LoginForm() {
           type="password"
           value={password}
           onChange={setPassword}
-          error={
-            hasSubmitted
-              ? errors.password
-              : undefined
-          }
+          error={hasSubmitted ? errors.password : undefined}
           disabled={loading}
           required
         />
-
-        <div className={styles.forgotPassword}>
-          <button
-            type="button"
-            onClick={() =>
-              router.push('/forgot-password')
-            }
-            className={styles.forgotLink}
-          >
-            Esqueci minha senha
-          </button>
-        </div>
 
         <AuthButton
           type="submit"
@@ -210,25 +174,15 @@ export default function LoginForm() {
         </AuthButton>
       </form>
 
-      {/* GOOGLE LOGIN */}
-      <div className={styles.googleWrapper}>
-        <div className={styles.googleButton}>
-          <GoogleLogin
-            onSuccess={handleGoogleLogin}
-            onError={() =>
-              setErrors({
-                general:
-                  'Falha na autenticação Google.'
-              })
-            }
-            theme="outline"
-            size="large"
-            shape="pill"
-            text="signin_with"
-            width="100%"
-          />
-        </div>
-      </div>
+      <button
+        type="button"
+        onClick={() => googleLogin()}
+        disabled={loading}
+        className={styles.googleButton}
+      >
+        <span className={styles.googleIcon}>G</span>
+        <span className={styles.googleText}>Continuar com Google</span>
+      </button>
     </AuthCard>
   )
 }
