@@ -193,22 +193,21 @@ export default function LoginForm() {
           const moveX = (x - centerX) / 18
           const moveY = (y - centerY) / 18
 
-          const icon =
-            target.querySelector('svg') as HTMLElement
+          const icon = target.querySelector('svg')
 
-          if (icon) {
+          if (icon instanceof SVGSVGElement) {
             icon.style.transform =
-              `translate(${moveX}px, ${moveY}px) scale(1.05)`
-          }
+                `translate(${moveX}px, ${moveY}px) scale(1.05)`
+         }
+
         }}
         onMouseLeave={(e) => {
-          const icon =
-            e.currentTarget.querySelector('svg') as HTMLElement
+          const icon = e.currentTarget.querySelector('svg')
 
-          if (icon) {
-            icon.style.transform =
-              'translate(0px, 0px) scale(1)'
+          if (icon instanceof SVGSVGElement) {
+            icon.style.transform = 'translate(0px, 0px) scale(1)'
           }
+
         }}
         onClick={() => googleLogin()}
       >
