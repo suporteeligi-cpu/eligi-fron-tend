@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { GoogleLogin } from '@react-oauth/google'
+import { CredentialResponse, GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '@/hooks/useAuth'
 import { api } from '@/lib/api'
 import { AuthCard } from '../components/auth/AuthCard'
@@ -77,7 +77,7 @@ export default function LoginForm() {
   }
 
   async function handleGoogleLogin(
-    credentialResponse: any
+    credentialResponse: CredentialResponse
   ) {
     if (!credentialResponse.credential) {
       setErrors({
