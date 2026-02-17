@@ -206,11 +206,7 @@ export default function RegisterForm() {
           Criar conta
         </AuthButton>
       </form>
-
-      <div className={styles.divider}>
-        <span>ou</span>
-      </div>
-
+      
       <button
         type="button"
         disabled={loading}
