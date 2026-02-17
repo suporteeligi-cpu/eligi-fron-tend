@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useGoogleLogin } from '@react-oauth/google'
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
 import { AuthRoleSelect } from '../components/auth/AuthRoleSelect'
+import { GoogleIcon } from '../components/ui/GoogleIcon'
 import { registerRequest, getMe } from '@/lib/auth.api'
+import { api } from '@/lib/api'
 import { mapAuthError } from '@/lib/auth.error.map'
 import styles from './Register.module.css'
 
@@ -38,7 +41,6 @@ export default function RegisterForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-
     if (loading) return
 
     setLoading(true)
@@ -73,7 +75,6 @@ export default function RegisterForm() {
         typeof (error as { code: unknown }).code === 'string'
       ) {
         const apiError = error as ApiError
-
         const mapped = mapAuthError(apiError.code)
 
         if (mapped.field) {
@@ -94,6 +95,45 @@ export default function RegisterForm() {
       setLoading(false)
     }
   }
+
+  const googleRegister = useGoogleLogin({
+    flow: 'implicit',
+    onSuccess: async (tokenResponse) => {
+      try {
+        setLoading(true)
+
+        const { data } = await api.post('/auth/google', {
+          idToken: tokenResponse.access_token,
+          role // 🔥 AGORA ENVIAMOS O ROLE
+        })
+
+        localStorage.setItem(
+          'accessToken',
+          data.accessToken
+        )
+
+        localStorage.setItem(
+          'refreshToken',
+          data.refreshToken
+        )
+
+        const me = await getMe()
+
+        if (me.role === 'BUSINESS_OWNER') {
+          router.push('/onboarding')
+        } else {
+          router.push('/dashboard')
+        }
+
+      } catch {
+        setErrors({
+          general: 'Erro ao registrar com Google.'
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+  })
 
   return (
     <AuthCard
@@ -166,6 +206,22 @@ export default function RegisterForm() {
           Criar conta
         </AuthButton>
       </form>
+
+      <div className={styles.divider}>
+        <span>ou</span>
+      </div>
+
+      <button
+        type="button"
+        disabled={loading}
+        className={styles.googleButton}
+        onClick={() => googleRegister()}
+      >
+        <GoogleIcon />
+        <span className={styles.googleText}>
+          Registrar com Google
+        </span>
+      </button>
     </AuthCard>
   )
 }
