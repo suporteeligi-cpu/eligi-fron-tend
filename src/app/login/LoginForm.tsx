@@ -115,6 +115,7 @@ export default function LoginForm() {
         hasSubmitted ? errors.general : undefined
       }
     >
+      {/* SWITCH */}
       <div className={styles.authSwitch}>
         <button
           type="button"
@@ -141,6 +142,7 @@ export default function LoginForm() {
         </button>
       </div>
 
+      {/* FORM */}
       <form
         className={styles.authForm}
         onSubmit={handleSubmit}
@@ -166,6 +168,19 @@ export default function LoginForm() {
           required
         />
 
+        {/* 🔴 ESQUECI MINHA SENHA RESTAURADO */}
+        <div className={styles.forgotPassword}>
+          <button
+            type="button"
+            onClick={() =>
+              router.push('/forgot-password')
+            }
+            className={styles.forgotLink}
+          >
+            Esqueci minha senha
+          </button>
+        </div>
+
         <AuthButton
           type="submit"
           loading={loading}
@@ -175,7 +190,7 @@ export default function LoginForm() {
         </AuthButton>
       </form>
 
-      {/* GOOGLE BUTTON COM MICRO-INTERAÇÃO */}
+      {/* GOOGLE BUTTON */}
       <button
         type="button"
         disabled={loading}
@@ -197,17 +212,16 @@ export default function LoginForm() {
 
           if (icon instanceof SVGSVGElement) {
             icon.style.transform =
-                `translate(${moveX}px, ${moveY}px) scale(1.05)`
-         }
-
+              `translate(${moveX}px, ${moveY}px) scale(1.05)`
+          }
         }}
         onMouseLeave={(e) => {
           const icon = e.currentTarget.querySelector('svg')
 
           if (icon instanceof SVGSVGElement) {
-            icon.style.transform = 'translate(0px, 0px) scale(1)'
+            icon.style.transform =
+              'translate(0px, 0px) scale(1)'
           }
-
         }}
         onClick={() => googleLogin()}
       >
@@ -216,7 +230,6 @@ export default function LoginForm() {
           Continuar com Google
         </span>
       </button>
-
     </AuthCard>
   )
 }
