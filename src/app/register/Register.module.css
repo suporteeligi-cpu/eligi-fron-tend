@@ -1,25 +1,32 @@
 /* ==============================
-   ELIGI AUTH SWITCH (ISOLADO)
+   AUTH CONTAINER (MOBILE FIRST)
+================================ */
+
+.authContainer {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* ==============================
+   ELIGI AUTH SWITCH
 ================================ */
 
 .authSwitch {
   display: flex;
   padding: 4px;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 
   border-radius: 999px;
+
   background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
 
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.35),
-    0 10px 30px rgba(0, 0, 0, 0.1);
+    0 12px 30px rgba(0, 0, 0, 0.08);
 }
-
-/* ==============================
-   SWITCH BUTTON
-================================ */
 
 .authSwitchButton {
   flex: 1;
@@ -35,18 +42,13 @@
 
   cursor: pointer;
 
-  transition:
-    color 0.25s ease,
-    background 0.25s ease,
-    box-shadow 0.25s ease,
-    transform 0.15s ease;
+  transition: all 0.25s ease;
 }
 
 .authSwitchButton:hover {
   color: #111;
 }
 
-/* 🔴 ATIVO — CTA ELIGI */
 .authSwitchButtonActive {
   background: linear-gradient(135deg, #c40000, #9f0000);
   color: #fff;
@@ -57,7 +59,7 @@
 }
 
 /* ==============================
-   FORM (ISOLADO)
+   FORM
 ================================ */
 
 .authForm {
@@ -67,21 +69,69 @@
 }
 
 /* ==============================
-   ERROR (ISOLADO)
+   FORGOT LINK
 ================================ */
 
-.authError {
+.forgotLink {
+  margin-top: 6px;
   font-size: 13px;
-  color: #c40000;
-  text-align: center;
+  background: none;
+  border: none;
+  color: #bb0f0f;
+  cursor: pointer;
+  text-align: right;
+  transition: color 0.2s ease;
+}
+
+.forgotLink:hover {
+  color: #ff0000;
 }
 
 /* ==============================
-   DARK MODE — GLASS TRANSPARENTE
+   GOOGLE WRAPPER (REAL FIX)
+================================ */
+
+.googleWrapper {
+  margin-top: 22px;
+  display: flex;
+  justify-content: center;
+}
+
+.googleWrapper > div {
+  width: 100% !important;
+}
+
+.googleWrapper iframe {
+  width: 100% !important;
+}
+
+/* ==============================
+   RESPONSIVE
+================================ */
+
+@media (max-width: 480px) {
+  .authContainer {
+    max-width: 100%;
+    padding: 0 16px;
+  }
+
+  .authSwitch {
+    margin-bottom: 20px;
+  }
+}
+
+@media (min-width: 768px) {
+  .authContainer {
+    max-width: 440px;
+  }
+}
+
+/* ==============================
+   DARK MODE
 ================================ */
 
 :global(html.dark) .authSwitch {
-  background: rgba(0, 0, 0, 0.35); /* 🔥 deixa o fundo preto aparecer */
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(24px) saturate(130%);
   -webkit-backdrop-filter: blur(24px) saturate(130%);
 
@@ -90,7 +140,6 @@
     inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
-/* botão inativo no dark */
 :global(html.dark) .authSwitchButton {
   color: #9a9a9a;
 }
@@ -99,89 +148,8 @@
   color: #f5f5f5;
 }
 
-/* botão ativo no dark (mantém CTA forte) */
 :global(html.dark) .authSwitchButtonActive {
   box-shadow:
     0 8px 22px rgba(196, 0, 0, 0.45),
     inset 0 0 0 1px rgba(255, 255, 255, 0.18);
-}
-
-/* ==============================
-   GOOGLE LOGIN / REGISTER BUTTON
-================================ */
-
-.googleButton {
-  width: 100%;
-  height: 52px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-
-  border-radius: 18px;
-  border: none;
-
-  cursor: pointer;
-
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.12);
-
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    background 0.2s ease;
-}
-
-.googleButton:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.18);
-}
-
-.googleButton:active {
-  transform: translateY(0);
-}
-
-.googleButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.googleText {
-  font-size: 14px;
-  font-weight: 500;
-  color: #111;
-}
-
-/* ==============================
-   DARK MODE
-================================ */
-
-:global(html.dark) .googleButton {
-  background: rgba(0, 0, 0, 0.4);
-}
-
-:global(html.dark) .googleText {
-  color: #f5f5f5;
-}
-
-/* ==============================
-   GOOGLE ICON MICRO ANIMATION
-================================ */
-
-.googleButton {
-  position: relative;
-  overflow: hidden;
-}
-
-.googleButton svg {
-  transition:
-    transform 0.15s ease,
-    filter 0.25s ease;
-  will-change: transform;
 }
