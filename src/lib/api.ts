@@ -11,8 +11,7 @@ export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     'Content-Type': 'application/json'
-  },
-  validateStatus: status => status >= 200 && status < 300
+  }
 })
 
 /* ======================================================
@@ -27,8 +26,10 @@ api.interceptors.request.use(config => {
   const isAuthRoute =
     config.url?.includes('/auth/login') ||
     config.url?.includes('/auth/register') ||
+    config.url?.includes('/auth/google') ||
     config.url?.includes('/auth/forgot-password') ||
-    config.url?.includes('/auth/reset-password')
+    config.url?.includes('/auth/reset-password') ||
+    config.url?.includes('/auth/refresh')
 
   if (token && token !== 'undefined' && !isAuthRoute) {
     config.headers.Authorization = `Bearer ${token}`
@@ -51,7 +52,14 @@ api.interceptors.response.use(
 
     const status = error?.response?.status
 
-    if (status === 401 && !originalRequest._retry) {
+    // 🚫 Não tenta refresh se for rota auth
+    const isAuthRoute =
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/register') ||
+      originalRequest.url?.includes('/auth/google') ||
+      originalRequest.url?.includes('/auth/refresh')
+
+    if (status === 401 && !originalRequest._retry && !isAuthRoute) {
       originalRequest._retry = true
 
       const refreshToken =
