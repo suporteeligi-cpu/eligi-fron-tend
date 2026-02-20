@@ -16,15 +16,14 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body>
-        <Providers>
-          {children}
-        </Providers>
         <GoogleOAuthProvider
           clientId={
             process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!
           }
         >
-          {children}
+          <Providers>
+            {children}
+          </Providers>
         </GoogleOAuthProvider>
       </body>
     </html>
