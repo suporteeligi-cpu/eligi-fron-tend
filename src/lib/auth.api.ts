@@ -54,11 +54,13 @@ export async function registerRequest(
 ========================================= */
 
 export async function googleLoginRequest(
-  idToken: string
+  idToken: string,
+  mode: 'login' | 'register'
 ): Promise<AuthTokens> {
   return request<AuthTokens>(
     api.post('/auth/google', {
-      idToken
+      idToken,
+      mode
     })
   )
 }

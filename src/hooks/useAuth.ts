@@ -86,16 +86,19 @@ export function useAuth() {
   }
 
   // 🟢 GOOGLE LOGIN (UNIFICADO)
-  async function loginWithGoogle(idToken: string) {
-    const tokens = await googleLoginRequest(idToken)
+  async function loginWithGoogle(
+  idToken: string,
+  mode: 'login' | 'register'
+) {
+  const tokens = await googleLoginRequest(idToken, mode)
 
-    localStorage.setItem('accessToken', tokens.accessToken)
-    localStorage.setItem('refreshToken', tokens.refreshToken)
+  localStorage.setItem('accessToken', tokens.accessToken)
+  localStorage.setItem('refreshToken', tokens.refreshToken)
 
-    const me = await getMe()
-    setUser(me)
+  const me = await getMe()
+  setUser(me)
 
-    redirectByRole(me.role)
+  redirectByRole(me.role)
   }
 
   function redirectByRole(role: Role) {

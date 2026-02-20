@@ -92,7 +92,8 @@ export default function LoginForm() {
       }
 
       await loginWithGoogle(
-        credentialResponse.credential
+        credentialResponse.credential,
+        'login'
       )
 
     } catch {
