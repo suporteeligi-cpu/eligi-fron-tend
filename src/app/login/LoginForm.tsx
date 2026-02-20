@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthCard } from '../components/auth/AuthCard'
@@ -9,21 +9,42 @@ import { AuthButton } from '../components/auth/AuthButton'
 import { mapAuthError } from '@/lib/auth.error.map'
 import styles from './Login.module.css'
 
-type ApiError = {
-  code: string
-}
-
+type ApiError = { code: string }
 type Mode = 'login' | 'register'
+
+interface GoogleCredentialResponse {
+  credential?: string
+}
 
 declare global {
   interface Window {
-    google?: any
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string
+            callback: (response: GoogleCredentialResponse) => void
+          }) => void
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme?: string
+              size?: string
+              width?: string | number
+            }
+          ) => void
+        }
+      }
+    }
   }
 }
+
 
 export default function LoginForm() {
   const router = useRouter()
   const { login, loginWithGoogle } = useAuth()
+
+  const googleButtonRef = useRef<HTMLDivElement>(null)
 
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
@@ -37,13 +58,16 @@ export default function LoginForm() {
     general?: string
   }>({})
 
-  // 🔵 Inicializa Google manualmente
+  // 🔐 Google Init (sem prompt)
   useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    if (!clientId) return
     if (!window.google) return
+    if (!googleButtonRef.current) return
 
     window.google.accounts.id.initialize({
-      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-      callback: async (response: any) => {
+      client_id: clientId,
+      callback: async (response: GoogleCredentialResponse) => {
         try {
           setLoading(true)
 
@@ -51,11 +75,7 @@ export default function LoginForm() {
             throw new Error('Token Google inválido')
           }
 
-          await loginWithGoogle(
-            response.credential,
-            'login'
-          )
-
+          await loginWithGoogle(response.credential, 'login')
         } catch {
           setErrors({
             general: 'Erro ao autenticar com Google.'
@@ -65,7 +85,16 @@ export default function LoginForm() {
         }
       }
     })
-  }, [])
+
+    window.google.accounts.id.renderButton(
+      googleButtonRef.current,
+      {
+        theme: 'outline',
+        size: 'large',
+        width: '100%'
+      }
+    )
+  }, [loginWithGoogle])
 
   async function handleSubmit(
     e: React.FormEvent<HTMLFormElement>
@@ -114,19 +143,12 @@ export default function LoginForm() {
     }
   }
 
-  function handleGoogleClick() {
-    if (!window.google) return
-    window.google.accounts.id.prompt()
-  }
-
   return (
     <AuthCard
       title="Acessar conta"
       subtitle="Entre para continuar no ELIGI"
       loading={loading}
-      errorMessage={
-        hasSubmitted ? errors.general : undefined
-      }
+      errorMessage={hasSubmitted ? errors.general : undefined}
     >
       <div className={styles.authSwitch}>
         <button
@@ -182,9 +204,7 @@ export default function LoginForm() {
         <div className={styles.forgotPassword}>
           <button
             type="button"
-            onClick={() =>
-              router.push('/forgot-password')
-            }
+            onClick={() => router.push('/forgot-password')}
             className={styles.forgotLink}
           >
             Esqueci minha senha
@@ -200,23 +220,8 @@ export default function LoginForm() {
         </AuthButton>
       </form>
 
-      {/* 🔥 BOTÃO GOOGLE CUSTOM */}
       <div className={styles.googleWrapper}>
-        <button
-          type="button"
-          className={styles.googleCustomButton}
-          onClick={handleGoogleClick}
-          disabled={loading}
-        >
-          <svg width="18" height="18" viewBox="0 0 48 48">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.37 1.23 8.5 3.24l6.32-6.32C34.91 2.54 29.9 0 24 0 14.82 0 6.93 5.48 3.24 13.44l7.38 5.73C12.55 13.11 17.8 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.14 24.55c0-1.64-.15-3.22-.43-4.75H24v9h12.45c-.54 2.92-2.18 5.4-4.64 7.08l7.3 5.68C43.9 37.46 46.14 31.52 46.14 24.55z"/>
-            <path fill="#FBBC05" d="M10.62 28.27a14.5 14.5 0 010-8.54l-7.38-5.73C1.16 17.08 0 20.41 0 24c0 3.59 1.16 6.92 3.24 9.99l7.38-5.72z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.92-2.14 15.9-5.82l-7.3-5.68c-2.03 1.36-4.63 2.16-8.6 2.16-6.2 0-11.45-3.61-13.38-8.67l-7.38 5.72C6.93 42.52 14.82 48 24 48z"/>
-          </svg>
-
-          <span>Continuar com Google</span>
-        </button>
+        <div ref={googleButtonRef} />
       </div>
     </AuthCard>
   )

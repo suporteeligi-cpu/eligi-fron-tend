@@ -1,9 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { GoogleLogin } from '@react-oauth/google'
-import type { CredentialResponse } from '@react-oauth/google'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
@@ -20,9 +18,39 @@ interface ApiError {
   field?: 'name' | 'email' | 'password'
 }
 
+interface GoogleCredentialResponse {
+  credential?: string
+}
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string
+            callback: (response: GoogleCredentialResponse) => void
+          }) => void
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme?: string
+              size?: string
+              width?: string | number
+            }
+          ) => void
+        }
+      }
+    }
+  }
+}
+
+
 export default function RegisterForm() {
   const router = useRouter()
   const { register, loginWithGoogle } = useAuth()
+
+  const googleButtonRef = useRef<HTMLDivElement>(null)
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -38,6 +66,47 @@ export default function RegisterForm() {
     password?: string
     general?: string
   }>({})
+
+  // 🔐 Google Init (sem prompt)
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    if (!clientId) return
+    if (!window.google) return
+    if (!googleButtonRef.current) return
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response: GoogleCredentialResponse) => {
+        try {
+          setLoading(true)
+
+          if (!response.credential) {
+            throw new Error('Token Google inválido')
+          }
+
+          await loginWithGoogle(
+            response.credential,
+            'register'
+          )
+        } catch {
+          setErrors({
+            general: 'Erro ao registrar com Google.'
+          })
+        } finally {
+          setLoading(false)
+        }
+      }
+    })
+
+    window.google.accounts.id.renderButton(
+      googleButtonRef.current,
+      {
+        theme: 'outline',
+        size: 'large',
+        width: '100%'
+      }
+    )
+  }, [loginWithGoogle])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -82,33 +151,6 @@ export default function RegisterForm() {
     }
   }
 
-  async function handleGoogleSuccess(
-    credentialResponse: CredentialResponse
-  ) {
-    if (!credentialResponse.credential) {
-      setErrors({
-        general: 'Token Google inválido.'
-      })
-      return
-    }
-
-    try {
-      setLoading(true)
-
-      await loginWithGoogle(
-        credentialResponse.credential,
-        'register'
-      )
-
-    } catch {
-      setErrors({
-        general: 'Erro ao registrar com Google.'
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <AuthCard
       title="Cadastre-se"
@@ -116,6 +158,7 @@ export default function RegisterForm() {
       loading={loading}
       errorMessage={errors.general}
     >
+      {/* 🔁 SWITCH PRESERVADO */}
       <div className={styles.authSwitch}>
         <button
           type="button"
@@ -182,15 +225,7 @@ export default function RegisterForm() {
       </form>
 
       <div className={styles.googleWrapper}>
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={() =>
-            setErrors({
-              general: 'Falha no login Google'
-            })
-          }
-          useOneTap={false}
-        />
+        <div ref={googleButtonRef} />
       </div>
     </AuthCard>
   )
