@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useGoogleLogin } from '@react-oauth/google'
+import { GoogleLogin } from '@react-oauth/google'
+import type { CredentialResponse } from '@react-oauth/google'
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
 import { AuthRoleSelect } from '../components/auth/AuthRoleSelect'
-import { GoogleIcon } from '../components/ui/GoogleIcon'
 import { registerRequest, getMe } from '@/lib/auth.api'
 import { api } from '@/lib/api'
 import { mapAuthError } from '@/lib/auth.error.map'
@@ -96,44 +96,44 @@ export default function RegisterForm() {
     }
   }
 
-  const googleRegister = useGoogleLogin({
-    flow: 'implicit',
-    onSuccess: async (tokenResponse) => {
-      try {
-        setLoading(true)
+  async function handleGoogleSuccess(
+  credentialResponse: CredentialResponse
+) {
+  if (!credentialResponse.credential) {
+    setErrors({
+      general: 'Token Google inválido.'
+    })
+    return
+  }
 
-        const { data } = await api.post('/auth/google', {
-          idToken: tokenResponse.access_token,
-          role // 🔥 AGORA ENVIAMOS O ROLE
-        })
+  try {
+    setLoading(true)
 
-        localStorage.setItem(
-          'accessToken',
-          data.accessToken
-        )
+    const { data } = await api.post('/auth/google', {
+      idToken: credentialResponse.credential,
+      role
+    })
 
-        localStorage.setItem(
-          'refreshToken',
-          data.refreshToken
-        )
+    localStorage.setItem('accessToken', data.accessToken)
+    localStorage.setItem('refreshToken', data.refreshToken)
 
-        const me = await getMe()
+    const me = await getMe()
 
-        if (me.role === 'BUSINESS_OWNER') {
-          router.push('/onboarding')
-        } else {
-          router.push('/dashboard')
-        }
-
-      } catch {
-        setErrors({
-          general: 'Erro ao registrar com Google.'
-        })
-      } finally {
-        setLoading(false)
-      }
+    if (me.role === 'BUSINESS_OWNER') {
+      router.push('/onboarding')
+    } else {
+      router.push('/dashboard')
     }
-  })
+
+  } catch {
+    setErrors({
+      general: 'Erro ao registrar com Google.'
+    })
+  } finally {
+    setLoading(false)
+  }
+}
+
 
   return (
     <AuthCard
@@ -206,18 +206,19 @@ export default function RegisterForm() {
           Criar conta
         </AuthButton>
       </form>
-      
-      <button
-        type="button"
-        disabled={loading}
-        className={styles.googleButton}
-        onClick={() => googleRegister()}
-      >
-        <GoogleIcon />
-        <span className={styles.googleText}>
-          Registrar com Google
-        </span>
-      </button>
+
+      {/* 🔥 Google Login correto (ID TOKEN) */}
+      <div className={styles.googleWrapper}>
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() =>
+            setErrors({
+              general: 'Falha no login Google'
+            })
+          }
+          useOneTap={false}
+        />
+      </div>
     </AuthCard>
   )
 }
