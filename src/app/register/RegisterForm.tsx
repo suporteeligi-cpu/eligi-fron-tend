@@ -4,12 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { GoogleLogin } from '@react-oauth/google'
 import type { CredentialResponse } from '@react-oauth/google'
+import { useAuth } from '@/hooks/useAuth'
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
 import { AuthRoleSelect } from '../components/auth/AuthRoleSelect'
-import { registerRequest, getMe } from '@/lib/auth.api'
-import { api } from '@/lib/api'
 import { mapAuthError } from '@/lib/auth.error.map'
 import styles from './Register.module.css'
 
@@ -23,6 +22,7 @@ interface ApiError {
 
 export default function RegisterForm() {
   const router = useRouter()
+  const { register, loginWithGoogle } = useAuth()
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -47,26 +47,12 @@ export default function RegisterForm() {
     setErrors({})
 
     try {
-      const tokens = await registerRequest(
+      await register(
         name,
         email,
         password,
         role
       )
-
-      localStorage.setItem(
-        'accessToken',
-        tokens.accessToken
-      )
-
-      const me = await getMe()
-
-      if (me.role === 'BUSINESS_OWNER') {
-        router.push('/onboarding')
-      } else {
-        router.push('/dashboard')
-      }
-
     } catch (error: unknown) {
       if (
         error &&
@@ -97,43 +83,31 @@ export default function RegisterForm() {
   }
 
   async function handleGoogleSuccess(
-  credentialResponse: CredentialResponse
-) {
-  if (!credentialResponse.credential) {
-    setErrors({
-      general: 'Token Google inválido.'
-    })
-    return
-  }
-
-  try {
-    setLoading(true)
-
-    const { data } = await api.post('/auth/google', {
-      idToken: credentialResponse.credential,
-      role
-    })
-
-    localStorage.setItem('accessToken', data.accessToken)
-    localStorage.setItem('refreshToken', data.refreshToken)
-
-    const me = await getMe()
-
-    if (me.role === 'BUSINESS_OWNER') {
-      router.push('/onboarding')
-    } else {
-      router.push('/dashboard')
+    credentialResponse: CredentialResponse
+  ) {
+    if (!credentialResponse.credential) {
+      setErrors({
+        general: 'Token Google inválido.'
+      })
+      return
     }
 
-  } catch {
-    setErrors({
-      general: 'Erro ao registrar com Google.'
-    })
-  } finally {
-    setLoading(false)
-  }
-}
+    try {
+      setLoading(true)
 
+      await loginWithGoogle(
+        credentialResponse.credential,
+        'register'
+      )
+
+    } catch {
+      setErrors({
+        general: 'Erro ao registrar com Google.'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <AuthCard
@@ -207,7 +181,6 @@ export default function RegisterForm() {
         </AuthButton>
       </form>
 
-      {/* 🔥 Google Login correto (ID TOKEN) */}
       <div className={styles.googleWrapper}>
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
