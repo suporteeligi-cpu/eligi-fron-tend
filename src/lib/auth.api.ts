@@ -50,6 +50,20 @@ export async function registerRequest(
 }
 
 /* =========================================
+   GOOGLE (UNIFICADO)
+========================================= */
+
+export async function googleLoginRequest(
+  idToken: string
+): Promise<AuthTokens> {
+  return request<AuthTokens>(
+    api.post('/auth/google', {
+      idToken
+    })
+  )
+}
+
+/* =========================================
    ME
 ========================================= */
 

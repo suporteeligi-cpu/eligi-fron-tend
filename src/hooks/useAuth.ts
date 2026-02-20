@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { loginRequest, registerRequest, getMe } from '@/lib/auth.api'
+import {
+  loginRequest,
+  registerRequest,
+  getMe,
+  googleLoginRequest
+} from '@/lib/auth.api'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
@@ -44,6 +49,7 @@ export function useAuth() {
     loadUser()
   }, [])
 
+  // 🔐 LOGIN NORMAL
   async function login(email: string, password: string) {
     const tokens = await loginRequest(email, password)
 
@@ -53,13 +59,10 @@ export function useAuth() {
     const me = await getMe()
     setUser(me)
 
-    if (me.role === 'BUSINESS_OWNER') {
-      router.push('/onboarding')
-    } else {
-      router.push('/dashboard')
-    }
+    redirectByRole(me.role)
   }
 
+  // 📝 REGISTER NORMAL
   async function register(
     name: string,
     email: string,
@@ -79,7 +82,24 @@ export function useAuth() {
     const me = await getMe()
     setUser(me)
 
-    if (me.role === 'BUSINESS_OWNER') {
+    redirectByRole(me.role)
+  }
+
+  // 🟢 GOOGLE LOGIN (UNIFICADO)
+  async function loginWithGoogle(idToken: string) {
+    const tokens = await googleLoginRequest(idToken)
+
+    localStorage.setItem('accessToken', tokens.accessToken)
+    localStorage.setItem('refreshToken', tokens.refreshToken)
+
+    const me = await getMe()
+    setUser(me)
+
+    redirectByRole(me.role)
+  }
+
+  function redirectByRole(role: Role) {
+    if (role === 'BUSINESS_OWNER') {
       router.push('/onboarding')
     } else {
       router.push('/dashboard')
@@ -98,6 +118,7 @@ export function useAuth() {
     loading,
     login,
     register,
+    loginWithGoogle,
     logout
   }
 }

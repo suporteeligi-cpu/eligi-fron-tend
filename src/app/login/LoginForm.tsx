@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation'
 import { GoogleLogin } from '@react-oauth/google'
 import type { CredentialResponse } from '@react-oauth/google'
 import { useAuth } from '@/hooks/useAuth'
-import { api } from '@/lib/api'
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
 import { mapAuthError } from '@/lib/auth.error.map'
 import styles from './Login.module.css'
-
 
 type ApiError = {
   code: string
@@ -21,7 +19,7 @@ type Mode = 'login' | 'register'
 
 export default function LoginForm() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, loginWithGoogle } = useAuth()
 
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
@@ -47,7 +45,6 @@ export default function LoginForm() {
 
     try {
       await login(email, password)
-      router.push('/dashboard')
     } catch (error: unknown) {
       if (
         error &&
@@ -78,45 +75,34 @@ export default function LoginForm() {
 
   function handleSwitch(newMode: Mode) {
     setMode(newMode)
+
     if (newMode === 'register') {
       router.push('/register')
     }
   }
 
   async function handleGoogleSuccess(
-  credentialResponse: CredentialResponse
-) {
-  try {
-    setLoading(true)
+    credentialResponse: CredentialResponse
+  ) {
+    try {
+      setLoading(true)
 
-    if (!credentialResponse.credential) {
-      throw new Error('Token Google inválido')
+      if (!credentialResponse.credential) {
+        throw new Error('Token Google inválido')
+      }
+
+      await loginWithGoogle(
+        credentialResponse.credential
+      )
+
+    } catch {
+      setErrors({
+        general: 'Erro ao autenticar com Google.'
+      })
+    } finally {
+      setLoading(false)
     }
-
-    const { data } = await api.post('/auth/google', {
-      idToken: credentialResponse.credential
-    })
-
-    localStorage.setItem(
-      'accessToken',
-      data.accessToken
-    )
-
-    localStorage.setItem(
-      'refreshToken',
-      data.refreshToken
-    )
-
-    router.push('/dashboard')
-
-  } catch {
-    setErrors({
-      general: 'Erro ao autenticar com Google.'
-    })
-  } finally {
-    setLoading(false)
   }
-}
 
   return (
     <AuthCard
@@ -201,7 +187,7 @@ export default function LoginForm() {
         </AuthButton>
       </form>
 
-      {/* GOOGLE LOGIN CORRETO */}
+      {/* GOOGLE LOGIN */}
       <div className={styles.googleWrapper}>
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
