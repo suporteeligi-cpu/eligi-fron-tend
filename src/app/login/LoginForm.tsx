@@ -2,15 +2,16 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useGoogleLogin } from '@react-oauth/google'
+import { GoogleLogin } from '@react-oauth/google'
+import type { CredentialResponse } from '@react-oauth/google'
 import { useAuth } from '@/hooks/useAuth'
 import { api } from '@/lib/api'
 import { AuthCard } from '../components/auth/AuthCard'
 import { AuthInput } from '../components/auth/AuthInput'
 import { AuthButton } from '../components/auth/AuthButton'
 import { mapAuthError } from '@/lib/auth.error.map'
-import { GoogleIcon } from '../components/ui/GoogleIcon'
 import styles from './Login.module.css'
+
 
 type ApiError = {
   code: string
@@ -75,36 +76,47 @@ export default function LoginForm() {
     }
   }
 
-  const googleLogin = useGoogleLogin({
-    flow: 'implicit',
-    onSuccess: async (tokenResponse) => {
-      try {
-        setLoading(true)
-
-        const { data } = await api.post('/auth/google', {
-          idToken: tokenResponse.access_token
-        })
-
-        localStorage.setItem('accessToken', data.accessToken)
-        localStorage.setItem('refreshToken', data.refreshToken)
-
-        router.push('/dashboard')
-      } catch {
-        setErrors({
-          general: 'Erro ao autenticar com Google.'
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-  })
-
   function handleSwitch(newMode: Mode) {
     setMode(newMode)
     if (newMode === 'register') {
       router.push('/register')
     }
   }
+
+  async function handleGoogleSuccess(
+  credentialResponse: CredentialResponse
+) {
+  try {
+    setLoading(true)
+
+    if (!credentialResponse.credential) {
+      throw new Error('Token Google inválido')
+    }
+
+    const { data } = await api.post('/auth/google', {
+      idToken: credentialResponse.credential
+    })
+
+    localStorage.setItem(
+      'accessToken',
+      data.accessToken
+    )
+
+    localStorage.setItem(
+      'refreshToken',
+      data.refreshToken
+    )
+
+    router.push('/dashboard')
+
+  } catch {
+    setErrors({
+      general: 'Erro ao autenticar com Google.'
+    })
+  } finally {
+    setLoading(false)
+  }
+}
 
   return (
     <AuthCard
@@ -168,7 +180,6 @@ export default function LoginForm() {
           required
         />
 
-        {/* 🔴 ESQUECI MINHA SENHA RESTAURADO */}
         <div className={styles.forgotPassword}>
           <button
             type="button"
@@ -190,46 +201,17 @@ export default function LoginForm() {
         </AuthButton>
       </form>
 
-      {/* GOOGLE BUTTON */}
-      <button
-        type="button"
-        disabled={loading}
-        className={styles.googleButton}
-        onMouseMove={(e) => {
-          const target = e.currentTarget
-          const rect = target.getBoundingClientRect()
-
-          const x = e.clientX - rect.left
-          const y = e.clientY - rect.top
-
-          const centerX = rect.width / 2
-          const centerY = rect.height / 2
-
-          const moveX = (x - centerX) / 18
-          const moveY = (y - centerY) / 18
-
-          const icon = target.querySelector('svg')
-
-          if (icon instanceof SVGSVGElement) {
-            icon.style.transform =
-              `translate(${moveX}px, ${moveY}px) scale(1.05)`
+      {/* GOOGLE LOGIN CORRETO */}
+      <div className={styles.googleWrapper}>
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() =>
+            setErrors({
+              general: 'Erro ao autenticar com Google.'
+            })
           }
-        }}
-        onMouseLeave={(e) => {
-          const icon = e.currentTarget.querySelector('svg')
-
-          if (icon instanceof SVGSVGElement) {
-            icon.style.transform =
-              'translate(0px, 0px) scale(1)'
-          }
-        }}
-        onClick={() => googleLogin()}
-      >
-        <GoogleIcon />
-        <span className={styles.googleText}>
-          Continuar com Google
-        </span>
-      </button>
+        />
+      </div>
     </AuthCard>
   )
 }
