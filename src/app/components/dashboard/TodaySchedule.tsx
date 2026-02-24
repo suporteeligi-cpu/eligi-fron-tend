@@ -1,14 +1,27 @@
 'use client'
 
-const appointments = [
-  { time: '09:00', client: 'Carlos Silva', service: 'Corte', barber: 'João' },
-  { time: '10:30', client: 'Marcos Lima', service: 'Barba', barber: 'Pedro' },
-  { time: '13:00', client: 'André Souza', service: 'Corte + Barba', barber: 'João' },
-  { time: '15:30', client: 'Lucas Mendes', service: 'Corte', barber: 'Rafael' },
-  { time: '18:00', client: 'Felipe Rocha', service: 'Barba', barber: 'Pedro' },
-]
+import { useDashboardData } from '@/app/dashboard/useDashboardData'
 
 export default function TodaySchedule() {
+  const { data, loading } = useDashboardData()
+
+  if (loading || !data) {
+    return <div style={cardStyle}>Carregando...</div>
+  }
+
+  const appointments = data.todaySchedule || []
+
+  if (!appointments.length) {
+    return (
+      <div style={cardStyle}>
+        <div style={headerStyle}>
+          <h3 style={titleStyle}>Agenda de Hoje</h3>
+          <span style={subtitleStyle}>Nenhum atendimento hoje</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={cardStyle}>
       <div style={headerStyle}>
@@ -26,7 +39,7 @@ export default function TodaySchedule() {
               <div style={serviceStyle}>{item.service}</div>
             </div>
 
-            <div style={barberStyle}>{item.barber}</div>
+            <div style={barberStyle}>{item.professional}</div>
           </div>
         ))}
       </div>
@@ -69,7 +82,7 @@ const rowStyle: React.CSSProperties = {
 const timeStyle: React.CSSProperties = {
   fontWeight: 600,
   fontSize: '14px',
-  width: '60px',
+  width: '70px',
 }
 
 const clientStyle: React.CSSProperties = {

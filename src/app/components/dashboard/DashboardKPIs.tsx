@@ -1,21 +1,44 @@
 'use client'
 
-const mockData = {
-  revenueToday: 2450,
-  revenueMonth: 38900,
-  ticket: 72,
-  attendanceRate: 94,
-  appointmentsToday: 18,
-}
+import { useDashboardData } from '@/app/dashboard/useDashboardData'
 
 export default function DashboardKPIs() {
+  const { data, loading } = useDashboardData()
+
+  if (loading || !data) {
+    return <div>Carregando...</div>
+  }
+
+  const {
+    revenue,
+    revenueGrowth,
+    ticketAverage,
+    attendanceRate,
+    totalBookings
+  } = data.kpis
+
   return (
-    <div style={grid}>
-      <MetricCard title="Faturamento Hoje" value={`R$ ${mockData.revenueToday}`} />
-      <MetricCard title="Faturamento Mês" value={`R$ ${mockData.revenueMonth}`} />
-      <MetricCard title="Ticket Médio" value={`R$ ${mockData.ticket}`} />
-      <MetricCard title="Comparecimento" value={`${mockData.attendanceRate}%`} />
-      <MetricCard title="Agendamentos Hoje" value={mockData.appointmentsToday} />
+    <div style={container}>
+      <MetricCard
+        title="Receita"
+        value={`R$ ${revenue.toFixed(2)}`}
+        growth={revenueGrowth}
+      />
+
+      <MetricCard
+        title="Ticket Médio"
+        value={`R$ ${ticketAverage.toFixed(2)}`}
+      />
+
+      <MetricCard
+        title="Comparecimento"
+        value={`${attendanceRate.toFixed(1)}%`}
+      />
+
+      <MetricCard
+        title="Agendamentos"
+        value={totalBookings}
+      />
     </div>
   )
 }
@@ -23,41 +46,65 @@ export default function DashboardKPIs() {
 interface MetricCardProps {
   title: string
   value: string | number
+  growth?: number
 }
 
-function MetricCard({ title, value }: MetricCardProps) {
+function MetricCard({ title, value, growth }: MetricCardProps) {
+  const isPositive = growth !== undefined && growth > 0
+  const isNegative = growth !== undefined && growth < 0
+
   return (
     <div style={card}>
-      <span style={label}>{title}</span>
-      <span style={valueStyle}>{value}</span>
+      <div style={titleStyle}>{title}</div>
+      <div style={valueStyle}>{value}</div>
+
+      {growth !== undefined && (
+        <div
+          style={{
+            ...growthStyle,
+            color: isPositive
+              ? '#16a34a'
+              : isNegative
+              ? '#dc2626'
+              : '#9ca3af'
+          }}
+        >
+          {isPositive && '▲ '}
+          {isNegative && '▼ '}
+          {growth.toFixed(1)}%
+        </div>
+      )}
     </div>
   )
 }
 
-const grid: React.CSSProperties = {
+const container: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(5, 1fr)',
-  gap: '20px',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gap: '16px',
 }
 
 const card: React.CSSProperties = {
-  padding: '20px',
-  borderRadius: '20px',
-  background: 'rgba(255,255,255,0.75)',
+  background: 'rgba(255,255,255,0.6)',
   backdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.6)',
-  boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '6px',
+  borderRadius: '16px',
+  padding: '20px',
+  border: '1px solid rgba(255,255,255,0.3)',
 }
 
-const label: React.CSSProperties = {
-  fontSize: '13px',
+const titleStyle: React.CSSProperties = {
+  fontSize: '14px',
   opacity: 0.6,
 }
 
 const valueStyle: React.CSSProperties = {
-  fontSize: '24px',
-  fontWeight: 700,
+  fontSize: '22px',
+  fontWeight: 600,
+  marginTop: '6px',
+}
+
+const growthStyle: React.CSSProperties = {
+  marginTop: '8px',
+  fontSize: '14px',
+  fontWeight: 500,
 }

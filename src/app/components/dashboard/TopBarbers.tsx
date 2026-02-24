@@ -1,19 +1,34 @@
 'use client'
 
-const barbers = [
-  { name: 'João', revenue: 8200 },
-  { name: 'Pedro', revenue: 6900 },
-  { name: 'Rafael', revenue: 5100 },
-]
+import { useDashboardData } from '@/app/dashboard/useDashboardData'
 
 export default function TopBarbers() {
-  const maxRevenue = Math.max(...barbers.map(b => b.revenue))
+  const { data, loading } = useDashboardData()
+
+  if (loading || !data) {
+    return <div style={cardStyle}>Carregando...</div>
+  }
+
+  const barbers = data.topBarbers
+
+  if (!barbers.length) {
+    return (
+      <div style={cardStyle}>
+        <div style={headerStyle}>
+          <h3 style={titleStyle}>Desempenho</h3>
+          <span style={subtitleStyle}>Sem dados no período</span>
+        </div>
+      </div>
+    )
+  }
+
+  const maxTotal = Math.max(...barbers.map(b => b.total))
 
   return (
     <div style={cardStyle}>
       <div style={headerStyle}>
-        <h3 style={titleStyle}>Desempenho da Semana</h3>
-        <span style={subtitleStyle}>Receita por profissional</span>
+        <h3 style={titleStyle}>Top Profissionais</h3>
+        <span style={subtitleStyle}>Atendimentos concluídos</span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -22,7 +37,7 @@ export default function TopBarbers() {
             <div style={rowHeader}>
               <span>{barber.name}</span>
               <span style={{ fontWeight: 600 }}>
-                R$ {barber.revenue}
+                {barber.total}
               </span>
             </div>
 
@@ -30,7 +45,7 @@ export default function TopBarbers() {
               <div
                 style={{
                   ...progressBar,
-                  width: `${(barber.revenue / maxRevenue) * 100}%`,
+                  width: `${(barber.total / maxTotal) * 100}%`,
                 }}
               />
             </div>

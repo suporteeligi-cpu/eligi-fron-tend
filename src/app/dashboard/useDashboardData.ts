@@ -4,30 +4,23 @@ import { useEffect, useState } from 'react'
 import { useDashboard } from './DashboardContext'
 import { api } from '@/lib/api'
 
-interface KPIData {
-  revenue: number
-  ticketAverage: number
-  attendanceRate: number
-  totalBookings: number
-}
-
-interface ChartPoint {
-  label: string
-  value: number
-}
-
-interface TopBarber {
-  id: string
-  name: string
-  revenue: number
-  bookings: number
-}
-
-export interface DashboardData {
-  kpis: KPIData
-  revenueChart: ChartPoint[]
-  demandChart: ChartPoint[]
-  topBarbers: TopBarber[]
+interface DashboardData {
+  kpis: {
+    revenue: number
+    revenueGrowth: number
+    ticketAverage: number
+    attendanceRate: number
+    totalBookings: number
+  }
+  revenueChart: { label: string; value: number }[]
+  demandChart: { label: string; value: number }[]
+  topBarbers: { name: string; total: number }[]
+  todaySchedule: {
+    time: string
+    client: string
+    service: string
+    professional: string
+  }[]
 }
 
 export function useDashboardData() {
