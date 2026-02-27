@@ -8,23 +8,20 @@ import {
   getMe,
   googleLoginRequest
 } from '@/lib/auth.api'
+import { AuthUser } from '@/types/auth.types'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
-
-interface User {
-  id: string
-  name: string
-  email: string
-  role: Role
-}
 
 export function useAuth() {
   const router = useRouter()
 
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // 🔎 Verifica token ao iniciar
+  /* =====================================================
+     🔎 Carrega usuário ao iniciar (se tiver token)
+  ===================================================== */
+
   useEffect(() => {
     async function loadUser() {
       const token = localStorage.getItem('accessToken')
@@ -35,7 +32,11 @@ export function useAuth() {
       }
 
       try {
-        const me = await getMe()
+        const response = await getMe()
+
+        // agora o contrato é fixo: { success, data }
+        const me: AuthUser = response.data
+
         setUser(me)
       } catch {
         localStorage.removeItem('accessToken')
@@ -49,20 +50,27 @@ export function useAuth() {
     loadUser()
   }, [])
 
-  // 🔐 LOGIN NORMAL
+  /* =====================================================
+     🔐 LOGIN
+  ===================================================== */
+
   async function login(email: string, password: string) {
     const tokens = await loginRequest(email, password)
 
     localStorage.setItem('accessToken', tokens.accessToken)
     localStorage.setItem('refreshToken', tokens.refreshToken)
 
-    const me = await getMe()
-    setUser(me)
+    const response = await getMe()
+    const me: AuthUser = response.data
 
-    redirectByRole(me.role)
+    setUser(me)
+    redirectByRole(me)
   }
 
-  // 📝 REGISTER NORMAL
+  /* =====================================================
+     📝 REGISTER
+  ===================================================== */
+
   async function register(
     name: string,
     email: string,
@@ -79,35 +87,53 @@ export function useAuth() {
     localStorage.setItem('accessToken', tokens.accessToken)
     localStorage.setItem('refreshToken', tokens.refreshToken)
 
-    const me = await getMe()
+    const response = await getMe()
+    const me: AuthUser = response.data
+
     setUser(me)
-
-    redirectByRole(me.role)
+    redirectByRole(me)
   }
 
-  // 🟢 GOOGLE LOGIN (UNIFICADO)
+  /* =====================================================
+     🟢 GOOGLE LOGIN
+  ===================================================== */
+
   async function loginWithGoogle(
-  idToken: string,
-  mode: 'login' | 'register'
-) {
-  const tokens = await googleLoginRequest(idToken, mode)
+    idToken: string,
+    mode: 'login' | 'register'
+  ) {
+    const tokens = await googleLoginRequest(idToken, mode)
 
-  localStorage.setItem('accessToken', tokens.accessToken)
-  localStorage.setItem('refreshToken', tokens.refreshToken)
+    localStorage.setItem('accessToken', tokens.accessToken)
+    localStorage.setItem('refreshToken', tokens.refreshToken)
 
-  const me = await getMe()
-  setUser(me)
+    const response = await getMe()
+    const me: AuthUser = response.data
 
-  redirectByRole(me.role)
+    setUser(me)
+    redirectByRole(me)
   }
 
-  function redirectByRole(role: Role) {
-    if (role === 'BUSINESS_OWNER') {
-      router.push('/onboarding')
+  /* =====================================================
+     🔁 REDIRECIONAMENTO INTELIGENTE
+  ===================================================== */
+
+  function redirectByRole(user: AuthUser) {
+    if (user.role === 'BUSINESS_OWNER') {
+      // Se ainda não tem business, vai onboarding
+      if (!user.businessId) {
+        router.push('/onboarding')
+      } else {
+        router.push('/dashboard')
+      }
     } else {
       router.push('/dashboard')
     }
   }
+
+  /* =====================================================
+     🚪 LOGOUT
+  ===================================================== */
 
   function logout() {
     localStorage.removeItem('accessToken')

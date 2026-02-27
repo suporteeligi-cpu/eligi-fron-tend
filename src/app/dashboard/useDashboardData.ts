@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useDashboard } from './DashboardContext'
 import { api } from '@/lib/api'
+import { useDashboardSocket } from './useDashboardSocket'
+import { useAuth } from '@/hooks/useAuth'
 
 interface DashboardData {
   kpis: {
@@ -25,29 +27,41 @@ interface DashboardData {
 
 export function useDashboardData() {
   const { period } = useDashboard()
+  const { user } = useAuth()
+
+  const businessId = user?.businessId
 
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true)
+  // 🔥 função reutilizável para REST + WebSocket
+  const fetchData = useCallback(async () => {
+    if (!businessId) return
 
-        const response = await api.get<DashboardData>(
-          `/dashboard/overview?period=${period}`
-        )
+    try {
+      setLoading(true)
 
-        setData(response.data)
-      } catch (error) {
-        console.error('Erro ao buscar dashboard:', error)
-      } finally {
-        setLoading(false)
-      }
+      const response = await api.get<DashboardData>(
+        `/dashboard/overview?period=${period}`
+      )
+
+      setData(response.data)
+    } catch (error) {
+      console.error('Erro ao buscar dashboard:', error)
+    } finally {
+      setLoading(false)
     }
+  }, [period, businessId])
 
-    fetchData()
-  }, [period])
+  // 🔄 Carrega ao trocar período
+  useEffect(() => {
+    if (businessId) {
+      fetchData()
+    }
+  }, [fetchData, businessId])
+
+  // ⚡ Atualiza em tempo real via socket (isolado por business)
+  useDashboardSocket(businessId ?? undefined, fetchData)
 
   return { data, loading }
 }

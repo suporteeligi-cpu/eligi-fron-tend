@@ -1,4 +1,5 @@
 import { api, request } from './api'
+import { AuthUser } from '@/types/auth.types'
 
 /* =========================================
    TYPES
@@ -9,12 +10,12 @@ export interface AuthTokens {
   refreshToken: string
 }
 
-export interface MeResponse {
-  id: string
-  name: string
-  email: string
-  role: 'BUSINESS_OWNER' | 'AFFILIATE'
+export interface ApiResponse<T> {
+  success: boolean
+  data: T
 }
+
+export type MeResponse = ApiResponse<AuthUser>
 
 /* =========================================
    LOGIN
@@ -70,7 +71,6 @@ export async function googleLoginRequest(
 ========================================= */
 
 export async function getMe(): Promise<MeResponse> {
-  return request<MeResponse>(
-    api.get('/auth/me')
-  )
+  const response = await api.get<MeResponse>('/auth/me')
+  return response.data
 }
