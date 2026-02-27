@@ -9,6 +9,7 @@ import {
   googleLoginRequest
 } from '@/lib/auth.api'
 import { AuthUser } from '@/types/auth.types'
+import { logoutRequest } from '@/lib/auth.api'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
@@ -134,15 +135,24 @@ export function useAuth() {
   /* =====================================================
      🚪 LOGOUT
   ===================================================== */
+    async function logout() {
+     try {
+     await logoutRequest()
+    } catch {
+      // Mesmo que falhe no servidor,
+      // garantimos limpeza local
+    }
 
-  function logout() {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    setUser(null)
-    router.push('/login')
-  }
+     localStorage.removeItem('accessToken')
+     localStorage.removeItem('refreshToken')
 
-  return {
+     setUser(null)
+
+      // Reset total do app
+     window.location.href = '/login'
+    }
+
+      return {
     user,
     loading,
     login,

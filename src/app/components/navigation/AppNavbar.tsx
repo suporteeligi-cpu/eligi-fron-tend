@@ -3,19 +3,43 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { Bell, Sun, Moon, Search } from 'lucide-react'
+import { useSocketStatus } from '@/hooks/useSocketStatus'
 
 export default function AppNavbar() {
-  const { user } = useAuth()
+  const auth = useAuth()
+
   const [scrolled, setScrolled] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
+
+  // ✅ Inicialização correta (sem effect + sem setState)
+  const [token] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem('accessToken')
+  })
+
+  const [isMobile, setIsMobile] = useState(false)
+  const [hasNotification, setHasNotification] = useState(true)
+
+  const connected = useSocketStatus(token)
 
   useEffect(() => {
     function handleScroll() {
       setScrolled(window.scrollY > 10)
     }
 
+    function handleResize() {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    handleResize()
+
     window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleResize)
+    }
   }, [])
 
   function toggleTheme() {
@@ -23,11 +47,8 @@ export default function AppNavbar() {
     const newTheme = !darkMode
     setDarkMode(newTheme)
 
-    if (newTheme) {
-      html.classList.add('dark')
-    } else {
-      html.classList.remove('dark')
-    }
+    if (newTheme) html.classList.add('dark')
+    else html.classList.remove('dark')
   }
 
   return (
@@ -35,29 +56,86 @@ export default function AppNavbar() {
       <header
         style={{
           ...navbarStyle,
+          padding: isMobile ? '0 18px' : '0 32px',
           boxShadow: scrolled
-            ? '0 12px 30px rgba(0,0,0,0.08)'
-            : '0 8px 20px rgba(0,0,0,0.04)',
+            ? '0 18px 40px rgba(0,0,0,0.10)'
+            : '0 10px 24px rgba(0,0,0,0.06)',
         }}
       >
         {/* ESQUERDA */}
         <div style={leftStyle}>
-          <div style={logoStyle}>ELIGI</div>
-          <span style={businessNameStyle}>{user?.name}</span>
+          <div style={logoStyle}>Olá!</div>
+          {!isMobile && (
+            <span style={businessNameStyle}>
+              {auth?.user?.name}
+            </span>
+          )}
         </div>
 
         {/* CENTRO */}
-        <div style={searchWrapper}>
-          <Search size={16} />
-          <span style={{ fontSize: '13px', opacity: 0.6 }}>
-            Buscar (Ctrl + K)
-          </span>
-        </div>
+        {!isMobile && (
+          <div style={searchWrapper}>
+            <Search size={16} />
+            <span style={{ fontSize: '13px', opacity: 0.6 }}>
+              Buscar (Ctrl + K)
+            </span>
+          </div>
+        )}
 
         {/* DIREITA */}
         <div style={rightStyle}>
-          <button style={iconButton}>
+          {/* Indicador socket */}
+          <div
+            style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              background: connected ? '#22c55e' : '#9ca3af',
+              boxShadow: connected
+                ? '0 0 10px rgba(34,197,94,0.6)'
+                : '0 0 4px rgba(0,0,0,0.1)',
+              transition: 'all 300ms ease',
+            }}
+          />
+
+          {/* 🔔 Bell */}
+          <button
+            style={{
+              ...iconButton,
+              position: 'relative',
+            }}
+            onClick={() => setHasNotification(false)}
+          >
             <Bell size={18} />
+
+            {hasNotification && (
+              <>
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: '#dc2626',
+                  }}
+                />
+
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: '#dc2626',
+                    animation: 'pulse 1.8s infinite',
+                  }}
+                />
+              </>
+            )}
           </button>
 
           <button onClick={toggleTheme} style={iconButton}>
@@ -65,10 +143,20 @@ export default function AppNavbar() {
           </button>
 
           <div style={avatarStyle}>
-            {user?.name?.charAt(0)}
+            {auth?.user?.name?.charAt(0)}
           </div>
         </div>
       </header>
+
+      <style>
+        {`
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.8; }
+          70% { transform: scale(2.4); opacity: 0; }
+          100% { transform: scale(2.4); opacity: 0; }
+        }
+        `}
+      </style>
     </div>
   )
 }
@@ -87,41 +175,40 @@ const navbarStyle: React.CSSProperties = {
   width: '95%',
   maxWidth: '1400px',
   height: '64px',
-  borderRadius: '20px',
-  padding: '0 28px',
+  borderRadius: '22px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  backdropFilter: 'blur(20px) saturate(180%)',
+  backdropFilter: 'blur(24px) saturate(180%)',
   background: 'rgba(255,255,255,0.75)',
   border: '1px solid rgba(255,255,255,0.6)',
-  transition: 'all 200ms ease',
+  transition: 'all 250ms ease',
 }
 
 const leftStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '14px',
+  gap: '16px',
 }
 
 const logoStyle: React.CSSProperties = {
-  fontWeight: 700,
+  fontWeight: 400,
   fontSize: '16px',
-  letterSpacing: '0.04em',
+  letterSpacing: '0.08em',
 }
 
 const businessNameStyle: React.CSSProperties = {
-  fontSize: '14px',
-  fontWeight: 500,
+  fontSize: '16px',
+  fontWeight: 400,
   opacity: 0.8,
 }
 
 const searchWrapper: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
-  padding: '8px 14px',
-  borderRadius: '12px',
+  gap: '10px',
+  padding: '10px 16px',
+  borderRadius: '14px',
   background: 'rgba(0,0,0,0.04)',
   cursor: 'pointer',
 }
@@ -129,7 +216,7 @@ const searchWrapper: React.CSSProperties = {
 const rightStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '16px',
+  gap: '20px',
 }
 
 const iconButton: React.CSSProperties = {
@@ -142,14 +229,15 @@ const iconButton: React.CSSProperties = {
 }
 
 const avatarStyle: React.CSSProperties = {
-  width: '36px',
-  height: '36px',
+  width: '38px',
+  height: '38px',
   borderRadius: '50%',
-  background: '#dc2626',
+  background: 'linear-gradient(135deg, #dc2626, #ef4444)',
   color: '#fff',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   fontWeight: 600,
   fontSize: '14px',
+  boxShadow: '0 6px 18px rgba(220,38,38,0.25)',
 }

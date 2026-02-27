@@ -74,3 +74,11 @@ export async function getMe(): Promise<MeResponse> {
   const response = await api.get<MeResponse>('/auth/me')
   return response.data
 }
+
+/* =========================================
+   LOGOUT
+========================================= */
+
+export async function logoutRequest(): Promise<void> {
+  await api.post('/auth/logout')
+}

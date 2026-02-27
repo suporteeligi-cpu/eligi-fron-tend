@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-
 import { NavItemType } from './navigation.config'
 
 interface NavItemProps {
@@ -29,16 +28,20 @@ export default function NavItem({ item, collapsed }: NavItemProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'flex-start',
-          gap: '12px',
+          gap: collapsed ? '0px' : '12px',
           padding: '10px 14px',
-          borderRadius: '10px',
-          background: isActive ? 'rgba(220,38,38,0.08)' : 'transparent',
+          borderRadius: '12px',
+          background: isActive
+            ? 'rgba(220,38,38,0.10)'
+            : hover
+            ? 'rgba(0,0,0,0.04)'
+            : 'transparent',
           color: isActive ? '#dc2626' : '#1f2937',
           textDecoration: 'none',
           fontSize: '14px',
-          fontWeight: 500,
+          fontWeight: isActive ? 600 : 500,
           position: 'relative',
-          transition: 'all 150ms ease',
+          transition: 'all 200ms ease'
         }}
       >
         {isActive && (
@@ -55,8 +58,31 @@ export default function NavItem({ item, collapsed }: NavItemProps) {
           />
         )}
 
-        <Icon size={18} />
-        {!collapsed && item.label}
+        <Icon
+          size={18}
+          style={{
+            transition: 'all 200ms ease',
+            opacity: isActive ? 1 : 0.85,
+            transform: collapsed
+              ? 'scale(1.05)'
+              : 'scale(1)',
+          }}
+        />
+
+        <span
+          style={{
+            opacity: collapsed ? 0 : 1,
+            transform: collapsed
+              ? 'translateX(-4px)'
+              : 'translateX(0)',
+            transition: 'all 200ms ease',
+            whiteSpace: 'nowrap',
+            width: collapsed ? 0 : 'auto',
+            overflow: 'hidden',
+          }}
+        >
+          {item.label}
+        </span>
       </Link>
 
       {collapsed && hover && (
@@ -72,7 +98,7 @@ export default function NavItem({ item, collapsed }: NavItemProps) {
             borderRadius: '6px',
             fontSize: '12px',
             whiteSpace: 'nowrap',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.18)',
             zIndex: 100,
           }}
         >

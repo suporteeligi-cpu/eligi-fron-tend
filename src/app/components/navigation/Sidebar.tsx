@@ -1,17 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { navigationByRole, NavItemType } from './navigation.config'
 import { useAuth } from '@/hooks/useAuth'
 import NavItem from './NavItem'
+import { LogOut } from 'lucide-react'
+
+/* =========================================================
+   LAYOUT CONSTANTS
+========================================================= */
+
+const NAVBAR_OFFSET = 84 // 20px top + 64px navbar height
 
 export default function Sidebar() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
     return localStorage.getItem('eligi-sidebar-collapsed') === 'true'
   })
+
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth < 1024)
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    document.body.style.overflow = isMobileOpen ? 'hidden' : 'auto'
+  }, [isMobileOpen])
 
   function toggleSidebar() {
     setCollapsed(prev => {
@@ -32,38 +56,120 @@ export default function Sidebar() {
     admin: navItems.filter(i => i.section === 'admin'),
   }
 
+  const effectiveCollapsed = collapsed && !isMobile
+
   return (
-    <aside
-      style={{
-        width: collapsed ? '72px' : '260px',
-        transition: 'width 250ms ease',
-        background: 'linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%)',
-        borderRight: '1px solid #e6e8ec',
-        padding: '24px 12px',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.04)',
-      }}
-    >
-      <button
-        onClick={toggleSidebar}
+    <>
+      {/* Botão mobile */}
+      {isMobile && (
+        <button
+          onClick={() => setIsMobileOpen(true)}
+          style={{
+            position: 'fixed',
+            top: 16,
+            left: 16,
+            zIndex: 60,
+            background: '#ffffff',
+            border: '1px solid #e5e7eb',
+            borderRadius: 10,
+            padding: '8px 12px',
+            cursor: 'pointer',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
+          }}
+        >
+          ☰
+        </button>
+      )}
+
+      {/* Overlay */}
+      {isMobile && isMobileOpen && (
+        <div
+          onClick={() => setIsMobileOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            zIndex: 49,
+          }}
+        />
+      )}
+
+      <aside
         style={{
-          marginBottom: '20px',
-          padding: '8px',
-          borderRadius: '8px',
-          border: 'none',
-          background: 'linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%)',
-          cursor: 'pointer',
+          width: effectiveCollapsed ? '72px' : '260px',
+          position: isMobile ? 'fixed' : 'relative',
+          left: isMobile && !isMobileOpen ? '-100%' : '0',
+          top: `${NAVBAR_OFFSET}px`,
+          height: `calc(100vh - ${NAVBAR_OFFSET}px)`,
+          zIndex: 50,
+          transition: 'all 280ms cubic-bezier(.4,0,.2,1)',
+          background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+          borderRight: '1px solid #e5e7eb',
+          padding: '20px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.04)',
         }}
       >
-        ☰
-      </button>
+        <div>
+          {!isMobile && (
+            <button
+              onClick={toggleSidebar}
+              style={{
+                marginBottom: '20px',
+                padding: '8px',
+                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                background: '#ffffff',
+                cursor: 'pointer',
+                fontSize: '16px',
+              }}
+            >
+              {collapsed ? '›' : '‹'}
+            </button>
+          )}
 
-      {renderSection('Principal', sections.principal, collapsed)}
-      {renderSection('Financeiro', sections.financeiro, collapsed)}
-      {renderSection('Gestão', sections.gestao, collapsed)}
-      {renderSection('Admin', sections.admin, collapsed)}
-    </aside>
+          {renderSection('Principal', sections.principal, effectiveCollapsed)}
+          {renderSection('Financeiro', sections.financeiro, effectiveCollapsed)}
+          {renderSection('Gestão', sections.gestao, effectiveCollapsed)}
+          {renderSection('Admin', sections.admin, effectiveCollapsed)}
+        </div>
+
+        {/* Logout */}
+        <button
+          onClick={logout}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: effectiveCollapsed
+              ? 'center'
+              : 'flex-start',
+            gap: '12px',
+            padding: '10px 14px',
+            borderRadius: '12px',
+            border: 'none',
+            background: 'transparent',
+            color: '#dc2626',
+            fontSize: '14px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 200ms ease',
+          }}
+          onMouseEnter={e =>
+            (e.currentTarget.style.background =
+              'rgba(220,38,38,0.08)')
+          }
+          onMouseLeave={e =>
+            (e.currentTarget.style.background =
+              'transparent')
+          }
+        >
+          <LogOut size={18} />
+          {!effectiveCollapsed && 'Sair'}
+        </button>
+      </aside>
+    </>
   )
 }
 
