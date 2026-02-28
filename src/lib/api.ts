@@ -8,12 +8,10 @@ interface ApiSuccessResponse<T> {
 }
 
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
-  withCredentials: true, // 🔥 ESSENCIAL
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  baseURL: "https://api.eligi.com.br",
+  withCredentials: true,
 })
+
 
 /* ======================================================
    RESPONSE INTERCEPTOR (refresh automático via cookie)

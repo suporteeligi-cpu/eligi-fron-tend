@@ -124,11 +124,11 @@
 }
 
 .googleWrapper > div {
-  width: 100%;
+  width: 350px;
 }
 
 .googleWrapper iframe {
-  width: 100% !important;
+  width: 350px !important;
   border-radius: 18px;
 }
 
