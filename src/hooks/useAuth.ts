@@ -6,10 +6,10 @@ import {
   loginRequest,
   registerRequest,
   getMe,
-  googleLoginRequest
+  googleLoginRequest,
+  logoutRequest
 } from '@/lib/auth.api'
 import { AuthUser } from '@/types/auth.types'
-import { logoutRequest } from '@/lib/auth.api'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
@@ -20,28 +20,16 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   /* =====================================================
-     🔎 Carrega usuário ao iniciar (se tiver token)
+     🔎 Carrega usuário ao iniciar (via cookie)
   ===================================================== */
 
   useEffect(() => {
     async function loadUser() {
-      const token = localStorage.getItem('accessToken')
-
-      if (!token) {
-        setLoading(false)
-        return
-      }
-
       try {
         const response = await getMe()
-
-        // agora o contrato é fixo: { success, data }
-        const me: AuthUser = response.data
-
+        const me: AuthUser = response
         setUser(me)
       } catch {
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
         setUser(null)
       } finally {
         setLoading(false)
@@ -56,13 +44,10 @@ export function useAuth() {
   ===================================================== */
 
   async function login(email: string, password: string) {
-    const tokens = await loginRequest(email, password)
-
-    localStorage.setItem('accessToken', tokens.accessToken)
-    localStorage.setItem('refreshToken', tokens.refreshToken)
+    await loginRequest(email, password)
 
     const response = await getMe()
-    const me: AuthUser = response.data
+    const me: AuthUser = response
 
     setUser(me)
     redirectByRole(me)
@@ -78,18 +63,10 @@ export function useAuth() {
     password: string,
     role: Role
   ) {
-    const tokens = await registerRequest(
-      name,
-      email,
-      password,
-      role
-    )
-
-    localStorage.setItem('accessToken', tokens.accessToken)
-    localStorage.setItem('refreshToken', tokens.refreshToken)
+    await registerRequest(name, email, password, role)
 
     const response = await getMe()
-    const me: AuthUser = response.data
+    const me: AuthUser = response
 
     setUser(me)
     redirectByRole(me)
@@ -103,13 +80,10 @@ export function useAuth() {
     idToken: string,
     mode: 'login' | 'register'
   ) {
-    const tokens = await googleLoginRequest(idToken, mode)
-
-    localStorage.setItem('accessToken', tokens.accessToken)
-    localStorage.setItem('refreshToken', tokens.refreshToken)
+    await googleLoginRequest(idToken, mode)
 
     const response = await getMe()
-    const me: AuthUser = response.data
+    const me: AuthUser = response
 
     setUser(me)
     redirectByRole(me)
@@ -121,7 +95,6 @@ export function useAuth() {
 
   function redirectByRole(user: AuthUser) {
     if (user.role === 'BUSINESS_OWNER') {
-      // Se ainda não tem business, vai onboarding
       if (!user.businessId) {
         router.push('/onboarding')
       } else {
@@ -135,24 +108,20 @@ export function useAuth() {
   /* =====================================================
      🚪 LOGOUT
   ===================================================== */
-    async function logout() {
-     try {
-     await logoutRequest()
+
+  async function logout() {
+    try {
+      await logoutRequest()
     } catch {
       // Mesmo que falhe no servidor,
-      // garantimos limpeza local
+      // limpamos estado local
     }
 
-     localStorage.removeItem('accessToken')
-     localStorage.removeItem('refreshToken')
+    setUser(null)
+    router.replace('/login')
+  }
 
-     setUser(null)
-
-      // Reset total do app
-     window.location.href = '/login'
-    }
-
-      return {
+  return {
     user,
     loading,
     login,

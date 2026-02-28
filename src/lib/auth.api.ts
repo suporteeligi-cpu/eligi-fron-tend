@@ -1,14 +1,9 @@
-import { api, request } from './api'
+import { api } from './api'
 import { AuthUser } from '@/types/auth.types'
 
 /* =========================================
    TYPES
 ========================================= */
-
-export interface AuthTokens {
-  accessToken: string
-  refreshToken: string
-}
 
 export interface ApiResponse<T> {
   success: boolean
@@ -24,10 +19,8 @@ export type MeResponse = ApiResponse<AuthUser>
 export async function loginRequest(
   email: string,
   password: string
-): Promise<AuthTokens> {
-  return request<AuthTokens>(
-    api.post('/auth/login', { email, password })
-  )
+): Promise<void> {
+  await api.post('/auth/login', { email, password })
 }
 
 /* =========================================
@@ -39,40 +32,36 @@ export async function registerRequest(
   email: string,
   password: string,
   role: 'BUSINESS_OWNER' | 'AFFILIATE'
-): Promise<AuthTokens> {
-  return request<AuthTokens>(
-    api.post('/auth/register', {
-      name,
-      email,
-      password,
-      role
-    })
-  )
+): Promise<void> {
+  await api.post('/auth/register', {
+    name,
+    email,
+    password,
+    role
+  })
 }
 
 /* =========================================
-   GOOGLE (UNIFICADO)
+   GOOGLE
 ========================================= */
 
 export async function googleLoginRequest(
   idToken: string,
   mode: 'login' | 'register'
-): Promise<AuthTokens> {
-  return request<AuthTokens>(
-    api.post('/auth/google', {
-      idToken,
-      mode
-    })
-  )
+): Promise<void> {
+  await api.post('/auth/google', {
+    idToken,
+    mode
+  })
 }
 
 /* =========================================
    ME
 ========================================= */
 
-export async function getMe(): Promise<MeResponse> {
+export async function getMe(): Promise<AuthUser> {
   const response = await api.get<MeResponse>('/auth/me')
-  return response.data
+  return response.data.data
 }
 
 /* =========================================
