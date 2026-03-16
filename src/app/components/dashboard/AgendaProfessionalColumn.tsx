@@ -6,11 +6,13 @@ import AgendaSlot from './AgendaSlot'
 interface Props {
   bookings: Booking[]
   slots: string[]
+  openCreateBookingModal: (time: string) => void
 }
 
 export default function AgendaProfessionalColumn({
   bookings,
-  slots
+  slots,
+  openCreateBookingModal
 }: Props) {
   return (
     <>
@@ -24,6 +26,7 @@ export default function AgendaProfessionalColumn({
             key={slot}
             time={slot}
             booking={booking}
+            openCreateBookingModal={openCreateBookingModal}
           />
         )
       })}

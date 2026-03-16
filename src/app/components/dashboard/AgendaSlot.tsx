@@ -5,16 +5,27 @@ import { Booking } from '@/types/booking'
 interface Props {
   time: string
   booking?: Booking
+  openCreateBookingModal: (time: string) => void
 }
 
-export default function AgendaSlot({ time, booking }: Props) {
+export default function AgendaSlot({
+  time,
+  booking,
+  openCreateBookingModal
+}: Props) {
   return (
     <div
+      onClick={() => {
+        if (!booking) {
+          openCreateBookingModal(time)
+        }
+      }}
       style={{
         minHeight: 64,
         borderRadius: 12,
         border: '1px solid #eee',
         padding: 10,
+        cursor: booking ? 'default' : 'pointer',
         background: booking ? '#fff1f2' : '#fafafa'
       }}
     >
