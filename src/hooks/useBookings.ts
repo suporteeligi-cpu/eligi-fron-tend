@@ -8,15 +8,13 @@ export function useBookings(date: string) {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true)
-
       const res = await api.get('/bookings', {
         params: { date }
       })
 
       setBookings(res.data)
     } catch {
-      console.error('Erro ao carregar agendamentos')
+      console.error('Erro ao carregar bookings')
     } finally {
       setLoading(false)
     }

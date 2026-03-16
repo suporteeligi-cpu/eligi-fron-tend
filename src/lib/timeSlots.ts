@@ -1,3 +1,6 @@
+export const SLOT_MINUTES = 30
+export const SLOT_HEIGHT = 72
+
 export function generateTimeSlots() {
   const slots: string[] = []
 
@@ -10,7 +13,7 @@ export function generateTimeSlots() {
 
     slots.push(`${h}:${m}`)
 
-    minute += 30
+    minute += SLOT_MINUTES
 
     if (minute === 60) {
       minute = 0

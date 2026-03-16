@@ -1,20 +1,19 @@
 export interface Booking {
   id: string
-
   date: string
   time: string
-  duration?: number
+  duration: number
 
   clientName: string
 
-  service?: {
+  service: {
     id: string
     name: string
-    duration?: number
+    duration: number
     color?: string
   }
 
-  professional?: {
+  professional: {
     id: string
     name: string
   }

@@ -1,12 +1,15 @@
 'use client'
 
 import { Booking } from '@/types/booking'
-import { durationToHeight } from '@/lib/slotHeight'
 
 interface Props {
   time: string
   booking?: Booking
   openCreateBookingModal: (time: string) => void
+}
+
+function durationToHeight(duration: number) {
+  return duration * 2
 }
 
 export default function AgendaSlot({
@@ -20,60 +23,38 @@ export default function AgendaSlot({
       )
     : 64
 
-  const bg = booking
-    ? booking.service?.color || '#fee2e2'
-    : '#fafafa'
+  if (!booking) {
+    return (
+      <div
+        onClick={() => openCreateBookingModal(time)}
+        style={{
+          height,
+          borderBottom: '1px solid #f1f5f9',
+          cursor: 'pointer'
+        }}
+      />
+    )
+  }
 
   return (
     <div
-      onClick={() => {
-        if (!booking) {
-          openCreateBookingModal(time)
-        }
-      }}
       style={{
         height,
-        borderRadius: 12,
-        border: '1px solid #eee',
-        padding: 10,
-        cursor: booking ? 'default' : 'pointer',
-        background: bg,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center'
+        padding: '6px',
+        borderRadius: 8,
+        background: booking.service.color || '#6366f1',
+        color: '#fff',
+        fontSize: 12,
+        overflow: 'hidden'
       }}
     >
-      <div
-        style={{
-          fontSize: 11,
-          color: '#888',
-          marginBottom: 4
-        }}
-      >
-        {time}
+      <strong>{booking.clientName}</strong>
+
+      <div>{booking.service.name}</div>
+
+      <div>
+        {booking.time} • {booking.professional.name}
       </div>
-
-      {!booking && (
-        <div style={{ fontSize: 12, color: '#aaa' }}>
-          horário livre
-        </div>
-      )}
-
-      {booking && (
-        <>
-          <div style={{ fontWeight: 600 }}>
-            {booking.service?.name}
-          </div>
-
-          <div style={{ fontSize: 13 }}>
-            {booking.clientName}
-          </div>
-
-          <div style={{ fontSize: 12, color: '#555' }}>
-            {booking.professional?.name}
-          </div>
-        </>
-      )}
     </div>
   )
 }

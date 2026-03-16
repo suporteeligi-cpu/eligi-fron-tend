@@ -8,6 +8,7 @@ export interface Professional {
 
 export function useProfessionals() {
   const [professionals, setProfessionals] = useState<Professional[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
@@ -16,11 +17,13 @@ export function useProfessionals() {
         setProfessionals(res.data)
       } catch {
         console.error('Erro ao carregar profissionais')
+      } finally {
+        setLoading(false)
       }
     }
 
     load()
   }, [])
 
-  return professionals
+  return { professionals, loading }
 }
