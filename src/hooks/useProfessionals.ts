@@ -13,7 +13,7 @@ export function useProfessionals() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await api.get('/professionals')
+        const res = await api.get('/barbers')
         setProfessionals(res.data)
       } catch {
         console.error('Erro ao carregar profissionais')
