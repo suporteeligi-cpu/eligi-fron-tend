@@ -1,6 +1,7 @@
 'use client'
 
 import { Booking } from '@/types/booking'
+import { durationToHeight } from '@/lib/slotHeight'
 
 interface Props {
   time: string
@@ -13,6 +14,16 @@ export default function AgendaSlot({
   booking,
   openCreateBookingModal
 }: Props) {
+  const height = booking
+    ? durationToHeight(
+        booking.service?.duration || booking.duration
+      )
+    : 64
+
+  const bg = booking
+    ? booking.service?.color || '#fee2e2'
+    : '#fafafa'
+
   return (
     <div
       onClick={() => {
@@ -21,12 +32,15 @@ export default function AgendaSlot({
         }
       }}
       style={{
-        minHeight: 64,
+        height,
         borderRadius: 12,
         border: '1px solid #eee',
         padding: 10,
         cursor: booking ? 'default' : 'pointer',
-        background: booking ? '#fff1f2' : '#fafafa'
+        background: bg,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center'
       }}
     >
       <div
@@ -55,7 +69,7 @@ export default function AgendaSlot({
             {booking.clientName}
           </div>
 
-          <div style={{ fontSize: 12, color: '#666' }}>
+          <div style={{ fontSize: 12, color: '#555' }}>
             {booking.professional?.name}
           </div>
         </>

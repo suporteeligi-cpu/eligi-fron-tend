@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { generateTimeSlots } from '@/lib/timeSlots'
 import { Booking } from '@/types/booking'
 import { Professional } from '@/hooks/useProfessionals'
@@ -18,56 +19,82 @@ export default function AgendaGrid({
 }: Props) {
   const slots = generateTimeSlots()
 
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const hour = new Date().getHours()
+
+    const scroll = hour * 64
+
+    containerRef.current?.scrollTo({
+      top: scroll,
+      behavior: 'smooth'
+    })
+  }, [])
+
   return (
     <div
+      ref={containerRef}
       style={{
-        display: 'grid',
-        gridTemplateColumns: `80px repeat(${professionals.length}, 1fr)`,
-        gap: 8
+        maxHeight: '80vh',
+        overflowY: 'auto'
       }}
     >
-      <div />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `80px repeat(${professionals.length}, 1fr)`,
+          gap: 8
+        }}
+      >
+        <div />
 
-      {professionals.map((p) => (
-        <div key={p.id} style={{ fontWeight: 600 }}>
-          {p.name}
-        </div>
-      ))}
-
-      {slots.map((slot) => (
-        <>
+        {professionals.map((p) => (
           <div
-            key={slot}
+            key={p.id}
             style={{
-              fontSize: 12,
-              paddingTop: 8
+              fontWeight: 600
             }}
           >
-            {slot}
+            {p.name}
           </div>
+        ))}
 
-          {professionals.map((p) => {
-            const booking = bookings.find(
-              (b) =>
-                b.time === slot &&
-                b.professional?.id === p.id
-            )
+        {slots.map((slot) => (
+          <div
+            key={slot}
+            style={{ display: 'contents' }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                paddingTop: 8
+              }}
+            >
+              {slot}
+            </div>
 
-            return (
-              <AgendaProfessionalColumn
-                key={p.id + slot}
-                bookings={
-                  booking ? [booking] : []
-                }
-                slots={[slot]}
-                openCreateBookingModal={
-                  openCreateBookingModal
-                }
-              />
-            )
-          })}
-        </>
-      ))}
+            {professionals.map((p) => {
+              const booking = bookings.find(
+                (b) =>
+                  b.time === slot &&
+                  b.professional?.id === p.id
+              )
+
+              return (
+                <AgendaProfessionalColumn
+                  key={p.id + slot}
+                  bookings={booking ? [booking] : []}
+                  slots={[slot]}
+                  openCreateBookingModal={
+                    openCreateBookingModal
+                  }
+                />
+              )
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
