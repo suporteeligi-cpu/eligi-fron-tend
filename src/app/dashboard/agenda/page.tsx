@@ -1,39 +1,30 @@
 'use client'
 
+import { useState } from 'react'
 import { useBookings } from '@/hooks/useBookings'
+import AgendaGrid from '@/app/components/dashboard/AgendaGrid'
+import AgendaToolbar from '@/app/components/dashboard/AgendaToolbar'
 
 export default function AgendaPage() {
   const today = new Date().toISOString().slice(0, 10)
 
-  const { bookings, loading } = useBookings(today)
+  const [date, setDate] = useState(today)
 
-  if (loading) return <div>Carregando agenda...</div>
+  const { bookings, loading } = useBookings(date)
 
   return (
     <div style={{ padding: 24 }}>
-      <h1>Agenda</h1>
+      <h1 style={{ marginBottom: 20 }}>
+        Agenda
+      </h1>
 
-      {bookings.map((booking) => (
-        <div
-          key={booking.id}
-          style={{
-            padding: 12,
-            border: '1px solid #eee',
-            borderRadius: 8,
-            marginBottom: 10
-          }}
-        >
-          <strong>{booking.time}</strong> — {booking.clientName}
+      <AgendaToolbar date={date} setDate={setDate} />
 
-          <div style={{ fontSize: 13 }}>
-            {booking.service.name}
-          </div>
+      {loading && <div>Carregando...</div>}
 
-          <div style={{ fontSize: 12, color: '#666' }}>
-            {booking.professional?.name}
-          </div>
-        </div>
-      ))}
+      {!loading && (
+        <AgendaGrid bookings={bookings} />
+      )}
     </div>
   )
 }

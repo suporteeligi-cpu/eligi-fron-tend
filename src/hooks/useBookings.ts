@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import api from '@/lib/apiClient'
 import { Booking } from '@/types/booking'
 
@@ -6,11 +6,7 @@ export function useBookings(date: string) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    load()
-  }, [date])
-
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -19,10 +15,20 @@ export function useBookings(date: string) {
       })
 
       setBookings(res.data)
+    } catch {
+      console.error('Erro ao carregar agendamentos')
     } finally {
       setLoading(false)
     }
-  }
+  }, [date])
 
-  return { bookings, loading, reload: load }
+  useEffect(() => {
+    load()
+  }, [load])
+
+  return {
+    bookings,
+    loading,
+    reload: load
+  }
 }

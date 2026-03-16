@@ -1,16 +1,26 @@
-export type Booking = {
+export interface Booking {
   id: string
+
+  serviceId: string
+  professionalId?: string
+
   clientName: string
-  clientPhone: string
+  clientPhone?: string
   clientEmail?: string
+
   date: string
   time: string
-  status: 'CONFIRMED' | 'CANCELED'
-  service: {
+
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED'
+
+  createdAt: string
+
+  service?: {
     id: string
     name: string
-    duration: number
+    duration?: number
   }
+
   professional?: {
     id: string
     name: string
