@@ -8,22 +8,19 @@ export interface Professional {
 
 export function useProfessionals() {
   const [professionals, setProfessionals] = useState<Professional[]>([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
+    async function fetchProfessionals() {
       try {
         const res = await api.get('/barbers')
         setProfessionals(res.data)
       } catch {
         console.error('Erro ao carregar profissionais')
-      } finally {
-        setLoading(false)
       }
     }
 
-    load()
+    fetchProfessionals()
   }, [])
 
-  return { professionals, loading }
+  return { professionals }
 }

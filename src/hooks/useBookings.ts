@@ -8,6 +8,8 @@ export function useBookings(date: string) {
 
   const load = useCallback(async () => {
     try {
+      setLoading(true)
+
       const res = await api.get('/bookings', {
         params: { date }
       })
@@ -24,9 +26,5 @@ export function useBookings(date: string) {
     load()
   }, [load])
 
-  return {
-    bookings,
-    loading,
-    reload: load
-  }
+  return { bookings, loading }
 }
