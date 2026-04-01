@@ -10,7 +10,7 @@ export function useDashboardSocket(
   useEffect(() => {
     if (!token) return
 
-    const socket: Socket = io('http://localhost:3333', {
+    const socket: Socket = io(process.env.NEXT_PUBLIC_API_URL!, {
       auth: {
         token
       }
