@@ -1,4 +1,4 @@
-import { api } from './api'
+import api from '@/lib/apiClient'
 import { AuthUser } from '@/types/auth.types'
 
 /* =========================================
