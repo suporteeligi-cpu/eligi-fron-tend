@@ -7,10 +7,6 @@ import dayjs from 'dayjs'
 import { AgendaBooking, BookingStatus } from '@/types/agenda'
 import CreateBookingModal from './CreateBookingModal'
 
-/* =========================================
-   TYPES
-========================================= */
-
 export interface Professional {
   id: string
   name: string
@@ -43,21 +39,12 @@ interface AgendaBoardProps {
   }) => void
 }
 
-/* =========================================
-   🔥 NORMALIZE STATUS
-========================================= */
-
 function normalizeStatus(status?: string): BookingStatus {
   if (status === 'CONFIRMED') return 'CONFIRMED'
   if (status === 'COMPLETED') return 'COMPLETED'
   if (status === 'CANCELED') return 'CANCELED'
-
   return 'CONFIRMED'
 }
-
-/* =========================================
-   COMPONENT
-========================================= */
 
 export default function AgendaBoard({
   professionals,
@@ -68,26 +55,14 @@ export default function AgendaBoard({
 }: AgendaBoardProps) {
   const nowLineRef = useRef<HTMLDivElement | null>(null)
 
-  /* =========================================
-     🆕 STATE DO MODAL
-  ========================================= */
-
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [selectedProfessional, setSelectedProfessional] = useState<string | null>(null)
-
-  /* =========================================
-     FILTRAR BOOKINGS DO DIA
-  ========================================= */
 
   const dayBookings = useMemo(() => {
     const selected = dayjs(selectedDate).format('YYYY-MM-DD')
     return bookings.filter((b) => b.date === selected)
   }, [bookings, selectedDate])
-
-  /* =========================================
-     FORMATAR BOOKINGS
-  ========================================= */
 
   const formattedBookings: AgendaBooking[] = useMemo(() => {
     return dayBookings.map((b) => {
@@ -107,26 +82,16 @@ export default function AgendaBoard({
     })
   }, [dayBookings])
 
-  /* =========================================
-     SCROLL PARA HORA ATUAL
-  ========================================= */
-
   useEffect(() => {
     const el = document.getElementById('agenda-scroll')
     if (!el) return
 
     const hour = dayjs().hour()
-    const scrollPosition = hour * 64
-
     el.scrollTo({
-      top: scrollPosition,
+      top: hour * 64,
       behavior: 'smooth'
     })
   }, [])
-
-  /* =========================================
-     🆕 HANDLER COM DEBUG
-  ========================================= */
 
   function handleCreateBooking(time: string, professionalId: string) {
     console.log('HANDLE', time, professionalId)
@@ -136,26 +101,13 @@ export default function AgendaBoard({
     setModalOpen(true)
   }
 
-  /* =========================================
-     RENDER
-  ========================================= */
-
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        background: 'var(--eligi-bg, #f9fafb)'
-      }}
-    >
-      {/* TOOLBAR */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <AgendaToolbar
         selectedDate={selectedDate}
         onDateChange={onDateChange}
       />
 
-      {/* GRID */}
       <div
         id="agenda-scroll"
         style={{
@@ -170,7 +122,7 @@ export default function AgendaBoard({
           onCreateBooking={handleCreateBooking}
         />
 
-        {/* LINHA DO HORÁRIO ATUAL */}
+        {/* 🔥 LINHA DO AGORA (CORRIGIDA) */}
         <div
           ref={nowLineRef}
           style={{
@@ -181,12 +133,12 @@ export default function AgendaBoard({
             height: '2px',
             background: '#dc2626',
             opacity: 0.6,
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            zIndex: 0
           }}
         />
       </div>
 
-      {/* 🆕 MODAL */}
       <CreateBookingModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
