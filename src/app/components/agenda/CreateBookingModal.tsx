@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Props {
   open: boolean
@@ -18,6 +18,12 @@ export default function CreateBookingModal({
   const [clientName, setClientName] = useState('')
   const [serviceName, setServiceName] = useState('')
 
+  useEffect(() => {
+    if (open) {
+      console.log('MODAL ABERTO', time, professionalId)
+    }
+  }, [open])
+
   if (!open) return null
 
   return (
@@ -25,11 +31,11 @@ export default function CreateBookingModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.4)',
+        background: 'rgba(0,0,0,0.5)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 999
+        zIndex: 9999 // 🔥 MUITO IMPORTANTE
       }}
     >
       <div
@@ -38,7 +44,8 @@ export default function CreateBookingModal({
           background: '#fff',
           borderRadius: 16,
           padding: 20,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.2)'
+          boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+          position: 'relative'
         }}
       >
         <h2 style={{ marginBottom: 16 }}>
@@ -50,7 +57,7 @@ export default function CreateBookingModal({
         </p>
 
         <input
-          placeholder="Nome do cliente"
+          placeholder='Nome do cliente'
           value={clientName}
           onChange={(e) => setClientName(e.target.value)}
           style={{
@@ -63,7 +70,7 @@ export default function CreateBookingModal({
         />
 
         <input
-          placeholder="Serviço"
+          placeholder='Serviço'
           value={serviceName}
           onChange={(e) => setServiceName(e.target.value)}
           style={{
@@ -97,6 +104,22 @@ export default function CreateBookingModal({
           }}
         >
           Salvar
+        </button>
+
+        {/* BOTÃO FECHAR */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            border: 'none',
+            background: 'transparent',
+            fontSize: 18,
+            cursor: 'pointer'
+          }}
+        >
+          ✕
         </button>
       </div>
     </div>
