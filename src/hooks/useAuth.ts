@@ -13,11 +13,6 @@ import { AuthUser } from '@/types/auth.types'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
-interface ApiResponse<T> {
-  success: boolean
-  data: T
-}
-
 export function useAuth() {
   const router = useRouter()
 
