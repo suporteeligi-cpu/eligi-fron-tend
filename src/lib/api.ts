@@ -8,7 +8,7 @@ interface ApiSuccessResponse<T> {
 }
 
 export const api = axios.create({
-  baseURL: 'http://back-end-eligi-production.up.railway.app',
+  baseURL: "https://api.eligi.com.br",
   withCredentials: true,
 })
 

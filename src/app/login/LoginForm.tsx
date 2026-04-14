@@ -39,10 +39,9 @@ declare global {
   }
 }
 
-
 export default function LoginForm() {
   const router = useRouter()
-  const { login, loginWithGoogle } = useAuth()
+  const { login, loginWithGoogle } = useAuth() // 🔥 removido refetchUser
 
   const googleButtonRef = useRef<HTMLDivElement>(null)
 
@@ -58,7 +57,10 @@ export default function LoginForm() {
     general?: string
   }>({})
 
-  // 🔐 Google Init (sem prompt)
+  /* =========================================
+     GOOGLE INIT
+  ========================================= */
+
   useEffect(() => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
     if (!clientId) return
@@ -76,6 +78,10 @@ export default function LoginForm() {
           }
 
           await loginWithGoogle(response.credential, 'login')
+
+          // 🔥 REDIRECIONA
+          router.push('/dashboard')
+
         } catch {
           setErrors({
             general: 'Erro ao autenticar com Google.'
@@ -94,7 +100,11 @@ export default function LoginForm() {
         width: '100%'
       }
     )
-  }, [loginWithGoogle])
+  }, [loginWithGoogle, router]) // 🔥 removido refetchUser
+
+  /* =========================================
+     SUBMIT
+  ========================================= */
 
   async function handleSubmit(
     e: React.FormEvent<HTMLFormElement>
@@ -107,7 +117,12 @@ export default function LoginForm() {
     setErrors({})
 
     try {
+      // 🔐 LOGIN
       await login(email, password)
+
+      // 🔥 REDIRECIONA
+      router.push('/dashboard')
+
     } catch (error: unknown) {
       if (
         error &&
@@ -136,12 +151,21 @@ export default function LoginForm() {
     }
   }
 
+  /* =========================================
+     MODE SWITCH
+  ========================================= */
+
   function handleSwitch(newMode: Mode) {
     setMode(newMode)
+
     if (newMode === 'register') {
       router.push('/register')
     }
   }
+
+  /* =========================================
+     UI
+  ========================================= */
 
   return (
     <AuthCard
