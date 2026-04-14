@@ -43,7 +43,8 @@ export default function AgendaColumn({
         position: 'relative',
         borderLeft: '1px solid #eee',
         minHeight: slots.length * slotHeight,
-        background: '#fff'
+        background: '#fff',
+        zIndex: 1 // 🔥 garante camada base
       }}
     >
       {/* HEADER PROFISSIONAL */}
@@ -58,14 +59,19 @@ export default function AgendaColumn({
           alignItems: 'center',
           justifyContent: 'center',
           fontWeight: 600,
-          zIndex: 10
+          zIndex: 20
         }}
       >
         {professional.name}
       </div>
 
       {/* GRID DE SLOTS */}
-      <div style={{ position: 'relative' }}>
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 1 // 🔥 importante
+        }}
+      >
         {slots.map((time) => (
           <div
             key={time}
@@ -77,7 +83,8 @@ export default function AgendaColumn({
               height: slotHeight,
               borderBottom: '1px solid #f1f1f1',
               cursor: 'pointer',
-              transition: 'background 0.15s ease'
+              transition: 'background 0.15s ease',
+              pointerEvents: 'auto' // 🔥 garante clique
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = '#f9fafb'
@@ -108,10 +115,13 @@ export default function AgendaColumn({
                 left: 6,
                 right: 6,
                 height,
-                zIndex: 5
+                zIndex: 5,
+                pointerEvents: 'none' // 🔥 ESSENCIAL (não bloquear clique)
               }}
             >
-              <BookingCard booking={b} />
+              <div style={{ pointerEvents: 'auto' }}>
+                <BookingCard booking={b} />
+              </div>
             </div>
           )
         })}
