@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useState, useMemo } from 'react'
+import dayjs from 'dayjs'
 import AgendaToolbar from './AgendaToolbar'
 import AgendaGrid from './AgendaGrid'
-import dayjs from 'dayjs'
-import { AgendaBooking, BookingStatus } from '@/types/agenda'
 import CreateBookingModal from './CreateBookingModal'
+import { AgendaBooking, BookingStatus } from '@/types/agenda'
 
 export interface Professional {
   id: string
@@ -20,27 +20,13 @@ export interface Booking {
   clientName: string
   professionalId: string
   service?: {
-    id: string
     name: string
-    color?: string
     duration?: number
   }
   status?: string
 }
 
-interface AgendaBoardProps {
-  professionals: Professional[]
-  bookings: Booking[]
-  selectedDate: Date
-  onDateChange: (date: Date) => void
-  onCreateBooking: (params: {
-    time: string
-    professionalId: string
-  }) => void
-}
-
 function normalizeStatus(status?: string): BookingStatus {
-  if (status === 'CONFIRMED') return 'CONFIRMED'
   if (status === 'COMPLETED') return 'COMPLETED'
   if (status === 'CANCELED') return 'CANCELED'
   return 'CONFIRMED'
@@ -50,11 +36,13 @@ export default function AgendaBoard({
   professionals,
   bookings,
   selectedDate,
-  onDateChange,
-  onCreateBooking
-}: AgendaBoardProps) {
-  const nowLineRef = useRef<HTMLDivElement | null>(null)
-
+  onDateChange
+}: {
+  professionals: Professional[]
+  bookings: Booking[]
+  selectedDate: Date
+  onDateChange: (date: Date) => void
+}) {
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [selectedProfessional, setSelectedProfessional] = useState<string | null>(null)
@@ -82,60 +70,21 @@ export default function AgendaBoard({
     })
   }, [dayBookings])
 
-  useEffect(() => {
-    const el = document.getElementById('agenda-scroll')
-    if (!el) return
-
-    const hour = dayjs().hour()
-    el.scrollTo({
-      top: hour * 64,
-      behavior: 'smooth'
-    })
-  }, [])
-
   function handleCreateBooking(time: string, professionalId: string) {
-    console.log('HANDLE', time, professionalId)
-
     setSelectedTime(time)
     setSelectedProfessional(professionalId)
     setModalOpen(true)
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <AgendaToolbar
-        selectedDate={selectedDate}
-        onDateChange={onDateChange}
-      />
+    <>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <AgendaToolbar selectedDate={selectedDate} onDateChange={onDateChange} />
 
-      <div
-        id="agenda-scroll"
-        style={{
-          flex: 1,
-          overflow: 'auto',
-          position: 'relative'
-        }}
-      >
         <AgendaGrid
           professionals={professionals}
           bookings={formattedBookings}
           onCreateBooking={handleCreateBooking}
-        />
-
-        {/* 🔥 LINHA DO AGORA (CORRIGIDA) */}
-        <div
-          ref={nowLineRef}
-          style={{
-            position: 'absolute',
-            top: `${dayjs().hour() * 64}px`,
-            left: 0,
-            right: 0,
-            height: '2px',
-            background: '#dc2626',
-            opacity: 0.6,
-            pointerEvents: 'none',
-            zIndex: 0
-          }}
         />
       </div>
 
@@ -145,6 +94,6 @@ export default function AgendaBoard({
         time={selectedTime}
         professionalId={selectedProfessional}
       />
-    </div>
+    </>
   )
 }

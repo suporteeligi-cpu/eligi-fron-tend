@@ -34,17 +34,21 @@ export default function AgendaColumn({
       </div>
 
       <div>
-        {slots.map((time) => (
-          <div
-            key={time}
-            onClick={() => alert('CLIQUE FUNCIONOU')}
-            style={{
-              height: slotHeight,
-              background: 'rgba(255,0,0,0.1)',
-              borderBottom: '1px solid #f1f1f1'
-            }}
-          />
-        ))}
+        {slots.map((time) => {
+  const handleClick = () => onCreateBooking(time, professional.id)
+
+  return (
+    <div
+      key={time}
+      onClick={handleClick}
+      style={{
+        height: slotHeight,
+        borderBottom: '1px solid #eee',
+        cursor: 'pointer'
+      }}
+    />
+  )
+})}
 
         {bookings.map((b) => (
           <BookingCard key={b.id} booking={b} />

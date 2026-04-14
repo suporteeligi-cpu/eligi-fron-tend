@@ -10,7 +10,6 @@ export default function AgendaPage() {
         bookings={[]}
         selectedDate={new Date()}
         onDateChange={() => {}}
-        onCreateBooking={() => {}}
       />
     </div>
   )
