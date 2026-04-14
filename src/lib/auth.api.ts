@@ -20,7 +20,7 @@ export async function loginRequest(
   email: string,
   password: string
 ): Promise<void> {
-  await api.post('/auth/login', { email, password })
+  await api.post<void>('/auth/login', { email, password })
 }
 
 /* =========================================
@@ -33,7 +33,7 @@ export async function registerRequest(
   password: string,
   role: 'BUSINESS_OWNER' | 'AFFILIATE'
 ): Promise<void> {
-  await api.post('/auth/register', {
+  await api.post<void>('/auth/register', {
     name,
     email,
     password,
@@ -42,21 +42,21 @@ export async function registerRequest(
 }
 
 /* =========================================
-   GOOGLE
+   GOOGLE LOGIN
 ========================================= */
 
 export async function googleLoginRequest(
   idToken: string,
   mode: 'login' | 'register'
 ): Promise<void> {
-  await api.post('/auth/google', {
+  await api.post<void>('/auth/google', {
     idToken,
     mode
   })
 }
 
 /* =========================================
-   ME
+   GET ME
 ========================================= */
 
 export async function getMe(): Promise<AuthUser> {
@@ -69,5 +69,5 @@ export async function getMe(): Promise<AuthUser> {
 ========================================= */
 
 export async function logoutRequest(): Promise<void> {
-  await api.post('/auth/logout')
+  await api.post<void>('/auth/logout')
 }

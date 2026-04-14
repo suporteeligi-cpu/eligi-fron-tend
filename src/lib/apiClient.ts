@@ -1,22 +1,34 @@
-import axios from 'axios'
+import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios'
 
-const baseURL =
+/* =========================================
+   BASE URL
+========================================= */
+
+const baseURL: string =
   process.env.NEXT_PUBLIC_API_URL ||
-  'https://api.eligi.com.br' // 🔥 força produção correta
+  'https://api.eligi.com.br'
 
-const api = axios.create({
+/* =========================================
+   API INSTANCE
+========================================= */
+
+export const api: AxiosInstance = axios.create({
   baseURL,
-  withCredentials: true,
+  withCredentials: true, // 🔥 ESSENCIAL (COOKIE)
   headers: {
     'Content-Type': 'application/json'
   }
 })
 
+/* =========================================
+   RESPONSE INTERCEPTOR
+========================================= */
+
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response: AxiosResponse) => response,
+  (error: AxiosError) => {
     if (error.response?.status === 401) {
-      console.warn('Usuário não autenticado (401)')
+      console.warn('⚠️ Usuário não autenticado (401)')
     }
 
     return Promise.reject(error)

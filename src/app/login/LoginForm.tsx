@@ -41,7 +41,7 @@ declare global {
 
 export default function LoginForm() {
   const router = useRouter()
-  const { login, loginWithGoogle } = useAuth() // 🔥 removido refetchUser
+  const { login, loginWithGoogle } = useAuth()
 
   const googleButtonRef = useRef<HTMLDivElement>(null)
 
@@ -79,8 +79,8 @@ export default function LoginForm() {
 
           await loginWithGoogle(response.credential, 'login')
 
-          // 🔥 REDIRECIONA
-          router.push('/dashboard')
+          // 🔥 CORREÇÃO CRÍTICA (COOKIE FUNCIONA AQUI)
+          window.location.href = '/dashboard'
 
         } catch {
           setErrors({
@@ -100,7 +100,7 @@ export default function LoginForm() {
         width: '100%'
       }
     )
-  }, [loginWithGoogle, router]) // 🔥 removido refetchUser
+  }, [loginWithGoogle])
 
   /* =========================================
      SUBMIT
@@ -117,11 +117,10 @@ export default function LoginForm() {
     setErrors({})
 
     try {
-      // 🔐 LOGIN
       await login(email, password)
 
-      // 🔥 REDIRECIONA
-      router.push('/dashboard')
+      // 🔥 CORREÇÃO CRÍTICA (COOKIE FUNCIONA AQUI)
+      window.location.href = '/dashboard'
 
     } catch (error: unknown) {
       if (
