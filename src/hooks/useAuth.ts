@@ -30,7 +30,7 @@ export function useAuth() {
 
   const refetchUser = useCallback(async () => {
     const response = await getMe()
-    const me: AuthUser = (response as ApiResponse<AuthUser>).data
+    const me: AuthUser = response
     setUser(me)
     return me
   }, [])
