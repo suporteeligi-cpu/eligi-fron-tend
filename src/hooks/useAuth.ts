@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   loginRequest,
@@ -13,6 +13,11 @@ import { AuthUser } from '@/types/auth.types'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
+interface ApiResponse<T> {
+  success: boolean
+  data: T
+}
+
 export function useAuth() {
   const router = useRouter()
 
@@ -20,15 +25,24 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   /* =====================================================
-     🔎 Carrega usuário ao iniciar (via cookie)
+     🔎 REFETCH USER (🔥 ESSENCIAL)
+  ===================================================== */
+
+  const refetchUser = useCallback(async () => {
+    const response = await getMe()
+    const me: AuthUser = (response as ApiResponse<AuthUser>).data
+    setUser(me)
+    return me
+  }, [])
+
+  /* =====================================================
+     🔎 LOAD INICIAL
   ===================================================== */
 
   useEffect(() => {
     async function loadUser() {
       try {
-        const response = await getMe()
-        const me: AuthUser = response
-        setUser(me)
+        await refetchUser()
       } catch {
         setUser(null)
       } finally {
@@ -37,7 +51,7 @@ export function useAuth() {
     }
 
     loadUser()
-  }, [])
+  }, [refetchUser])
 
   /* =====================================================
      🔐 LOGIN
@@ -46,10 +60,8 @@ export function useAuth() {
   async function login(email: string, password: string) {
     await loginRequest(email, password)
 
-    const response = await getMe()
-    const me: AuthUser = response
+    const me = await refetchUser()
 
-    setUser(me)
     redirectByRole(me)
   }
 
@@ -65,10 +77,8 @@ export function useAuth() {
   ) {
     await registerRequest(name, email, password, role)
 
-    const response = await getMe()
-    const me: AuthUser = response
+    const me = await refetchUser()
 
-    setUser(me)
     redirectByRole(me)
   }
 
@@ -82,15 +92,13 @@ export function useAuth() {
   ) {
     await googleLoginRequest(idToken, mode)
 
-    const response = await getMe()
-    const me: AuthUser = response
+    const me = await refetchUser()
 
-    setUser(me)
     redirectByRole(me)
   }
 
   /* =====================================================
-     🔁 REDIRECIONAMENTO INTELIGENTE
+     🔁 REDIRECT
   ===================================================== */
 
   function redirectByRole(user: AuthUser) {
@@ -113,8 +121,7 @@ export function useAuth() {
     try {
       await logoutRequest()
     } catch {
-      // Mesmo que falhe no servidor,
-      // limpamos estado local
+      // ignora erro
     }
 
     setUser(null)
@@ -127,6 +134,7 @@ export function useAuth() {
     login,
     register,
     loginWithGoogle,
-    logout
+    logout,
+    refetchUser // 🔥 AGORA DISPONÍVEL
   }
 }
