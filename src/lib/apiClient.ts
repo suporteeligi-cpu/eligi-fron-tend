@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const baseURL =
   process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:3333'
+  'https://api.eligi.com.br' // 🔥 força produção correta
 
 const api = axios.create({
   baseURL,
