@@ -69,7 +69,10 @@ export default function AgendaColumn({
         {slots.map((time) => (
           <div
             key={time}
-            onClick={() => onCreateBooking(time, professional.id)}
+            onClick={() => {
+              console.log('CLICK SLOT', time, professional.id)
+              onCreateBooking(time, professional.id)
+            }}
             style={{
               height: slotHeight,
               borderBottom: '1px solid #f1f1f1',
