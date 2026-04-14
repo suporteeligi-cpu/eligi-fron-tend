@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import AgendaToolbar from './AgendaToolbar'
 import AgendaGrid from './AgendaGrid'
 import dayjs from 'dayjs'
 import { AgendaBooking, BookingStatus } from '@/types/agenda'
+import CreateBookingModal from './CreateBookingModal'
 
 /* =========================================
    TYPES
@@ -43,7 +44,7 @@ interface AgendaBoardProps {
 }
 
 /* =========================================
-   🔥 NORMALIZE STATUS (TIPADO E SEGURO)
+   🔥 NORMALIZE STATUS
 ========================================= */
 
 function normalizeStatus(status?: string): BookingStatus {
@@ -68,25 +69,30 @@ export default function AgendaBoard({
   const nowLineRef = useRef<HTMLDivElement | null>(null)
 
   /* =========================================
+     🆕 STATE DO MODAL
+  ========================================= */
+
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [selectedProfessional, setSelectedProfessional] = useState<string | null>(null)
+
+  /* =========================================
      FILTRAR BOOKINGS DO DIA
   ========================================= */
 
   const dayBookings = useMemo(() => {
     const selected = dayjs(selectedDate).format('YYYY-MM-DD')
-
     return bookings.filter((b) => b.date === selected)
   }, [bookings, selectedDate])
 
   /* =========================================
-     FORMATAR BOOKINGS (TIPADO CORRETAMENTE)
+     FORMATAR BOOKINGS
   ========================================= */
 
   const formattedBookings: AgendaBooking[] = useMemo(() => {
     return dayBookings.map((b) => {
       const startDate = new Date(`${b.date}T${b.time}`)
-
       const duration = b.service?.duration || b.duration || 30
-
       const endDate = new Date(startDate.getTime() + duration * 60000)
 
       return {
@@ -94,10 +100,7 @@ export default function AgendaBoard({
         clientName: b.clientName,
         serviceName: b.service?.name || 'Serviço',
         professionalId: b.professionalId,
-
-        // ✅ agora 100% tipado
         status: normalizeStatus(b.status),
-
         start: dayjs(startDate).format('HH:mm'),
         end: dayjs(endDate).format('HH:mm')
       }
@@ -110,7 +113,6 @@ export default function AgendaBoard({
 
   useEffect(() => {
     const el = document.getElementById('agenda-scroll')
-
     if (!el) return
 
     const hour = dayjs().hour()
@@ -123,11 +125,13 @@ export default function AgendaBoard({
   }, [])
 
   /* =========================================
-     HANDLER CREATE BOOKING
+     🆕 HANDLER ATUALIZADO (ABRE MODAL)
   ========================================= */
 
   function handleCreateBooking(time: string, professionalId: string) {
-    onCreateBooking({ time, professionalId })
+    setSelectedTime(time)
+    setSelectedProfessional(professionalId)
+    setModalOpen(true)
   }
 
   /* =========================================
@@ -179,6 +183,14 @@ export default function AgendaBoard({
           }}
         />
       </div>
+
+      {/* 🆕 MODAL */}
+      <CreateBookingModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        time={selectedTime}
+        professionalId={selectedProfessional}
+      />
     </div>
   )
 }
