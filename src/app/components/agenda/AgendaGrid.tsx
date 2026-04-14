@@ -34,13 +34,22 @@ export default function AgendaGrid({
       style={{
         display: 'grid',
         gridTemplateColumns: `80px repeat(${professionals.length}, 1fr)`,
-        background: '#fff'
+        background: '#fff',
+        position: 'relative', // 🔥 IMPORTANTE
+        zIndex: 1
       }}
     >
       {/* HORÁRIOS */}
-      <div>
+      <div style={{ position: 'relative', zIndex: 2 }}>
         {slots.map((time, i) => (
-          <div key={time} style={{ height: SLOT_HEIGHT, fontSize: 12, padding: 4 }}>
+          <div
+            key={time}
+            style={{
+              height: SLOT_HEIGHT,
+              fontSize: 12,
+              padding: 4
+            }}
+          >
             {i % 2 === 0 ? time : ''}
           </div>
         ))}
