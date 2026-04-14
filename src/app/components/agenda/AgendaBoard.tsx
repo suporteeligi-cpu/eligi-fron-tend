@@ -125,10 +125,12 @@ export default function AgendaBoard({
   }, [])
 
   /* =========================================
-     🆕 HANDLER ATUALIZADO (ABRE MODAL)
+     🆕 HANDLER COM DEBUG
   ========================================= */
 
   function handleCreateBooking(time: string, professionalId: string) {
+    console.log('HANDLE', time, professionalId)
+
     setSelectedTime(time)
     setSelectedProfessional(professionalId)
     setModalOpen(true)
