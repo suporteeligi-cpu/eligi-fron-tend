@@ -5,7 +5,13 @@ import AgendaBoard from '@/app/components/agenda/AgendaBoard'
 export default function AgendaPage() {
   return (
     <div style={{ padding: 20 }}>
-      <AgendaBoard />
+      <AgendaBoard
+        professionals={[]}
+        bookings={[]}
+        selectedDate={new Date()}
+        onDateChange={() => {}}
+        onCreateBooking={() => {}}
+      />
     </div>
   )
-}
+} 

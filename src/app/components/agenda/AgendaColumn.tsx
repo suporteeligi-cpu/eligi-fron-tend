@@ -3,16 +3,50 @@
 import BookingCard from './BookingCard'
 import { AgendaProfessional, AgendaBooking } from '@/types/agenda'
 
+/* =========================================
+   TYPES
+========================================= */
+
 interface Props {
   professional: AgendaProfessional
   bookings: AgendaBooking[]
+  slots: string[]
+  slotHeight: number
+  onCreateBooking: (time: string, professionalId: string) => void
 }
 
-export default function AgendaColumn({ professional, bookings }: Props) {
-  const TOTAL_MINUTES = (20 - 8) * 60
+/* =========================================
+   HELPERS
+========================================= */
+
+function timeToMinutes(time: string) {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + m
+}
+
+/* =========================================
+   COMPONENT
+========================================= */
+
+export default function AgendaColumn({
+  professional,
+  bookings,
+  slots,
+  slotHeight,
+  onCreateBooking
+}: Props) {
+  const START_MINUTES = 8 * 60
 
   return (
-    <div style={{ position: 'relative', borderLeft: '1px solid #eee', height: TOTAL_MINUTES }}>
+    <div
+      style={{
+        position: 'relative',
+        borderLeft: '1px solid #eee',
+        minHeight: slots.length * slotHeight,
+        background: '#fff'
+      }}
+    >
+      {/* HEADER PROFISSIONAL */}
       <div
         style={{
           position: 'sticky',
@@ -30,9 +64,55 @@ export default function AgendaColumn({ professional, bookings }: Props) {
         {professional.name}
       </div>
 
-      {bookings.map(b => (
-        <BookingCard key={b.id} booking={b} />
-      ))}
+      {/* GRID DE SLOTS */}
+      <div style={{ position: 'relative' }}>
+        {slots.map((time) => (
+          <div
+            key={time}
+            onClick={() => onCreateBooking(time, professional.id)}
+            style={{
+              height: slotHeight,
+              borderBottom: '1px solid #f1f1f1',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#f9fafb'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent'
+            }}
+          />
+        ))}
+
+        {/* BOOKINGS */}
+        {bookings.map((b) => {
+          const start = timeToMinutes(b.start)
+
+          const top =
+            ((start - START_MINUTES) / 30) * slotHeight
+
+          const height =
+            ((timeToMinutes(b.end) - timeToMinutes(b.start)) / 30) *
+            slotHeight
+
+          return (
+            <div
+              key={b.id}
+              style={{
+                position: 'absolute',
+                top,
+                left: 6,
+                right: 6,
+                height,
+                zIndex: 5
+              }}
+            >
+              <BookingCard booking={b} />
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

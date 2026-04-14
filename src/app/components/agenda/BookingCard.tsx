@@ -6,44 +6,11 @@ interface Props {
   booking: AgendaBooking
 }
 
-export default function BookingCard({ booking }: Props) {
-  const top = timeToY(booking.start)
-  const height = durationToHeight(booking.start, booking.end)
+/* =========================================
+   HELPERS
+========================================= */
 
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top,
-        left: 8,
-        right: 8,
-        height,
-        background: getColor(booking.status),
-        borderRadius: 10,
-        padding: 8,
-        color: '#fff',
-        fontSize: 12
-      }}
-    >
-      <div style={{ fontWeight: 600 }}>{booking.clientName}</div>
-      <div>{booking.serviceName}</div>
-      <div>{booking.start} - {booking.end}</div>
-    </div>
-  )
-}
-
-function timeToY(time: string) {
-  const [h, m] = time.split(':').map(Number)
-  return (h - 8) * 60 + m
-}
-
-function durationToHeight(start: string, end: string) {
-  const [sh, sm] = start.split(':').map(Number)
-  const [eh, em] = end.split(':').map(Number)
-  return eh * 60 + em - (sh * 60 + sm)
-}
-
-function getColor(status: string) {
+function getColor(status: AgendaBooking['status']) {
   switch (status) {
     case 'CONFIRMED':
       return '#2563eb'
@@ -54,4 +21,80 @@ function getColor(status: string) {
     default:
       return '#6b7280'
   }
+}
+
+/* =========================================
+   COMPONENT
+========================================= */
+
+export default function BookingCard({ booking }: Props) {
+  const color = getColor(booking.status)
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        borderRadius: 12,
+        padding: 10,
+        background: color,
+        color: '#fff',
+        fontSize: 12,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+        overflow: 'hidden'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'scale(1.02)'
+        e.currentTarget.style.boxShadow = '0 10px 24px rgba(0,0,0,0.18)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'scale(1)'
+        e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.12)'
+      }}
+    >
+      {/* TOP */}
+      <div>
+        <div
+          style={{
+            fontWeight: 600,
+            fontSize: 13,
+            lineHeight: 1.2,
+            marginBottom: 2,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}
+        >
+          {booking.clientName}
+        </div>
+
+        <div
+          style={{
+            fontSize: 11,
+            opacity: 0.9,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}
+        >
+          {booking.serviceName}
+        </div>
+      </div>
+
+      {/* BOTTOM */}
+      <div
+        style={{
+          fontSize: 11,
+          opacity: 0.85
+        }}
+      >
+        {booking.start} - {booking.end}
+      </div>
+    </div>
+  )
 }
