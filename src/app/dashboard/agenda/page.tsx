@@ -12,12 +12,12 @@ export default function AgendaPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [teamRes, bookingsRes] = await Promise.all([
-          api.get('/equipe'),
+        const [professionalsRes, bookingsRes] = await Promise.all([
+          api.get('/professionals'),
           api.get('/bookings')
         ])
 
-        setProfessionals(teamRes.data)
+        setProfessionals(professionalsRes.data)
         setBookings(bookingsRes.data)
       } catch (error) {
         console.error('Erro ao carregar agenda', error)
