@@ -13,7 +13,7 @@ export default function AgendaPage() {
     async function load() {
       try {
         const [teamRes, bookingsRes] = await Promise.all([
-          api.get('/team'),
+          api.get('/equipe'),
           api.get('/bookings')
         ])
 
