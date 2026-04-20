@@ -3,10 +3,6 @@ import type { NextConfig } from 'next'
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
-  experimental: {
-    serverActions: false // 🔥 DESATIVA DE VEZ
-  },
-
   async headers() {
     return [
       {
