@@ -1,11 +1,18 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import dayjs from 'dayjs'
+
 import AgendaToolbar from './AgendaToolbar'
 import AgendaGrid from './AgendaGrid'
-import CreateBookingModal from './CreateBookingModal'
+import SideCheckoutPanel from './SideCheckoutPanel'
+
+import { useCheckoutPanel } from '@/hooks/useCheckoutPanel'
 import { AgendaBooking, BookingStatus } from '@/types/agenda'
+
+/* =========================================
+   TYPES
+========================================= */
 
 export interface Professional {
   id: string
@@ -26,11 +33,19 @@ export interface Booking {
   status?: string
 }
 
+/* =========================================
+   HELPERS
+========================================= */
+
 function normalizeStatus(status?: string): BookingStatus {
   if (status === 'COMPLETED') return 'COMPLETED'
   if (status === 'CANCELED') return 'CANCELED'
   return 'CONFIRMED'
 }
+
+/* =========================================
+   COMPONENT
+========================================= */
 
 export default function AgendaBoard({
   professionals,
@@ -43,19 +58,30 @@ export default function AgendaBoard({
   selectedDate: Date
   onDateChange: (date: Date) => void
 }) {
-  const [modalOpen, setModalOpen] = useState(false)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [selectedProfessional, setSelectedProfessional] = useState<string | null>(null)
+  /* =========================================
+     CHECKOUT PANEL (🔥 NOVO CONTROLE GLOBAL)
+  ========================================= */
+
+  const checkout = useCheckoutPanel()
+
+  /* =========================================
+     FILTER BOOKINGS BY DAY
+  ========================================= */
 
   const dayBookings = useMemo(() => {
     const selected = dayjs(selectedDate).format('YYYY-MM-DD')
     return bookings.filter((b) => b.date === selected)
   }, [bookings, selectedDate])
 
+  /* =========================================
+     FORMAT BOOKINGS (AGENDA GRID)
+  ========================================= */
+
   const formattedBookings: AgendaBooking[] = useMemo(() => {
     return dayBookings.map((b) => {
       const startDate = new Date(`${b.date}T${b.time}`)
       const duration = b.service?.duration || b.duration || 30
+
       const endDate = new Date(startDate.getTime() + duration * 60000)
 
       return {
@@ -64,22 +90,39 @@ export default function AgendaBoard({
         serviceName: b.service?.name || 'Serviço',
         professionalId: b.professionalId,
         status: normalizeStatus(b.status),
+
+        // 🔥 PADRÃO AGENDA (STRING HH:mm)
         start: dayjs(startDate).format('HH:mm'),
         end: dayjs(endDate).format('HH:mm')
       }
     })
   }, [dayBookings])
 
+  /* =========================================
+     HANDLERS
+  ========================================= */
+
   function handleCreateBooking(time: string, professionalId: string) {
-    setSelectedTime(time)
-    setSelectedProfessional(professionalId)
-    setModalOpen(true)
+    checkout.openCreate(time, professionalId)
   }
+
+  /* =========================================
+     RENDER
+  ========================================= */
 
   return (
     <>
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <AgendaToolbar selectedDate={selectedDate} onDateChange={onDateChange} />
+      <div
+        style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <AgendaToolbar
+          selectedDate={selectedDate}
+          onDateChange={onDateChange}
+        />
 
         <AgendaGrid
           professionals={professionals}
@@ -88,11 +131,16 @@ export default function AgendaBoard({
         />
       </div>
 
-      <CreateBookingModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        time={selectedTime}
-        professionalId={selectedProfessional}
+      {/* =========================================
+         SIDE CHECKOUT PANEL (🔥 CORE UX)
+      ========================================= */}
+
+      <SideCheckoutPanel
+        open={checkout.open}
+        mode={checkout.mode}
+        time={checkout.time}
+        professionalId={checkout.professionalId}
+        onClose={checkout.close}
       />
     </>
   )
