@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { BookingStatus } from '@/types/agenda'
+import api from '@/lib/apiClient'
 
 /* =========================================
    TYPES
@@ -27,12 +28,38 @@ export default function SideCheckoutPanel({
   onClose
 }: Props) {
   /* =========================================
-     STATE (🔥 LIMPO E CONTROLADO POR KEY)
+     STATE
   ========================================= */
 
-  const [clientName, setClientName] = useState<string>('')
-  const [service, setService] = useState<string>('')
+  const [clientName, setClientName] = useState('')
+  const [clientPhone, setClientPhone] = useState('')
+  const [clientEmail, setClientEmail] = useState('')
+  const [service, setService] = useState('')
   const [status, setStatus] = useState<BookingStatus>('CONFIRMED')
+
+  /* =========================================
+     ACTION
+  ========================================= */
+
+  async function handleSave() {
+    try {
+      if (!time || !professionalId) return
+
+      await api.post('/bookings/confirm', {
+        serviceId: service, // ⚠️ depois vamos trocar por ID real
+        clientName,
+        clientPhone,
+        clientEmail,
+        professionalId,
+        time,
+        date: new Date().toISOString().split('T')[0]
+      })
+
+      onClose()
+    } catch (error) {
+      console.error('Erro ao salvar booking', error)
+    }
+  }
 
   /* =========================================
      RENDER
@@ -40,9 +67,7 @@ export default function SideCheckoutPanel({
 
   return (
     <>
-      {/* =========================================
-         OVERLAY
-      ========================================= */}
+      {/* OVERLAY */}
       <div
         onClick={onClose}
         style={{
@@ -56,9 +81,7 @@ export default function SideCheckoutPanel({
         }}
       />
 
-      {/* =========================================
-         PANEL
-      ========================================= */}
+      {/* PANEL */}
       <div
         style={{
           position: 'fixed',
@@ -99,6 +122,22 @@ export default function SideCheckoutPanel({
           style={{ marginTop: 10 }}
         />
 
+        {/* TELEFONE (OBRIGATÓRIO) */}
+        <input
+          placeholder='Telefone'
+          value={clientPhone}
+          onChange={(e) => setClientPhone(e.target.value)}
+          style={{ marginTop: 10 }}
+        />
+
+        {/* EMAIL */}
+        <input
+          placeholder='Email'
+          value={clientEmail}
+          onChange={(e) => setClientEmail(e.target.value)}
+          style={{ marginTop: 10 }}
+        />
+
         {/* SERVIÇO */}
         <input
           placeholder='Serviço'
@@ -119,7 +158,19 @@ export default function SideCheckoutPanel({
         </select>
 
         {/* ACTION */}
-        <button style={{ marginTop: 'auto' }}>
+        <button
+          onClick={handleSave}
+          style={{
+            marginTop: 'auto',
+            background: '#dc2626',
+            color: '#fff',
+            border: 'none',
+            padding: '12px',
+            borderRadius: '10px',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
           {mode === 'create' ? 'Confirmar' : 'Atualizar'}
         </button>
       </div>
