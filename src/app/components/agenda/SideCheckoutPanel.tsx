@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BookingStatus } from '@/types/agenda'
 import api from '@/lib/apiClient'
 
@@ -14,6 +14,13 @@ interface Props {
   time: string | null
   professionalId: string | null
   onClose: () => void
+}
+
+interface Service {
+  id: string
+  name: string
+  duration: number
+  price?: number
 }
 
 /* =========================================
@@ -34,19 +41,54 @@ export default function SideCheckoutPanel({
   const [clientName, setClientName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [clientEmail, setClientEmail] = useState('')
-  const [service, setService] = useState('')
+
+  const [serviceId, setServiceId] = useState('')
+  const [services, setServices] = useState<Service[]>([])
+
   const [status, setStatus] = useState<BookingStatus>('CONFIRMED')
+  const [loading, setLoading] = useState(false)
 
   /* =========================================
-     ACTION
+     LOAD SERVICES
+  ========================================= */
+
+  useEffect(() => {
+    async function loadServices() {
+      try {
+        const res = await api.get<Service[]>('/services')
+        setServices(res.data)
+      } catch (err) {
+        console.error('Erro ao carregar serviços', err)
+      }
+    }
+
+    if (open) {
+      loadServices()
+    }
+  }, [open])
+
+  /* =========================================
+     SAVE
   ========================================= */
 
   async function handleSave() {
     try {
       if (!time || !professionalId) return
 
+      if (!serviceId) {
+        alert('Selecione um serviço')
+        return
+      }
+
+      if (!clientName || !clientPhone) {
+        alert('Preencha nome e telefone')
+        return
+      }
+
+      setLoading(true)
+
       await api.post('/bookings/confirm', {
-        serviceId: service, // ⚠️ depois vamos trocar por ID real
+        serviceId,
         clientName,
         clientPhone,
         clientEmail,
@@ -58,6 +100,8 @@ export default function SideCheckoutPanel({
       onClose()
     } catch (error) {
       console.error('Erro ao salvar booking', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -89,7 +133,7 @@ export default function SideCheckoutPanel({
           right: 0,
           width: 380,
           height: '100%',
-          background: 'rgba(255,255,255,0.8)',
+          background: 'rgba(255,255,255,0.85)',
           backdropFilter: 'blur(20px)',
           boxShadow: '-10px 0 40px rgba(0,0,0,0.15)',
           transform: open ? 'translateX(0)' : 'translateX(100%)',
@@ -106,13 +150,8 @@ export default function SideCheckoutPanel({
         </h2>
 
         {/* INFO */}
-        <p>
-          <strong>Horário:</strong> {time}
-        </p>
-
-        <p>
-          <strong>Profissional:</strong> {professionalId}
-        </p>
+        <p><strong>Horário:</strong> {time}</p>
+        <p><strong>Profissional:</strong> {professionalId}</p>
 
         {/* CLIENTE */}
         <input
@@ -122,7 +161,7 @@ export default function SideCheckoutPanel({
           style={{ marginTop: 10 }}
         />
 
-        {/* TELEFONE (OBRIGATÓRIO) */}
+        {/* TELEFONE */}
         <input
           placeholder='Telefone'
           value={clientPhone}
@@ -138,13 +177,20 @@ export default function SideCheckoutPanel({
           style={{ marginTop: 10 }}
         />
 
-        {/* SERVIÇO */}
-        <input
-          placeholder='Serviço'
-          value={service}
-          onChange={(e) => setService(e.target.value)}
+        {/* SERVIÇO (🔥 AGORA REAL) */}
+        <select
+          value={serviceId}
+          onChange={(e) => setServiceId(e.target.value)}
           style={{ marginTop: 10 }}
-        />
+        >
+          <option value=''>Selecione um serviço</option>
+
+          {services.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} ({s.duration}min)
+            </option>
+          ))}
+        </select>
 
         {/* STATUS */}
         <select
@@ -160,18 +206,23 @@ export default function SideCheckoutPanel({
         {/* ACTION */}
         <button
           onClick={handleSave}
+          disabled={loading}
           style={{
             marginTop: 'auto',
-            background: '#dc2626',
+            background: loading ? '#9ca3af' : '#dc2626',
             color: '#fff',
             border: 'none',
             padding: '12px',
             borderRadius: '10px',
             fontWeight: 600,
-            cursor: 'pointer'
+            cursor: loading ? 'not-allowed' : 'pointer'
           }}
         >
-          {mode === 'create' ? 'Confirmar' : 'Atualizar'}
+          {loading
+            ? 'Salvando...'
+            : mode === 'create'
+            ? 'Confirmar'
+            : 'Atualizar'}
         </button>
       </div>
     </>
