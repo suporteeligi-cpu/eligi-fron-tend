@@ -1,18 +1,31 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+import dayjs from 'dayjs'
+import { createBooking } from '../services/bookings'
+import { BookingStatus } from '@/types/agenda'
 
-type Mode = 'create' | 'edit'
+/* =========================================
+   TYPES
+========================================= */
 
-type Props = {
+type Service = {
+  id: string
+  name: string
+  duration: number
+}
+
+interface Props {
   open: boolean
-  mode: Mode
+  mode: 'create' | 'edit'
   time: string | null
   professionalId: string | null
   onClose: () => void
 }
 
-type BookingStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
+/* =========================================
+   COMPONENT
+========================================= */
 
 export default function SideCheckoutPanel({
   open,
@@ -26,293 +39,178 @@ export default function SideCheckoutPanel({
   ========================================= */
 
   const [clientName, setClientName] = useState('')
-  const [service, setService] = useState('')
+  const [selectedService, setSelectedService] = useState<Service | null>(null)
+
   const [status, setStatus] = useState<BookingStatus>('CONFIRMED')
+  const [loading, setLoading] = useState(false)
 
   /* =========================================
-     RESET AUTOMÁTICO (via key do parent)
+     HANDLE SAVE (PROFISSIONAL)
   ========================================= */
 
-  const start = time || '10:00'
+  async function handleSave() {
+    try {
+      if (!professionalId || !time || !selectedService) {
+        console.warn('Dados incompletos')
+        return
+      }
 
-  const end = useMemo(() => {
-    const [h, m] = start.split(':').map(Number)
-    const date = new Date()
-    date.setHours(h)
-    date.setMinutes(m + 30)
-    return date.toTimeString().slice(0, 5)
-  }, [start])
+      setLoading(true)
+
+      await createBooking({
+        clientName,
+        serviceId: selectedService.id,
+        professionalId,
+        date: dayjs().format('YYYY-MM-DD'),
+        time
+      })
+
+      onClose()
+    } catch (err) {
+      console.error('Erro ao criar booking', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (!open) return null
 
-  /* =========================================
-     HANDLERS
-  ========================================= */
-
-  function handleSave() {
-    console.log({
-      clientName,
-      service,
-      status,
-      start,
-      end,
-      professionalId
-    })
-
-    onClose()
-  }
-
-  /* =========================================
-     RENDER
-  ========================================= */
-
   return (
-    <div style={overlay}>
-      <div style={panel}>
-        {/* HEADER */}
-        <div style={header}>
-          <h2 style={{ fontSize: 18, fontWeight: 600 }}>
-            Novo agendamento
-          </h2>
+    <>
+      {/* OVERLAY */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.2)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 9998
+        }}
+      />
 
-          <button onClick={onClose} style={closeBtn}>
-            ✕
-          </button>
-        </div>
+      {/* PANEL */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          width: 420,
+          height: '100%',
+          background: 'rgba(255,255,255,0.85)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '-10px 0 40px rgba(0,0,0,0.15)',
+          transform: open ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 250ms ease',
+          zIndex: 9999,
+          padding: 20,
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <h2 style={{ marginBottom: 20 }}>
+          {mode === 'create' ? 'Novo Agendamento' : 'Editar Agendamento'}
+        </h2>
+
+        {/* INFO */}
+        <p><strong>Horário:</strong> {time}</p>
+        <p><strong>Profissional:</strong> {professionalId}</p>
 
         {/* CLIENTE */}
-        <div style={card}>
-          <div style={avatar} />
-          <input
-            placeholder="Selecione um cliente ou deixe em branco"
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-            style={inputClean}
-          />
+        <input
+          placeholder='Nome do cliente'
+          value={clientName}
+          onChange={(e) => setClientName(e.target.value)}
+          style={{
+            marginTop: 10,
+            padding: 12,
+            borderRadius: 10,
+            border: '1px solid #ddd'
+          }}
+        />
+
+        {/* SERVIÇO (TEMPORÁRIO MOCK) */}
+        <div style={{ marginTop: 15 }}>
+          <p style={{ fontSize: 12, marginBottom: 5 }}>Serviço</p>
+
+          {/* ⚠️ Aqui depois vira SELECT real vindo do backend */}
+          <button
+            onClick={() =>
+              setSelectedService({
+                id: '1',
+                name: 'Corte',
+                duration: 30
+              })
+            }
+            style={{
+              width: '100%',
+              padding: 12,
+              borderRadius: 10,
+              border: '1px solid #ddd',
+              textAlign: 'left',
+              background: '#fff'
+            }}
+          >
+            {selectedService
+              ? `${selectedService.name} (${selectedService.duration}min)`
+              : 'Selecionar serviço'}
+          </button>
         </div>
 
-        {/* TABS */}
-        <div style={tabs}>
-          <span style={tabActive}>AGENDAMENTO</span>
-          <span style={tab}>INFORMAÇÕES</span>
-        </div>
+        {/* STATUS */}
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as BookingStatus)}
+          style={{
+            marginTop: 15,
+            padding: 12,
+            borderRadius: 10,
+            border: '1px solid #ddd'
+          }}
+        >
+          <option value='CONFIRMED'>Confirmado</option>
+          <option value='COMPLETED'>Concluído</option>
+          <option value='CANCELED'>Cancelado</option>
+        </select>
 
-        {/* DATA */}
-        <div style={rowBetween}>
-          <strong>Hoje</strong>
-          <div style={chip}>Agende para + alguém</div>
-        </div>
-
-        {/* SERVIÇO */}
-        <div style={selectBox}>
-          {service || 'Selecione o serviço'}
-        </div>
-
-        {/* HORÁRIOS */}
-        <div style={row}>
-          <div style={field}>
-            <label>Início</label>
-            <div style={inputBox}>{start}</div>
-          </div>
-
-          <div style={field}>
-            <label>Fim</label>
-            <div style={inputBox}>{end}</div>
-          </div>
-        </div>
-
-        {/* FUNCIONÁRIO / RECURSO */}
-        <div style={row}>
-          <div style={field}>
-            <label>Funcionário</label>
-            <div style={inputBox}>
-              {professionalId || 'Qualquer'}
-            </div>
-          </div>
-
-          <div style={field}>
-            <label>Recurso</label>
-            <div style={inputBox}>Sem recurso</div>
-          </div>
-        </div>
-
-        {/* ADD SERVICE */}
-        <div style={addService}>
-          + Adicionar outro serviço
-        </div>
-
-        {/* TOTAL */}
-        <div style={total}>
-          <div>
-            <span>Total</span>
-            <strong>R$ 0,00</strong>
-          </div>
-
-          <div>
-            <span>A pagar</span>
-            <strong>R$ 0,00</strong>
-          </div>
-        </div>
-
-        {/* FOOTER */}
-        <div style={footer}>
-          <button style={btnGhost} onClick={onClose}>
-            Descartar
+        {/* ACTIONS */}
+        <div style={{ marginTop: 'auto' }}>
+          <button
+            onClick={handleSave}
+            disabled={loading || !selectedService}
+            style={{
+              width: '100%',
+              padding: 14,
+              background: '#dc2626',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 12,
+              fontWeight: 600,
+              opacity: loading ? 0.7 : 1
+            }}
+          >
+            {loading
+              ? 'Salvando...'
+              : mode === 'create'
+              ? 'Confirmar'
+              : 'Atualizar'}
           </button>
 
-          <button style={btnPrimary} onClick={handleSave}>
-            Salvar
+          <button
+            onClick={onClose}
+            style={{
+              marginTop: 10,
+              width: '100%',
+              padding: 12,
+              background: '#eee',
+              borderRadius: 12,
+              border: 'none'
+            }}
+          >
+            Cancelar
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
-}
-
-/* =========================================
-   STYLES (ELIGI STYLE)
-========================================= */
-
-const overlay = {
-  position: 'fixed' as const,
-  top: 0,
-  right: 0,
-  bottom: 0,
-  left: 0,
-  background: 'rgba(0,0,0,0.25)',
-  display: 'flex',
-  justifyContent: 'flex-end',
-  zIndex: 999
-}
-
-const panel = {
-  width: 420,
-  height: '100%',
-  background: '#fff',
-  display: 'flex',
-  flexDirection: 'column' as const,
-  padding: 20,
-  gap: 16,
-  boxShadow: '-10px 0 40px rgba(0,0,0,0.1)'
-}
-
-const header = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center'
-}
-
-const closeBtn = {
-  border: 'none',
-  background: 'transparent',
-  cursor: 'pointer'
-}
-
-const card = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  padding: 12,
-  border: '1px solid #eee',
-  borderRadius: 12
-}
-
-const avatar = {
-  width: 36,
-  height: 36,
-  borderRadius: '50%',
-  background: '#eee'
-}
-
-const inputClean = {
-  border: 'none',
-  outline: 'none',
-  flex: 1
-}
-
-const tabs = {
-  display: 'flex',
-  gap: 20,
-  fontSize: 13
-}
-
-const tabActive = {
-  fontWeight: 600,
-  borderBottom: '2px solid #111'
-}
-
-const tab = {
-  opacity: 0.6
-}
-
-const rowBetween = {
-  display: 'flex',
-  justifyContent: 'space-between'
-}
-
-const chip = {
-  background: '#f3f4f6',
-  padding: '4px 10px',
-  borderRadius: 20,
-  fontSize: 12
-}
-
-const selectBox = {
-  padding: 12,
-  border: '1px solid #eee',
-  borderRadius: 12
-}
-
-const row = {
-  display: 'flex',
-  gap: 10
-}
-
-const field = {
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column' as const,
-  gap: 4
-}
-
-const inputBox = {
-  padding: 10,
-  border: '1px solid #eee',
-  borderRadius: 10
-}
-
-const addService = {
-  color: '#dc2626',
-  fontWeight: 500,
-  cursor: 'pointer'
-}
-
-const total = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  marginTop: 'auto'
-}
-
-const footer = {
-  display: 'flex',
-  gap: 10
-}
-
-const btnPrimary = {
-  flex: 1,
-  background: '#dc2626',
-  color: '#fff',
-  border: 'none',
-  padding: 12,
-  borderRadius: 10,
-  cursor: 'pointer'
-}
-
-const btnGhost = {
-  flex: 1,
-  background: 'transparent',
-  border: '1px solid #ddd',
-  padding: 12,
-  borderRadius: 10,
-  cursor: 'pointer'
 }
