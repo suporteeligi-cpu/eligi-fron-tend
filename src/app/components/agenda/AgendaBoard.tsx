@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
+import { useMemo } from 'react'
 import dayjs from 'dayjs'
 
 import AgendaToolbar from './AgendaToolbar'
@@ -41,9 +41,13 @@ interface Props {
   selectedDate: Date
   onDateChange: (date: Date) => void
 
-  // 🔥 NOVO (PROFISSIONAL)
+  // 🔥 SOCKET CORE
   businessId: string
-  refetch: () => void
+
+  // 🔥 NOVO (REALTIME STATE CONTROL)
+  addBooking: (booking: Booking) => void
+  updateBooking: (booking: Booking) => void
+  removeBooking: (booking: Booking) => void
 }
 
 /* =========================================
@@ -66,7 +70,9 @@ export default function AgendaBoard({
   selectedDate,
   onDateChange,
   businessId,
-  refetch
+  addBooking,
+  updateBooking,
+  removeBooking
 }: Props) {
   /* =========================================
      CHECKOUT PANEL
@@ -75,14 +81,21 @@ export default function AgendaBoard({
   const checkout = useCheckoutPanel()
 
   /* =========================================
-     SOCKET (🔥 REALTIME PROFISSIONAL)
+     SOCKET (🔥 REALTIME GRANULAR)
   ========================================= */
 
-  const reload = useCallback(() => {
-    refetch()
-  }, [refetch])
-
-  useAgendaSocket(businessId, reload)
+  useAgendaSocket({
+    businessId,
+    onCreate: (booking) => {
+      addBooking(booking)
+    },
+    onUpdate: (booking) => {
+      updateBooking(booking)
+    },
+    onCancel: (booking) => {
+      removeBooking(booking)
+    }
+  })
 
   /* =========================================
      FILTER BOOKINGS BY DAY

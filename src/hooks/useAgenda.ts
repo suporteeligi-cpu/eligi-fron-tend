@@ -5,15 +5,15 @@ import api from '@/lib/apiClient'
 import { AgendaDay } from '@/types/agenda'
 
 /* =========================================
-   TYPES (fallback seguro)
+   TYPES
 ========================================= */
 
 interface AgendaResponse {
   data?: AgendaDay
-  businessId?: string
-  professionals?: AgendaDay['professionals']
-  bookings?: AgendaDay['bookings']
 }
+
+// 🔥 TYPE BACKEND (CORRETO)
+type Booking = AgendaDay['bookings'][number]
 
 /* =========================================
    HOOK
@@ -24,7 +24,7 @@ export function useAgenda(date: string) {
   const [loading, setLoading] = useState(true)
 
   /* =========================================
-     FETCH
+     FETCH INICIAL
   ========================================= */
 
   const fetchData = useCallback(async () => {
@@ -35,7 +35,6 @@ export function useAgenda(date: string) {
         params: { date }
       })
 
-      // 🔥 SUPORTE A DOIS FORMATOS DE BACKEND
       const payload = res.data?.data || res.data
 
       setData(payload as AgendaDay)
@@ -47,13 +46,51 @@ export function useAgenda(date: string) {
     }
   }, [date])
 
-  /* =========================================
-     EFFECT
-  ========================================= */
-
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  /* =========================================
+     🔥 REALTIME HANDLERS (SEM CONVERSÃO)
+  ========================================= */
+
+  const addBooking = useCallback((booking: Booking) => {
+    setData((prev) => {
+      if (!prev) return prev
+
+      const exists = prev.bookings.some((b) => b.id === booking.id)
+      if (exists) return prev
+
+      return {
+        ...prev,
+        bookings: [...prev.bookings, booking]
+      }
+    })
+  }, [])
+
+  const updateBooking = useCallback((booking: Booking) => {
+    setData((prev) => {
+      if (!prev) return prev
+
+      return {
+        ...prev,
+        bookings: prev.bookings.map((b) =>
+          b.id === booking.id ? booking : b
+        )
+      }
+    })
+  }, [])
+
+  const removeBooking = useCallback((booking: Booking) => {
+    setData((prev) => {
+      if (!prev) return prev
+
+      return {
+        ...prev,
+        bookings: prev.bookings.filter((b) => b.id !== booking.id)
+      }
+    })
+  }, [])
 
   /* =========================================
      RETURN
@@ -62,6 +99,10 @@ export function useAgenda(date: string) {
   return {
     data,
     loading,
-    refetch: fetchData // 🔥 ESSENCIAL PARA SOCKET
+    refetch: fetchData,
+
+    addBooking,
+    updateBooking,
+    removeBooking
   }
 }

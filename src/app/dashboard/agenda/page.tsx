@@ -7,53 +7,29 @@ import AgendaBoard from '@/app/components/agenda/AgendaBoard'
 import { useAgenda } from '@/hooks/useAgenda'
 
 export default function AgendaPage() {
-  /* =========================================
-     STATE
-  ========================================= */
-
-  const [date, setDate] = useState<Date>(new Date())
-
-  /* =========================================
-     HOOK
-  ========================================= */
+  const [date, setDate] = useState(new Date())
 
   const {
     data,
     loading,
-    refetch
+    addBooking,
+    updateBooking,
+    removeBooking
   } = useAgenda(dayjs(date).format('YYYY-MM-DD'))
 
-  /* =========================================
-     SAFE RENDER
-  ========================================= */
-
-  if (loading || !data) {
-    return (
-      <div
-        style={{
-          padding: 40,
-          textAlign: 'center',
-          opacity: 0.6
-        }}
-      >
-        Carregando agenda...
-      </div>
-    )
-  }
-
-  /* =========================================
-     RENDER
-  ========================================= */
+  if (loading || !data) return null
 
   return (
     <div style={{ padding: 20 }}>
       <AgendaBoard
         professionals={data.professionals}
-        bookings={data.bookings}
+        bookings={data.bookings} // 🔥 DIRETO DO HOOK
         selectedDate={date}
         onDateChange={setDate}
-        businessId={data.businessId} // 🔥 OBRIGATÓRIO
-        refetch={refetch} // 🔥 OBRIGATÓRIO
+        businessId={data.businessId}
+        addBooking={addBooking}
+        updateBooking={updateBooking}
+        removeBooking={removeBooking}
       />
     </div>
   )
