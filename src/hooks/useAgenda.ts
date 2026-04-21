@@ -1,27 +1,67 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import api from '@/lib/apiClient'
 import { AgendaDay } from '@/types/agenda'
+
+/* =========================================
+   TYPES (fallback seguro)
+========================================= */
+
+interface AgendaResponse {
+  data?: AgendaDay
+  businessId?: string
+  professionals?: AgendaDay['professionals']
+  bookings?: AgendaDay['bookings']
+}
+
+/* =========================================
+   HOOK
+========================================= */
 
 export function useAgenda(date: string) {
   const [data, setData] = useState<AgendaDay | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function load() {
+  /* =========================================
+     FETCH
+  ========================================= */
+
+  const fetchData = useCallback(async () => {
+    try {
       setLoading(true)
 
-      const res = await api.get('/agenda/day', {
+      const res = await api.get<AgendaResponse>('/agenda/day', {
         params: { date }
       })
 
-      setData(res.data.data)
+      // 🔥 SUPORTE A DOIS FORMATOS DE BACKEND
+      const payload = res.data?.data || res.data
+
+      setData(payload as AgendaDay)
+    } catch (error) {
+      console.error('Erro ao carregar agenda', error)
+      setData(null)
+    } finally {
       setLoading(false)
     }
-
-    load()
   }, [date])
 
-  return { data, loading }
+  /* =========================================
+     EFFECT
+  ========================================= */
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  /* =========================================
+     RETURN
+  ========================================= */
+
+  return {
+    data,
+    loading,
+    refetch: fetchData // 🔥 ESSENCIAL PARA SOCKET
+  }
 }

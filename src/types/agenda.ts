@@ -31,7 +31,22 @@ export type AgendaBooking = {
 ========================================= */
 
 export type AgendaDay = {
-  date: string
-  professionals: AgendaProfessional[]
-  bookings: AgendaBooking[]
+  businessId: string
+  professionals: {
+    id: string
+    name: string
+  }[]
+  bookings: {
+    id: string
+    date: string
+    time: string
+    duration: number
+    clientName: string
+    professionalId: string
+    service?: {
+      name: string
+      duration?: number
+    }
+    status?: string
+  }[]
 }

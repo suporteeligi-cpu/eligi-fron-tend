@@ -1,13 +1,15 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import dayjs from 'dayjs'
 
 import AgendaToolbar from './AgendaToolbar'
 import AgendaGrid from './AgendaGrid'
 import SideCheckoutPanel from './SideCheckoutPanel'
 
+import { useAgendaSocket } from '@/hooks/useAgendaSocket'
 import { useCheckoutPanel } from '@/hooks/useCheckoutPanel'
+
 import { AgendaBooking, BookingStatus } from '@/types/agenda'
 
 /* =========================================
@@ -33,6 +35,17 @@ export interface Booking {
   status?: string
 }
 
+interface Props {
+  professionals: Professional[]
+  bookings: Booking[]
+  selectedDate: Date
+  onDateChange: (date: Date) => void
+
+  // 🔥 NOVO (PROFISSIONAL)
+  businessId: string
+  refetch: () => void
+}
+
 /* =========================================
    HELPERS
 ========================================= */
@@ -51,18 +64,25 @@ export default function AgendaBoard({
   professionals,
   bookings,
   selectedDate,
-  onDateChange
-}: {
-  professionals: Professional[]
-  bookings: Booking[]
-  selectedDate: Date
-  onDateChange: (date: Date) => void
-}) {
+  onDateChange,
+  businessId,
+  refetch
+}: Props) {
   /* =========================================
-     CHECKOUT PANEL (🔥 NOVO CONTROLE GLOBAL)
+     CHECKOUT PANEL
   ========================================= */
 
   const checkout = useCheckoutPanel()
+
+  /* =========================================
+     SOCKET (🔥 REALTIME PROFISSIONAL)
+  ========================================= */
+
+  const reload = useCallback(() => {
+    refetch()
+  }, [refetch])
+
+  useAgendaSocket(businessId, reload)
 
   /* =========================================
      FILTER BOOKINGS BY DAY
@@ -74,7 +94,7 @@ export default function AgendaBoard({
   }, [bookings, selectedDate])
 
   /* =========================================
-     FORMAT BOOKINGS (AGENDA GRID)
+     FORMAT BOOKINGS
   ========================================= */
 
   const formattedBookings: AgendaBooking[] = useMemo(() => {
@@ -91,7 +111,6 @@ export default function AgendaBoard({
         professionalId: b.professionalId,
         status: normalizeStatus(b.status),
 
-        // 🔥 PADRÃO AGENDA (STRING HH:mm)
         start: dayjs(startDate).format('HH:mm'),
         end: dayjs(endDate).format('HH:mm')
       }
@@ -131,10 +150,7 @@ export default function AgendaBoard({
         />
       </div>
 
-      {/* =========================================
-         SIDE CHECKOUT PANEL (🔥 CORE UX)
-      ========================================= */}
-
+      {/* SIDE PANEL */}
       <SideCheckoutPanel
         open={checkout.open}
         mode={checkout.mode}
