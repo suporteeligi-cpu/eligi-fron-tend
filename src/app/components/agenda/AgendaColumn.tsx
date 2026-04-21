@@ -28,7 +28,8 @@ export default function AgendaColumn({
       style={{
         position: 'relative',
         borderLeft: '1px solid #eee',
-        zIndex: 2 // 🔥 IMPORTANTE
+        zIndex: 5,
+        pointerEvents: 'auto'
       }}
     >
       {/* HEADER */}
@@ -40,26 +41,31 @@ export default function AgendaColumn({
           background: '#fff',
           position: 'sticky',
           top: 0,
-          zIndex: 3
+          zIndex: 10,
+          borderBottom: '1px solid #eee'
         }}
       >
         {professional.name}
       </div>
 
-      {/* SLOTS */}
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      {/* GRID */}
+      <div style={{ position: 'relative' }}>
         {slots.map((time) => (
           <div
             key={time}
-            onClick={() => {
-              console.log('CLICK SLOT', time)
-              onCreateBooking(time, professional.id)
-            }}
+            onClick={() => onCreateBooking(time, professional.id)}
             style={{
               height: slotHeight,
-              borderBottom: '1px solid #eee',
-              cursor: 'pointer'
+              borderBottom: '1px solid #f1f1f1',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease'
             }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = 'rgba(220,38,38,0.05)')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = 'transparent')
+            }
           />
         ))}
 
@@ -77,8 +83,8 @@ export default function AgendaColumn({
                 left: 6,
                 right: 6,
                 height: ((end - start) / 30) * slotHeight,
-                zIndex: 2,
-                pointerEvents: 'none' // 🔥 NÃO BLOQUEIA CLIQUE
+                zIndex: 8,
+                pointerEvents: 'none'
               }}
             >
               <div style={{ pointerEvents: 'auto' }}>

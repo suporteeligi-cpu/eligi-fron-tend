@@ -1,31 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { BookingStatus } from '@/types/agenda'
-import api from '@/lib/apiClient'
+import { useMemo, useState } from 'react'
 
-/* =========================================
-   TYPES
-========================================= */
+type Mode = 'create' | 'edit'
 
-interface Props {
+type Props = {
   open: boolean
-  mode: 'create' | 'edit'
+  mode: Mode
   time: string | null
   professionalId: string | null
   onClose: () => void
 }
 
-interface Service {
-  id: string
-  name: string
-  duration: number
-  price?: number
-}
-
-/* =========================================
-   COMPONENT
-========================================= */
+type BookingStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
 
 export default function SideCheckoutPanel({
   open,
@@ -39,70 +26,40 @@ export default function SideCheckoutPanel({
   ========================================= */
 
   const [clientName, setClientName] = useState('')
-  const [clientPhone, setClientPhone] = useState('')
-  const [clientEmail, setClientEmail] = useState('')
-
-  const [serviceId, setServiceId] = useState('')
-  const [services, setServices] = useState<Service[]>([])
-
+  const [service, setService] = useState('')
   const [status, setStatus] = useState<BookingStatus>('CONFIRMED')
-  const [loading, setLoading] = useState(false)
 
   /* =========================================
-     LOAD SERVICES
+     RESET AUTOMÁTICO (via key do parent)
   ========================================= */
 
-  useEffect(() => {
-    async function loadServices() {
-      try {
-        const res = await api.get<Service[]>('/services')
-        setServices(res.data)
-      } catch (err) {
-        console.error('Erro ao carregar serviços', err)
-      }
-    }
+  const start = time || '10:00'
 
-    if (open) {
-      loadServices()
-    }
-  }, [open])
+  const end = useMemo(() => {
+    const [h, m] = start.split(':').map(Number)
+    const date = new Date()
+    date.setHours(h)
+    date.setMinutes(m + 30)
+    return date.toTimeString().slice(0, 5)
+  }, [start])
+
+  if (!open) return null
 
   /* =========================================
-     SAVE
+     HANDLERS
   ========================================= */
 
-  async function handleSave() {
-    try {
-      if (!time || !professionalId) return
+  function handleSave() {
+    console.log({
+      clientName,
+      service,
+      status,
+      start,
+      end,
+      professionalId
+    })
 
-      if (!serviceId) {
-        alert('Selecione um serviço')
-        return
-      }
-
-      if (!clientName || !clientPhone) {
-        alert('Preencha nome e telefone')
-        return
-      }
-
-      setLoading(true)
-
-      await api.post('/bookings/confirm', {
-        serviceId,
-        clientName,
-        clientPhone,
-        clientEmail,
-        professionalId,
-        time,
-        date: new Date().toISOString().split('T')[0]
-      })
-
-      onClose()
-    } catch (error) {
-      console.error('Erro ao salvar booking', error)
-    } finally {
-      setLoading(false)
-    }
+    onClose()
   }
 
   /* =========================================
@@ -110,121 +67,252 @@ export default function SideCheckoutPanel({
   ========================================= */
 
   return (
-    <>
-      {/* OVERLAY */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.2)',
-          backdropFilter: 'blur(4px)',
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? 'auto' : 'none',
-          transition: 'all 200ms ease'
-        }}
-      />
-
-      {/* PANEL */}
-      <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          width: 380,
-          height: '100%',
-          background: 'rgba(255,255,255,0.85)',
-          backdropFilter: 'blur(20px)',
-          boxShadow: '-10px 0 40px rgba(0,0,0,0.15)',
-          transform: open ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 250ms ease',
-          zIndex: 9999,
-          padding: 20,
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
+    <div style={overlay}>
+      <div style={panel}>
         {/* HEADER */}
-        <h2 style={{ marginBottom: 20 }}>
-          {mode === 'create' ? 'Novo Agendamento' : 'Editar Agendamento'}
-        </h2>
+        <div style={header}>
+          <h2 style={{ fontSize: 18, fontWeight: 600 }}>
+            Novo agendamento
+          </h2>
 
-        {/* INFO */}
-        <p><strong>Horário:</strong> {time}</p>
-        <p><strong>Profissional:</strong> {professionalId}</p>
+          <button onClick={onClose} style={closeBtn}>
+            ✕
+          </button>
+        </div>
 
         {/* CLIENTE */}
-        <input
-          placeholder='Cliente'
-          value={clientName}
-          onChange={(e) => setClientName(e.target.value)}
-          style={{ marginTop: 10 }}
-        />
+        <div style={card}>
+          <div style={avatar} />
+          <input
+            placeholder="Selecione um cliente ou deixe em branco"
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+            style={inputClean}
+          />
+        </div>
 
-        {/* TELEFONE */}
-        <input
-          placeholder='Telefone'
-          value={clientPhone}
-          onChange={(e) => setClientPhone(e.target.value)}
-          style={{ marginTop: 10 }}
-        />
+        {/* TABS */}
+        <div style={tabs}>
+          <span style={tabActive}>AGENDAMENTO</span>
+          <span style={tab}>INFORMAÇÕES</span>
+        </div>
 
-        {/* EMAIL */}
-        <input
-          placeholder='Email'
-          value={clientEmail}
-          onChange={(e) => setClientEmail(e.target.value)}
-          style={{ marginTop: 10 }}
-        />
+        {/* DATA */}
+        <div style={rowBetween}>
+          <strong>Hoje</strong>
+          <div style={chip}>Agende para + alguém</div>
+        </div>
 
-        {/* SERVIÇO (🔥 AGORA REAL) */}
-        <select
-          value={serviceId}
-          onChange={(e) => setServiceId(e.target.value)}
-          style={{ marginTop: 10 }}
-        >
-          <option value=''>Selecione um serviço</option>
+        {/* SERVIÇO */}
+        <div style={selectBox}>
+          {service || 'Selecione o serviço'}
+        </div>
 
-          {services.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} ({s.duration}min)
-            </option>
-          ))}
-        </select>
+        {/* HORÁRIOS */}
+        <div style={row}>
+          <div style={field}>
+            <label>Início</label>
+            <div style={inputBox}>{start}</div>
+          </div>
 
-        {/* STATUS */}
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as BookingStatus)}
-          style={{ marginTop: 10 }}
-        >
-          <option value='CONFIRMED'>Confirmado</option>
-          <option value='COMPLETED'>Concluído</option>
-          <option value='CANCELED'>Cancelado</option>
-        </select>
+          <div style={field}>
+            <label>Fim</label>
+            <div style={inputBox}>{end}</div>
+          </div>
+        </div>
 
-        {/* ACTION */}
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          style={{
-            marginTop: 'auto',
-            background: loading ? '#9ca3af' : '#dc2626',
-            color: '#fff',
-            border: 'none',
-            padding: '12px',
-            borderRadius: '10px',
-            fontWeight: 600,
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {loading
-            ? 'Salvando...'
-            : mode === 'create'
-            ? 'Confirmar'
-            : 'Atualizar'}
-        </button>
+        {/* FUNCIONÁRIO / RECURSO */}
+        <div style={row}>
+          <div style={field}>
+            <label>Funcionário</label>
+            <div style={inputBox}>
+              {professionalId || 'Qualquer'}
+            </div>
+          </div>
+
+          <div style={field}>
+            <label>Recurso</label>
+            <div style={inputBox}>Sem recurso</div>
+          </div>
+        </div>
+
+        {/* ADD SERVICE */}
+        <div style={addService}>
+          + Adicionar outro serviço
+        </div>
+
+        {/* TOTAL */}
+        <div style={total}>
+          <div>
+            <span>Total</span>
+            <strong>R$ 0,00</strong>
+          </div>
+
+          <div>
+            <span>A pagar</span>
+            <strong>R$ 0,00</strong>
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <div style={footer}>
+          <button style={btnGhost} onClick={onClose}>
+            Descartar
+          </button>
+
+          <button style={btnPrimary} onClick={handleSave}>
+            Salvar
+          </button>
+        </div>
       </div>
-    </>
+    </div>
   )
+}
+
+/* =========================================
+   STYLES (ELIGI STYLE)
+========================================= */
+
+const overlay = {
+  position: 'fixed' as const,
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+  background: 'rgba(0,0,0,0.25)',
+  display: 'flex',
+  justifyContent: 'flex-end',
+  zIndex: 999
+}
+
+const panel = {
+  width: 420,
+  height: '100%',
+  background: '#fff',
+  display: 'flex',
+  flexDirection: 'column' as const,
+  padding: 20,
+  gap: 16,
+  boxShadow: '-10px 0 40px rgba(0,0,0,0.1)'
+}
+
+const header = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center'
+}
+
+const closeBtn = {
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer'
+}
+
+const card = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: 12,
+  border: '1px solid #eee',
+  borderRadius: 12
+}
+
+const avatar = {
+  width: 36,
+  height: 36,
+  borderRadius: '50%',
+  background: '#eee'
+}
+
+const inputClean = {
+  border: 'none',
+  outline: 'none',
+  flex: 1
+}
+
+const tabs = {
+  display: 'flex',
+  gap: 20,
+  fontSize: 13
+}
+
+const tabActive = {
+  fontWeight: 600,
+  borderBottom: '2px solid #111'
+}
+
+const tab = {
+  opacity: 0.6
+}
+
+const rowBetween = {
+  display: 'flex',
+  justifyContent: 'space-between'
+}
+
+const chip = {
+  background: '#f3f4f6',
+  padding: '4px 10px',
+  borderRadius: 20,
+  fontSize: 12
+}
+
+const selectBox = {
+  padding: 12,
+  border: '1px solid #eee',
+  borderRadius: 12
+}
+
+const row = {
+  display: 'flex',
+  gap: 10
+}
+
+const field = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap: 4
+}
+
+const inputBox = {
+  padding: 10,
+  border: '1px solid #eee',
+  borderRadius: 10
+}
+
+const addService = {
+  color: '#dc2626',
+  fontWeight: 500,
+  cursor: 'pointer'
+}
+
+const total = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  marginTop: 'auto'
+}
+
+const footer = {
+  display: 'flex',
+  gap: 10
+}
+
+const btnPrimary = {
+  flex: 1,
+  background: '#dc2626',
+  color: '#fff',
+  border: 'none',
+  padding: 12,
+  borderRadius: 10,
+  cursor: 'pointer'
+}
+
+const btnGhost = {
+  flex: 1,
+  background: 'transparent',
+  border: '1px solid #ddd',
+  padding: 12,
+  borderRadius: 10,
+  cursor: 'pointer'
 }

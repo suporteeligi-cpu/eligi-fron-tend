@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import dayjs from 'dayjs'
 
 import AgendaToolbar from './AgendaToolbar'
@@ -41,10 +41,8 @@ interface Props {
   selectedDate: Date
   onDateChange: (date: Date) => void
 
-  // 🔥 SOCKET CORE
   businessId: string
 
-  // 🔥 NOVO (REALTIME STATE CONTROL)
   addBooking: (booking: Booking) => void
   updateBooking: (booking: Booking) => void
   removeBooking: (booking: Booking) => void
@@ -74,31 +72,21 @@ export default function AgendaBoard({
   updateBooking,
   removeBooking
 }: Props) {
-  /* =========================================
-     CHECKOUT PANEL
-  ========================================= */
-
   const checkout = useCheckoutPanel()
 
   /* =========================================
-     SOCKET (🔥 REALTIME GRANULAR)
+     SOCKET
   ========================================= */
 
   useAgendaSocket({
     businessId,
-    onCreate: (booking) => {
-      addBooking(booking)
-    },
-    onUpdate: (booking) => {
-      updateBooking(booking)
-    },
-    onCancel: (booking) => {
-      removeBooking(booking)
-    }
+    onCreate: addBooking,
+    onUpdate: updateBooking,
+    onCancel: removeBooking
   })
 
   /* =========================================
-     FILTER BOOKINGS BY DAY
+     FILTER
   ========================================= */
 
   const dayBookings = useMemo(() => {
@@ -107,7 +95,7 @@ export default function AgendaBoard({
   }, [bookings, selectedDate])
 
   /* =========================================
-     FORMAT BOOKINGS
+     FORMAT
   ========================================= */
 
   const formattedBookings: AgendaBooking[] = useMemo(() => {
@@ -123,7 +111,6 @@ export default function AgendaBoard({
         serviceName: b.service?.name || 'Serviço',
         professionalId: b.professionalId,
         status: normalizeStatus(b.status),
-
         start: dayjs(startDate).format('HH:mm'),
         end: dayjs(endDate).format('HH:mm')
       }
@@ -131,12 +118,15 @@ export default function AgendaBoard({
   }, [dayBookings])
 
   /* =========================================
-     HANDLERS
+     HANDLER (🔥 ESTÁVEL)
   ========================================= */
 
-  function handleCreateBooking(time: string, professionalId: string) {
-    checkout.openCreate(time, professionalId)
-  }
+  const handleCreateBooking = useCallback(
+    (time: string, professionalId: string) => {
+      checkout.openCreate(time, professionalId)
+    },
+    [checkout]
+  )
 
   /* =========================================
      RENDER
@@ -163,8 +153,8 @@ export default function AgendaBoard({
         />
       </div>
 
-      {/* SIDE PANEL */}
       <SideCheckoutPanel
+        key={`${checkout.time}-${checkout.professionalId}`} // 🔥 RESET LIMPO
         open={checkout.open}
         mode={checkout.mode}
         time={checkout.time}
