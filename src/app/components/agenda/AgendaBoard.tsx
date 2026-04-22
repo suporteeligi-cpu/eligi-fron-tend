@@ -45,7 +45,7 @@ interface Props {
 
   addBooking: (booking: Booking) => void
   updateBooking: (booking: Booking) => void
-  removeBooking: (booking: Booking) => void
+  removeBooking: (id: string) => void // 🔥 ALTERADO
 }
 
 /* =========================================
@@ -82,7 +82,7 @@ export default function AgendaBoard({
     businessId,
     onCreate: addBooking,
     onUpdate: updateBooking,
-    onCancel: removeBooking
+    onCancel: removeBooking // 🔥 AGORA COMPATÍVEL
   })
 
   /* =========================================
@@ -118,7 +118,7 @@ export default function AgendaBoard({
   }, [dayBookings])
 
   /* =========================================
-     HANDLER (🔥 ESTÁVEL)
+     HANDLER
   ========================================= */
 
   const handleCreateBooking = useCallback(
@@ -154,7 +154,7 @@ export default function AgendaBoard({
       </div>
 
       <SideCheckoutPanel
-        key={`${checkout.time}-${checkout.professionalId}`} // 🔥 RESET LIMPO
+        key={`${checkout.time}-${checkout.professionalId}`}
         open={checkout.open}
         mode={checkout.mode}
         time={checkout.time}

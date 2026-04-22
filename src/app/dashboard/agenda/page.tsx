@@ -14,8 +14,17 @@ export default function AgendaPage() {
     loading,
     addBooking,
     updateBooking,
-    removeBooking
+    removeBooking: removeBookingFromHook
   } = useAgenda(dayjs(date).format('YYYY-MM-DD'))
+
+  // 🔥 ADAPTADOR CORRETO
+  function removeBooking(id: string) {
+    const booking = data?.bookings.find(b => b.id === id)
+
+    if (!booking) return
+
+    removeBookingFromHook(booking)
+  }
 
   if (loading || !data) return null
 
@@ -23,7 +32,7 @@ export default function AgendaPage() {
     <div style={{ padding: 20 }}>
       <AgendaBoard
         professionals={data.professionals}
-        bookings={data.bookings} // 🔥 DIRETO DO HOOK
+        bookings={data.bookings}
         selectedDate={date}
         onDateChange={setDate}
         businessId={data.businessId}
