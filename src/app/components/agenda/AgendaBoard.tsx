@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useCallback } from 'react'
-import dayjs from 'dayjs'
 
 import AgendaToolbar from './AgendaToolbar'
 import AgendaGrid from './AgendaGrid'
@@ -13,7 +12,7 @@ import { useCheckoutPanel } from '@/hooks/useCheckoutPanel'
 import { AgendaBooking, BookingStatus } from '@/types/agenda'
 
 /* =========================================
-   TYPES
+   TYPES (🔥 NOVO PADRÃO)
 ========================================= */
 
 export interface Professional {
@@ -23,16 +22,15 @@ export interface Professional {
 
 export interface Booking {
   id: string
-  date: string
-  time: string
-  duration: number
-  clientName: string
   professionalId: string
-  service?: {
-    name: string
-    duration?: number
-  }
-  status?: string
+  clientName: string
+
+  start: string // "HH:mm"
+  end: string   // "HH:mm"
+
+  serviceName: string
+
+  status: 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
 }
 
 interface Props {
@@ -45,17 +43,15 @@ interface Props {
 
   addBooking: (booking: Booking) => void
   updateBooking: (booking: Booking) => void
-  removeBooking: (id: string) => void // 🔥 ALTERADO
+  removeBooking: (id: string) => void
 }
 
 /* =========================================
    HELPERS
 ========================================= */
 
-function normalizeStatus(status?: string): BookingStatus {
-  if (status === 'COMPLETED') return 'COMPLETED'
-  if (status === 'CANCELED') return 'CANCELED'
-  return 'CONFIRMED'
+function normalizeStatus(status: BookingStatus): BookingStatus {
+  return status
 }
 
 /* =========================================
@@ -75,14 +71,14 @@ export default function AgendaBoard({
   const checkout = useCheckoutPanel()
 
   /* =========================================
-     SOCKET
+     SOCKET (🔥 SEM ADAPTER AGORA)
   ========================================= */
 
   useAgendaSocket({
     businessId,
     onCreate: addBooking,
     onUpdate: updateBooking,
-    onCancel: removeBooking // 🔥 AGORA COMPATÍVEL
+    onCancel: removeBooking
   })
 
   /* =========================================
@@ -90,31 +86,24 @@ export default function AgendaBoard({
   ========================================= */
 
   const dayBookings = useMemo(() => {
-    const selected = dayjs(selectedDate).format('YYYY-MM-DD')
-    return bookings.filter((b) => b.date === selected)
-  }, [bookings, selectedDate])
+    // 🔥 agora não precisa mais de date — backend já controla o dia
+    return bookings
+  }, [bookings])
 
   /* =========================================
-     FORMAT
+     FORMAT (🔥 MUITO MAIS SIMPLES)
   ========================================= */
 
   const formattedBookings: AgendaBooking[] = useMemo(() => {
-    return dayBookings.map((b) => {
-      const startDate = new Date(`${b.date}T${b.time}`)
-      const duration = b.service?.duration || b.duration || 30
-
-      const endDate = new Date(startDate.getTime() + duration * 60000)
-
-      return {
-        id: b.id,
-        clientName: b.clientName,
-        serviceName: b.service?.name || 'Serviço',
-        professionalId: b.professionalId,
-        status: normalizeStatus(b.status),
-        start: dayjs(startDate).format('HH:mm'),
-        end: dayjs(endDate).format('HH:mm')
-      }
-    })
+    return dayBookings.map((b) => ({
+      id: b.id,
+      clientName: b.clientName,
+      serviceName: b.serviceName,
+      professionalId: b.professionalId,
+      status: normalizeStatus(b.status),
+      start: b.start,
+      end: b.end
+    }))
   }, [dayBookings])
 
   /* =========================================

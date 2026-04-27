@@ -12,7 +12,6 @@ interface AgendaResponse {
   data?: AgendaDay
 }
 
-// 🔥 TYPE BACKEND (CORRETO)
 type Booking = AgendaDay['bookings'][number]
 
 /* =========================================
@@ -24,7 +23,7 @@ export function useAgenda(date: string) {
   const [loading, setLoading] = useState(true)
 
   /* =========================================
-     FETCH INICIAL
+     FETCH
   ========================================= */
 
   const fetchData = useCallback(async () => {
@@ -51,7 +50,7 @@ export function useAgenda(date: string) {
   }, [fetchData])
 
   /* =========================================
-     🔥 REALTIME HANDLERS (SEM CONVERSÃO)
+     REALTIME HANDLERS (🔥 PADRÃO FINAL)
   ========================================= */
 
   const addBooking = useCallback((booking: Booking) => {
@@ -81,13 +80,14 @@ export function useAgenda(date: string) {
     })
   }, [])
 
-  const removeBooking = useCallback((booking: Booking) => {
+  // 🔥 ALTERAÇÃO CRÍTICA (AGORA POR ID)
+  const removeBooking = useCallback((id: string) => {
     setData((prev) => {
       if (!prev) return prev
 
       return {
         ...prev,
-        bookings: prev.bookings.filter((b) => b.id !== booking.id)
+        bookings: prev.bookings.filter((b) => b.id !== id)
       }
     })
   }, [])

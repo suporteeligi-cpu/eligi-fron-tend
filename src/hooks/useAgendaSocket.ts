@@ -2,66 +2,22 @@
 
 import { useEffect } from 'react'
 import { io, Socket } from 'socket.io-client'
-import dayjs from 'dayjs'
 
 /* =========================================
-   TYPES (BACKEND - REALTIME)
+   TYPES (🔥 PADRÃO FINAL)
 ========================================= */
 
-export type BookingRealtime = {
-  id: string
-  professionalId: string | null
-  clientName: string
-  serviceName: string
-  start: string // "HH:mm"
-  end: string   // "HH:mm"
-  status: 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
-}
-
-/* =========================================
-   TYPES (FRONT - LEGADO)
-========================================= */
-
-export type BookingLegacy = {
+export type Booking = {
   id: string
   professionalId: string
   clientName: string
 
-  date: string
-  time: string
-  duration: number
+  start: string // "HH:mm"
+  end: string   // "HH:mm"
 
-  service: {
-    name: string
-  }
+  serviceName: string
 
   status: 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
-}
-
-/* =========================================
-   ADAPTER (🔥 CENTRALIZADO)
-========================================= */
-
-function adaptBooking(booking: BookingRealtime): BookingLegacy {
-  return {
-    id: booking.id,
-    professionalId: booking.professionalId ?? '',
-    clientName: booking.clientName,
-
-    date: dayjs().format('YYYY-MM-DD'),
-    time: booking.start,
-
-    duration: dayjs(`1970-01-01 ${booking.end}`).diff(
-      dayjs(`1970-01-01 ${booking.start}`),
-      'minute'
-    ),
-
-    service: {
-      name: booking.serviceName
-    },
-
-    status: booking.status
-  }
 }
 
 /* =========================================
@@ -70,8 +26,8 @@ function adaptBooking(booking: BookingRealtime): BookingLegacy {
 
 type SocketHandlers = {
   businessId: string
-  onCreate: (booking: BookingLegacy) => void
-  onUpdate?: (booking: BookingLegacy) => void
+  onCreate: (booking: Booking) => void
+  onUpdate?: (booking: Booking) => void
   onCancel: (bookingId: string) => void
 }
 
@@ -100,16 +56,16 @@ export function useAgendaSocket({
     socket.emit('join:business', businessId)
 
     /* =========================================
-       EVENTS
+       EVENTS (🔥 DIRETO DO BACKEND)
     ========================================= */
 
-    socket.on('booking:created', (booking: BookingRealtime) => {
-      onCreate(adaptBooking(booking))
+    socket.on('booking:created', (booking: Booking) => {
+      onCreate(booking)
     })
 
-    socket.on('booking:updated', (booking: BookingRealtime) => {
+    socket.on('booking:updated', (booking: Booking) => {
       if (onUpdate) {
-        onUpdate(adaptBooking(booking))
+        onUpdate(booking)
       }
     })
 
