@@ -60,13 +60,13 @@ export default function AgendaToolbar({ selectedDate, onDateChange }: Props) {
         }
         .toolbar-day-btn:hover {
           transform: translateY(-2px);
-          border-color: rgba(43,125,255,0.45);
-          box-shadow: 0 4px 16px rgba(43,125,255,0.12);
+          border-color: rgba(255, 43, 43, 0.45);
+          box-shadow: 0 4px 16px rgba(255, 43, 43, 0.12);
         }
         .toolbar-day-btn.active {
-          background: linear-gradient(135deg, #2B7DFF, #5E5CE6);
+          background: linear-gradient(135deg, #ff2b2b, #e65c5c);
           border-color: transparent;
-          box-shadow: 0 4px 18px rgba(43,125,255,0.35);
+          box-shadow: 0 4px 18px rgba(255, 43, 43, 0.35);
         }
         .toolbar-nav-btn {
           width: 30px; height: 30px;
@@ -153,7 +153,7 @@ export default function AgendaToolbar({ selectedDate, onDateChange }: Props) {
               </span>
               <span style={{
                 fontSize: 19, fontWeight: 600, lineHeight: 1,
-                color: isSelected ? '#fff' : isToday ? '#2B7DFF' : '#1a1a2e',
+                color: isSelected ? '#fff' : isToday ? '#ff0000' : '#1a1a2e',
                 fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif'
               }}>
                 {day.date()}
@@ -164,7 +164,7 @@ export default function AgendaToolbar({ selectedDate, onDateChange }: Props) {
                 {Array.from({ length: Math.min(Math.floor(dots), 3) }).map((_, i) => (
                   <div key={i} style={{
                     width: 4, height: 4, borderRadius: '50%',
-                    background: isSelected ? 'rgba(255,255,255,0.7)' : '#2B7DFF',
+                    background: isSelected ? 'rgba(255,255,255,0.7)' : '#ff2b2b',
                     opacity: isSelected ? 1 : 0.55
                   }} />
                 ))}
