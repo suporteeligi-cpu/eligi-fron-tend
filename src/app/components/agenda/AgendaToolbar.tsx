@@ -64,7 +64,7 @@ export default function AgendaToolbar({ selectedDate, onDateChange }: Props) {
             letterSpacing: '-0.5px',
             color: 'var(--text)'
           }}>
-            Minha Agenda
+            Agenda
           </h1>
           <p style={{
             margin: '2px 0 0',
