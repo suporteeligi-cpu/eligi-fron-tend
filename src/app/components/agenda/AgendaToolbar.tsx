@@ -76,11 +76,11 @@ export default function AgendaToolbar({ selectedDate, onDateChange }: Props) {
           cursor: pointer;
           font-size: 16px;
           display: flex; align-items: center; justify-content: center;
-          color: #1a1a2e;
+          color: #2e1a1a;
           transition: background 0.15s, transform 0.15s;
         }
         .toolbar-nav-btn:hover {
-          background: rgba(43,125,255,0.1);
+          background: rgba(255, 43, 43, 0.1);
           transform: scale(1.08);
         }
       `}</style>
@@ -93,7 +93,7 @@ export default function AgendaToolbar({ selectedDate, onDateChange }: Props) {
         <div>
           <h1 style={{
             margin: 0, fontSize: 22, fontWeight: 600,
-            letterSpacing: '-0.5px', color: '#1a1a2e',
+            letterSpacing: '-0.5px', color: '#2e1a1a',
             fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif'
           }}>
             Minha Agenda
@@ -153,7 +153,7 @@ export default function AgendaToolbar({ selectedDate, onDateChange }: Props) {
               </span>
               <span style={{
                 fontSize: 19, fontWeight: 600, lineHeight: 1,
-                color: isSelected ? '#fff' : isToday ? '#ff0000' : '#1a1a2e',
+                color: isSelected ? '#fff' : isToday ? '#ff0000' : '#2e1a1a',
                 fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif'
               }}>
                 {day.date()}

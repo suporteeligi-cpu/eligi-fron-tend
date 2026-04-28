@@ -113,7 +113,7 @@ export default function SideCheckoutPanel({
       {/* overlay */}
       <div onClick={onClose} style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(10,10,30,0.25)',
+        background: 'rgba(30, 10, 10, 0.25)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         zIndex: 9998,
@@ -151,10 +151,10 @@ export default function SideCheckoutPanel({
             font-family:-apple-system,system-ui,sans-serif;
           }
           .gl-input:focus {
-            border-color:rgba(43,125,255,0.5);
-            box-shadow:0 0 0 3px rgba(43,125,255,0.1);
+            border-color:rgba(255, 43, 43, 0.5);
+            box-shadow:0 0 0 3px rgba(255, 43, 43, 0.1);
           }
-          .gl-input::placeholder { color:rgba(26,26,46,0.35); }
+          .gl-input::placeholder { color:rgba(46, 26, 26, 0.35); }
           .svc-btn {
             padding:10px 14px; border-radius:14px;
             border:1px solid rgba(0,0,0,0.08);
@@ -164,10 +164,10 @@ export default function SideCheckoutPanel({
             cursor:pointer; transition:all 0.15s;
             font-family:-apple-system,system-ui,sans-serif;
           }
-          .svc-btn:hover { border-color:rgba(43,125,255,0.35); background:rgba(43,125,255,0.04); }
+          .svc-btn:hover { border-color:rgba(255, 43, 43, 0.35); background:rgba(255, 43, 43, 0.04); }
           .svc-btn.sel {
-            background:linear-gradient(135deg,rgba(43,125,255,0.12),rgba(94,92,230,0.12));
-            border-color:rgba(43,125,255,0.4); color:#2B7DFF; font-weight:600;
+            background:linear-gradient(135deg,rgba(255, 43, 43, 0.12),rgba(230, 92, 92, 0.12));
+            border-color:rgba(255, 43, 43, 0.4); color:#2B7DFF; font-weight:600;
           }
           .time-chip {
             padding:6px 12px; border-radius:20px; font-size:12px; font-weight:500;
@@ -176,11 +176,11 @@ export default function SideCheckoutPanel({
             transition:all 0.15s; font-family:-apple-system,system-ui,sans-serif;
             font-variant-numeric:tabular-nums;
           }
-          .time-chip:hover { border-color:rgba(43,125,255,0.3); background:rgba(43,125,255,0.06); }
+          .time-chip:hover { border-color:rgba(255, 43, 43, 0.3); background:rgba(255, 43, 43, 0.06); }
           .time-chip.sel {
             background:linear-gradient(135deg,#2B7DFF,#5E5CE6);
             color:#fff; border-color:transparent;
-            box-shadow:0 3px 10px rgba(43,125,255,0.3);
+            box-shadow:0 3px 10px rgba(255, 43, 43, 0.3);
           }
           .prof-sel {
             flex:1; padding:8px 12px; border-radius:14px;
@@ -189,11 +189,11 @@ export default function SideCheckoutPanel({
             font-size:13px; cursor:pointer; transition:all 0.15s; text-align:center;
             font-family:-apple-system,system-ui,sans-serif;
           }
-          .prof-sel:hover { border-color:rgba(43,125,255,0.3); }
+          .prof-sel:hover { border-color:rgba(255, 43, 43, 0.3); }
           .prof-sel.sel {
             background:linear-gradient(135deg,#2B7DFF,#5E5CE6);
             color:#fff; border-color:transparent;
-            box-shadow:0 3px 10px rgba(43,125,255,0.25);
+            box-shadow:0 3px 10px rgba(255, 43, 43, 0.25);
           }
         `}</style>
 
@@ -356,7 +356,7 @@ export default function SideCheckoutPanel({
                 ? 'linear-gradient(135deg, #30D158, #34c759)'
                 : (saving || !selectedService || !clientName.trim() || !selectedTime)
                   ? 'rgba(43,125,255,0.3)'
-                  : 'linear-gradient(135deg, #2B7DFF, #5E5CE6)',
+                  : 'linear-gradient(135deg, #ff2b2b, #e65c5c)',
               color:'#fff', border:'none', borderRadius:14,
               fontWeight:600, fontSize:15, cursor: saving ? 'not-allowed' : 'pointer',
               boxShadow: success ? '0 4px 16px rgba(48,209,88,0.3)' : '0 4px 16px rgba(43,125,255,0.3)',
