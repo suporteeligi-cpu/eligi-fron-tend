@@ -93,15 +93,15 @@ export default function AgendaMobileList({ professionals, bookings, onCreateBook
           border: 1px solid rgba(255,255,255,0.5);
           background: rgba(255,255,255,0.35);
           backdrop-filter: blur(10px);
-          color: #1a1a2e;
+          color: #2e1a1a;
           transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
           font-family: -apple-system, system-ui, sans-serif;
         }
-        .prof-chip:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(43,125,255,0.15); }
+        .prof-chip:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255, 43, 43, 0.15); }
         .prof-chip.active {
-          background: linear-gradient(135deg, #2B7DFF, #5E5CE6);
+          background: linear-gradient(135deg, #ff2b2b, #e65c5c);
           color: #fff; border-color: transparent;
-          box-shadow: 0 4px 14px rgba(43,125,255,0.3);
+          box-shadow: 0 4px 14px rgba(255, 43, 43, 0.3);
         }
         .slot-booked {
           display: flex; align-items: center; gap: 12px;
@@ -137,15 +137,15 @@ export default function AgendaMobileList({ professionals, bookings, onCreateBook
           background: rgba(255,255,255,0.5);
           border: 1px solid rgba(255,255,255,0.5);
           font-size: 13px; font-weight: 500; cursor: pointer;
-          color: rgba(26,26,46,0.6);
+          color: rgba(46, 26, 26, 0.6);
           backdrop-filter: blur(10px);
           transition: all 0.15s;
           font-family: -apple-system, system-ui, sans-serif;
         }
         .new-btn:hover {
-          background: rgba(43,125,255,0.1);
-          color: #2B7DFF;
-          border-color: rgba(43,125,255,0.3);
+          background: rgba(255, 43, 43, 0.1);
+          color: #ff2b2b;
+          border-color: rgba(255, 43, 43, 0.3);
         }
       `}</style>
 
