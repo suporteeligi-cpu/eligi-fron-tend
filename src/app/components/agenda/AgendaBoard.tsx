@@ -40,14 +40,8 @@ function normalizeStatus(status: BookingStatus): BookingStatus {
 }
 
 export default function AgendaBoard({
-  professionals,
-  bookings,
-  selectedDate,
-  onDateChange,
-  businessId,
-  addBooking,
-  updateBooking,
-  removeBooking
+  professionals, bookings, selectedDate, onDateChange,
+  businessId, addBooking, updateBooking, removeBooking
 }: Props) {
   const checkout = useCheckoutPanel()
   const [isMobile, setIsMobile] = useState(false)
@@ -67,7 +61,7 @@ export default function AgendaBoard({
   })
 
   const formattedBookings: AgendaBooking[] = useMemo(() =>
-    bookings.map((b) => ({
+    bookings.map(b => ({
       id: b.id,
       clientName: b.clientName,
       serviceName: b.serviceName,
@@ -80,20 +74,16 @@ export default function AgendaBoard({
   )
 
   const handleCreateBooking = useCallback(
-    (time: string, professionalId: string) => {
-      checkout.openCreate(time, professionalId)
-    },
+    (time: string, professionalId: string) => checkout.openCreate(time, professionalId),
     [checkout]
   )
 
   return (
     <>
       <div style={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--bg)',
-        fontFamily: 'var(--font-sans)'
+        height: '100%', display: 'flex', flexDirection: 'column',
+        background: 'linear-gradient(135deg, #e8f0ff 0%, #f0e8ff 50%, #e8fff4 100%)',
+        fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif'
       }}>
         <AgendaToolbar
           selectedDate={selectedDate}

@@ -26,10 +26,22 @@ interface SlotItem {
   free: boolean
 }
 
-const STATUS_COLORS = {
-  CONFIRMED: { bg: 'rgba(37,99,235,0.08)', accent: '#2563eb', label: 'Confirmado' },
-  COMPLETED: { bg: 'rgba(22,163,74,0.08)', accent: '#16a34a', label: 'Concluído' },
-  CANCELED:  { bg: 'rgba(220,38,38,0.08)', accent: '#dc2626', label: 'Cancelado' },
+const STATUS_CONFIG = {
+  CONFIRMED: {
+    bg: 'rgba(43,125,255,0.07)', accent: '#2B7DFF',
+    gradient: 'linear-gradient(135deg,#2B7DFF,#5E5CE6)',
+    label: 'Confirmado', labelBg: 'rgba(43,125,255,0.1)', labelColor: '#2B7DFF'
+  },
+  COMPLETED: {
+    bg: 'rgba(48,209,88,0.07)', accent: '#30D158',
+    gradient: 'linear-gradient(135deg,#30D158,#34c759)',
+    label: 'Concluído', labelBg: 'rgba(48,209,88,0.1)', labelColor: '#1a8a38'
+  },
+  CANCELED: {
+    bg: 'rgba(255,55,95,0.07)', accent: '#FF375F',
+    gradient: 'linear-gradient(135deg,#FF375F,#ff6b6b)',
+    label: 'Cancelado', labelBg: 'rgba(255,55,95,0.1)', labelColor: '#cc1a3a'
+  },
 }
 
 interface Props {
@@ -40,7 +52,6 @@ interface Props {
 
 export default function AgendaMobileList({ professionals, bookings, onCreateBooking }: Props) {
   const slots = generateHourSlots()
-
   const [currentProf, setCurrentProf] = useState<string | null>(
     professionals[0]?.id ?? null
   )
@@ -61,185 +72,219 @@ export default function AgendaMobileList({ professionals, bookings, onCreateBook
         const end = toMinutes(b.end)
         return timeMin >= start && timeMin < end
       })
-
       const isBookingStart = booking && toMinutes(booking.start) === timeMin
       if (booking && !isBookingStart) return acc
-
-      acc.push({
-        time,
-        booking: isBookingStart ? booking : undefined,
-        free: !booking
-      })
+      acc.push({ time, booking: isBookingStart ? booking : undefined, free: !booking })
       return acc
     }, [])
   }, [slots, profBookings])
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
+    <div style={{
+      height: '100%', overflowY: 'auto',
+      background: 'linear-gradient(135deg, #e8f0ff 0%, #f0e8ff 50%, #e8fff4 100%)',
+      fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif'
+    }}>
+      <style>{`
+        .prof-chip {
+          flex-shrink: 0; padding: 6px 16px;
+          border-radius: 20px;
+          font-size: 13px; font-weight: 500; cursor: pointer;
+          border: 1px solid rgba(255,255,255,0.5);
+          background: rgba(255,255,255,0.35);
+          backdrop-filter: blur(10px);
+          color: #1a1a2e;
+          transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+          font-family: -apple-system, system-ui, sans-serif;
+        }
+        .prof-chip:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(43,125,255,0.15); }
+        .prof-chip.active {
+          background: linear-gradient(135deg, #2B7DFF, #5E5CE6);
+          color: #fff; border-color: transparent;
+          box-shadow: 0 4px 14px rgba(43,125,255,0.3);
+        }
+        .slot-booked {
+          display: flex; align-items: center; gap: 12px;
+          padding: 13px 14px;
+          border-radius: 20px;
+          background: rgba(255,255,255,0.72);
+          border: 1px solid rgba(255,255,255,0.5);
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+          backdrop-filter: blur(20px);
+          cursor: pointer; position: relative; overflow: hidden;
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+        .slot-booked:hover {
+          transform: translateX(4px);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .slot-free {
+          display: flex; align-items: center; gap: 12px;
+          padding: 13px 14px;
+          border-radius: 20px;
+          background: rgba(255,255,255,0.35);
+          border: 1px dashed rgba(48,209,88,0.4);
+          cursor: pointer;
+          transition: transform 0.18s ease, background 0.15s, box-shadow 0.18s ease;
+        }
+        .slot-free:hover {
+          transform: translateX(4px);
+          background: rgba(48,209,88,0.08);
+          box-shadow: 0 4px 16px rgba(48,209,88,0.12);
+        }
+        .new-btn {
+          padding: 7px 16px; border-radius: 14px;
+          background: rgba(255,255,255,0.5);
+          border: 1px solid rgba(255,255,255,0.5);
+          font-size: 13px; font-weight: 500; cursor: pointer;
+          color: rgba(26,26,46,0.6);
+          backdrop-filter: blur(10px);
+          transition: all 0.15s;
+          font-family: -apple-system, system-ui, sans-serif;
+        }
+        .new-btn:hover {
+          background: rgba(43,125,255,0.1);
+          color: #2B7DFF;
+          border-color: rgba(43,125,255,0.3);
+        }
+      `}</style>
 
+      {/* Prof selector */}
       {professionals.length > 1 && (
         <div style={{
-          display: 'flex', gap: 8, padding: '12px 16px',
+          display: 'flex', gap: 8, padding: '14px 16px',
           overflowX: 'auto', scrollbarWidth: 'none',
-          borderBottom: '1px solid var(--border-soft)'
+          borderBottom: '1px solid rgba(255,255,255,0.4)'
         }}>
-          <button
-            onClick={() => setCurrentProf(null)}
-            style={{
-              flexShrink: 0, padding: '6px 14px',
-              borderRadius: 20, border: '1px solid var(--border-soft)',
-              fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              background: !currentProf ? 'var(--brand)' : 'var(--bg-glass)',
-              color: !currentProf ? '#fff' : 'var(--text)',
-              transition: 'all 0.15s'
-            }}
-          >
+          <button className={`prof-chip${!currentProf ? ' active' : ''}`}
+            onClick={() => setCurrentProf(null)}>
             Todos
           </button>
           {professionals.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setCurrentProf(p.id)}
-              style={{
-                flexShrink: 0, padding: '6px 14px',
-                borderRadius: 20, border: '1px solid var(--border-soft)',
-                fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                background: currentProf === p.id ? 'var(--brand)' : 'var(--bg-glass)',
-                color: currentProf === p.id ? '#fff' : 'var(--text)',
-                transition: 'all 0.15s'
-              }}
-            >
+            <button key={p.id}
+              className={`prof-chip${currentProf === p.id ? ' active' : ''}`}
+              onClick={() => setCurrentProf(p.id)}>
               {p.name}
             </button>
           ))}
         </div>
       )}
 
+      {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 16px 8px'
+        padding: '18px 16px 10px'
       }}>
-        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+        <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
           Horários do dia
         </span>
-        <button
-          onClick={() => onCreateBooking('09:00', currentProf ?? professionals[0]?.id ?? '')}
-          style={{
-            padding: '6px 14px', borderRadius: 10,
-            background: 'var(--bg-glass)', border: '1px solid var(--border-soft)',
-            fontSize: 13, fontWeight: 500, cursor: 'pointer',
-            color: 'var(--text-muted)', backdropFilter: 'blur(10px)'
-          }}
-        >
+        <button className="new-btn"
+          onClick={() => onCreateBooking('09:00', currentProf ?? professionals[0]?.id ?? '')}>
           + Novo horário
         </button>
       </div>
 
-      <div style={{ padding: '4px 16px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Slot list */}
+      <div style={{ padding: '4px 16px 32px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {slotItems.map((item) => {
           if (item.booking) {
-            const colors = STATUS_COLORS[item.booking.status] ?? STATUS_COLORS.CONFIRMED
+            const cfg = STATUS_CONFIG[item.booking.status] ?? STATUS_CONFIG.CONFIRMED
             const initials = item.booking.clientName
               .split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+            const dur = toMinutes(item.booking.end) - toMinutes(item.booking.start)
 
             return (
-              <div key={item.time} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '12px 14px', borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-elevated)', border: '1px solid var(--border-soft)',
-                boxShadow: 'var(--shadow-sm)', backdropFilter: 'blur(10px)',
-                cursor: 'pointer', position: 'relative', overflow: 'hidden'
-              }}>
+              <div key={item.time} className="slot-booked">
+                {/* accent bar */}
                 <div style={{
                   position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
-                  background: colors.accent, borderRadius: '4px 0 0 4px'
+                  background: cfg.gradient, borderRadius: '0'
                 }} />
+
                 <span style={{
-                  fontSize: 13, fontWeight: 600, color: 'var(--text-muted)',
-                  minWidth: 40, marginLeft: 6
+                  fontSize: 13, fontWeight: 500, color: 'rgba(26,26,46,0.45)',
+                  minWidth: 42, marginLeft: 8, fontVariantNumeric: 'tabular-nums'
                 }}>
                   {item.booking.start}
                 </span>
+
                 <div style={{
-                  width: 38, height: 38, borderRadius: '50%',
-                  background: colors.accent, color: '#fff',
-                  fontSize: 13, fontWeight: 700,
+                  width: 40, height: 40, borderRadius: '50%',
+                  background: cfg.gradient, color: '#fff',
+                  fontSize: 13, fontWeight: 600,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0
+                  flexShrink: 0, boxShadow: `0 3px 10px ${cfg.accent}44`
                 }}>
                   {initials}
                 </div>
+
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: 15, fontWeight: 600, color: 'var(--text)',
+                    fontSize: 15, fontWeight: 600, color: '#1a1a2e',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                   }}>
                     {item.booking.clientName}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>
-                    {item.booking.serviceName} · {toMinutes(item.booking.end) - toMinutes(item.booking.start)}min
+                  <div style={{ fontSize: 12, color: 'rgba(26,26,46,0.5)', marginTop: 2 }}>
+                    {item.booking.serviceName} · {dur}min
                     {!currentProf && item.booking.professionalId && (
-                      <span style={{ marginLeft: 6, color: colors.accent }}>
+                      <span style={{ marginLeft: 6, color: cfg.accent }}>
                         · {profForBooking(item.booking.professionalId)}
                       </span>
                     )}
                   </div>
                 </div>
+
                 <div style={{
-                  padding: '3px 10px', borderRadius: 20,
-                  background: colors.bg, color: colors.accent,
+                  padding: '4px 11px', borderRadius: 20,
+                  background: cfg.labelBg, color: cfg.labelColor,
                   fontSize: 11, fontWeight: 600, flexShrink: 0
                 }}>
-                  {colors.label}
+                  {cfg.label}
                 </div>
               </div>
             )
           }
 
           return (
-            <div
-              key={item.time}
-              onClick={() => onCreateBooking(item.time, currentProf ?? professionals[0]?.id ?? '')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '12px 14px', borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-glass)', border: '1px dashed var(--border-soft)',
-                cursor: 'pointer', transition: 'background 0.15s',
-                position: 'relative', overflow: 'hidden'
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(225,6,0,0.04)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-glass)' }}
-            >
+            <div key={item.time} className="slot-free"
+              onClick={() => onCreateBooking(item.time, currentProf ?? professionals[0]?.id ?? '')}>
+
               <div style={{
                 position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
-                background: '#22c55e', borderRadius: '4px 0 0 4px'
+                background: 'linear-gradient(180deg, #30D158, #34c759)',
+                borderRadius: 0
               }} />
+
               <span style={{
-                fontSize: 13, fontWeight: 600, color: 'var(--text-muted)',
-                minWidth: 40, marginLeft: 6
+                fontSize: 13, fontWeight: 500, color: 'rgba(26,26,46,0.4)',
+                minWidth: 42, marginLeft: 8, fontVariantNumeric: 'tabular-nums'
               }}>
                 {item.time}
               </span>
+
               <div style={{
-                width: 38, height: 38, borderRadius: '50%',
-                background: 'rgba(34,197,94,0.15)', color: '#22c55e',
-                fontSize: 20, fontWeight: 300,
+                width: 40, height: 40, borderRadius: '50%',
+                background: 'rgba(48,209,88,0.12)',
+                color: '#30D158', fontSize: 22, fontWeight: 300,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0
               }}>
                 +
               </div>
+
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a2e' }}>
                   Horário livre
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>
+                <div style={{ fontSize: 12, color: 'rgba(26,26,46,0.45)', marginTop: 2 }}>
                   Disponível para agendamento
                 </div>
               </div>
+
               <div style={{
-                padding: '3px 10px', borderRadius: 20,
-                background: 'rgba(34,197,94,0.1)', color: '#22c55e',
+                padding: '4px 11px', borderRadius: 20,
+                background: 'rgba(48,209,88,0.1)', color: '#1a8a38',
                 fontSize: 11, fontWeight: 600
               }}>
                 Livre
