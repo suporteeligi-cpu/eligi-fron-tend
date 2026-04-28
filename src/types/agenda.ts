@@ -3,35 +3,24 @@ export type AgendaProfessional = {
   name: string
 }
 
-/* =========================================
-   STATUS (TIPO CENTRAL)
-========================================= */
-
 export type BookingStatus =
   | 'CONFIRMED'
   | 'COMPLETED'
   | 'CANCELED'
-
-/* =========================================
-   BOOKING
-========================================= */
 
 export type AgendaBooking = {
   id: string
   professionalId: string | null
   clientName: string
   serviceName: string
-  start: string
-  end: string
+  start: string  // "HH:mm"
+  end: string    // "HH:mm"
   status: BookingStatus
 }
 
-/* =========================================
-   DAY
-========================================= */
-
 export type AgendaDay = {
-  businessId: string
+  businessId: string   // CORRIGIDO: obrigatório
+  date: string
   professionals: {
     id: string
     name: string

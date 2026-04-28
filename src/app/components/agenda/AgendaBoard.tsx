@@ -1,19 +1,13 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
-
+import { useMemo, useCallback, useState, useEffect } from 'react'
 import AgendaToolbar from './AgendaToolbar'
 import AgendaGrid from './AgendaGrid'
+import AgendaMobileList from './AgendaMobileList'
 import SideCheckoutPanel from './SideCheckoutPanel'
-
 import { useAgendaSocket } from '@/hooks/useAgendaSocket'
 import { useCheckoutPanel } from '@/hooks/useCheckoutPanel'
-
 import { AgendaBooking, BookingStatus } from '@/types/agenda'
-
-/* =========================================
-   TYPES (🔥 NOVO PADRÃO)
-========================================= */
 
 export interface Professional {
   id: string
@@ -24,12 +18,9 @@ export interface Booking {
   id: string
   professionalId: string
   clientName: string
-
-  start: string // "HH:mm"
-  end: string   // "HH:mm"
-
+  start: string
+  end: string
   serviceName: string
-
   status: 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
 }
 
@@ -38,25 +29,15 @@ interface Props {
   bookings: Booking[]
   selectedDate: Date
   onDateChange: (date: Date) => void
-
   businessId: string
-
   addBooking: (booking: Booking) => void
   updateBooking: (booking: Booking) => void
   removeBooking: (id: string) => void
 }
 
-/* =========================================
-   HELPERS
-========================================= */
-
 function normalizeStatus(status: BookingStatus): BookingStatus {
   return status
 }
-
-/* =========================================
-   COMPONENT
-========================================= */
 
 export default function AgendaBoard({
   professionals,
@@ -69,10 +50,14 @@ export default function AgendaBoard({
   removeBooking
 }: Props) {
   const checkout = useCheckoutPanel()
+  const [isMobile, setIsMobile] = useState(false)
 
-  /* =========================================
-     SOCKET (🔥 SEM ADAPTER AGORA)
-  ========================================= */
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   useAgendaSocket({
     businessId,
@@ -81,21 +66,8 @@ export default function AgendaBoard({
     onCancel: removeBooking
   })
 
-  /* =========================================
-     FILTER
-  ========================================= */
-
-  const dayBookings = useMemo(() => {
-    // 🔥 agora não precisa mais de date — backend já controla o dia
-    return bookings
-  }, [bookings])
-
-  /* =========================================
-     FORMAT (🔥 MUITO MAIS SIMPLES)
-  ========================================= */
-
-  const formattedBookings: AgendaBooking[] = useMemo(() => {
-    return dayBookings.map((b) => ({
+  const formattedBookings: AgendaBooking[] = useMemo(() =>
+    bookings.map((b) => ({
       id: b.id,
       clientName: b.clientName,
       serviceName: b.serviceName,
@@ -103,12 +75,9 @@ export default function AgendaBoard({
       status: normalizeStatus(b.status),
       start: b.start,
       end: b.end
-    }))
-  }, [dayBookings])
-
-  /* =========================================
-     HANDLER
-  ========================================= */
+    })),
+    [bookings]
+  )
 
   const handleCreateBooking = useCallback(
     (time: string, professionalId: string) => {
@@ -117,29 +86,35 @@ export default function AgendaBoard({
     [checkout]
   )
 
-  /* =========================================
-     RENDER
-  ========================================= */
-
   return (
     <>
-      <div
-        style={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
+      <div style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--bg)',
+        fontFamily: 'var(--font-sans)'
+      }}>
         <AgendaToolbar
           selectedDate={selectedDate}
           onDateChange={onDateChange}
         />
 
-        <AgendaGrid
-          professionals={professionals}
-          bookings={formattedBookings}
-          onCreateBooking={handleCreateBooking}
-        />
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          {isMobile ? (
+            <AgendaMobileList
+              professionals={professionals}
+              bookings={formattedBookings}
+              onCreateBooking={handleCreateBooking}
+            />
+          ) : (
+            <AgendaGrid
+              professionals={professionals}
+              bookings={formattedBookings}
+              onCreateBooking={handleCreateBooking}
+            />
+          )}
+        </div>
       </div>
 
       <SideCheckoutPanel
@@ -148,6 +123,8 @@ export default function AgendaBoard({
         mode={checkout.mode}
         time={checkout.time}
         professionalId={checkout.professionalId}
+        professionals={professionals}
+        selectedDate={selectedDate}
         onClose={checkout.close}
       />
     </>
