@@ -87,7 +87,7 @@ export default function SideCheckoutPanel({
       const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
       const startAt = dayjs.utc(`${dateStr} ${selectedTime}`).toISOString()
 
-      await api.post('/bookings', {
+      await api.post('/bookings/confirm', {
         clientName: clientName.trim(),
         clientPhone: clientPhone.trim() || undefined,
         serviceId: selectedService.id,
