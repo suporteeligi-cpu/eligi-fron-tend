@@ -26,7 +26,7 @@ type SocketHandlers = {
 
 /* =========================================
    HOOK
-   — polling como fallback (fix dev/proxy)
+   — polling apenas (fix Railway proxy)
    — reconexão automática com backoff
    — socket reutilizado via ref (evita múltiplas conexões)
 ========================================= */
@@ -42,7 +42,6 @@ export function useAgendaSocket({
   useEffect(() => {
     if (!businessId) return
 
-    // Evita criar socket duplicado se businessId não mudou
     if (socketRef.current?.connected) {
       socketRef.current.emit('join:business', businessId)
       return
@@ -52,9 +51,10 @@ export function useAgendaSocket({
 
     const socket: Socket = io(apiUrl, {
       withCredentials: true,
-      // polling primeiro garante funcionar mesmo com proxies/CORS
-      // que bloqueiam upgrade de websocket
-      transports: ['polling', 'websocket'],
+      // CORRIGIDO: polling apenas — Railway não suporta upgrade WebSocket
+      // via proxy sem configuração adicional. Polling é estável e suficiente.
+      transports: ['polling'],
+      forceNew: true,
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
@@ -63,10 +63,6 @@ export function useAgendaSocket({
     })
 
     socketRef.current = socket
-
-    /* =========================================
-       CONEXÃO
-    ========================================= */
 
     socket.on('connect', () => {
       console.log('[Socket] Conectado:', socket.id)
@@ -86,10 +82,6 @@ export function useAgendaSocket({
       socket.emit('join:business', businessId)
     })
 
-    /* =========================================
-       EVENTOS DE BOOKING
-    ========================================= */
-
     socket.on('booking:created', (booking: SocketBooking) => {
       onCreate(booking)
     })
@@ -101,10 +93,6 @@ export function useAgendaSocket({
     socket.on('booking:canceled', (payload: { id: string }) => {
       onCancel(payload.id)
     })
-
-    /* =========================================
-       PING/PONG para manter conexão viva
-    ========================================= */
 
     const pingInterval = setInterval(() => {
       if (socket.connected) socket.emit('ping')
@@ -119,7 +107,6 @@ export function useAgendaSocket({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId])
 
-  // Handlers em refs separados para não reconectar quando mudam
   useEffect(() => {
     const socket = socketRef.current
     if (!socket) return
