@@ -7,16 +7,18 @@ interface ApiSuccessResponse<T> {
   data: T
 }
 
+/* =========================================
+   BASE URL — usa env var, fallback local
+========================================= */
 export const api = axios.create({
-  baseURL: "https://api.eligi.com.br",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333',
   withCredentials: true,
 })
 
-
-/* ======================================================
-   RESPONSE INTERCEPTOR (refresh automático via cookie)
-====================================================== */
-
+/* =========================================
+   RESPONSE INTERCEPTOR
+   Refresh automático via cookie quando 401
+========================================= */
 api.interceptors.response.use(
   response => response,
   async error => {
@@ -36,11 +38,13 @@ api.interceptors.response.use(
       originalRequest._retry = true
 
       try {
-        // 🔥 Agora não enviamos token nenhum
         await api.post('/auth/refresh')
-
         return api(originalRequest)
       } catch {
+        // Refresh falhou — redireciona para login
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
         return Promise.reject(error.response?.data || error)
       }
     }
@@ -49,13 +53,14 @@ api.interceptors.response.use(
   }
 )
 
-/* ======================================================
+/* =========================================
    HELPER PADRÃO
-====================================================== */
-
+========================================= */
 export async function request<T>(
   promise: Promise<{ data: ApiSuccessResponse<T> }>
 ): Promise<T> {
   const response = await promise
   return response.data.data
 }
+
+export default api

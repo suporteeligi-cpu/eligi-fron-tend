@@ -1,18 +1,19 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import api from '@/lib/apiClient'
+import api from '@/lib/api'
 import { AgendaDay } from '@/types/agenda'
 
 /* =========================================
    TYPES
 ========================================= */
 
-interface AgendaResponse {
-  data?: AgendaDay
-}
-
 type Booking = AgendaDay['bookings'][number]
+
+interface AgendaRawResponse {
+  success?: boolean
+  data?: AgendaDay & { businessId?: string }
+}
 
 /* =========================================
    HOOK
@@ -21,6 +22,7 @@ type Booking = AgendaDay['bookings'][number]
 export function useAgenda(date: string) {
   const [data, setData] = useState<AgendaDay | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   /* =========================================
      FETCH
@@ -29,16 +31,26 @@ export function useAgenda(date: string) {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true)
+      setError(null)
 
-      const res = await api.get<AgendaResponse>('/agenda/day', {
+      const res = await api.get<AgendaRawResponse>('/agenda/day', {
         params: { date }
       })
 
-      const payload = res.data?.data || res.data
+      // Backend retorna { success: true, data: { ... } }
+      const payload = res.data?.data ?? (res.data as unknown as AgendaDay)
 
-      setData(payload as AgendaDay)
-    } catch (error) {
-      console.error('Erro ao carregar agenda', error)
+      // Garante que businessId está presente — busca no payload direto
+      // se o backend não retornar, mantém o anterior
+      setData(prev => ({
+        ...(payload as AgendaDay),
+        businessId: (payload as AgendaDay & { businessId?: string }).businessId
+          ?? prev?.businessId
+          ?? ''
+      }))
+    } catch (err: unknown) {
+      console.error('[useAgenda] Erro ao carregar agenda:', err)
+      setError('Não foi possível carregar a agenda.')
       setData(null)
     } finally {
       setLoading(false)
@@ -50,57 +62,40 @@ export function useAgenda(date: string) {
   }, [fetchData])
 
   /* =========================================
-     REALTIME HANDLERS (🔥 PADRÃO FINAL)
+     REALTIME HANDLERS
   ========================================= */
 
   const addBooking = useCallback((booking: Booking) => {
-    setData((prev) => {
+    setData(prev => {
       if (!prev) return prev
-
-      const exists = prev.bookings.some((b) => b.id === booking.id)
+      const exists = prev.bookings.some(b => b.id === booking.id)
       if (exists) return prev
-
-      return {
-        ...prev,
-        bookings: [...prev.bookings, booking]
-      }
+      return { ...prev, bookings: [...prev.bookings, booking] }
     })
   }, [])
 
   const updateBooking = useCallback((booking: Booking) => {
-    setData((prev) => {
+    setData(prev => {
       if (!prev) return prev
-
       return {
         ...prev,
-        bookings: prev.bookings.map((b) =>
-          b.id === booking.id ? booking : b
-        )
+        bookings: prev.bookings.map(b => b.id === booking.id ? booking : b)
       }
     })
   }, [])
 
-  // 🔥 ALTERAÇÃO CRÍTICA (AGORA POR ID)
   const removeBooking = useCallback((id: string) => {
-    setData((prev) => {
+    setData(prev => {
       if (!prev) return prev
-
-      return {
-        ...prev,
-        bookings: prev.bookings.filter((b) => b.id !== id)
-      }
+      return { ...prev, bookings: prev.bookings.filter(b => b.id !== id) }
     })
   }, [])
-
-  /* =========================================
-     RETURN
-  ========================================= */
 
   return {
     data,
     loading,
+    error,
     refetch: fetchData,
-
     addBooking,
     updateBooking,
     removeBooking
