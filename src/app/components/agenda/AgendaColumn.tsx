@@ -1,4 +1,5 @@
-'use client'
+// ─── AgendaColumn.tsx ─────────────────────────────────────────────────────────
+// (keep in a separate file in your project — placed here for reference)
 
 import BookingCard from './BookingCard'
 import { AgendaProfessional, AgendaBooking } from '@/types/agenda'
@@ -8,12 +9,12 @@ function toMinutes(t: string) {
   return h * 60 + m
 }
 
-export default function AgendaColumn({
+export function AgendaColumn({
   professional,
-  bookings,
+  bookings: colBookings,
   slots,
   slotHeight,
-  onCreateBooking
+  onCreateBooking,
 }: {
   professional: AgendaProfessional
   bookings: AgendaBooking[]
@@ -27,9 +28,9 @@ export default function AgendaColumn({
     <div
       style={{
         position: 'relative',
-        borderLeft: '1px solid #eee',
+        borderLeft: '1px solid rgba(0,0,0,0.06)',
         zIndex: 5,
-        pointerEvents: 'auto'
+        pointerEvents: 'auto',
       }}
     >
       {/* HEADER */}
@@ -38,11 +39,18 @@ export default function AgendaColumn({
           height: 50,
           textAlign: 'center',
           fontWeight: 600,
-          background: '#fff',
+          fontSize: 13,
+          color: '#111827',
+          background: 'rgba(255,255,255,0.88)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          borderBottom: '1px solid #eee'
+          borderBottom: '1px solid rgba(0,0,0,0.07)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         {professional.name}
@@ -56,12 +64,12 @@ export default function AgendaColumn({
             onClick={() => onCreateBooking(time, professional.id)}
             style={{
               height: slotHeight,
-              borderBottom: '1px solid #f1f1f1',
+              borderBottom: '1px solid rgba(0,0,0,0.05)',
               cursor: 'pointer',
-              transition: 'background 0.15s ease'
+              transition: 'background 0.15s ease',
             }}
             onMouseEnter={(e) =>
-              (e.currentTarget.style.background = 'rgba(220,38,38,0.05)')
+              (e.currentTarget.style.background = 'rgba(220,38,38,0.04)')
             }
             onMouseLeave={(e) =>
               (e.currentTarget.style.background = 'transparent')
@@ -70,7 +78,7 @@ export default function AgendaColumn({
         ))}
 
         {/* BOOKINGS */}
-        {bookings.map((b) => {
+        {colBookings.map((b) => {
           const start = toMinutes(b.start)
           const end = toMinutes(b.end)
 
@@ -84,7 +92,7 @@ export default function AgendaColumn({
                 right: 6,
                 height: ((end - start) / 30) * slotHeight,
                 zIndex: 8,
-                pointerEvents: 'none'
+                pointerEvents: 'none',
               }}
             >
               <div style={{ pointerEvents: 'auto' }}>

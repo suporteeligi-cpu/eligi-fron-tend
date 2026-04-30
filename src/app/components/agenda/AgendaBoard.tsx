@@ -1,3 +1,4 @@
+// ─── AgendaBoard.tsx ──────────────────────────────────────────────────────────
 'use client'
 
 import { useMemo, useCallback, useState, useEffect } from 'react'
@@ -40,8 +41,14 @@ function normalizeStatus(status: BookingStatus): BookingStatus {
 }
 
 export default function AgendaBoard({
-  professionals, bookings, selectedDate, onDateChange,
-  businessId, addBooking, updateBooking, removeBooking
+  professionals,
+  bookings,
+  selectedDate,
+  onDateChange,
+  businessId,
+  addBooking,
+  updateBooking,
+  removeBooking,
 }: Props) {
   const checkout = useCheckoutPanel()
   const [isMobile, setIsMobile] = useState(false)
@@ -57,34 +64,40 @@ export default function AgendaBoard({
     businessId,
     onCreate: addBooking,
     onUpdate: updateBooking,
-    onCancel: removeBooking
+    onCancel: removeBooking,
   })
 
-  const formattedBookings: AgendaBooking[] = useMemo(() =>
-    bookings.map(b => ({
-      id: b.id,
-      clientName: b.clientName,
-      serviceName: b.serviceName,
-      professionalId: b.professionalId,
-      status: normalizeStatus(b.status),
-      start: b.start,
-      end: b.end
-    })),
+  const formattedBookings: AgendaBooking[] = useMemo(
+    () =>
+      bookings.map((b) => ({
+        id: b.id,
+        clientName: b.clientName,
+        serviceName: b.serviceName,
+        professionalId: b.professionalId,
+        status: normalizeStatus(b.status),
+        start: b.start,
+        end: b.end,
+      })),
     [bookings]
   )
 
   const handleCreateBooking = useCallback(
-    (time: string, professionalId: string) => checkout.openCreate(time, professionalId),
+    (time: string, professionalId: string) =>
+      checkout.openCreate(time, professionalId),
     [checkout]
   )
 
   return (
     <>
-      <div style={{
-        height: '100%', display: 'flex', flexDirection: 'column',
-        background: 'linear-gradient(135deg, #ffe8e8 0%, #ffe8e8 50%, #ffe8e8 100%)',
-        fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif'
-      }}>
+      <div
+        style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          background: '#f5f5f7',
+          fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
+        }}
+      >
         <AgendaToolbar
           selectedDate={selectedDate}
           onDateChange={onDateChange}
@@ -120,3 +133,5 @@ export default function AgendaBoard({
     </>
   )
 }
+
+
