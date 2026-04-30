@@ -82,7 +82,7 @@ export default function AgendaBoard({
     <>
       <div style={{
         height: '100%', display: 'flex', flexDirection: 'column',
-        background: 'linear-gradient(135deg, #e8f0ff 0%, #f0e8ff 50%, #e8fff4 100%)',
+        background: 'linear-gradient(135deg, #ffe8e8 0%, #ffe8e8 50%, #ffe8e8 100%)',
         fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif'
       }}>
         <AgendaToolbar
