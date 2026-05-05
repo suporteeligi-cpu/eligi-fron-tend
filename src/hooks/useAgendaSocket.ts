@@ -3,10 +3,6 @@
 import { useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 
-/* =========================================
-   TYPES
-========================================= */
-
 export type SocketBooking = {
   id: string
   professionalId: string
@@ -24,42 +20,40 @@ type SocketHandlers = {
   onCancel: (bookingId: string) => void
 }
 
-/* =========================================
-   HOOK
-   — polling apenas (fix Railway proxy)
-   — reconexão automática com backoff
-   — socket reutilizado via ref (evita múltiplas conexões)
-========================================= */
-
 export function useAgendaSocket({
   businessId,
   onCreate,
   onUpdate,
-  onCancel
+  onCancel,
 }: SocketHandlers) {
   const socketRef = useRef<Socket | null>(null)
 
+  // Refs estáveis para os handlers — evita re-registrar listeners
+  const onCreateRef = useRef(onCreate)
+  const onUpdateRef = useRef(onUpdate)
+  const onCancelRef = useRef(onCancel)
+
+  // Atualiza as refs a cada render sem recriar o socket
+  useEffect(() => {
+    onCreateRef.current = onCreate
+    onUpdateRef.current = onUpdate
+    onCancelRef.current = onCancel
+  })
+
   useEffect(() => {
     if (!businessId) return
-
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('join:business', businessId)
-      return
-    }
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'
 
     const socket: Socket = io(apiUrl, {
       withCredentials: true,
-      // CORRIGIDO: polling apenas — Railway não suporta upgrade WebSocket
-      // via proxy sem configuração adicional. Polling é estável e suficiente.
       transports: ['polling'],
       forceNew: true,
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 10000
+      timeout: 10000,
     })
 
     socketRef.current = socket
@@ -82,16 +76,17 @@ export function useAgendaSocket({
       socket.emit('join:business', businessId)
     })
 
+    // Handlers delegam para as refs — sempre chamam a versão mais recente
     socket.on('booking:created', (booking: SocketBooking) => {
-      onCreate(booking)
+      onCreateRef.current(booking)
     })
 
     socket.on('booking:updated', (booking: SocketBooking) => {
-      onUpdate?.(booking)
+      onUpdateRef.current?.(booking)
     })
 
     socket.on('booking:canceled', (payload: { id: string }) => {
-      onCancel(payload.id)
+      onCancelRef.current(payload.id)
     })
 
     const pingInterval = setInterval(() => {
@@ -104,19 +99,5 @@ export function useAgendaSocket({
       socket.disconnect()
       socketRef.current = null
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessId])
-
-  useEffect(() => {
-    const socket = socketRef.current
-    if (!socket) return
-
-    const handleCreated = (booking: SocketBooking) => onCreate(booking)
-    const handleUpdated = (booking: SocketBooking) => onUpdate?.(booking)
-    const handleCanceled = (payload: { id: string }) => onCancel(payload.id)
-
-    socket.off('booking:created').on('booking:created', handleCreated)
-    socket.off('booking:updated').on('booking:updated', handleUpdated)
-    socket.off('booking:canceled').on('booking:canceled', handleCanceled)
-  }, [onCreate, onUpdate, onCancel])
+  }, [businessId]) // ← só reconecta se businessId mudar
 }

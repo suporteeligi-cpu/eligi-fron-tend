@@ -9,39 +9,28 @@ import Sidebar from '@/app/components/navigation/Sidebar'
 import CommandPalette from '@/app/components/search/CommandPalette'
 import { DashboardProvider } from '@/app/dashboard/DashboardContext'
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: ReactNode
-}) {
+const NAVBAR_HEIGHT = 104 // 20px top + 64px navbar + 20px gap
+
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
   const router = useRouter()
 
-  /* =====================================================
-     🔒 PROTEÇÃO DE ROTA
-  ===================================================== */
-
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace('/login')
-    }
+    if (!loading && !user) router.replace('/login')
   }, [user, loading, router])
-
-  /* =====================================================
-     ⏳ Enquanto valida sessão
-  ===================================================== */
 
   if (loading) {
     return (
       <div style={centerStyle}>
+        <style>{`
+          @keyframes eligi-spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
         <div style={spinnerStyle} />
       </div>
     )
   }
-
-  /* =====================================================
-     🚫 Sessão inválida
-  ===================================================== */
 
   if (!user) {
     return (
@@ -51,10 +40,7 @@ export default function DashboardLayout({
           <p style={{ opacity: 0.7, marginBottom: 20 }}>
             Sua sessão terminou. Faça login novamente.
           </p>
-          <button
-            onClick={() => router.push('/login')}
-            style={loginButton}
-          >
+          <button onClick={() => router.push('/login')} style={loginButton}>
             Fazer login
           </button>
         </div>
@@ -62,60 +48,42 @@ export default function DashboardLayout({
     )
   }
 
-  /* =====================================================
-     ✅ Layout normal (usuário autenticado)
-  ===================================================== */
-
   return (
     <DashboardProvider>
-      <div style={rootStyle}>
-        <AppNavbar />
-        <div style={bodyStyle}>
-          <Sidebar />
-          <main style={contentStyle}>
-            {children}
-          </main>
-        </div>
-        <CommandPalette />
-      </div>
+      <AppNavbar />
+      <Sidebar />
+
+      {/* Main content — offset left to clear the fixed sidebar */}
+      <main style={{
+        marginTop: `${NAVBAR_HEIGHT}px`,
+        marginLeft: 'var(--sidebar-width, 64px)',
+        minHeight: `calc(100dvh - ${NAVBAR_HEIGHT}px)`,
+        padding: '32px',
+        transition: 'margin-left 230ms cubic-bezier(.4,0,.2,1)',
+      }}>
+        {children}
+      </main>
+
+      <CommandPalette />
     </DashboardProvider>
   )
 }
 
-/* =====================================================
-   🎨 ESTILOS
-===================================================== */
-
-const rootStyle: React.CSSProperties = {
-  minHeight: '100vh',
-  background: '#f5f6f8',
-}
-
-const bodyStyle: React.CSSProperties = {
-  display: 'flex',
-  marginTop: '90px',
-}
-
-const contentStyle: React.CSSProperties = {
-  flex: 1,
-  padding: '32px',
-}
-
+/* ── shared ── */
 const centerStyle: React.CSSProperties = {
-  minHeight: '100vh',
+  minHeight: '100dvh',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#f5f6f8',
 }
 
 const spinnerStyle: React.CSSProperties = {
   width: 40,
   height: 40,
   borderRadius: '50%',
-  border: '4px solid #e5e7eb',
-  borderTop: '4px solid #dc2626',
-  animation: 'spin 1s linear infinite',
+  border: '3px solid rgba(220,38,38,0.15)',
+  borderTop: '3px solid #dc2626',
+  animation: 'eligi-spin 0.9s linear infinite',
 }
 
 const unauthorizedCard: React.CSSProperties = {
@@ -135,5 +103,4 @@ const loginButton: React.CSSProperties = {
   borderRadius: '12px',
   cursor: 'pointer',
   fontWeight: 600,
-  transition: 'all 200ms ease',
 }

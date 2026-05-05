@@ -5,25 +5,25 @@ import '../styles/globals.css'
 
 export const metadata: Metadata = {
   title: 'ELIGI',
-  description: 'Sistema inteligente para negócios'
+  description: 'Sistema inteligente para negócios',
 }
 
 export default function RootLayout({
-  children
+  children,
 }: {
   children: React.ReactNode
 }) {
   return (
     <html lang="pt-BR">
+      {/*
+        O body recebe o gradient mesh e o glass token system via globals.css.
+        Nenhum estilo inline — tudo vive nas CSS vars.
+      */}
       <body>
         <GoogleOAuthProvider
-          clientId={
-            process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!
-          }
+          clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}
         >
-          <Providers>
-            {children}
-          </Providers>
+          <Providers>{children}</Providers>
         </GoogleOAuthProvider>
       </body>
     </html>
