@@ -53,12 +53,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <AppNavbar />
       <Sidebar />
 
-      {/* Main content — offset left to clear the fixed sidebar */}
+      {/* Main content — offset left (desktop) and bottom (mobile) */}
       <main style={{
         marginTop: `${NAVBAR_HEIGHT}px`,
         marginLeft: 'var(--sidebar-width, 64px)',
         minHeight: `calc(100dvh - ${NAVBAR_HEIGHT}px)`,
         padding: '32px',
+        paddingBottom: 'calc(32px + var(--bottom-nav-h, 0px))',
         transition: 'margin-left 230ms cubic-bezier(.4,0,.2,1)',
       }}>
         {children}
