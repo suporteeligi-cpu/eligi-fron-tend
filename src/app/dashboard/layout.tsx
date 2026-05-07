@@ -19,6 +19,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (!loading && !user) router.replace('/login')
   }, [user, loading, router])
 
+  // Apply dashboard body class for glass mesh background
+  useEffect(() => {
+    document.body.classList.add('eligi-dashboard')
+    return () => { document.body.classList.remove('eligi-dashboard') }
+  }, [])
+
   if (loading) {
     return (
       <div style={centerStyle}>

@@ -16,40 +16,35 @@ import {
 import styles from './Navbar.module.css'
 
 export default function Navbar() {
-  // 1️⃣ Tema inicializado corretamente (uma única vez)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof document === 'undefined') return 'light'
-
-    return (
-      (document.documentElement.getAttribute('data-theme') as
-        | 'light'
-        | 'dark') ?? 'light'
-    )
+    return (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') ?? 'light'
   })
 
-  const [scrolled, setScrolled] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-
-  // 🔥 loading local para auth navigation
+  const [scrolled,    setScrolled]    = useState(false)
+  const [menuOpen,    setMenuOpen]    = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
 
-  // 2️⃣ useEffect apenas para scroll
   useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 8)
-    }
-
+    const onScroll = () => setScrolled(window.scrollY > 8)
     onScroll()
     window.addEventListener('scroll', onScroll)
-
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-    }
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   function toggleTheme() {
     const next = theme === 'light' ? 'dark' : 'light'
-    document.documentElement.setAttribute('data-theme', next)
+    const html  = document.documentElement
+
+    // Sync both systems: data-theme (landing) + class dark (dashboard tokens)
+    html.setAttribute('data-theme', next)
+    if (next === 'dark') {
+      html.classList.add('dark')
+    } else {
+      html.classList.remove('dark')
+      // also clear eligi-theme so dashboard doesn't re-add it
+      localStorage.removeItem('eligi-theme')
+    }
     setTheme(next)
   }
 
@@ -58,18 +53,12 @@ export default function Navbar() {
   }
 
   return (
-    <header
-      className={`${styles.navbar} ${scrolled ? styles.scrolled : ''}`}
-    >
+    <header className={`${styles.navbar} ${scrolled ? styles.scrolled : ''}`}>
       <div className={styles.container}>
         {/* Logo */}
         <Link href="/" className={styles.brand}>
           <Image
-            src={
-              theme === 'dark'
-                ? '/images/globo-dark.png'
-                : '/images/globo-light.png'
-            }
+            src={theme === 'dark' ? '/images/globo-dark.png' : '/images/globo-light.png'}
             alt="Logo ELIGI"
             width={52}
             height={34}
@@ -77,22 +66,11 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* Desktop Navigation */}
+        {/* Desktop nav */}
         <nav className={styles.nav}>
-          <Link href="/barbearias">
-            <Scissors size={18} />
-            Barbearias
-          </Link>
-
-          <Link href="/saloes">
-            <Store size={18} />
-            Salões
-          </Link>
-
-          <Link href="/ads">
-            <Megaphone size={18} />
-            Anúncios
-          </Link>
+          <Link href="/barbearias"><Scissors size={18} />Barbearias</Link>
+          <Link href="/saloes"><Store size={18} />Salões</Link>
+          <Link href="/ads"><Megaphone size={18} />Anúncios</Link>
         </nav>
 
         {/* Actions */}
@@ -109,26 +87,20 @@ export default function Navbar() {
 
           <Link
             href="/login"
-            className={`${styles.login} ${
-              authLoading ? styles.loading : ''
-            }`}
+            className={`${styles.login} ${authLoading ? styles.loading : ''}`}
             onClick={handleAuthClick}
           >
-            <LogIn size={18} />
-            Entrar
+            <LogIn size={18} />Entrar
           </Link>
 
           <Link
             href="/register"
-            className={`${styles.cta} ${
-              authLoading ? styles.loading : ''
-            }`}
+            className={`${styles.cta} ${authLoading ? styles.loading : ''}`}
             onClick={handleAuthClick}
           >
             Criar conta
           </Link>
 
-          {/* Mobile toggle */}
           <button
             type="button"
             className={styles.menuToggle}
@@ -141,50 +113,26 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      <div
-        className={`${styles.mobileMenu} ${
-          menuOpen ? styles.mobileOpen : ''
-        }`}
-      >
-        <Link href="/barbearias" onClick={() => setMenuOpen(false)}>
-          <Scissors size={18} />
-          Barbearias
-        </Link>
-
-        <Link href="/saloes" onClick={() => setMenuOpen(false)}>
-          <Store size={18} />
-          Salões
-        </Link>
-
-        <Link href="/ads" onClick={() => setMenuOpen(false)}>
-          <Megaphone size={18} />
-          Anúncios
-        </Link>
+      {/* Mobile menu */}
+      <div className={`${styles.mobileMenu} ${menuOpen ? styles.mobileOpen : ''}`}>
+        <Link href="/barbearias" onClick={() => setMenuOpen(false)}><Scissors size={18} />Barbearias</Link>
+        <Link href="/saloes"     onClick={() => setMenuOpen(false)}><Store    size={18} />Salões</Link>
+        <Link href="/ads"        onClick={() => setMenuOpen(false)}><Megaphone size={18} />Anúncios</Link>
 
         <div className={styles.mobileDivider} />
 
         <Link
           href="/login"
-          onClick={() => {
-            setMenuOpen(false)
-            handleAuthClick()
-          }}
+          onClick={() => { setMenuOpen(false); handleAuthClick() }}
           className={authLoading ? styles.loading : ''}
         >
-          <LogIn size={18} />
-          Entrar
+          <LogIn size={18} />Entrar
         </Link>
 
         <Link
           href="/register"
-          className={`${styles.mobileCTA} ${
-            authLoading ? styles.loading : ''
-          }`}
-          onClick={() => {
-            setMenuOpen(false)
-            handleAuthClick()
-          }}
+          className={`${styles.mobileCTA} ${authLoading ? styles.loading : ''}`}
+          onClick={() => { setMenuOpen(false); handleAuthClick() }}
         >
           Criar conta
         </Link>

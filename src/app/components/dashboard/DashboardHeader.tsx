@@ -2,92 +2,100 @@
 
 import { useDashboard } from '@/app/dashboard/DashboardContext'
 
+type Period = 'today' | '7d' | '30d'
+
+const PERIODS: { value: Period; label: string }[] = [
+  { value: 'today', label: 'Hoje'    },
+  { value: '7d',    label: '7 dias'  },
+  { value: '30d',   label: '30 dias' },
+]
+
 export default function DashboardHeader() {
   const { period, setPeriod } = useDashboard()
 
   return (
-    <div style={container}>
-      <div>
-        <h2 style={title}>Visão Geral</h2>
-        <p style={subtitle}>
-          Acompanhe o crescimento do seu negócio em tempo real.
-        </p>
+    <>
+      <style>{`
+        .eligi-filter-btn {
+          padding: 7px 16px;
+          border-radius: 10px;
+          border: 1px solid rgba(0,0,0,0.09);
+          background: rgba(255,255,255,0.70);
+          backdrop-filter: blur(10px);
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-secondary, #6b7280);
+          transition: all 150ms ease;
+          letter-spacing: -0.01em;
+        }
+        .eligi-filter-btn:hover {
+          background: rgba(255,255,255,0.90);
+          color: var(--text-primary, #111827);
+          border-color: rgba(0,0,0,0.14);
+        }
+        .eligi-filter-btn.active {
+          background: rgba(220,38,38,0.09);
+          border-color: rgba(220,38,38,0.25);
+          color: #dc2626;
+          font-weight: 600;
+        }
+        html.dark .eligi-filter-btn {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.09);
+          color: rgba(255,255,255,0.48);
+        }
+        html.dark .eligi-filter-btn:hover {
+          background: rgba(255,255,255,0.10);
+          color: rgba(255,255,255,0.88);
+        }
+        html.dark .eligi-filter-btn.active {
+          background: rgba(220,38,38,0.16);
+          border-color: rgba(220,38,38,0.28);
+          color: #f87171;
+        }
+      `}</style>
+
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        flexWrap: 'wrap',
+        gap: '12px',
+      }}>
+        <div>
+          <h2 style={{
+            fontSize: '22px',
+            fontWeight: 700,
+            letterSpacing: '-0.025em',
+            color: 'var(--text-primary, #0f0f14)',
+            margin: 0,
+            lineHeight: 1.2,
+          }}>
+            Visão Geral
+          </h2>
+          <p style={{
+            fontSize: '14px',
+            color: 'var(--text-secondary, #6b7280)',
+            marginTop: '4px',
+            fontWeight: 400,
+          }}>
+            Acompanhe o crescimento do seu negócio em tempo real.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+          {PERIODS.map(p => (
+            <button
+              key={p.value}
+              className={`eligi-filter-btn${period === p.value ? ' active' : ''}`}
+              onClick={() => setPeriod(p.value)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
-
-      <div style={filters}>
-        <FilterButton
-          active={period === 'today'}
-          onClick={() => setPeriod('today')}
-        >
-          Hoje
-        </FilterButton>
-
-        <FilterButton
-          active={period === '7d'}
-          onClick={() => setPeriod('7d')}
-        >
-          7 dias
-        </FilterButton>
-
-        <FilterButton
-          active={period === '30d'}
-          onClick={() => setPeriod('30d')}
-        >
-          30 dias
-        </FilterButton>
-      </div>
-    </div>
+    </>
   )
-}
-
-interface FilterButtonProps {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}
-
-function FilterButton({
-  active,
-  onClick,
-  children,
-}: FilterButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: '6px 14px',
-        borderRadius: '8px',
-        border: active ? '1px solid #dc2626' : '1px solid #e5e7eb',
-        background: active ? 'rgba(220,38,38,0.08)' : '#fff',
-        cursor: 'pointer',
-        fontSize: '13px',
-        fontWeight: active ? 600 : 500,
-        color: active ? '#dc2626' : '#374151',
-        transition: 'all 150ms ease',
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-const container: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-}
-
-const title: React.CSSProperties = {
-  fontSize: '22px',
-  fontWeight: 600,
-}
-
-const subtitle: React.CSSProperties = {
-  fontSize: '14px',
-  opacity: 0.6,
-}
-
-const filters: React.CSSProperties = {
-  display: 'flex',
-  gap: '8px',
 }

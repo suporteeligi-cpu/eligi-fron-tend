@@ -1,437 +1,404 @@
-/* ==============================
-   AUTH WRAPPER
-================================ */
+/* ============================================================
+   AUTH MODULE — ELIGI
+   Glass premium · Paleta eligi · Light + Dark
+   ============================================================ */
 
+/* ── Wrapper ── */
 .wrapper {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px 16px;
 
-  background:
-    radial-gradient(
-      circle at top,
-      rgba(255, 255, 255, 0.08),
-      transparent 60%
-    );
+  background-color: var(--bg-main, #f4f5f7);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(220, 38, 38, 0.06) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 60% at 80% 80%, rgba(220, 38, 38, 0.04) 0%, transparent 60%);
+  background-attachment: fixed;
 }
 
-/* ==============================
-   AUTH CARD — VISIONOS GLASS
-================================ */
-
+/* ── Card ── */
 .card {
   position: relative;
-  will-change: transform, box-shadow;
-
   width: 100%;
   max-width: 420px;
-  padding: 34px 28px 30px;
-
+  padding: 36px 28px 32px;
   border-radius: 28px;
 
-  background: rgba(255, 255, 255, 0.68);
-  backdrop-filter: blur(26px) saturate(160%);
-  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(28px) saturate(180%) brightness(1.04);
+  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.04);
 
+  border: 1px solid rgba(255, 255, 255, 0.70);
   box-shadow:
-    0 28px 70px rgba(0, 0, 0, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+    0 2px 0 rgba(255, 255, 255, 0.90) inset,
+    0 24px 64px rgba(0, 0, 0, 0.10),
+    0 4px 16px rgba(0, 0, 0, 0.06);
 
-  transition:
-    background 0.3s ease,
-    box-shadow 0.3s ease;
+  transition: box-shadow 300ms ease;
 }
 
-/* highlight superior VisionOS */
+/* Specular top shine */
 .card::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-
   background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.35),
-    rgba(255, 255, 255, 0.06) 45%,
-    transparent
+    175deg,
+    rgba(255, 255, 255, 0.32) 0%,
+    rgba(255, 255, 255, 0.06) 40%,
+    transparent 70%
   );
+  pointer-events: none;
+  z-index: 0;
+}
 
+.card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Loading state */
+.card.loading {
   pointer-events: none;
 }
 
-/* ==============================
-   LOGO NO AUTH CARD
-================================ */
+/* Shake on error */
+.card.shake {
+  animation: eligi-shake 0.36s ease;
+}
 
+@keyframes eligi-shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-5px); }
+  40%  { transform: translateX(5px); }
+  60%  { transform: translateX(-4px); }
+  80%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
+/* ── Logo ── */
 .logoWrapper {
   display: flex;
   justify-content: center;
-  margin-bottom: 14px;
-  perspective: 800px;
+  margin-bottom: 18px;
 }
 
 .logo {
-  width: 42px;
+  width: 44px;
   height: auto;
-
-  animation: logoFlip 1s ease-in-out infinite;
+  animation: eligi-logo-spin 3s linear infinite;
   transform-style: preserve-3d;
   backface-visibility: hidden;
-
-  opacity: 0.9;
 }
 
-/* Flip horizontal contínuo */
-@keyframes logoFlip {
-  0% {
-    transform: rotateY(0deg);
-  }
-
-  50% {
-    transform: rotateY(180deg);
-  }
-
-  100% {
-    transform: rotateY(360deg);
-  }
+@keyframes eligi-logo-spin {
+  0%   { transform: rotateY(0deg); }
+  50%  { transform: rotateY(180deg); }
+  100% { transform: rotateY(360deg); }
 }
 
-/* ==============================
-   TEXTOS
-================================ */
-
+/* ── Typography ── */
 .title {
   font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.025em;
   line-height: 1.2;
   text-align: center;
-  color: #111;
+  color: #0f0f14;
+  margin: 0;
 }
 
 .subtitle {
   margin-top: 6px;
   font-size: 14px;
+  line-height: 1.5;
   text-align: center;
-  color: #555;
+  color: #6b7280;
 }
 
+/* ── Content area ── */
 .content {
-  margin-top: 26px;
+  margin-top: 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
-/* ==============================
-   CAMPOS
-================================ */
-
+/* ── Field ── */
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 
 .label {
-  font-size: 13px;
-  color: #555;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #4b5563;
 }
 
+/* ── Input ── */
 .input {
   height: 48px;
   padding: 0 18px;
-
-  border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-
-  background: rgba(255, 255, 255, 0.75);
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  background: rgba(255, 255, 255, 0.80);
   backdrop-filter: blur(12px);
-
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 500;
   letter-spacing: 0.01em;
-  color: #a4a4a4;
-
+  color: #111827;
   outline: none;
-
+  width: 100%;
   transition:
-    border-color 0.25s ease,
-    box-shadow 0.25s ease,
-    background 0.25s ease;
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    background 220ms ease;
+}
+
+.input::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
 }
 
 .input:focus {
-  border-color: rgba(196, 0, 0, 0.55);
+  border-color: rgba(220, 38, 38, 0.50);
   box-shadow:
-    0 0 0 4px rgba(196, 0, 0, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.08);
-
-  background: #fff;
+    0 0 0 3px rgba(220, 38, 38, 0.10),
+    0 4px 16px rgba(0, 0, 0, 0.06);
+  background: #ffffff;
 }
 
-/* ==============================
-   BOTÃO PRINCIPAL
-================================ */
-
+/* ── Button ── */
 .button {
-  height: 48px;
-  border-radius: 999px;
-
-  background: linear-gradient(180deg, #c40000, #8f0000);
-  color: #fff;
-
-  font-weight: 600;
+  width: 100%;
+  height: 50px;
+  border-radius: 14px;
   border: none;
   cursor: pointer;
-
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  background: linear-gradient(160deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
   box-shadow:
-    0 8px 22px rgba(196, 0, 0, 0.35);
-
+    0 6px 20px rgba(220, 38, 38, 0.30),
+    0 1px 0 rgba(255, 255, 255, 0.20) inset;
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    opacity 150ms ease;
 }
 
-.button:hover {
+.button:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow:
-    0 12px 28px rgba(196, 0, 0, 0.45);
+    0 10px 28px rgba(220, 38, 38, 0.38),
+    0 1px 0 rgba(255, 255, 255, 0.20) inset;
 }
 
-.button:active {
-  transform: translateY(0);
+.button:active:not(:disabled) {
+  transform: scale(0.98);
   box-shadow:
-    0 6px 16px rgba(196, 0, 0, 0.35);
+    0 4px 12px rgba(220, 38, 38, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.20) inset;
 }
 
-/* ==============================
-   ROLE SELECT — SWITCH STYLE
-   (mesmo visual do AUTH SWITCH)
-================================ */
+.button:disabled {
+  opacity: 0.60;
+  cursor: not-allowed;
+}
 
+/* ── Role select ── */
 .roleGroup {
   display: flex;
   padding: 4px;
-  gap: 0;
-  margin-top: 4px;
-
-  border-radius: 999px;
-
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
-    0 10px 30px rgba(0, 0, 0, 0.1);
+  gap: 4px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.07);
 }
 
 .roleButton {
   flex: 1;
-  height: 44px;
-
-  border: none;
-  border-radius: 999px;
+  height: 42px;
+  border: 1px solid transparent;
+  border-radius: 11px;
   background: transparent;
-
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
-  color: #666;
-
+  color: #6b7280;
   cursor: pointer;
-
   transition:
-    color 0.25s ease,
-    background 0.25s ease,
-    box-shadow 0.25s ease,
-    transform 0.15s ease;
+    color 200ms ease,
+    background 200ms ease,
+    box-shadow 200ms ease,
+    transform 130ms ease;
 }
 
-.roleButton:hover {
-  color: #111;
+.roleButton:hover:not(.active) {
+  color: #111827;
+  background: rgba(255, 255, 255, 0.60);
 }
 
-/* 🔴 ATIVO — CTA ELIGI */
 .roleButton.active {
-  background: linear-gradient(135deg, #c40000, #9f0000);
-  color: #fff;
-
+  background: linear-gradient(160deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
+  color: #ffffff;
+  border-color: transparent;
   box-shadow:
-    0 6px 18px rgba(196, 0, 0, 0.35),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+    0 4px 14px rgba(220, 38, 38, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.20) inset;
 }
 
-/* ==============================
-   DARK MODE — ROLE SWITCH
-================================ */
-
-:global(html.dark) .roleGroup {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(24px) saturate(130%);
-  -webkit-backdrop-filter: blur(24px) saturate(130%);
-
-  box-shadow:
-    0 18px 50px rgba(0, 0, 0, 0.85),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+.roleButton:active {
+  transform: scale(0.97);
 }
 
-:global(html.dark) .roleButton {
-  color: #9a9a9a;
+/* ── Feedback boxes ── */
+.errorBox {
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(220, 38, 38, 0.07);
+  border: 1px solid rgba(220, 38, 38, 0.20);
+  color: #b91c1c;
+  font-size: 13.5px;
+  line-height: 1.4;
 }
 
-:global(html.dark) .roleButton:hover {
-  color: #f5f5f5;
+.successBox {
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.07);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  color: #065f46;
+  font-size: 13.5px;
+  line-height: 1.4;
 }
 
-:global(html.dark) .roleButton.active {
-  box-shadow:
-    0 8px 22px rgba(196, 0, 0, 0.45),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+/* ── Loading overlay ── */
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.50);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 10;
 }
 
-/* ==============================
-   DARK MODE — GLASS TRANSPARENTE
-================================ */
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(0, 0, 0, 0.10);
+  border-top-color: #dc2626;
+  animation: eligi-spin 0.75s linear infinite;
+}
+
+@keyframes eligi-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   DARK MODE — html.dark
+   ============================================================ */
 
 :global(html.dark) .wrapper {
-  background:
-    radial-gradient(
-      circle at top,
-      rgba(255, 255, 255, 0.04),
-      transparent 60%
-    );
+  background-color: #0f0f14;
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(220, 38, 38, 0.10) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 60% at 80% 80%, rgba(220, 38, 38, 0.06) 0%, transparent 60%);
 }
 
 :global(html.dark) .card {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(32px) saturate(140%);
-  -webkit-backdrop-filter: blur(32px) saturate(140%);
-
+  background: rgba(18, 18, 26, 0.75);
+  backdrop-filter: blur(32px) saturate(160%) brightness(0.96);
+  -webkit-backdrop-filter: blur(32px) saturate(160%) brightness(0.96);
+  border-color: rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 40px 100px rgba(0, 0, 0, 0.85),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    0 2px 0 rgba(255, 255, 255, 0.05) inset,
+    0 32px 80px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.30);
 }
 
 :global(html.dark) .card::before {
   background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.08),
-    transparent 45%
+    175deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    transparent 50%
   );
 }
 
 :global(html.dark) .title {
-  color: #f5f5f5;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-:global(html.dark) .subtitle,
+:global(html.dark) .subtitle {
+  color: rgba(255, 255, 255, 0.46);
+}
+
 :global(html.dark) .label {
-  color: #b5b5b5;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 :global(html.dark) .input {
-  background: rgba(0, 0, 0, 0.35);
-  border-color: rgba(255, 255, 255, 0.08);
-  color: #f5f5f5;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(16px);
+}
 
-  backdrop-filter: blur(20px);
+:global(html.dark) .input::placeholder {
+  color: rgba(255, 255, 255, 0.28);
 }
 
 :global(html.dark) .input:focus {
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(220, 38, 38, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(220, 38, 38, 0.14),
+    0 4px 16px rgba(0, 0, 0, 0.20);
+}
+
+:global(html.dark) .roleGroup {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 :global(html.dark) .roleButton {
-  background: rgba(0, 0, 0, 0.35);
-  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.42);
 }
 
-/* ==============================
-   LOADING STATE — AUTH CARD
-================================ */
-
-.loading {
-  pointer-events: none;
+:global(html.dark) .roleButton:hover:not(.active) {
+  color: rgba(255, 255, 255, 0.80);
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.loadingOverlay {
-  position: absolute;
-  inset: 0;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: inherit;
-
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-
-  z-index: 5;
+:global(html.dark) .errorBox {
+  background: rgba(220, 38, 38, 0.10);
+  border-color: rgba(220, 38, 38, 0.25);
+  color: #fca5a5;
 }
 
-/* spinner minimalista Apple-like */
-.spinner {
-  width: 28px;
-  height: 28px;
-
-  border-radius: 50%;
-  border: 3px solid rgba(0, 0, 0, 0.15);
-  border-top-color: rgba(196, 0, 0, 0.85);
-
-  animation: spin 0.8s linear infinite;
+:global(html.dark) .successBox {
+  background: rgba(16, 185, 129, 0.10);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* DARK MODE */
 :global(html.dark) .loadingOverlay {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(12, 12, 20, 0.60);
 }
 
 :global(html.dark) .spinner {
-  border-color: rgba(255, 255, 255, 0.2);
-  border-top-color: #c40000;
-}
-
-/* ==============================
-   CARD ERROR FEEDBACK
-================================ */
-
-.cardError {
-  animation: cardShake 0.35s ease;
-}
-
-@keyframes cardShake {
-  0% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  50% { transform: translateX(4px); }
-  75% { transform: translateX(-3px); }
-  100% { transform: translateX(0); }
-}
-
-.errorBox {
-  margin-top: 16px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(220, 38, 38, 0.08);
-  border: 1px solid rgba(220, 38, 38, 0.25);
-  color: #b91c1c;
-  font-size: 14px;
-}
-
-.successBox {
-  margin-top: 16px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  color: #047857;
-  font-size: 14px;
+  border-color: rgba(255, 255, 255, 0.10);
+  border-top-color: #ef4444;
 }

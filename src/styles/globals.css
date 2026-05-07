@@ -64,12 +64,32 @@
   --radius-md:  12px;
   --radius-lg:  18px;
   --radius-xl:  24px;
+
+  /* ── Landing page compat vars ── */
+  --text-main:        #111827;
+  --text:             #111827;
+  --text-muted:       #6b7280;
+  --bg-main:          #f5f6f8;
+  --bg-card:          rgba(255, 255, 255, 0.75);
+  --border:           rgba(0, 0, 0, 0.07);
+  --border-soft:      rgba(0, 0, 0, 0.09);
+
+  /* Brand */
+  --brand:            #dc2626;
+  --brand-contrast:   #ffffff;
+
+  /* Motion */
+  --ease:             cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Shadows */
+  --shadow-md:        0 12px 30px rgba(220, 38, 38, 0.28);
+  --shadow-lg:        0 20px 50px rgba(0, 0, 0, 0.12);
 }
 
 /* ============================================================
    DARK MODE
    ============================================================ */
-html.dark {
+html.dark, :root[data-theme='dark'] {
   /* ── Glass ── */
   --glass-blur:       blur(24px) saturate(160%) brightness(0.96);
   --glass-bg:         rgba(22, 22, 28, 0.62);
@@ -135,18 +155,19 @@ body {
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.5;
+  min-height: 100dvh;
+}
+
+/* ── Dashboard glass mesh — só dentro do layout do app ── */
+body.eligi-dashboard {
   color: var(--text-primary);
   background-color: var(--page-bg);
-
-  /* ── Gradient mesh de fundo ── */
   background-image:
     radial-gradient(ellipse 55% 45% at 10% 30%,  var(--mesh-1) 0%, transparent 70%),
     radial-gradient(ellipse 40% 50% at 85% 15%,  var(--mesh-2) 0%, transparent 60%),
     radial-gradient(ellipse 50% 40% at 60% 75%,  var(--mesh-3) 0%, transparent 65%),
     radial-gradient(ellipse 35% 35% at 35% 90%,  var(--mesh-4) 0%, transparent 55%);
-
   background-attachment: fixed;
-  min-height: 100dvh;
   transition: background-color 350ms ease, color 350ms ease;
 }
 
@@ -239,4 +260,30 @@ aside[aria-label="Navegação lateral"] button,
 aside[aria-label="Navegação lateral"] div {
   /* let component styles take over — no global color override here */
   color: inherit;
+}
+
+/* ============================================================
+   LANDING PAGE — data-theme dark compat
+   (Navbar.module.css usa :root[data-theme='dark'])
+   ============================================================ */
+:root[data-theme='dark'] {
+  --text-main:        rgba(255, 255, 255, 0.92);
+  --text:             rgba(255, 255, 255, 0.92);
+  --text-muted:       rgba(255, 255, 255, 0.52);
+  --bg-main:          #0e0e12;
+  --bg-card:          rgba(14, 14, 14, 0.75);
+  --border:           rgba(255, 255, 255, 0.08);
+  --border-soft:      rgba(255, 255, 255, 0.10);
+  --brand:            #ef4444;
+  --brand-contrast:   #ffffff;
+  --shadow-md:        0 12px 30px rgba(220, 38, 38, 0.40);
+  --shadow-lg:        0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+/* ============================================================
+   LANDING PAGE — base typography (não afeta dashboard)
+   ============================================================ */
+body:not(.eligi-dashboard) {
+  color: var(--text);
+  background-color: var(--bg-main);
 }

@@ -40,9 +40,6 @@ function MobileBottomNav({
   const overflow = navItems.slice(4)
   const hasMore  = overflow.length > 0
 
-  const initials = user?.name
-    ?.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase() ?? '?'
-
   useEffect(() => {
     document.body.style.overflow = sheetOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
@@ -51,7 +48,7 @@ function MobileBottomNav({
   // Expose bottom nav height so main content can add padding
   useEffect(() => {
     document.documentElement.style.setProperty('--bottom-nav-h', `${BOTTOM_NAV_H}px`)
-    return () => document.documentElement.style.removeProperty('--bottom-nav-h')
+    return () => { document.documentElement.style.removeProperty('--bottom-nav-h') }
   }, [])
 
   return (
@@ -394,9 +391,6 @@ export default function Sidebar() {
     admin:      navItems.filter(i => i.section === 'admin'),
   }
 
-  const initials = user?.name
-    ?.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase() ?? '?'
-
   /* ── Mobile → bottom nav ── */
   if (isMobile) {
     return (
@@ -409,6 +403,9 @@ export default function Sidebar() {
   }
 
   /* ── Desktop → vertical rail ── */
+  const initials = user?.name
+    ?.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase() ?? '?'
+
   return (
     <>
       <style>{`
