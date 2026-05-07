@@ -1,21 +1,29 @@
-// src/app/components/system/SectionShell.tsx
-'use client'
-
 import { ReactNode } from 'react'
 import styles from './SectionShell.module.css'
 
+type Variant = 'default' | 'soft' | 'elevated'
+
 interface SectionShellProps {
-  children: ReactNode
-  variant?: 'default' | 'soft' | 'elevated'
+  children:  ReactNode
+  variant?:  Variant
+  id?:       string
+  className?: string
 }
 
 export default function SectionShell({
   children,
-  variant = 'default'
+  variant   = 'default',
+  id,
+  className,
 }: SectionShellProps) {
   return (
-    <section className={`${styles.section} ${styles[variant]}`}>
-      <div className={styles.container}>{children}</div>
+    <section
+      id={id}
+      className={[styles.section, styles[variant], className].filter(Boolean).join(' ')}
+    >
+      <div className={styles.container}>
+        {children}
+      </div>
     </section>
   )
 }

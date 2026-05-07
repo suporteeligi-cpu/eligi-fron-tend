@@ -1,15 +1,20 @@
-/* src/app/components/system/SectionShell.module.css */
+/* ============================================================
+   SECTION SHELL — ELIGI
+   Sistema de layout de seções da landing
+   ============================================================ */
 
 .section {
-  padding: clamp(96px, 10vw, 160px) 24px;
+  padding: clamp(80px, 10vw, 144px) 24px;
+  position: relative;
 }
 
 .container {
   max-width: 1120px;
   margin: 0 auto;
+  position: relative;
 }
 
-/* Variantes visuais */
+/* ── Variants ── */
 .default {
   background: transparent;
 }
@@ -17,23 +22,32 @@
 .soft {
   background: linear-gradient(
     180deg,
-    rgba(225, 6, 0, 0.025),
-    transparent
+    rgba(220, 38, 38, 0.03) 0%,
+    transparent 100%
   );
 }
 
 .elevated {
   background: linear-gradient(
     180deg,
-    transparent,
-    rgba(0, 0, 0, 0.04)
+    transparent 0%,
+    rgba(0, 0, 0, 0.035) 100%
+  );
+}
+
+/* Dark mode */
+:root[data-theme='dark'] .soft {
+  background: linear-gradient(
+    180deg,
+    rgba(220, 38, 38, 0.06) 0%,
+    transparent 100%
   );
 }
 
 :root[data-theme='dark'] .elevated {
   background: linear-gradient(
     180deg,
-    transparent,
-    rgba(255, 255, 255, 0.04)
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 100%
   );
 }

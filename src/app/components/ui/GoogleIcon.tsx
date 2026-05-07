@@ -1,10 +1,18 @@
-export function GoogleIcon() {
+import { memo } from 'react'
+
+interface GoogleIconProps {
+  size?: number
+}
+
+export const GoogleIcon = memo(function GoogleIcon({ size = 18 }: GoogleIconProps) {
   return (
     <svg
-      width="18"
-      height="18"
+      width={size}
+      height={size}
       viewBox="0 0 48 48"
       xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+      focusable="false"
     >
       <path
         fill="#EA4335"
@@ -24,4 +32,4 @@ export function GoogleIcon() {
       />
     </svg>
   )
-}
+})
