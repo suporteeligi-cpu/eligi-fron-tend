@@ -1,199 +1,155 @@
+/* ============================================================
+   DASHBOARD PREVIEW
+   ============================================================ */
+
 .section {
   position: relative;
-  padding: 56px 0; /* 🔽 antes 96px */
-  background: var(--bg-default);
-
+  padding: clamp(64px, 8vw, 112px) 24px;
   opacity: 0;
   transform: translateY(16px);
-  transition:
-    opacity 0.7s var(--ease),
-    transform 0.7s var(--ease);
+  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
 }
 
-.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
+.visible { opacity: 1; transform: translateY(0); }
 
 .container {
-  max-width: 1200px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 0 40px;
 }
 
-/* ======================
-   HEADER
-====================== */
-
-.header {
-  max-width: 520px;
-  margin-bottom: 32px; /* 🔽 antes 48px */
-}
+/* ── Header ── */
+.header { max-width: 560px; margin-bottom: 40px; }
 
 .kicker {
-  font-size: 15px; /* 🔽 refinado */
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: var(--text-tertiary);
+  text-transform: uppercase;
+  color: var(--text-muted, #9ca3af);
+  display: block;
+  margin-bottom: 10px;
 }
 
 .title {
-  font-size: 34px; /* 🔽 leve ajuste */
-  font-weight: 600;
-  margin: 10px 0;
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  color: var(--text-main, #0f0f14);
+  margin-bottom: 14px;
 }
 
 .subtitle {
   font-size: 16.5px;
-  color: var(--text-secondary);
+  line-height: 1.65;
+  color: var(--text-muted, #6b7280);
 }
 
-/* ======================
-   BOARD
-====================== */
+/* ── Board ── */
+.board { display: flex; flex-direction: column; gap: 20px; }
 
-.board {
-  display: flex;
-  flex-direction: column;
-  gap: 28px; /* 🔽 antes 32px */
-}
-
-/* ===== CARDS SUPERIORES ===== */
-
+/* ── Top cards ── */
 .cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px; /* 🔽 antes 24px */
+  gap: 16px;
 }
 
-/* ===== BLOCO INFERIOR ===== */
-
+/* ── Bottom block ── */
 .bottom {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 20px; /* 🔽 antes 24px */
+  gap: 16px;
 }
 
 .largeCard,
 .sideCard {
-  background: var(--bg-elevated);
-  border-radius: 26px;
-  padding: 24px; /* 🔽 antes 28px */
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-radius: 20px;
+  padding: 22px;
+  border: 1px solid rgba(255,255,255,0.60);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
 }
 
-/* ======================
-   CONTEÚDO INTERNO
-====================== */
+:root[data-theme='dark'] .largeCard,
+:root[data-theme='dark'] .sideCard {
+  background: rgba(22,22,30,0.72);
+  border-color: rgba(255,255,255,0.07);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
 
 .largeCard h4,
 .sideCard h4 {
-  font-size: 15.5px;
-  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main, #111827);
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
 }
 
+/* ── Fake bars ── */
 .fakeBars {
   display: flex;
-  gap: 14px;
+  gap: 10px;
   align-items: flex-end;
-  height: 110px; /* 🔽 antes 120px */
+  height: 100px;
 }
 
 .fakeBars span {
-  width: 16px; /* 🔽 antes 18px */
-  border-radius: 10px;
+  flex: 1;
+  border-radius: 8px;
+  opacity: 0.85;
+  transition: opacity 200ms ease;
 }
 
-.barBlue { height: 80%; background: #3b82f6; }
-.barRed { height: 60%; background: #ef4444; }
-.barPurple { height: 40%; background: #8b5cf6; }
-.barGreen { height: 30%; background: #22c55e; }
+.fakeBars span:hover { opacity: 1; }
 
-.sideCard ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+.barBlue   { height: 75%; background: linear-gradient(180deg,#60a5fa,#3b82f6); }
+.barRed    { height: 55%; background: linear-gradient(180deg,#f87171,#ef4444); }
+.barPurple { height: 40%; background: linear-gradient(180deg,#a78bfa,#8b5cf6); }
+.barGreen  { height: 28%; background: linear-gradient(180deg,#4ade80,#22c55e); }
+
+/* ── Agenda list ── */
+.sideCard ul { list-style: none; padding: 0; margin: 0; }
 
 .sideCard li {
   display: flex;
   align-items: center;
-  gap: 8px; /* 🔽 antes 10px */
+  gap: 8px;
   padding: 8px 0;
-  font-size: 13.5px;
+  font-size: 13px;
+  color: var(--text-muted, #6b7280);
+  border-bottom: 1px solid rgba(0,0,0,0.04);
 }
 
-.dotGreen,
-.dotBlue,
-.dotPurple {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
+.sideCard li:last-child { border-bottom: none; }
 
-.dotGreen { background: #22c55e; }
-.dotBlue { background: #3b82f6; }
-.dotPurple { background: #8b5cf6; }
+.dotGreen  { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+.dotBlue   { width: 7px; height: 7px; border-radius: 50%; background: #3b82f6; flex-shrink: 0; }
+.dotPurple { width: 7px; height: 7px; border-radius: 50%; background: #8b5cf6; flex-shrink: 0; }
 
-/* ===========================
-   MOBILE — POLISH
-=========================== */
-
+/* ── Mobile ── */
 @media (max-width: 768px) {
-  .section {
-    padding: 40px 0; /* 🔥 mais compacto no mobile */
-  }
-
-  .container {
-    padding: 0 20px;
-  }
-
-  /* 🔥 CARDS SUPERIORES — SCROLL HORIZONTAL */
   .cards {
-    grid-auto-flow: column;
-    grid-auto-columns: 75%;
-    grid-template-columns: unset;
-
+    display: flex;
     overflow-x: auto;
-    gap: 14px;
-    padding-bottom: 6px;
-
+    gap: 12px;
+    padding-bottom: 4px;
     scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
+  .cards::-webkit-scrollbar { display: none; }
+  .cards > * { min-width: 72vw; scroll-snap-align: start; }
 
-  .cards::-webkit-scrollbar {
-    display: none;
-  }
-
-  .cards > * {
-    scroll-snap-align: start;
-  }
-
-  /* 🔥 BLOCO INFERIOR — SCROLL HORIZONTAL */
   .bottom {
-    grid-auto-flow: column;
-    grid-auto-columns: 85%;
-    grid-template-columns: unset;
-
+    display: flex;
     overflow-x: auto;
-    gap: 14px;
-    padding-bottom: 6px;
-
+    gap: 12px;
     scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
-
-  .bottom::-webkit-scrollbar {
-    display: none;
-  }
-
-  .bottom > * {
-    scroll-snap-align: start;
-  }
-
-  .largeCard,
-  .sideCard {
-    padding: 20px;
-    border-radius: 20px;
-  }
+  .bottom::-webkit-scrollbar { display: none; }
+  .bottom > * { min-width: 80vw; scroll-snap-align: start; }
 }

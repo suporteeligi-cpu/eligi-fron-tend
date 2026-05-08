@@ -1,4 +1,3 @@
-// src/app/components/sections/FinalCTA.tsx
 'use client'
 
 import { useEffect, useRef } from 'react'
@@ -11,19 +10,11 @@ export default function FinalCTA() {
   useEffect(() => {
     const el = sectionRef.current
     if (!el) return
-
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          el.classList.add(styles.visible)
-          observer.disconnect()
-        }
-      },
+      ([entry]) => { if (entry.isIntersecting) { el.classList.add(styles.visible); observer.disconnect() } },
       { threshold: 0.2 }
     )
-
     observer.observe(el)
-
     return () => observer.disconnect()
   }, [])
 
@@ -34,17 +25,14 @@ export default function FinalCTA() {
           <h2 className={styles.title}>
             Pronto para simplificar sua gestão?
           </h2>
-
           <p className={styles.subtitle}>
             Comece agora e tenha controle total do seu negócio em uma plataforma
             clara, rápida e pensada para o dia a dia.
           </p>
-
           <div className={styles.actions}>
             <Link href="/register" className={styles.primary}>
               Criar conta gratuitamente
             </Link>
-
             <Link href="/login" className={styles.secondary}>
               Já tenho conta
             </Link>

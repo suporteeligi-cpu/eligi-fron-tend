@@ -3,28 +3,30 @@
 import { useEffect, useRef } from 'react'
 import styles from './MetricsStrip.module.css'
 
-function animateValue(
-  el: HTMLElement,
-  start: number,
-  end: number,
-  duration: number,
-  suffix = ''
-) {
+interface Metric {
+  key:    string
+  end:    number
+  suffix: string
+  label:  string
+}
+
+const METRICS: Metric[] = [
+  { key: 'agendamentos', end: 3.5, suffix: 'x', label: 'mais agendamentos'            },
+  { key: 'faltas',       end: 80,  suffix: '%', label: 'menos faltas'                 },
+  { key: 'gestao',       end: 5,   suffix: 'x', label: 'menos tempo na gestão'        },
+  { key: 'confianca',    end: 100, suffix: '+', label: 'profissionais confiam no eligi'},
+]
+
+function animateValue(el: HTMLElement, end: number, duration: number, suffix: string) {
+  const isDecimal = end % 1 !== 0
   let startTime: number | null = null
 
   function step(timestamp: number) {
     if (!startTime) startTime = timestamp
     const progress = Math.min((timestamp - startTime) / duration, 1)
-    const value = start + (end - start) * progress
-
-    el.textContent =
-      (end % 1 === 0
-        ? Math.floor(value).toLocaleString('pt-BR')
-        : value.toFixed(1)) + suffix
-
-    if (progress < 1) {
-      requestAnimationFrame(step)
-    }
+    const value    = end * progress
+    el.textContent = (isDecimal ? value.toFixed(1) : Math.floor(value).toLocaleString('pt-BR')) + suffix
+    if (progress < 1) requestAnimationFrame(step)
   }
 
   requestAnimationFrame(step)
@@ -32,7 +34,7 @@ function animateValue(
 
 export default function MetricsStrip() {
   const sectionRef = useRef<HTMLElement | null>(null)
-  const animated = useRef(false)
+  const animated   = useRef(false)
 
   useEffect(() => {
     const section = sectionRef.current
@@ -42,72 +44,32 @@ export default function MetricsStrip() {
       ([entry]) => {
         if (entry.isIntersecting && !animated.current) {
           animated.current = true
+          section.classList.add(styles.visible)
 
-          animateValue(
-            section.querySelector('[data-metric="agendamentos"]')!,
-            0,
-            3.5,
-            900,
-            'x'
-          )
-
-          animateValue(
-            section.querySelector('[data-metric="faltas"]')!,
-            0,
-            80,
-            900,
-            '%'
-          )
-
-          animateValue(
-            section.querySelector('[data-metric="gestao"]')!,
-            0,
-            5,
-            900,
-            'x'
-          )
-
-          animateValue(
-            section.querySelector('[data-metric="confianca"]')!,
-            0,
-            100,
-            1000,
-            '+'
-          )
+          METRICS.forEach(({ key, end, suffix }) => {
+            const el = section.querySelector<HTMLElement>(`[data-metric="${key}"]`)
+            if (el) animateValue(el, end, 1000, suffix)
+          })
 
           observer.disconnect()
         }
       },
-      { threshold: 0.4 }
+      { threshold: 0.35 }
     )
 
     observer.observe(section)
-
     return () => observer.disconnect()
   }, [])
 
   return (
     <section ref={sectionRef} className={styles.strip}>
       <div className={styles.container}>
-        <div className={styles.metric}>
-          <strong data-metric="agendamentos">0x</strong>
-          <span>mais agendamentos</span>
-        </div>
-
-        <div className={styles.metric}>
-          <strong data-metric="faltas">0%</strong>
-          <span>menos faltas</span>
-        </div>
-
-        <div className={styles.metric}>
-          <strong data-metric="gestao">0x</strong>
-          <span>menos tempo na gestão</span>
-        </div>
-
-        <div className={styles.metric}>
-          <strong data-metric="confianca">0+</strong>
-          <span>profissionais confiam no ELIGI</span>
-        </div>
+        {METRICS.map(({ key, suffix, label }) => (
+          <div key={key} className={styles.metric}>
+            <strong data-metric={key}>0{suffix}</strong>
+            <span>{label}</span>
+          </div>
+        ))}
       </div>
     </section>
   )
