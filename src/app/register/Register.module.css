@@ -1,57 +1,41 @@
-/* ==============================
-   AUTH CONTAINER (MOBILE FIRST)
-================================ */
+/* ============================================================
+   AUTH SHARED — ELIGI
+   Usado em Login.module.css e Register.module.css
+   Switch · Form · Google · Forgot · Dark mode
+   ============================================================ */
 
-.authContainer {
-  width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
-  transition: max-width 0.3s ease;
-}
-
-/* ==============================
-   ELIGI AUTH SWITCH
-================================ */
-
+/* ── Switch ── */
 .authSwitch {
-  position: relative;
   display: flex;
   padding: 4px;
-  margin-bottom: 24px;
-  border-radius: 999px;
-
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.4),
-    0 14px 34px rgba(0, 0, 0, 0.08);
-
-  transition: backdrop-filter 0.3s ease, box-shadow 0.3s ease;
+  margin-bottom: 22px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  gap: 4px;
 }
 
 .authSwitchButton {
   flex: 1;
-  height: 44px;
-  border: none;
-  border-radius: 999px;
+  height: 42px;
+  border: 1px solid transparent;
+  border-radius: 11px;
   background: transparent;
-
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
-  letter-spacing: 0.2px;
-
-  color: #666;
+  color: #6b7280;
   cursor: pointer;
-
+  letter-spacing: -0.01em;
   transition:
-    color 0.25s ease,
-    transform 0.18s ease;
+    color 200ms ease,
+    background 200ms ease,
+    box-shadow 200ms ease,
+    transform 130ms ease;
 }
 
-.authSwitchButton:hover {
-  color: #111;
+.authSwitchButton:hover:not(.authSwitchButtonActive) {
+  color: #111827;
+  background: rgba(255, 255, 255, 0.60);
 }
 
 .authSwitchButton:active {
@@ -59,124 +43,116 @@
 }
 
 .authSwitchButtonActive {
-  background: linear-gradient(135deg, #c40000, #9f0000);
-  color: #fff;
-
+  background: linear-gradient(160deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
+  color: #ffffff;
+  border-color: transparent;
   box-shadow:
-    0 8px 20px rgba(196, 0, 0, 0.38),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+    0 4px 14px rgba(220, 38, 38, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.20) inset;
 }
 
-/* ==============================
-   FORM
-================================ */
-
+/* ── Form ── */
 .authForm {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  animation: fadeInAuth 0.35s ease;
+  gap: 16px;
+  animation: eligi-auth-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes fadeInAuth {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes eligi-auth-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ==============================
-   FORGOT LINK
-================================ */
+/* ── Forgot password ── */
+.forgotPassword {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
 
 .forgotLink {
-  margin-top: 6px;
   font-size: 13px;
+  font-weight: 500;
   background: none;
   border: none;
-  color: #bb0f0f;
+  color: #dc2626;
   cursor: pointer;
-  text-align: right;
-
-  transition: color 0.2s ease, opacity 0.2s ease;
+  padding: 2px 0;
+  transition: opacity 200ms ease, color 200ms ease;
 }
 
-.forgotLink:hover {
-  color: #ff0000;
-}
+.forgotLink:hover  { color: #b91c1c; opacity: 0.85; }
+.forgotLink:active { opacity: 0.65; }
 
-.forgotLink:active {
-  opacity: 0.7;
-}
-
-/* ==============================
-   GOOGLE WRAPPER (renderButton)
-================================ */
-
+/* ── Google wrapper ── */
 .googleWrapper {
-  margin-top: 22px;
+  margin-top: 20px;
   display: flex;
   justify-content: center;
 }
 
-.googleWrapper > div {
-  width: 100%;
-}
+.googleWrapper > div { width: 100%; }
 
 .googleWrapper iframe {
   width: 100% !important;
-  border-radius: 18px;
+  border-radius: 14px !important;
 }
 
-/* ==============================
-   RESPONSIVE
-================================ */
-
-@media (max-width: 480px) {
-  .authContainer {
-    max-width: 100%;
-    padding: 0 16px;
-  }
-
-  .authSwitch {
-    margin-bottom: 20px;
-  }
+/* ── Divider ── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
 }
 
-@media (min-width: 768px) {
-  .authContainer {
-    max-width: 440px;
-  }
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
 }
 
-/* ==============================
+.dividerLabel {
+  font-size: 12px;
+  color: #9ca3af;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* ============================================================
    DARK MODE
-================================ */
+   ============================================================ */
 
 :global(html.dark) .authSwitch {
-  background: rgba(0, 0, 0, 0.38);
-  backdrop-filter: blur(26px) saturate(140%);
-  -webkit-backdrop-filter: blur(26px) saturate(140%);
-
-  box-shadow:
-    0 22px 60px rgba(0, 0, 0, 0.9),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 :global(html.dark) .authSwitchButton {
-  color: #9a9a9a;
+  color: rgba(255, 255, 255, 0.42);
 }
 
-:global(html.dark) .authSwitchButton:hover {
-  color: #f5f5f5;
+:global(html.dark) .authSwitchButton:hover:not(.authSwitchButtonActive) {
+  color: rgba(255, 255, 255, 0.80);
+  background: rgba(255, 255, 255, 0.06);
 }
 
-:global(html.dark) .authSwitchButtonActive {
-  box-shadow:
-    0 10px 28px rgba(196, 0, 0, 0.48),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+:global(html.dark) .forgotLink {
+  color: #f87171;
+}
+
+:global(html.dark) .forgotLink:hover {
+  color: #fca5a5;
+}
+
+:global(html.dark) .divider::before,
+:global(html.dark) .divider::after {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:global(html.dark) .dividerLabel {
+  color: rgba(255, 255, 255, 0.28);
 }
