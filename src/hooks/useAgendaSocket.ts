@@ -4,20 +4,20 @@ import { useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 
 export type SocketBooking = {
-  id: string
+  id:             string
   professionalId: string
-  clientName: string
-  start: string
-  end: string
-  serviceName: string
-  status: 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
+  clientName:     string
+  start:          string
+  end:            string
+  serviceName:    string
+  status:         'CONFIRMED' | 'COMPLETED' | 'CANCELED'
 }
 
-type SocketHandlers = {
+interface SocketHandlers {
   businessId: string
-  onCreate: (booking: SocketBooking) => void
-  onUpdate?: (booking: SocketBooking) => void
-  onCancel: (bookingId: string) => void
+  onCreate:   (booking: SocketBooking) => void
+  onUpdate?:  (booking: SocketBooking) => void
+  onCancel:   (bookingId: string) => void
 }
 
 export function useAgendaSocket({
@@ -26,14 +26,11 @@ export function useAgendaSocket({
   onUpdate,
   onCancel,
 }: SocketHandlers) {
-  const socketRef = useRef<Socket | null>(null)
-
-  // Refs estáveis para os handlers — evita re-registrar listeners
+  // Stable refs — avoids re-registering listeners on every render
   const onCreateRef = useRef(onCreate)
   const onUpdateRef = useRef(onUpdate)
   const onCancelRef = useRef(onCancel)
 
-  // Atualiza as refs a cada render sem recriar o socket
   useEffect(() => {
     onCreateRef.current = onCreate
     onUpdateRef.current = onUpdate
@@ -46,58 +43,42 @@ export function useAgendaSocket({
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'
 
     const socket: Socket = io(apiUrl, {
-      withCredentials: true,
-      transports: ['polling'],
-      forceNew: true,
-      reconnection: true,
+      withCredentials:      true,
+      transports:           ['polling'],  // Railway proxy — no WebSocket upgrade
+      upgrade:        false,
+      forceNew:             true,
+      reconnection:         true,
       reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
+      reconnectionDelay:    1000,
       reconnectionDelayMax: 5000,
-      timeout: 10000,
+      timeout:              10000,
     })
-
-    socketRef.current = socket
 
     socket.on('connect', () => {
-      console.log('[Socket] Conectado:', socket.id)
       socket.emit('join:business', businessId)
     })
 
-    socket.on('connect_error', (err) => {
-      console.warn('[Socket] Erro de conexão:', err.message)
+    socket.on('connect_error', err => {
+      console.warn('[AgendaSocket] connect_error:', err.message)
     })
 
-    socket.on('disconnect', (reason) => {
-      console.log('[Socket] Desconectado:', reason)
-    })
-
-    socket.on('reconnect', (attempt) => {
-      console.log('[Socket] Reconectado após', attempt, 'tentativas')
+    socket.on('reconnect', () => {
       socket.emit('join:business', businessId)
     })
 
-    // Handlers delegam para as refs — sempre chamam a versão mais recente
-    socket.on('booking:created', (booking: SocketBooking) => {
-      onCreateRef.current(booking)
-    })
+    socket.on('booking:created', (b: SocketBooking) => { onCreateRef.current(b) })
+    socket.on('booking:updated', (b: SocketBooking) => { onUpdateRef.current?.(b) })
+    socket.on('booking:canceled', ({ id }: { id: string }) => { onCancelRef.current(id) })
 
-    socket.on('booking:updated', (booking: SocketBooking) => {
-      onUpdateRef.current?.(booking)
-    })
-
-    socket.on('booking:canceled', (payload: { id: string }) => {
-      onCancelRef.current(payload.id)
-    })
-
-    const pingInterval = setInterval(() => {
+    // Keep-alive ping every 25s
+    const ping = setInterval(() => {
       if (socket.connected) socket.emit('ping')
-    }, 25000)
+    }, 25_000)
 
     return () => {
-      clearInterval(pingInterval)
+      clearInterval(ping)
       socket.emit('leave:business', businessId)
       socket.disconnect()
-      socketRef.current = null
     }
-  }, [businessId]) // ← só reconecta se businessId mudar
+  }, [businessId])
 }

@@ -1,5 +1,7 @@
 import { BookingStatus, Professional } from '@/shared/types'
 
+export type { BookingStatus }  // ← re-exporta para quem importar de '../types'
+
 export interface AgendaBooking {
   id: string
   clientName: string
@@ -10,5 +12,4 @@ export interface AgendaBooking {
   end: string
 }
 
-// type alias em vez de interface vazia — evita erro @typescript-eslint/no-empty-object-type
 export type AgendaProfessional = Professional

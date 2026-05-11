@@ -1,5 +1,4 @@
 // ─── AgendaColumn.tsx ─────────────────────────────────────────────────────────
-// (keep in a separate file in your project — placed here for reference)
 
 import BookingCard from './BookingCard'
 import { AgendaProfessional, AgendaBooking } from '@/features/agenda/types'
@@ -9,6 +8,9 @@ function toMinutes(t: string) {
   return h * 60 + m
 }
 
+const PX_PER_MIN = (slotHeight: number) => slotHeight / 30
+const START_MIN  = 8 * 60
+
 export function AgendaColumn({
   professional,
   bookings: colBookings,
@@ -16,13 +18,13 @@ export function AgendaColumn({
   slotHeight,
   onCreateBooking,
 }: {
-  professional: AgendaProfessional
-  bookings: AgendaBooking[]
-  slots: string[]
-  slotHeight: number
+  professional:    AgendaProfessional
+  bookings:        AgendaBooking[]
+  slots:           string[]
+  slotHeight:      number
   onCreateBooking: (time: string, professionalId: string) => void
 }) {
-  const START = 8 * 60
+  const pxPerMin = PX_PER_MIN(slotHeight)
 
   return (
     <div
@@ -68,35 +70,34 @@ export function AgendaColumn({
               cursor: 'pointer',
               transition: 'background 0.15s ease',
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = 'rgba(220,38,38,0.04)')
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = 'transparent')
-            }
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(220,38,38,0.04)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           />
         ))}
 
         {/* BOOKINGS */}
         {colBookings.map((b) => {
-          const start = toMinutes(b.start)
-          const end = toMinutes(b.end)
+          const startMin = toMinutes(b.start)
+          const endMin   = toMinutes(b.end)
+          const duration = endMin - startMin
+          const top      = (startMin - START_MIN) * pxPerMin
+          const height   = Math.max(duration * pxPerMin - 4, slotHeight * 0.75)
 
           return (
             <div
               key={b.id}
               style={{
                 position: 'absolute',
-                top: ((start - START) / 30) * slotHeight,
+                top,
                 left: 6,
                 right: 6,
-                height: ((end - start) / 30) * slotHeight,
+                height,
                 zIndex: 8,
                 pointerEvents: 'none',
               }}
             >
-              <div style={{ pointerEvents: 'auto' }}>
-                <BookingCard booking={b} />
+              <div style={{ width: '100%', height: '100%', pointerEvents: 'auto' }}>
+                <BookingCard booking={b} totalHeight={height} />
               </div>
             </div>
           )

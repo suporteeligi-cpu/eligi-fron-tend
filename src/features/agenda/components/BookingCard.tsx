@@ -1,138 +1,107 @@
 'use client'
 
-import { AgendaBooking } from '@/features/agenda/types'
+import { AgendaBooking, BookingStatus } from '../types'
+import { bookingStatus } from '@/shared/theme'
 
-const STATUS = {
-  CONFIRMED: {
-    gradient: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-    bg: 'rgba(220,38,38,0.05)',
-    border: 'rgba(220,38,38,0.18)',
-    text: '#991b1b',
-    glow: 'rgba(220,38,38,0.15)',
-  },
-  COMPLETED: {
-    gradient: 'linear-gradient(135deg, #475569, #334155)',
-    bg: 'rgba(71,85,105,0.05)',
-    border: 'rgba(71,85,105,0.15)',
-    text: '#334155',
-    glow: 'rgba(71,85,105,0.12)',
-  },
-  CANCELED: {
-    gradient: 'linear-gradient(135deg, #94a3b8, #cbd5e1)',
-    bg: 'rgba(148,163,184,0.06)',
-    border: 'rgba(148,163,184,0.2)',
-    text: '#64748b',
-    glow: 'rgba(148,163,184,0.1)',
-  },
+interface Props {
+  booking:     AgendaBooking
+  totalHeight: number
 }
 
-export default function BookingCard({ booking }: { booking: AgendaBooking }) {
-  const s = STATUS[booking.status] ?? STATUS.CONFIRMED
-  const initials = booking.clientName
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
+function formatTime(t: string) {
+  return t.slice(0, 5)
+}
+
+const STATUS_LABEL: Record<BookingStatus, string> = {
+  CONFIRMED: 'Confirmado',
+  COMPLETED: 'Concluído',
+  CANCELED:  'Cancelado',
+}
+
+export default function BookingCard({ booking, totalHeight }: Props) {
+  const theme   = bookingStatus[booking.status] ?? bookingStatus.CONFIRMED
+  const compact = totalHeight < 52
+  const medium  = totalHeight >= 52 && totalHeight < 90
 
   return (
     <div
       style={{
-        height: '100%',
-        borderRadius: 12,
-        background: 'rgba(255,255,255,0.88)',
-        border: `1px solid ${s.border}`,
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        padding: '7px 9px',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        cursor: 'pointer',
-        transition:
-          'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease',
-        boxSizing: 'border-box',
-        boxShadow: `0 2px 8px ${s.glow}`,
+        position:'relative', width:'100%', height:'100%',
+        borderRadius:10,
+        padding: compact ? '4px 8px' : '8px 10px',
+        background: theme.gradient,
+        color:'#fff', fontSize:12,
+        display:'flex', flexDirection:'column',
+        justifyContent: compact ? 'center' : 'space-between',
+        overflow:'hidden',
+        boxShadow:`0 4px 14px ${theme.glow}, 0 1px 4px rgba(0,0,0,0.10)`,
+        border:'1px solid rgba(255,255,255,0.15)',
+        cursor:'pointer',
+        transition:'transform 0.15s ease, box-shadow 0.15s ease',
+        userSelect:'none',
+        pointerEvents:'auto',
+        boxSizing:'border-box',
       }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.025) translateY(-1px)'
-        e.currentTarget.style.boxShadow = `0 6px 18px ${s.glow}`
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLDivElement
+        el.style.transform = 'scale(1.012)'
+        el.style.boxShadow = `0 8px 24px ${theme.glow}, 0 2px 6px rgba(0,0,0,0.14)`
       }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)'
-        e.currentTarget.style.boxShadow = `0 2px 8px ${s.glow}`
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLDivElement
+        el.style.transform = 'scale(1)'
+        el.style.boxShadow = `0 4px 14px ${theme.glow}, 0 1px 4px rgba(0,0,0,0.10)`
       }}
     >
-      {/* gradient top bar */}
-      <div
-        style={{
-          height: 3,
-          borderRadius: 3,
-          background: s.gradient,
-          marginBottom: 6,
-          flexShrink: 0,
-        }}
-      />
+      <div aria-hidden style={{
+        position:'absolute', top:0, left:0, right:0, height:'40%',
+        background:'linear-gradient(180deg, rgba(255,255,255,0.16) 0%, transparent 100%)',
+        borderRadius:'10px 10px 0 0', pointerEvents:'none',
+      }} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: '50%',
-            background: s.gradient,
-            color: '#fff',
-            fontSize: 9,
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {initials}
-        </div>
-        <strong
-          style={{
-            fontSize: 11,
-            color: s.text,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontFamily: '-apple-system, system-ui, sans-serif',
-          }}
-        >
+      <div aria-hidden style={{
+        position:'absolute', left:0, top:0, bottom:0, width:3,
+        background:'rgba(255,255,255,0.35)',
+        borderRadius:'10px 0 0 10px',
+      }} />
+
+      <div style={{ paddingLeft:6, position:'relative', display:'flex', flexDirection:'column', gap: compact ? 0 : 3, minWidth:0 }}>
+        <div style={{
+          fontWeight:700, fontSize: compact ? 11 : 13, lineHeight:1.2,
+          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+        }}>
           {booking.clientName}
-        </strong>
+        </div>
+        {!compact && (
+          <div style={{
+            fontSize:11, fontWeight:500, opacity:0.85,
+            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+          }}>
+            {booking.serviceName}
+          </div>
+        )}
       </div>
 
-      <div
-        style={{
-          fontSize: 10,
-          color: s.text,
-          opacity: 0.72,
-          marginTop: 3,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          fontFamily: '-apple-system, system-ui, sans-serif',
-        }}
-      >
-        {booking.serviceName}
-      </div>
-
-      <div
-        style={{
-          fontSize: 9,
-          color: s.text,
-          opacity: 0.5,
-          marginTop: 2,
-          fontVariantNumeric: 'tabular-nums',
-          fontFamily: '-apple-system, system-ui, sans-serif',
-        }}
-      >
-        {booking.start} – {booking.end}
-      </div>
+      {!compact && (
+        <div style={{
+          paddingLeft:6, position:'relative',
+          display:'flex', alignItems:'center', justifyContent:'space-between', gap:4,
+        }}>
+          <span style={{ fontSize:10, fontWeight:600, opacity:0.80, fontVariantNumeric:'tabular-nums' }}>
+            {formatTime(booking.start)} – {formatTime(booking.end)}
+          </span>
+          {!medium && (
+            <span style={{
+              fontSize:9, fontWeight:700,
+              background:'rgba(255,255,255,0.22)',
+              borderRadius:6, padding:'1px 6px',
+              letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap',
+            }}>
+              {STATUS_LABEL[booking.status]}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
