@@ -1,15 +1,18 @@
-import { BookingStatus, Professional } from '@/shared/types'
+// src/features/agenda/types/index.ts
 
-export type { BookingStatus }  // ← re-exporta para quem importar de '../types'
-
-export interface AgendaBooking {
+export type AgendaProfessional = {
   id: string
-  clientName: string
-  serviceName: string
-  professionalId: string
-  status: BookingStatus
-  start: string
-  end: string
+  name: string
 }
 
-export type AgendaProfessional = Professional
+export type BookingStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
+
+export type AgendaBooking = {
+  id: string
+  professionalId: string
+  clientName: string
+  serviceName: string
+  start: string   // "HH:mm"
+  end: string     // "HH:mm"
+  status: BookingStatus
+}

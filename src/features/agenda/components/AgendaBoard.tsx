@@ -1,10 +1,11 @@
 'use client'
+// src/features/agenda/components/AgendaBoard.tsx
 
 import { useEffect, useState } from 'react'
-import AgendaToolbar from './AgendaToolbar'
-import AgendaGrid from './AgendaGrid'
-import AgendaMobileList from './AgendaMobileList'
-import SideCheckoutPanel from '@/features/booking/components/SideCheckoutPanel'
+import AgendaToolbar      from './AgendaToolbar'
+import AgendaGrid         from './AgendaGrid'
+import AgendaMobileList   from './AgendaMobileList'
+import SideCheckoutPanel  from '@/features/booking/components/SideCheckoutPanel'
 import { useAgendaStore } from '../hooks/useAgendaStore'
 import { useAgendaSocket } from '../hooks/useAgendaSocket'
 import { AgendaProfessional, AgendaBooking } from '../types'
@@ -12,23 +13,13 @@ import { colors } from '@/shared/theme'
 
 interface Props {
   professionals: AgendaProfessional[]
-  businessId: string
+  businessId:    string
   externalDate?: Date
   onDateChange?: (date: Date) => void
-  onExternalAdd?: (booking: AgendaBooking) => void
-  onExternalUpdate?: (booking: AgendaBooking) => void
-  onExternalRemove?: (id: string) => void
+  // Callbacks removidos — o store é a única fonte da verdade
 }
 
-export default function AgendaBoard({
-  professionals,
-  businessId,
-  externalDate,
-  onDateChange,
-  onExternalAdd,
-  onExternalUpdate,
-  onExternalRemove,
-}: Props) {
+export default function AgendaBoard({ professionals, businessId, externalDate, onDateChange }: Props) {
   const {
     bookings,
     addBooking,
@@ -42,14 +33,17 @@ export default function AgendaBoard({
 
   const [isMobile, setIsMobile] = useState(false)
 
+  // Sincroniza data externa → store
   useEffect(() => {
     if (externalDate) setSelectedDate(externalDate)
   }, [externalDate, setSelectedDate])
 
+  // Notifica parent quando a data muda internamente
   useEffect(() => {
     onDateChange?.(selectedDate)
   }, [selectedDate, onDateChange])
 
+  // Detecta mobile
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
     check()
@@ -57,24 +51,12 @@ export default function AgendaBoard({
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  function handleAdd(booking: AgendaBooking) {
-    addBooking(booking)
-    onExternalAdd?.(booking)
-  }
-  function handleUpdate(booking: AgendaBooking) {
-    updateBooking(booking)
-    onExternalUpdate?.(booking)
-  }
-  function handleRemove(id: string) {
-    removeBooking(id)
-    onExternalRemove?.(id)
-  }
-
+  // Socket: store como fonte da verdade — sem callbacks externos para evitar double-insert
   useAgendaSocket({
     businessId,
-    onCreate: handleAdd,
-    onUpdate: handleUpdate,
-    onCancel: handleRemove,
+    onCreate: addBooking,
+    onUpdate: updateBooking,
+    onCancel: removeBooking,
   })
 
   return (
@@ -94,12 +76,16 @@ export default function AgendaBoard({
         </div>
       </div>
 
+      {/*
+        Key removido do SideCheckoutPanel para evitar re-mount desnecessário.
+        O estado interno do panel é controlado por `checkout.open`.
+      */}
       <SideCheckoutPanel
-        key={`${checkout.time}-${checkout.professionalId}`}
         open={checkout.open}
         mode={checkout.mode}
         time={checkout.time}
         professionalId={checkout.professionalId}
+        booking={checkout.booking}
         professionals={professionals}
         selectedDate={selectedDate}
         onClose={closeCheckout}

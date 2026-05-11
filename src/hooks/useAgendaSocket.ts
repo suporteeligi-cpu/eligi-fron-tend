@@ -1,17 +1,11 @@
 'use client'
+// src/hooks/useAgendaSocket.ts  (e re-exportado de src/features/agenda/hooks/useAgendaSocket.ts)
 
 import { useEffect, useRef } from 'react'
-import { io, Socket } from 'socket.io-client'
+import { io, Socket }        from 'socket.io-client'
+import { AgendaBooking }     from '@/features/agenda/types'
 
-export type SocketBooking = {
-  id:             string
-  professionalId: string
-  clientName:     string
-  start:          string
-  end:            string
-  serviceName:    string
-  status:         'CONFIRMED' | 'COMPLETED' | 'CANCELED'
-}
+export type SocketBooking = AgendaBooking
 
 interface SocketHandlers {
   businessId: string
@@ -20,13 +14,8 @@ interface SocketHandlers {
   onCancel:   (bookingId: string) => void
 }
 
-export function useAgendaSocket({
-  businessId,
-  onCreate,
-  onUpdate,
-  onCancel,
-}: SocketHandlers) {
-  // Stable refs — avoids re-registering listeners on every render
+export function useAgendaSocket({ businessId, onCreate, onUpdate, onCancel }: SocketHandlers) {
+  // Refs estáveis para evitar re-registro de listeners a cada render
   const onCreateRef = useRef(onCreate)
   const onUpdateRef = useRef(onUpdate)
   const onCancelRef = useRef(onCancel)
@@ -44,8 +33,8 @@ export function useAgendaSocket({
 
     const socket: Socket = io(apiUrl, {
       withCredentials:      true,
-      transports:           ['polling'],  // Railway proxy — no WebSocket upgrade
-      upgrade:        false,
+      transports:           ['polling'],   // Railway: sem WebSocket upgrade
+      upgrade:              false,
       forceNew:             true,
       reconnection:         true,
       reconnectionAttempts: 10,
@@ -55,10 +44,11 @@ export function useAgendaSocket({
     })
 
     socket.on('connect', () => {
+      console.log('[AgendaSocket] connected, joining business:', businessId)
       socket.emit('join:business', businessId)
     })
 
-    socket.on('connect_error', err => {
+    socket.on('connect_error', (err) => {
       console.warn('[AgendaSocket] connect_error:', err.message)
     })
 
@@ -66,11 +56,11 @@ export function useAgendaSocket({
       socket.emit('join:business', businessId)
     })
 
-    socket.on('booking:created', (b: SocketBooking) => { onCreateRef.current(b) })
-    socket.on('booking:updated', (b: SocketBooking) => { onUpdateRef.current?.(b) })
-    socket.on('booking:canceled', ({ id }: { id: string }) => { onCancelRef.current(id) })
+    socket.on('booking:created',  (b: SocketBooking)        => onCreateRef.current(b))
+    socket.on('booking:updated',  (b: SocketBooking)        => onUpdateRef.current?.(b))
+    socket.on('booking:canceled', ({ id }: { id: string }) => onCancelRef.current(id))
 
-    // Keep-alive ping every 25s
+    // Keep-alive ping para Railway (polling tem timeout longo)
     const ping = setInterval(() => {
       if (socket.connected) socket.emit('ping')
     }, 25_000)

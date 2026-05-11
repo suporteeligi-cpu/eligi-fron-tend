@@ -1,28 +1,17 @@
 'use client'
+// src/app/(dashboard)/agenda/page.tsx
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import { useAgenda }      from '@/hooks/useAgenda'
-import { AgendaDay }      from '@/types/agenda'
 import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
 import AgendaBoard        from '@/features/agenda/components/AgendaBoard'
 import { AgendaBooking }  from '@/features/agenda/types'
 
 dayjs.locale('pt-br')
 
-type ApiBooking = AgendaDay['bookings'][number]
-
-function adaptBooking(b: ApiBooking): AgendaBooking {
-  const start    = b.time || '08:00'
-  const duration = b.service?.duration ?? b.duration ?? 30
-  const end      = dayjs(`2000-01-01 ${start}`).add(duration, 'minute').format('HH:mm')
-  const validStatuses = ['CONFIRMED', 'COMPLETED', 'CANCELED'] as const
-  type BS = typeof validStatuses[number]
-  const status: BS = validStatuses.includes(b.status as BS) ? (b.status as BS) : 'CONFIRMED'
-  return { id: b.id, professionalId: b.professionalId, clientName: b.clientName, serviceName: b.service?.name || 'Serviço', start, end, status }
-}
-
+// ─── Spinner ────────────────────────────────────────────────────────────────
 function AgendaSpinner() {
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'calc(100dvh - 160px)', gap:14 }}>
@@ -33,27 +22,23 @@ function AgendaSpinner() {
   )
 }
 
+// ─── Page ───────────────────────────────────────────────────────────────────
 export default function AgendaPage() {
-  const { selectedDate, setSelectedDate, addBooking, updateBooking, removeBooking, setBookings } = useAgendaStore()
+  const { selectedDate, setSelectedDate, setBookings } = useAgendaStore()
   const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
   const { data, loading } = useAgenda(dateStr)
+
+  // Ref para evitar re-sync quando o mesmo dateStr já foi carregado
   const lastSyncedDate = useRef<string>('')
 
   useEffect(() => {
     if (!data?.bookings) return
-    const adapted = data.bookings.map(adaptBooking)
-    if (lastSyncedDate.current !== dateStr) {
-      lastSyncedDate.current = dateStr
-      setBookings(adapted)
-      return
-    }
-    adapted.forEach(b => updateBooking(b))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.bookings, dateStr])
-
-  const handleAdd    = useCallback((b: AgendaBooking) => addBooking(b),    [addBooking])
-  const handleUpdate = useCallback((b: AgendaBooking) => updateBooking(b), [updateBooking])
-  const handleRemove = useCallback((id: string)       => removeBooking(id), [removeBooking])
+    // Só substitui a lista quando a data realmente mudou
+    // O socket cuida das atualizações em tempo real
+    if (lastSyncedDate.current === dateStr) return
+    lastSyncedDate.current = dateStr
+    setBookings(data.bookings as AgendaBooking[])
+  }, [data?.bookings, dateStr, setBookings])
 
   if (loading || !data) return <AgendaSpinner />
 
@@ -63,9 +48,6 @@ export default function AgendaPage() {
       businessId={data.businessId ?? ''}
       externalDate={selectedDate}
       onDateChange={setSelectedDate}
-      onExternalAdd={handleAdd}
-      onExternalUpdate={handleUpdate}
-      onExternalRemove={handleRemove}
     />
   )
 }
