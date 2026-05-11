@@ -1,17 +1,15 @@
 'use client'
 // src/app/(dashboard)/agenda/page.tsx
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import { useAgenda }      from '@/hooks/useAgenda'
 import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
 import AgendaBoard        from '@/features/agenda/components/AgendaBoard'
-import { AgendaBooking }  from '@/features/agenda/types'
 
 dayjs.locale('pt-br')
 
-// ─── Spinner ────────────────────────────────────────────────────────────────
 function AgendaSpinner() {
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'calc(100dvh - 160px)', gap:14 }}>
@@ -22,30 +20,29 @@ function AgendaSpinner() {
   )
 }
 
-// ─── Page ───────────────────────────────────────────────────────────────────
 export default function AgendaPage() {
-  const { selectedDate, setSelectedDate, setBookings } = useAgendaStore()
+  const { selectedDate, setSelectedDate, setBookingsForDate, getBookingsForDate } = useAgendaStore()
   const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
-  const { data, loading } = useAgenda(dateStr)
 
-  // Ref para evitar re-sync quando o mesmo dateStr já foi carregado
-  const lastSyncedDate = useRef<string>('')
+  // Bookings em cache para esta data (evita flash vazio enquanto fetch carrega)
+  const cachedBookings = getBookingsForDate(dateStr)
+
+  const { data, loading } = useAgenda(dateStr)
 
   useEffect(() => {
     if (!data?.bookings) return
-    // Só substitui a lista quando a data realmente mudou
-    // O socket cuida das atualizações em tempo real
-    if (lastSyncedDate.current === dateStr) return
-    lastSyncedDate.current = dateStr
-    setBookings(data.bookings as AgendaBooking[])
-  }, [data?.bookings, dateStr, setBookings])
+    // Só substitui se o fetch trouxe dados diferentes dos que já estão em cache
+    // (evita sobrescrever atualizações do socket)
+    setBookingsForDate(dateStr, data.bookings)
+  }, [data?.bookings, dateStr, setBookingsForDate])
 
-  if (loading || !data) return <AgendaSpinner />
+  // Mostra spinner apenas no primeiro load (sem cache)
+  if (loading && cachedBookings.length === 0 && !data) return <AgendaSpinner />
 
   return (
     <AgendaBoard
-      professionals={data.professionals}
-      businessId={data.businessId ?? ''}
+      professionals={data?.professionals ?? []}
+      businessId={data?.businessId ?? ''}
       externalDate={selectedDate}
       onDateChange={setSelectedDate}
     />

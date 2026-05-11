@@ -2,13 +2,14 @@
 // src/features/agenda/components/AgendaBoard.tsx
 
 import { useEffect, useState } from 'react'
-import AgendaToolbar      from './AgendaToolbar'
-import AgendaGrid         from './AgendaGrid'
-import AgendaMobileList   from './AgendaMobileList'
-import SideCheckoutPanel  from '@/features/booking/components/SideCheckoutPanel'
-import { useAgendaStore } from '../hooks/useAgendaStore'
+import dayjs from 'dayjs'
+import AgendaToolbar     from './AgendaToolbar'
+import AgendaGrid        from './AgendaGrid'
+import AgendaMobileList  from './AgendaMobileList'
+import SideCheckoutPanel from '@/features/booking/components/SideCheckoutPanel'
+import { useAgendaStore }  from '../hooks/useAgendaStore'
 import { useAgendaSocket } from '../hooks/useAgendaSocket'
-import { AgendaProfessional, AgendaBooking } from '../types'
+import { AgendaProfessional } from '../types'
 import { colors } from '@/shared/theme'
 
 interface Props {
@@ -16,22 +17,24 @@ interface Props {
   businessId:    string
   externalDate?: Date
   onDateChange?: (date: Date) => void
-  // Callbacks removidos — o store é a única fonte da verdade
 }
 
 export default function AgendaBoard({ professionals, businessId, externalDate, onDateChange }: Props) {
   const {
-    bookings,
+    selectedDate,
+    setSelectedDate,
+    getBookingsForDate,
     addBooking,
     updateBooking,
     removeBooking,
     checkout,
     closeCheckout,
-    selectedDate,
-    setSelectedDate,
   } = useAgendaStore()
 
   const [isMobile, setIsMobile] = useState(false)
+
+  const dateStr  = dayjs(selectedDate).format('YYYY-MM-DD')
+  const bookings = getBookingsForDate(dateStr)
 
   // Sincroniza data externa → store
   useEffect(() => {
@@ -51,12 +54,16 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  // Socket: store como fonte da verdade — sem callbacks externos para evitar double-insert
+  // Socket — filtra bookings pelo dateStr do booking
+  // O socket não garante que o evento é do dia exibido,
+  // então usamos o campo `start` (que é HH:mm) — não tem data.
+  // A solução: o backend deve emitir `date` junto com o booking.
+  // Enquanto isso, inserimos apenas no dia selecionado (comportamento conservador).
   useAgendaSocket({
     businessId,
-    onCreate: addBooking,
-    onUpdate: updateBooking,
-    onCancel: removeBooking,
+    onCreate:  (b) => addBooking(dateStr, b),
+    onUpdate:  (b) => updateBooking(dateStr, b),
+    onCancel:  (id) => removeBooking(dateStr, id),
   })
 
   return (
@@ -76,10 +83,6 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
         </div>
       </div>
 
-      {/*
-        Key removido do SideCheckoutPanel para evitar re-mount desnecessário.
-        O estado interno do panel é controlado por `checkout.open`.
-      */}
       <SideCheckoutPanel
         open={checkout.open}
         mode={checkout.mode}

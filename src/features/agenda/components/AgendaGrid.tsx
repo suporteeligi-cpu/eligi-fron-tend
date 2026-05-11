@@ -1,24 +1,23 @@
 'use client'
 // src/features/agenda/components/AgendaGrid.tsx
 
-import { useRef } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import BookingCard from './BookingCard'
 import { AgendaProfessional, AgendaBooking } from '../types'
 import { colors, agendaLayout } from '@/shared/theme'
 import { useAgendaStore } from '../hooks/useAgendaStore'
 
-const {
-  startHour:    START_HOUR,
-  endHour:      END_HOUR,
-  timeColWidth: TIME_COL_WIDTH,
-  minColWidth:  MIN_COL_WIDTH,
-  headerHeight: HEADER_HEIGHT,
-} = agendaLayout
+// ─── Fonte da verdade única: vem de agendaLayout ────────────────────────────
+const START_HOUR   = agendaLayout.startHour    // 8
+const END_HOUR     = agendaLayout.endHour      // 20
+const TIME_COL_W   = agendaLayout.timeColWidth // 64
+const MIN_COL_W    = agendaLayout.minColWidth  // 140
+const HEADER_H     = agendaLayout.headerHeight // 56
 
-// ─── Constantes de layout ───────────────────────────────────────────────────
-const SLOT_STEP    = 5                         // minutos por slot
-const SLOT_HEIGHT  = 16                        // px por slot de 5min → 16px * 12 slots/hora = 192px/hora
-const PX_PER_MIN   = SLOT_HEIGHT / SLOT_STEP   // 16 / 5 = 3.2px por minuto
+// Slots de 5 em 5 minutos
+const SLOT_STEP    = 5                         // minutos
+const SLOT_H       = 16                        // px por slot de 5min
+const PX_PER_MIN   = SLOT_H / SLOT_STEP        // 3.2 px/min
 const START_MIN    = START_HOUR * 60
 
 // ─── Utilitários ────────────────────────────────────────────────────────────
@@ -37,11 +36,25 @@ function toMinutes(t: string): number {
   return h * 60 + m
 }
 
-function getCurrentTimeY(): number {
-  const now     = new Date()
-  const minutes = now.getHours() * 60 + now.getMinutes()
-  if (minutes < START_HOUR * 60 || minutes > END_HOUR * 60) return -1
-  return (minutes - START_MIN) * PX_PER_MIN
+const SLOTS = generateSlots()
+
+// ─── Indicador de hora atual ─────────────────────────────────────────────────
+function useCurrentTimeY() {
+  const [y, setY] = useState(-1)
+
+  useEffect(() => {
+    function calc() {
+      const now = new Date()
+      const min = now.getHours() * 60 + now.getMinutes()
+      if (min < START_MIN || min > END_HOUR * 60) { setY(-1); return }
+      setY((min - START_MIN) * PX_PER_MIN)
+    }
+    calc()
+    const id = setInterval(calc, 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  return y
 }
 
 // ─── Componente ─────────────────────────────────────────────────────────────
@@ -52,19 +65,24 @@ interface Props {
 
 export default function AgendaGrid({ professionals, bookings }: Props) {
   const { openCreate } = useAgendaStore()
-  const slots          = generateSlots()
   const scrollRef      = useRef<HTMLDivElement>(null)
-  const currentY       = getCurrentTimeY()
+  const currentY       = useCurrentTimeY()
+  const totalH         = SLOTS.length * SLOT_H  // altura total da grade
 
   // Deduplicação defensiva
   const seen = new Set<string>()
-  const uniqueBookings = bookings.filter(b => {
+  const unique = bookings.filter(b => {
     if (seen.has(b.id)) return false
     seen.add(b.id)
     return true
   })
 
-  const totalHeight = slots.length * SLOT_HEIGHT
+  // Scroll para hora atual ao montar
+  useEffect(() => {
+    if (currentY > 0 && scrollRef.current) {
+      scrollRef.current.scrollTop = Math.max(0, currentY - 120)
+    }
+  }, [currentY])
 
   return (
     <div
@@ -76,43 +94,43 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
       }}
     >
       <style>{`
-        .grid-slot {
-          height: ${SLOT_HEIGHT}px;
+        .ag-slot {
+          height: ${SLOT_H}px;
           cursor: pointer;
           box-sizing: border-box;
-          transition: background 0.1s ease;
+          transition: background 0.1s;
         }
-        .grid-slot:hover { background: ${colors.red.subtle} !important; }
-        .grid-slot-hour  { border-top: 1px solid ${colors.gray.border}; }
-        .grid-slot-half  { border-top: 1px dashed rgba(0,0,0,0.06); }
-        .grid-slot-5     { border-top: 1px solid transparent; }
+        .ag-slot:hover { background: ${colors.red.subtle} !important; }
+        .ag-hour  { border-top: 1px solid ${colors.gray.border}; }
+        .ag-half  { border-top: 1px dashed rgba(0,0,0,0.06); }
+        .ag-5     { border-top: 1px solid transparent; }
       `}</style>
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: `${TIME_COL_WIDTH}px repeat(${professionals.length}, minmax(${MIN_COL_WIDTH}px, 1fr))`,
-        minWidth: `${TIME_COL_WIDTH + professionals.length * MIN_COL_WIDTH}px`,
+        gridTemplateColumns: `${TIME_COL_W}px repeat(${professionals.length}, minmax(${MIN_COL_W}px, 1fr))`,
+        minWidth: `${TIME_COL_W + professionals.length * MIN_COL_W}px`,
         position: 'relative',
       }}>
 
-        {/* ── Header: canto vazio ── */}
+        {/* ── Header canto ── */}
         <div style={{
-          height: HEADER_HEIGHT, position: 'sticky', top: 0, zIndex: 20,
-          background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)',
+          height: HEADER_H, position: 'sticky', top: 0, zIndex: 20,
+          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
           borderBottom: `1px solid ${colors.gray.border}`,
-          borderRight: `1px solid ${colors.gray.border}`,
+          borderRight:  `1px solid ${colors.gray.border}`,
         }} />
 
-        {/* ── Header: profissionais ── */}
-        {professionals.map((p) => {
+        {/* ── Header profissionais ── */}
+        {professionals.map(p => {
           const initials = p.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
           return (
             <div key={p.id} style={{
-              height: HEADER_HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              height: HEADER_H, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               position: 'sticky', top: 0, zIndex: 20,
-              background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)',
+              background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
               borderBottom: `1px solid ${colors.gray.border}`,
-              borderLeft: `1px solid ${colors.gray.border}`,
+              borderLeft:   `1px solid ${colors.gray.border}`,
               fontWeight: 600, fontSize: 13, color: colors.gray['900'],
             }}>
               <div style={{
@@ -122,27 +140,29 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0, boxShadow: `0 2px 8px ${colors.red.glow}`,
               }}>{initials}</div>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>{p.name}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>
+                {p.name}
+              </span>
             </div>
           )
         })}
 
         {/* ── Coluna de horários ── */}
-        <div style={{ position: 'relative', zIndex: 2, height: totalHeight }}>
-          {slots.map((time, i) => {
-            const minutes = i * SLOT_STEP
-            const isHour  = minutes % 60 === 0
-            const isHalf  = minutes % 30 === 0 && !isHour
+        <div style={{ position: 'relative', zIndex: 2, height: totalH }}>
+          {SLOTS.map((time, i) => {
+            const min    = i * SLOT_STEP
+            const isHour = min % 60 === 0
+            const isHalf = min % 30 === 0 && !isHour
             return (
               <div key={time} style={{
-                height: SLOT_HEIGHT,
+                height: SLOT_H,
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
                 paddingRight: 8, paddingTop: 2, boxSizing: 'border-box',
                 borderTop: isHour
                   ? `1px solid ${colors.gray.border}`
                   : isHalf
-                    ? `1px dashed rgba(0,0,0,0.07)`
-                    : '1px solid transparent',
+                  ? `1px dashed rgba(0,0,0,0.07)`
+                  : '1px solid transparent',
               }}>
                 {isHour && (
                   <span style={{ fontSize: 10, fontWeight: 600, color: colors.gray.dimText, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
@@ -160,45 +180,54 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
         </div>
 
         {/* ── Colunas de profissionais ── */}
-        {professionals.map((p) => {
-          const profBookings = uniqueBookings.filter(b => b.professionalId === p.id)
+        {professionals.map(p => {
+          const profBookings = unique.filter(b => b.professionalId === p.id)
           return (
-            <div key={p.id} style={{ position: 'relative', borderLeft: `1px solid ${colors.gray.border}`, zIndex: 5, height: totalHeight }}>
-
+            <div key={p.id} style={{
+              position: 'relative',
+              borderLeft: `1px solid ${colors.gray.border}`,
+              zIndex: 5,
+              height: totalH,
+            }}>
               {/* Slots clicáveis */}
-              {slots.map((time, i) => {
-                const minutes = i * SLOT_STEP
-                const isHour  = minutes % 60 === 0
-                const isHalf  = minutes % 30 === 0 && !isHour
+              {SLOTS.map((time, i) => {
+                const min    = i * SLOT_STEP
+                const isHour = min % 60 === 0
+                const isHalf = min % 30 === 0 && !isHour
                 return (
                   <div
                     key={time}
-                    className={`grid-slot ${isHour ? 'grid-slot-hour' : isHalf ? 'grid-slot-half' : 'grid-slot-5'}`}
+                    className={`ag-slot ${isHour ? 'ag-hour' : isHalf ? 'ag-half' : 'ag-5'}`}
                     onClick={() => openCreate(time, p.id)}
                   />
                 )
               })}
 
-              {/* Bookings: posicionamento pixel-preciso */}
-              {profBookings.map((b) => {
+              {/* Bookings posicionados por pixel */}
+              {profBookings.map(b => {
                 const startMin = toMinutes(b.start)
                 const endMin   = toMinutes(b.end)
-                const duration = endMin - startMin
+
+                // Valida que o booking está dentro do range da grade
+                if (startMin < START_MIN || startMin >= END_HOUR * 60) return null
+
+                const duration = Math.max(endMin - startMin, SLOT_STEP) // mínimo 5min
                 const top      = (startMin - START_MIN) * PX_PER_MIN
-                // mínimo de 15min visível (3 slots de 5min)
-                const height   = Math.max(duration * PX_PER_MIN - 2, 15 * PX_PER_MIN)
+                const height   = Math.max(duration * PX_PER_MIN - 2, SLOT_H * 2) // mínimo 2 slots visíveis
 
                 return (
                   <div
                     key={b.id}
                     style={{
-                      position: 'absolute', top, left: 4, right: 4, height,
-                      zIndex: 8, pointerEvents: 'none',
+                      position: 'absolute',
+                      top,
+                      left: 4,
+                      right: 4,
+                      height,
+                      zIndex: 8,
                     }}
                   >
-                    <div style={{ width: '100%', height: '100%', pointerEvents: 'auto' }}>
-                      <BookingCard booking={b} totalHeight={height} />
-                    </div>
+                    <BookingCard booking={b} totalHeight={height} />
                   </div>
                 )
               })}

@@ -1,7 +1,7 @@
 'use client'
 // src/features/booking/components/SideCheckoutPanel.tsx
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import api from '@/shared/lib/apiClient'
@@ -21,25 +21,186 @@ interface Props {
   mode:           'create' | 'edit'
   time:           string | null
   professionalId: string | null
-  booking:        AgendaBooking | null   // para pré-preencher no modo edit
+  booking:        AgendaBooking | null
   professionals:  AgendaProfessional[]
   selectedDate:   Date
   onClose:        () => void
 }
 
-// Gera slots de 5 em 5 minutos das 08:00 às 20:00
-function generateTimeChips(): string[] {
-  const chips: string[] = []
+// ─── Gera slots de 5 em 5 min ───────────────────────────────────────────────
+function generateTimeSlots(): string[] {
+  const slots: string[] = []
   for (let h = 8; h < 20; h++) {
     for (let m = 0; m < 60; m += 5) {
-      chips.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+      slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
     }
   }
-  return chips
+  return slots
 }
 
-const TIME_CHIPS = generateTimeChips()
+const TIME_SLOTS = generateTimeSlots()
+const ITEM_H     = 44   // altura de cada item da roleta (px)
+const VISIBLE    = 5    // itens visíveis (ímpar para centralizar o selecionado)
 
+// ─── Componente de roleta estilo Apple ──────────────────────────────────────
+function TimeWheel({ value, onChange }: { value: string; onChange: (t: string) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const isDragging   = useRef(false)
+  const startY       = useRef(0)
+  const startScroll  = useRef(0)
+
+  const selectedIdx = TIME_SLOTS.indexOf(value)
+
+  // Scroll para o item selecionado
+  const scrollTo = useCallback((idx: number, smooth = true) => {
+    if (!containerRef.current) return
+    containerRef.current.scrollTo({
+      top:      idx * ITEM_H,
+      behavior: smooth ? 'smooth' : 'instant',
+    })
+  }, [])
+
+  useEffect(() => {
+    if (selectedIdx >= 0) scrollTo(selectedIdx, false)
+  }, [selectedIdx, scrollTo])
+
+  // Snap ao item mais próximo após scroll
+  const snapToNearest = useCallback(() => {
+    if (!containerRef.current) return
+    const idx = Math.round(containerRef.current.scrollTop / ITEM_H)
+    const clamped = Math.max(0, Math.min(idx, TIME_SLOTS.length - 1))
+    scrollTo(clamped)
+    onChange(TIME_SLOTS[clamped])
+  }, [onChange, scrollTo])
+
+  // Touch
+  function onTouchStart(e: React.TouchEvent) {
+    startY.current     = e.touches[0].clientY
+    startScroll.current = containerRef.current?.scrollTop ?? 0
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (!containerRef.current) return
+    const delta = startY.current - e.touches[0].clientY
+    containerRef.current.scrollTop = startScroll.current + delta
+  }
+
+  // Mouse drag
+  function onMouseDown(e: React.MouseEvent) {
+    isDragging.current  = true
+    startY.current      = e.clientY
+    startScroll.current = containerRef.current?.scrollTop ?? 0
+  }
+  function onMouseMove(e: React.MouseEvent) {
+    if (!isDragging.current || !containerRef.current) return
+    const delta = startY.current - e.clientY
+    containerRef.current.scrollTop = startScroll.current + delta
+  }
+  function onMouseUp() { isDragging.current = false; snapToNearest() }
+
+  // Scroll nativo (mouse wheel / trackpad)
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  function onScroll() {
+    if (scrollTimer.current) clearTimeout(scrollTimer.current)
+    scrollTimer.current = setTimeout(snapToNearest, 120)
+  }
+
+  const paddingSlots = Math.floor(VISIBLE / 2)   // 2 slots de padding para centralizar
+  const containerH   = VISIBLE * ITEM_H
+
+  return (
+    <div style={{ position: 'relative', height: containerH, userSelect: 'none' }}>
+      {/* Máscara superior */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        height: paddingSlots * ITEM_H,
+        background: 'linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0))',
+        zIndex: 2, pointerEvents: 'none',
+      }} />
+
+      {/* Destaque central */}
+      <div style={{
+        position: 'absolute',
+        top: paddingSlots * ITEM_H,
+        left: 0, right: 0,
+        height: ITEM_H,
+        background: 'rgba(220,38,38,0.07)',
+        borderTop:    '1px solid rgba(220,38,38,0.18)',
+        borderBottom: '1px solid rgba(220,38,38,0.18)',
+        borderRadius: 10,
+        zIndex: 2, pointerEvents: 'none',
+      }} />
+
+      {/* Máscara inferior */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        height: paddingSlots * ITEM_H,
+        background: 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0))',
+        zIndex: 2, pointerEvents: 'none',
+      }} />
+
+      {/* Lista scrollável */}
+      <div
+        ref={containerRef}
+        onScroll={onScroll}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={snapToNearest}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        style={{
+          height: '100%',
+          overflowY: 'scroll',
+          scrollbarWidth: 'none',
+          cursor: 'grab',
+        }}
+      >
+        <style>{`.tw-scroll::-webkit-scrollbar { display: none; }`}</style>
+
+        {/* Padding inicial para centralizar primeiro item */}
+        <div style={{ height: paddingSlots * ITEM_H }} />
+
+        {TIME_SLOTS.map((t, i) => {
+          const dist     = Math.abs(i - selectedIdx)
+          const isCenter = dist === 0
+          const opacity  = isCenter ? 1 : dist === 1 ? 0.5 : 0.25
+          const scale    = isCenter ? 1 : dist === 1 ? 0.88 : 0.78
+          const weight   = isCenter ? 700 : 500
+
+          return (
+            <div
+              key={t}
+              onClick={() => { onChange(t); scrollTo(i) }}
+              style={{
+                height:     ITEM_H,
+                display:    'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize:   17,
+                fontWeight: weight,
+                color:      isCenter ? '#dc2626' : '#111827',
+                opacity,
+                transform:  `scale(${scale})`,
+                transition: 'opacity 0.15s, transform 0.15s',
+                cursor:     'pointer',
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {t}
+            </div>
+          )
+        })}
+
+        {/* Padding final */}
+        <div style={{ height: paddingSlots * ITEM_H }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Panel principal ─────────────────────────────────────────────────────────
 export default function SideCheckoutPanel({
   open,
   mode,
@@ -50,73 +211,63 @@ export default function SideCheckoutPanel({
   selectedDate,
   onClose,
 }: Props) {
-  const [clientName,       setClientName]       = useState('')
-  const [clientPhone,      setClientPhone]       = useState('')
-  const [selectedService,  setSelectedService]  = useState<Service | null>(null)
-  const [selectedTime,     setSelectedTime]     = useState<string | null>(time)
-  const [selectedProf,     setSelectedProf]     = useState<string | null>(professionalId)
-  const [services,         setServices]         = useState<Service[]>([])
-  const [loading,          setLoading]          = useState(false)
-  const [saving,           setSaving]           = useState(false)
-  const [success,          setSuccess]          = useState(false)
-  const [error,            setError]            = useState<string | null>(null)
+  const [clientName,      setClientName]      = useState('')
+  const [clientPhone,     setClientPhone]     = useState('')
+  const [selectedService, setSelectedService] = useState<Service | null>(null)
+  const [selectedTime,    setSelectedTime]    = useState<string>(time ?? '09:00')
+  const [selectedProf,    setSelectedProf]    = useState<string | null>(professionalId)
+  const [services,        setServices]        = useState<Service[]>([])
+  const [loading,         setLoading]         = useState(false)
+  const [saving,          setSaving]          = useState(false)
+  const [success,         setSuccess]         = useState(false)
+  const [error,           setError]           = useState<string | null>(null)
 
-  const profName =
-    professionals.find(p => p.id === (selectedProf ?? professionalId))?.name ?? 'Profissional'
+  const profName = professionals.find(p => p.id === selectedProf)?.name ?? 'Profissional'
 
-  // Carrega serviços quando o panel abre
+  const endTime = selectedService
+    ? dayjs(`2000-01-01 ${selectedTime}`).add(selectedService.duration, 'minute').format('HH:mm')
+    : null
+
+  // Carrega serviços
   useEffect(() => {
     if (!open) return
     setLoading(true)
-    api
-      .get<{ data: Service[] }>('/services')
-      .then((res) => {
-        const list = Array.isArray(res.data)
-          ? res.data
-          : (res.data as { data: Service[] })?.data ?? []
+    api.get<{ data: Service[] }>('/services')
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data : (res.data as { data: Service[] })?.data ?? []
         setServices(list)
       })
       .catch(() => setServices([]))
       .finally(() => setLoading(false))
   }, [open])
 
-  // Reseta / pré-preenche campos ao abrir
+  // Preenche campos ao abrir
   useEffect(() => {
     if (!open) return
-
     if (mode === 'edit' && booking) {
-      // Modo edit: pré-preenche com dados do booking
       setClientName(booking.clientName)
       setClientPhone('')
       setSelectedTime(booking.start)
       setSelectedProf(booking.professionalId)
-      // Serviço será encontrado depois que `services` carregar
       setSelectedService(null)
     } else {
-      // Modo create: limpa tudo, mantém time e prof do clique
       setClientName('')
       setClientPhone('')
       setSelectedService(null)
-      setSelectedTime(time)
+      setSelectedTime(time ?? '09:00')
       setSelectedProf(professionalId)
     }
-
     setError(null)
     setSuccess(false)
   }, [open, mode, time, professionalId, booking])
 
-  // Quando services carrega no modo edit, tenta encontrar o serviço pelo nome
+  // Tenta encontrar serviço no modo edit após services carregar
   useEffect(() => {
     if (mode === 'edit' && booking && services.length > 0 && !selectedService) {
       const match = services.find(s => s.name === booking.serviceName)
       if (match) setSelectedService(match)
     }
   }, [services, mode, booking, selectedService])
-
-  const endTime =
-    selectedService && selectedTime
-      ? dayjs(`2000-01-01 ${selectedTime}`).add(selectedService.duration, 'minute').format('HH:mm')
-      : null
 
   async function handleSave() {
     if (!selectedProf || !selectedTime || !selectedService || !clientName.trim()) {
@@ -138,10 +289,9 @@ export default function SideCheckoutPanel({
       })
 
       setSuccess(true)
-      setTimeout(() => { onClose() }, 1500)
+      setTimeout(onClose, 1500)
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
         ?? 'Erro ao salvar agendamento.'
       setError(msg)
     } finally {
@@ -151,28 +301,24 @@ export default function SideCheckoutPanel({
 
   if (!open) return null
 
-  const isDisabled = saving || success || !selectedService || !clientName.trim() || !selectedTime
+  const isDisabled = saving || success || !selectedService || !clientName.trim()
 
   return (
     <>
       {/* Overlay */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.18)',
-          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-          zIndex: 9998,
-          animation: 'glFadeIn 0.2s ease',
-        }}
-      />
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.2)',
+        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        zIndex: 9998, animation: 'glFadeIn 0.2s ease',
+      }} />
 
       {/* Modal */}
       <div style={{
         position: 'fixed', top: '50%', left: '50%',
         transform: 'translate(-50%,-50%)',
-        width: 360, maxWidth: '94vw', maxHeight: '88vh',
-        background: 'rgba(255,255,255,0.92)',
+        width: 360, maxWidth: '94vw', maxHeight: '90vh',
+        background: 'rgba(255,255,255,0.94)',
         backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)',
         borderRadius: 24,
         border: '1px solid rgba(0,0,0,0.08)',
@@ -198,7 +344,6 @@ export default function SideCheckoutPanel({
           }
           .gl-input:focus { border-color:rgba(220,38,38,0.45); box-shadow:0 0 0 3px rgba(220,38,38,0.08); }
           .gl-input::placeholder { color:rgba(0,0,0,0.28); }
-
           .svc-btn {
             padding:10px 14px; border-radius:12px; border:1px solid rgba(0,0,0,0.08);
             background:rgba(255,255,255,0.6); color:#1f2937; font-size:13px;
@@ -207,23 +352,7 @@ export default function SideCheckoutPanel({
             font-family:-apple-system,system-ui,sans-serif;
           }
           .svc-btn:hover { border-color:rgba(220,38,38,0.25); background:rgba(220,38,38,0.03); }
-          .svc-btn.sel  { background:rgba(220,38,38,0.06); border-color:rgba(220,38,38,0.35); color:#b91c1c; font-weight:600; }
-
-          /* Time chips: compactos para caber slots de 5min */
-          .time-chip {
-            padding:4px 9px; border-radius:16px; font-size:11px; font-weight:500;
-            border:1px solid rgba(0,0,0,0.08); cursor:pointer;
-            background:rgba(255,255,255,0.6); color:#374151;
-            transition:all 0.12s; font-family:-apple-system,system-ui,sans-serif;
-            font-variant-numeric:tabular-nums; white-space:nowrap;
-          }
-          .time-chip:hover { border-color:rgba(220,38,38,0.28); background:rgba(220,38,38,0.04); }
-          .time-chip.sel {
-            background:linear-gradient(135deg,#dc2626,#b91c1c);
-            color:#fff; border-color:transparent;
-            box-shadow:0 3px 10px rgba(220,38,38,0.25);
-          }
-
+          .svc-btn.sel   { background:rgba(220,38,38,0.06); border-color:rgba(220,38,38,0.35); color:#b91c1c; font-weight:600; }
           .prof-sel {
             flex:1; padding:8px 12px; border-radius:12px;
             border:1px solid rgba(0,0,0,0.08); background:rgba(255,255,255,0.6);
@@ -231,12 +360,7 @@ export default function SideCheckoutPanel({
             font-family:-apple-system,system-ui,sans-serif;
           }
           .prof-sel:hover { border-color:rgba(220,38,38,0.25); }
-          .prof-sel.sel {
-            background:linear-gradient(135deg,#dc2626,#b91c1c);
-            color:#fff; border-color:transparent;
-            box-shadow:0 3px 10px rgba(220,38,38,0.22);
-          }
-
+          .prof-sel.sel   { background:linear-gradient(135deg,#dc2626,#b91c1c); color:#fff; border-color:transparent; box-shadow:0 3px 10px rgba(220,38,38,0.22); }
           .close-btn {
             width:30px; height:30px; border-radius:50%;
             border:1px solid rgba(0,0,0,0.09); background:rgba(255,255,255,0.6);
@@ -244,7 +368,6 @@ export default function SideCheckoutPanel({
             display:flex; align-items:center; justify-content:center; transition:all 0.15s;
           }
           .close-btn:hover { background:rgba(220,38,38,0.08); color:#dc2626; border-color:rgba(220,38,38,0.2); }
-
           .cancel-btn {
             width:100%; padding:11px; background:rgba(0,0,0,0.04);
             border:1px solid rgba(0,0,0,0.08); border-radius:12px;
@@ -252,22 +375,17 @@ export default function SideCheckoutPanel({
             font-family:-apple-system,system-ui,sans-serif; transition:all 0.15s;
           }
           .cancel-btn:hover { background:rgba(0,0,0,0.07); }
-
-          /* Scrollbar fina na lista de horários */
-          .time-scroll::-webkit-scrollbar { width:4px; height:4px; }
-          .time-scroll::-webkit-scrollbar-track { background:transparent; }
-          .time-scroll::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.12); border-radius:4px; }
         `}</style>
 
         {/* Header */}
-        <div style={{ padding:'20px 20px 14px', borderBottom:'1px solid rgba(0,0,0,0.07)' }}>
+        <div style={{ padding:'20px 20px 14px', borderBottom:'1px solid rgba(0,0,0,0.07)', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             <div>
               <h2 style={{ margin:0, fontSize:17, fontWeight:700, color:'#111827', letterSpacing:'-0.3px' }}>
                 {mode === 'create' ? 'Novo Agendamento' : 'Editar Agendamento'}
               </h2>
               <p style={{ margin:'3px 0 0', fontSize:12, color:'rgba(0,0,0,0.4)' }}>
-                {selectedTime && endTime ? `${selectedTime} – ${endTime} · ${profName}` : profName}
+                {endTime ? `${selectedTime} – ${endTime} · ${profName}` : profName}
               </p>
             </div>
             <button className="close-btn" onClick={onClose}>✕</button>
@@ -278,8 +396,8 @@ export default function SideCheckoutPanel({
         <div style={{ flex:1, overflowY:'auto', padding:'16px 20px' }}>
 
           {success && (
-            <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(100,116,139,0.08)', border:'1px solid rgba(100,116,139,0.2)', color:'#334155', fontSize:13, marginBottom:14, display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:15, color:'#dc2626' }}>✓</span> Agendamento confirmado!
+            <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.2)', color:'#166534', fontSize:13, marginBottom:14, display:'flex', alignItems:'center', gap:8 }}>
+              <span>✓</span> Agendamento confirmado!
             </div>
           )}
 
@@ -351,36 +469,30 @@ export default function SideCheckoutPanel({
             </div>
           )}
 
-          {/* Horários — 5 em 5 min com scroll */}
+          {/* Horário — roleta estilo Apple */}
           <div>
             <label style={{ display:'block', fontSize:10, fontWeight:700, color:'rgba(0,0,0,0.35)', marginBottom:8, letterSpacing:'0.08em', textTransform:'uppercase' }}>
               Horário *
             </label>
-            <div
-              className="time-scroll"
-              style={{ display:'flex', flexWrap:'wrap', gap:5, maxHeight:160, overflowY:'auto', paddingRight:2 }}
-            >
-              {TIME_CHIPS.map(t => (
-                <button key={t} className={`time-chip${selectedTime === t ? ' sel' : ''}`} onClick={() => setSelectedTime(t)}>
-                  {t}
-                </button>
-              ))}
+            <div style={{ border:'1px solid rgba(0,0,0,0.08)', borderRadius:16, overflow:'hidden', background:'rgba(255,255,255,0.6)' }}>
+              <TimeWheel value={selectedTime} onChange={setSelectedTime} />
             </div>
+            {endTime && (
+              <p style={{ margin:'6px 0 0', fontSize:11, color:'rgba(0,0,0,0.4)', textAlign:'center' }}>
+                Término previsto: <strong>{endTime}</strong>
+              </p>
+            )}
           </div>
         </div>
 
         {/* Footer */}
-        <div style={{ padding:'14px 20px 20px', borderTop:'1px solid rgba(0,0,0,0.07)', display:'flex', flexDirection:'column', gap:8 }}>
+        <div style={{ padding:'14px 20px 20px', borderTop:'1px solid rgba(0,0,0,0.07)', display:'flex', flexDirection:'column', gap:8, flexShrink:0 }}>
           <button
             onClick={handleSave}
             disabled={isDisabled}
             style={{
               width:'100%', padding:'14px',
-              background: success
-                ? 'linear-gradient(135deg,#475569,#334155)'
-                : isDisabled
-                ? 'rgba(220,38,38,0.25)'
-                : 'linear-gradient(135deg,#dc2626,#b91c1c)',
+              background: success ? 'linear-gradient(135deg,#475569,#334155)' : isDisabled ? 'rgba(220,38,38,0.25)' : 'linear-gradient(135deg,#dc2626,#b91c1c)',
               color:'#fff', border:'none', borderRadius:12,
               fontWeight:600, fontSize:15,
               cursor: isDisabled ? 'not-allowed' : 'pointer',
