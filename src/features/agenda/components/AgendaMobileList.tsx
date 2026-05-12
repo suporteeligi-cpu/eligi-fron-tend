@@ -3,7 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { AgendaProfessional, AgendaBooking } from '../types'
-import { colors, bookingStatus as STATUS_CFG, transitions } from '@/shared/theme'
+import { colors, bookingStatus as STATUS_CFG } from '@/shared/theme'
 import { useAgendaStore } from '../hooks/useAgendaStore'
 import api from '@/shared/lib/apiClient'
 import dayjs from 'dayjs'
@@ -17,11 +17,11 @@ dayjs.extend(timezone)
 const SLOT_STEP  = 5
 const START_HOUR = 8
 const END_HOUR   = 20
-const ROW_H      = 56          // px por meia hora
-const PX_PER_MIN = ROW_H / 30  // px por minuto
+const ROW_H      = 64          // px por meia hora — mais espaçoso
+const PX_PER_MIN = ROW_H / 30
 const START_MIN  = START_HOUR * 60
 const TIME_COL_W = 42
-const COL_W      = 160         // largura de cada coluna de profissional
+const COL_W      = 200         // colunas mais largas
 const MIN_CARD_H = 36
 
 function toMinutes(t: string): number {
@@ -288,40 +288,11 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
       {conflict && <ConflictModal onConfirm={handleConflictConfirm} onCancel={() => setConflict(null)} />}
 
       <style>{`
-        .m-chip { flex-shrink:0; padding:5px 13px; border-radius:20px; font-size:11px; font-weight:500; cursor:pointer; border:1px solid ${colors.gray.borderMd}; background:rgba(255,255,255,0.85); color:${colors.gray['700']}; transition:${transitions.spring}; white-space:nowrap; }
-        .m-chip.on { background:${colors.red.gradient}; color:#fff; border-color:transparent; box-shadow:0 3px 10px ${colors.red.glow}; }
         .m-hscroll::-webkit-scrollbar { display:none; }
         .m-vscroll::-webkit-scrollbar { display:none; }
         .m-slot { cursor:pointer; }
         .m-slot:active { background:rgba(220,38,38,0.05) !important; }
       `}</style>
-
-      {/* Topbar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px 8px', flexShrink: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)', borderBottom: `1px solid ${colors.gray.border}` }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: colors.gray['900'] }}>Agenda do dia</span>
-        <button
-          onClick={() => openCreate('09:00', professionals[0]?.id ?? '')}
-          style={{ padding: '6px 14px', borderRadius: 10, background: colors.red.gradient, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#fff', boxShadow: `0 3px 10px ${colors.red.glow}` }}
-        >+ Novo</button>
-      </div>
-
-      {/* Chips para scroll rápido até a coluna */}
-      {professionals.length > 1 && (
-        <div className="m-hscroll" style={{ display: 'flex', gap: 6, padding: '7px 14px', overflowX: 'auto', borderBottom: `1px solid ${colors.gray.border}`, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', flexShrink: 0 }}>
-          {professionals.map((p, i) => (
-            <button
-              key={p.id}
-              className="m-chip"
-              onClick={() => {
-                const colEl = colRefs.current[i]
-                colEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' })
-              }}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Timeline: scroll vertical externo + scroll horizontal interno */}
       <div
