@@ -3,11 +3,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc'
+import utc      from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
 import api from '@/shared/lib/apiClient'
 import { AgendaBooking, AgendaProfessional } from '@/features/agenda/types'
 
 dayjs.extend(utc)
+dayjs.extend(timezone)
 
 type Service = {
   id: string
@@ -278,7 +280,7 @@ export default function SideCheckoutPanel({
       setSaving(true)
       setError(null)
       const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
-      const startAt = dayjs.utc(`${dateStr} ${selectedTime}`).toISOString()
+      const startAt = dayjs.tz(`${dateStr} ${selectedTime}`, 'America/Sao_Paulo').toISOString()
 
       await api.post('/bookings/confirm', {
         clientName:     clientName.trim(),
