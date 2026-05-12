@@ -16,8 +16,8 @@ const HEADER_H     = agendaLayout.headerHeight // 56
 
 // Slots de 5 em 5 minutos
 const SLOT_STEP    = 5                         // minutos
-const SLOT_H       = 16                        // px por slot de 5min
-const PX_PER_MIN   = SLOT_H / SLOT_STEP        // 3.2 px/min
+const SLOT_H       = 10                        // px por slot de 5min → 2px/min
+const PX_PER_MIN   = SLOT_H / SLOT_STEP        // 2.0 px/min → 30min=60px, 60min=120px
 const START_MIN    = START_HOUR * 60
 
 // ─── Utilitários ────────────────────────────────────────────────────────────
@@ -213,7 +213,7 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
 
                 const duration = Math.max(endMin - startMin, SLOT_STEP) // mínimo 5min
                 const top      = (startMin - START_MIN) * PX_PER_MIN
-                const height   = Math.max(duration * PX_PER_MIN - 2, SLOT_H * 2) // mínimo 2 slots visíveis
+                const height   = Math.max(duration * PX_PER_MIN - 2, SLOT_H * 3) // mínimo 3 slots (30px)
 
                 return (
                   <div
