@@ -36,17 +36,14 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   const dateStr  = dayjs(selectedDate).format('YYYY-MM-DD')
   const bookings = getBookingsForDate(dateStr)
 
-  // Sincroniza data externa → store
   useEffect(() => {
     if (externalDate) setSelectedDate(externalDate)
   }, [externalDate, setSelectedDate])
 
-  // Notifica parent quando a data muda internamente
   useEffect(() => {
     onDateChange?.(selectedDate)
   }, [selectedDate, onDateChange])
 
-  // Detecta mobile
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
     check()
@@ -54,27 +51,37 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  // Socket — filtra bookings pelo dateStr do booking
-  // O socket não garante que o evento é do dia exibido,
-  // então usamos o campo `start` (que é HH:mm) — não tem data.
-  // A solução: o backend deve emitir `date` junto com o booking.
-  // Enquanto isso, inserimos apenas no dia selecionado (comportamento conservador).
   useAgendaSocket({
     businessId,
-    onCreate:  (b) => addBooking(dateStr, b),
-    onUpdate:  (b) => updateBooking(dateStr, b),
-    onCancel:  (id) => removeBooking(dateStr, id),
+    onCreate: (b) => addBooking(dateStr, b),
+    onUpdate: (b) => updateBooking(dateStr, b),
+    onCancel: (id) => removeBooking(dateStr, id),
   })
 
   return (
     <>
+      {/*
+        display:flex + flexDirection:column + height:100% garante que
+        AgendaToolbar ocupa o que precisa e AgendaGrid pega o resto.
+        overflow:hidden aqui seria fatal — removido.
+      */}
       <div style={{
-        height: '100%', display: 'flex', flexDirection: 'column',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         background: colors.background.page,
         fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
       }}>
+        {/* Toolbar: altura natural (sticky internamente) */}
         <AgendaToolbar />
-        <div style={{ flex: 1, overflow: 'hidden' }}>
+
+        {/*
+          flex:1 + minHeight:0 é o par correto para scroll interno funcionar.
+          minHeight:0 sobrescreve o default flex (auto) que impediria o encolhimento.
+          overflow:hidden REMOVIDO — o scroll deve estar no AgendaGrid/AgendaMobileList.
+        */}
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {isMobile ? (
             <AgendaMobileList professionals={professionals} bookings={bookings} />
           ) : (
