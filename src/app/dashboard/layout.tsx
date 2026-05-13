@@ -1,4 +1,5 @@
 'use client'
+// src/app/(dashboard)/layout.tsx
 
 import { ReactNode, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -9,7 +10,7 @@ import Sidebar from '@/app/components/navigation/Sidebar'
 import CommandPalette from '@/app/components/search/CommandPalette'
 import { DashboardProvider } from '@/app/dashboard/DashboardContext'
 
-const NAVBAR_HEIGHT = 104 // 20px top + 64px navbar + 20px gap
+const NAVBAR_HEIGHT = 104
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
@@ -19,7 +20,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (!loading && !user) router.replace('/login')
   }, [user, loading, router])
 
-  // Apply dashboard body class for glass mesh background
   useEffect(() => {
     document.body.classList.add('eligi-dashboard')
     return () => { document.body.classList.remove('eligi-dashboard') }
@@ -28,11 +28,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <div style={centerStyle}>
-        <style>{`
-          @keyframes eligi-spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+        <style>{`@keyframes eligi-spin { to { transform: rotate(360deg); } }`}</style>
         <div style={spinnerStyle} />
       </div>
     )
@@ -43,12 +39,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div style={centerStyle}>
         <div style={unauthorizedCard}>
           <h1 style={{ marginBottom: 12 }}>Sessão expirada</h1>
-          <p style={{ opacity: 0.7, marginBottom: 20 }}>
-            Sua sessão terminou. Faça login novamente.
-          </p>
-          <button onClick={() => router.push('/login')} style={loginButton}>
-            Fazer login
-          </button>
+          <p style={{ opacity: 0.7, marginBottom: 20 }}>Sua sessão terminou. Faça login novamente.</p>
+          <button onClick={() => router.push('/login')} style={loginButton}>Fazer login</button>
         </div>
       </div>
     )
@@ -59,7 +51,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <AppNavbar />
       <Sidebar />
 
-      {/* Main content — offset left (desktop) and bottom (mobile) */}
       <main style={{
         marginTop: `${NAVBAR_HEIGHT}px`,
         marginLeft: 'var(--sidebar-width, 64px)',
@@ -67,6 +58,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         padding: '32px',
         paddingBottom: 'calc(32px + var(--bottom-nav-h, 0px))',
         transition: 'margin-left 230ms cubic-bezier(.4,0,.2,1)',
+        // Necessário para que páginas com position:absolute (ex: agenda)
+        // se posicionem corretamente dentro do <main>
+        position: 'relative',
       }}>
         {children}
       </main>
@@ -76,38 +70,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   )
 }
 
-/* ── shared ── */
 const centerStyle: React.CSSProperties = {
-  minHeight: '100dvh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
-
 const spinnerStyle: React.CSSProperties = {
-  width: 40,
-  height: 40,
-  borderRadius: '50%',
-  border: '3px solid rgba(220,38,38,0.15)',
-  borderTop: '3px solid #dc2626',
+  width: 40, height: 40, borderRadius: '50%',
+  border: '3px solid rgba(220,38,38,0.15)', borderTop: '3px solid #dc2626',
   animation: 'eligi-spin 0.9s linear infinite',
 }
-
 const unauthorizedCard: React.CSSProperties = {
-  background: '#ffffff',
-  padding: '40px',
-  borderRadius: '20px',
-  boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
-  textAlign: 'center',
-  maxWidth: '400px',
+  background: '#ffffff', padding: '40px', borderRadius: '20px',
+  boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center', maxWidth: '400px',
 }
-
 const loginButton: React.CSSProperties = {
-  background: '#dc2626',
-  color: '#ffffff',
-  border: 'none',
-  padding: '12px 24px',
-  borderRadius: '12px',
-  cursor: 'pointer',
-  fontWeight: 600,
+  background: '#dc2626', color: '#ffffff', border: 'none',
+  padding: '12px 24px', borderRadius: '12px', cursor: 'pointer', fontWeight: 600,
 }
