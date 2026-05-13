@@ -4,10 +4,9 @@
 import Link from 'next/link'
 import {
   Calendar, Building2, CreditCard, Users,
-  Sliders, Bell, Shield, ChevronRight,
+  Sliders, Bell, Shield, ChevronRight, Scissors,
 } from 'lucide-react'
 
-// ─── Config de módulos ────────────────────────────────────────────────────────
 const MODULES = [
   {
     group: 'Agendamento',
@@ -24,6 +23,18 @@ const MODULES = [
         icon:        Sliders,
         label:       'Horários de funcionamento',
         description: 'Defina os dias e horários em que seu negócio aceita agendamentos.',
+        available:   true,
+      },
+    ],
+  },
+  {
+    group: 'Serviços',
+    items: [
+      {
+        href:        '/dashboard/configuracoes/servicos',
+        icon:        Scissors,
+        label:       'Configurações de serviços',
+        description: 'Crie, edite e organize os serviços oferecidos pelo seu negócio.',
         available:   true,
       },
     ],
@@ -80,7 +91,6 @@ const MODULES = [
   },
 ]
 
-// ─── Card de módulo ───────────────────────────────────────────────────────────
 function ModuleCard({
   href, icon: Icon, label, description, available,
 }: {
@@ -88,35 +98,34 @@ function ModuleCard({
   description: string; available: boolean
 }) {
   const inner = (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 16,
-      padding: '18px 20px',
-      background: 'rgba(255,255,255,0.85)',
-      backdropFilter: 'blur(20px)',
-      borderRadius: 14,
-      border: `1px solid ${available ? 'rgba(0,0,0,0.07)' : 'rgba(0,0,0,0.05)'}`,
-      boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
-      cursor: available ? 'pointer' : 'default',
-      opacity: available ? 1 : 0.6,
-      transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, border-color 0.18s ease',
-      position: 'relative',
-      overflow: 'hidden',
-    }}
-    onMouseEnter={e => {
-      if (!available) return
-      const el = e.currentTarget as HTMLDivElement
-      el.style.transform    = 'translateY(-2px)'
-      el.style.boxShadow    = '0 8px 24px rgba(220,38,38,0.10)'
-      el.style.borderColor  = 'rgba(220,38,38,0.20)'
-    }}
-    onMouseLeave={e => {
-      const el = e.currentTarget as HTMLDivElement
-      el.style.transform    = 'translateY(0)'
-      el.style.boxShadow    = '0 1px 6px rgba(0,0,0,0.04)'
-      el.style.borderColor  = available ? 'rgba(0,0,0,0.07)' : 'rgba(0,0,0,0.05)'
-    }}
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 16,
+        padding: '18px 20px',
+        background: 'rgba(255,255,255,0.85)',
+        backdropFilter: 'blur(20px)',
+        borderRadius: 14,
+        border: `1px solid ${available ? 'rgba(0,0,0,0.07)' : 'rgba(0,0,0,0.05)'}`,
+        boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
+        cursor: available ? 'pointer' : 'default',
+        opacity: available ? 1 : 0.6,
+        transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, border-color 0.18s ease',
+        position: 'relative', overflow: 'hidden',
+      }}
+      onMouseEnter={e => {
+        if (!available) return
+        const el = e.currentTarget as HTMLDivElement
+        el.style.transform   = 'translateY(-2px)'
+        el.style.boxShadow   = '0 8px 24px rgba(220,38,38,0.10)'
+        el.style.borderColor = 'rgba(220,38,38,0.20)'
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLDivElement
+        el.style.transform   = 'translateY(0)'
+        el.style.boxShadow   = '0 1px 6px rgba(0,0,0,0.04)'
+        el.style.borderColor = available ? 'rgba(0,0,0,0.07)' : 'rgba(0,0,0,0.05)'
+      }}
     >
-      {/* Ícone */}
       <div style={{
         width: 42, height: 42, borderRadius: 12, flexShrink: 0,
         background: available
@@ -128,7 +137,6 @@ function ModuleCard({
         <Icon size={20} color={available ? '#dc2626' : 'rgba(0,0,0,0.3)'} strokeWidth={1.8} />
       </div>
 
-      {/* Texto */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: available ? '#111827' : 'rgba(0,0,0,0.4)' }}>
@@ -149,7 +157,6 @@ function ModuleCard({
         </div>
       </div>
 
-      {/* Seta */}
       {available && (
         <ChevronRight size={16} color="rgba(0,0,0,0.25)" strokeWidth={2} style={{ flexShrink: 0 }} />
       )}
@@ -157,7 +164,6 @@ function ModuleCard({
   )
 
   if (!available) return inner
-
   return (
     <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>
       {inner}
@@ -165,47 +171,23 @@ function ModuleCard({
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ConfiguracoesPage() {
   return (
     <>
-      <style>{`
-        @keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
-      `}</style>
-
-      <div style={{
-        maxWidth: 720,
-        animation: 'fadeUp 0.3s ease',
-        fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
-      }}>
-        {/* Header */}
+      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }`}</style>
+      <div style={{ maxWidth: 720, animation: 'fadeUp 0.3s ease', fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
         <div style={{ marginBottom: 32 }}>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', color: '#0f0f14' }}>
-            Configurações
-          </h2>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
-            Personalize o comportamento do seu negócio no Eligi.
-          </p>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', color: '#0f0f14' }}>Configurações</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>Personalize o comportamento do seu negócio no Eligi.</p>
         </div>
-
-        {/* Grupos de módulos */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
           {MODULES.map(group => (
             <div key={group.group}>
-              {/* Label do grupo */}
-              <div style={{
-                fontSize: 11, fontWeight: 700, color: 'rgba(0,0,0,0.35)',
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-                marginBottom: 10, paddingLeft: 2,
-              }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(0,0,0,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10, paddingLeft: 2 }}>
                 {group.group}
               </div>
-
-              {/* Cards */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {group.items.map(item => (
-                  <ModuleCard key={item.href} {...item} />
-                ))}
+                {group.items.map(item => <ModuleCard key={item.href} {...item} />)}
               </div>
             </div>
           ))}
