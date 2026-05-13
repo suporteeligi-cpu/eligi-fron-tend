@@ -58,8 +58,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         padding: '32px',
         paddingBottom: 'calc(32px + var(--bottom-nav-h, 0px))',
         transition: 'margin-left 230ms cubic-bezier(.4,0,.2,1)',
-        // Necessário para que páginas com position:absolute (ex: agenda)
-        // se posicionem corretamente dentro do <main>
         position: 'relative',
       }}>
         {children}

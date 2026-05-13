@@ -33,16 +33,21 @@ export default function AgendaPage() {
 
   return (
     /*
-     * Escapa do padding do DashboardLayout (32px em todos os lados).
-     * Usa position:absolute para ocupar exatamente o espaço do <main>
-     * sem depender de altura calculada — funciona em qualquer zoom.
+     * position: fixed ancorado no viewport.
+     * top/left compensam navbar (104px) e sidebar (64px colapso / 240px expandida).
+     * Independe de zoom, padding do <main> ou herança de altura.
      */
     <div style={{
-      position: 'absolute',
-      inset: 0,
+      position: 'fixed',
+      top: 104,
+      left: 'var(--sidebar-width, 64px)',
+      right: 0,
+      bottom: 0,
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
+      zIndex: 1,
+      backgroundColor: '#f5f5f7',
     }}>
       {loading && cachedBookings.length === 0 && !data
         ? <AgendaSpinner />
