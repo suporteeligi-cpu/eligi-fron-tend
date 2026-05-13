@@ -24,7 +24,7 @@ const MODULES = [
         icon:        Sliders,
         label:       'Horários de funcionamento',
         description: 'Defina os dias e horários em que seu negócio aceita agendamentos.',
-        available:   false,
+        available:   true,
       },
     ],
   },
