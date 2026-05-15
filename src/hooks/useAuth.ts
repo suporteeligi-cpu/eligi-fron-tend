@@ -9,6 +9,7 @@ import {
   googleLoginRequest,
   logoutRequest,
 } from '@/lib/auth.api'
+import api from '@/lib/apiClient'
 import { AuthUser } from '@/types/auth.types'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
@@ -32,9 +33,14 @@ export function useAuth() {
 
     async function loadUser() {
       try {
+        // Tenta buscar o usuário normalmente
+        // O interceptor do apiClient já vai fazer o refresh automaticamente
+        // se o accessToken estiver expirado
         const me = await getMe()
         if (!cancelled) setUser(me)
       } catch {
+        // getMe falhou mesmo após tentativa de refresh pelo interceptor
+        // → sessão realmente inválida, limpa o estado
         if (!cancelled) setUser(null)
       } finally {
         if (!cancelled) setLoading(false)
@@ -85,7 +91,7 @@ export function useAuth() {
     try {
       await logoutRequest()
     } catch {
-      // Server logout best-effort — always clear client state
+      // best-effort
     }
     setUser(null)
     router.replace('/login')

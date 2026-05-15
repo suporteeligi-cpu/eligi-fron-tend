@@ -3,8 +3,10 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { AgendaProfessional, AgendaBooking } from '../types'
-import { colors, bookingStatus as STATUS_CFG } from '@/shared/theme'
+import { colors } from '@/shared/theme'
 import { useAgendaStore } from '../hooks/useAgendaStore'
+import { colorToGradient, colorToGlow } from '@/features/agenda/constants/serviceColors'
+import { bookingStatus as STATUS_CFG } from '@/shared/theme'
 import api from '@/shared/lib/apiClient'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
@@ -17,45 +19,41 @@ dayjs.extend(timezone)
 const SLOT_STEP  = 5
 const START_HOUR = 8
 const END_HOUR   = 20
-const ROW_H      = 64          // px por meia hora — mais espaçoso
+const ROW_H      = 64
 const PX_PER_MIN = ROW_H / 30
 const START_MIN  = START_HOUR * 60
 const TIME_COL_W = 42
-const COL_W      = 200         // colunas mais largas
-const MIN_CARD_H = 36
+const COL_W      = 200
+const MIN_CARD_H = 28   // mínimo igual ao desktop tiny
 
 function toMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number)
   return h * 60 + m
 }
-
 function minutesToTime(min: number): string {
-  return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
+  return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`
 }
-
 function snapToSlot(min: number): number {
   return Math.round(min / SLOT_STEP) * SLOT_STEP
 }
-
 function generateHalfSlots(): string[] {
   const s: string[] = []
   for (let h = START_HOUR; h < END_HOUR; h++) {
-    s.push(`${String(h).padStart(2, '0')}:00`)
-    s.push(`${String(h).padStart(2, '0')}:30`)
+    s.push(`${String(h).padStart(2,'0')}:00`)
+    s.push(`${String(h).padStart(2,'00')}:30`)
   }
   return s
 }
 
 const HALF_SLOTS = generateHalfSlots()
 const TOTAL_H    = HALF_SLOTS.length * ROW_H
-const COL_HEADER = 36  // altura do header de cada coluna
+const COL_HEADER = 36
 
-// ─── Overlap layout ──────────────────────────────────────────────────────────
+// ─── Overlap layout ───────────────────────────────────────────────────────────
 function computeOverlapLayout(bookings: AgendaBooking[]) {
   const result = new Map<string, { col: number; totalCols: number }>()
   const sorted = [...bookings].sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
   const groups: AgendaBooking[][] = []
-
   for (const b of sorted) {
     let placed = false
     for (const group of groups) {
@@ -65,14 +63,12 @@ function computeOverlapLayout(bookings: AgendaBooking[]) {
     }
     if (!placed) groups.push([b])
   }
-
   for (const group of groups)
     group.forEach((b, col) => result.set(b.id, { col, totalCols: group.length }))
-
   return result
 }
 
-// ─── Hora atual ──────────────────────────────────────────────────────────────
+// ─── Hora atual ───────────────────────────────────────────────────────────────
 function useCurrentTimeY() {
   const [y, setY] = useState(-1)
   useEffect(() => {
@@ -88,78 +84,92 @@ function useCurrentTimeY() {
   return y
 }
 
-// ─── Modal de conflito ───────────────────────────────────────────────────────
+// ─── Modal de conflito ────────────────────────────────────────────────────────
 function ConflictModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
     <>
-      <div onClick={onCancel} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)', zIndex: 9998 }} />
-      <div style={{
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 300, maxWidth: '88vw', background: '#fff', borderRadius: 20,
-        boxShadow: '0 24px 64px rgba(0,0,0,0.18)', zIndex: 9999,
-        padding: '24px 20px 18px', textAlign: 'center',
-        fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
-      }}>
-        <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
-        <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#111827' }}>Horário conflitante</h3>
-        <p style={{ margin: '0 0 18px', fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
-          Já existe um agendamento nesse horário.<br />Deseja agendar mesmo assim?
-        </p>
-        <button onClick={onConfirm} style={{
-          width: '100%', padding: '12px', marginBottom: 8,
-          background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff',
-          border: 'none', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(220,38,38,0.28)',
-        }}>Confirmar sobreposição</button>
-        <button onClick={onCancel} style={{
-          width: '100%', padding: '10px', background: 'rgba(0,0,0,0.04)',
-          border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12,
-          fontSize: 14, cursor: 'pointer', color: 'rgba(0,0,0,0.5)',
-        }}>Voltar</button>
+      <div onClick={onCancel} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', backdropFilter:'blur(6px)', zIndex:9998 }} />
+      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:300, maxWidth:'88vw', background:'#fff', borderRadius:20, boxShadow:'0 24px 64px rgba(0,0,0,0.18)', zIndex:9999, padding:'24px 20px 18px', textAlign:'center', fontFamily:'-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
+        <div style={{ fontSize:32, marginBottom:10 }}>⚠️</div>
+        <h3 style={{ margin:'0 0 8px', fontSize:16, fontWeight:700, color:'#111827' }}>Horário conflitante</h3>
+        <p style={{ margin:'0 0 18px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>Já existe um agendamento nesse horário.<br/>Deseja agendar mesmo assim?</p>
+        <button onClick={onConfirm} style={{ width:'100%', padding:'12px', marginBottom:8, background:'linear-gradient(135deg,#dc2626,#b91c1c)', color:'#fff', border:'none', borderRadius:12, fontWeight:600, fontSize:14, cursor:'pointer', boxShadow:'0 4px 16px rgba(220,38,38,0.28)' }}>Confirmar sobreposição</button>
+        <button onClick={onCancel} style={{ width:'100%', padding:'10px', background:'rgba(0,0,0,0.04)', border:'1px solid rgba(0,0,0,0.08)', borderRadius:12, fontSize:14, cursor:'pointer', color:'rgba(0,0,0,0.5)' }}>Voltar</button>
       </div>
     </>
   )
 }
 
-// ─── Card mobile ─────────────────────────────────────────────────────────────
+// ─── MobileBookingCard — mesma lógica de cor do desktop ──────────────────────
 function MobileBookingCard({ booking, height }: { booking: AgendaBooking; height: number }) {
-  const theme    = STATUS_CFG[booking.status] ?? STATUS_CFG.CONFIRMED
-  const showSvc  = height >= 44
-  const showTime = height >= 58
-  const dur      = toMinutes(booking.end) - toMinutes(booking.start)
+  // Fonte da verdade de cor: serviceColor > status theme
+  const statusTheme = STATUS_CFG[booking.status] ?? STATUS_CFG.CONFIRMED
+  const gradient    = booking.serviceColor
+    ? colorToGradient(booking.serviceColor)
+    : statusTheme.gradient
+  const glow        = booking.serviceColor
+    ? colorToGlow(booking.serviceColor)
+    : statusTheme.glow
+
+  const isTiny      = height <= 28
+  const showService = height >= 44
+  const showTime    = height >= 56
+  const dur         = toMinutes(booking.end) - toMinutes(booking.start)
 
   return (
     <div style={{
       width: '100%', height: '100%', borderRadius: 8,
-      background: theme.gradient,
-      padding: '5px 7px',
-      display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+      background: gradient,
+      padding: isTiny ? '0 7px 0 9px' : '5px 7px 5px 9px',
+      display: 'flex', flexDirection: 'column',
+      justifyContent: isTiny ? 'center' : 'flex-start',
+      gap: 2,
       overflow: 'hidden', boxSizing: 'border-box',
-      boxShadow: `0 3px 10px ${theme.glow}`,
+      boxShadow: `0 3px 10px ${glow}`,
       border: '1px solid rgba(255,255,255,0.15)',
       position: 'relative', userSelect: 'none',
+      transition: 'transform 0.12s ease, box-shadow 0.12s ease',
     }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'rgba(255,255,255,0.4)', borderRadius: '8px 0 0 8px' }} />
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '40%', background: 'linear-gradient(180deg,rgba(255,255,255,0.16) 0%,transparent 100%)', borderRadius: '8px 8px 0 0', pointerEvents: 'none' }} />
+      {/* Brilho topo */}
+      <div style={{ position:'absolute', top:0, left:0, right:0, height:'45%', background:'linear-gradient(180deg,rgba(255,255,255,0.18) 0%,transparent 100%)', borderRadius:'8px 8px 0 0', pointerEvents:'none' }} />
+      {/* Barra lateral */}
+      <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:'rgba(255,255,255,0.40)', borderRadius:'8px 0 0 8px' }} />
 
-      <div style={{ paddingLeft: 5, minWidth: 0 }}>
-        <div style={{ color: '#fff', fontWeight: 700, fontSize: 12, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {booking.clientName}
-        </div>
-        {showSvc && (
-          <div style={{ color: 'rgba(255,255,255,0.88)', fontWeight: 500, fontSize: 10, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {booking.serviceName}
-          </div>
-        )}
-      </div>
-
-      {showTime && (
-        <div style={{ paddingLeft: 5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ color: 'rgba(255,255,255,0.82)', fontSize: 10, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+      {isTiny ? (
+        // Card tiny: horário + nome · serviço numa linha
+        <div style={{ display:'flex', alignItems:'center', gap:4, overflow:'hidden', lineHeight:1 }}>
+          <span style={{ fontSize:10, fontWeight:700, opacity:0.9, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', flexShrink:0, color:'#fff' }}>
             {booking.start}–{booking.end}
           </span>
-          <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 9 }}>{dur}min</span>
+          <span style={{ fontSize:10, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color:'#fff' }}>
+            {booking.clientName}
+            {booking.serviceName
+              ? <span style={{ fontWeight:400, opacity:0.85 }}> · {booking.serviceName}</span>
+              : null}
+          </span>
         </div>
+      ) : (
+        <>
+          {/* Nome */}
+          <div style={{ color:'#fff', fontWeight:700, fontSize:12, lineHeight:1.2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            {booking.clientName}
+          </div>
+          {/* Serviço */}
+          {showService && (
+            <div style={{ color:'rgba(255,255,255,0.88)', fontWeight:500, fontSize:10, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              {booking.serviceName}
+            </div>
+          )}
+          {/* Horário + duração */}
+          {showTime && (
+            <div style={{ marginTop:'auto', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span style={{ color:'rgba(255,255,255,0.82)', fontSize:10, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>
+                {booking.start}–{booking.end}
+              </span>
+              <span style={{ color:'rgba(255,255,255,0.65)', fontSize:9 }}>{dur}min</span>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -167,14 +177,11 @@ function MobileBookingCard({ booking, height }: { booking: AgendaBooking; height
 
 // ─── Drag state ───────────────────────────────────────────────────────────────
 interface DragState {
-  booking:   AgendaBooking
-  profId:    string
-  offsetY:   number
-  ghostTop:  number
-  ghostTime: string
+  booking: AgendaBooking; profId: string
+  offsetY: number; ghostTop: number; ghostTime: string
 }
 
-// ─── Main ────────────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 interface Props {
   professionals: AgendaProfessional[]
   bookings:      AgendaBooking[]
@@ -187,12 +194,11 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
 
   const vScrollRef = useRef<HTMLDivElement>(null)
   const colRefs    = useRef<(HTMLDivElement | null)[]>([])
+  const dragRef    = useRef<DragState | null>(null)
 
   const [drag,     setDrag]     = useState<DragState | null>(null)
   const [conflict, setConflict] = useState<{ bookingId: string; startAt: string; professionalId: string } | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
-
-  const dragRef = useRef<DragState | null>(null)
 
   // Deduplicação
   const seen = new Set<string>()
@@ -204,7 +210,7 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
       vScrollRef.current.scrollTop = Math.max(0, currentY - 80)
   }, [currentY])
 
-  // ─── API reschedule ────────────────────────────────────────────────────────
+  // ─── Reschedule ──────────────────────────────────────────────────────────────
   const doReschedule = useCallback(async (
     bookingId: string, time: string, professionalId: string, allowOverlap: boolean
   ) => {
@@ -218,7 +224,8 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
           id:             bookingId,
           professionalId: b.professionalId ?? professionalId,
           clientName:     b.clientName,
-          serviceName:    b.service?.name ?? '',
+          serviceName:    b.service?.name  ?? '',
+          serviceColor:   b.service?.color ?? undefined,  // ← preserva cor após reschedule
           start:          dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),
           end:            dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),
           status:         b.status,
@@ -230,16 +237,14 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
       if (status === 409 || code === 'BOOKING_CONFLICT') {
         setConflict({ bookingId, startAt, professionalId })
       }
-    } finally {
-      setSavingId(null)
-    }
+    } finally { setSavingId(null) }
   }, [dateStr, updateBooking])
 
-  // ─── Touch handlers ────────────────────────────────────────────────────────
+  // ─── Touch drag ───────────────────────────────────────────────────────────────
   function onCardTouchStart(e: React.TouchEvent, booking: AgendaBooking, profId: string, cardTop: number) {
     e.stopPropagation()
-    const touch = e.touches[0]
-    const colEl = colRefs.current[professionals.findIndex(p => p.id === profId)]
+    const touch  = e.touches[0]
+    const colEl  = colRefs.current[professionals.findIndex(p => p.id === profId)]
     if (!colEl) return
     const rect   = colEl.getBoundingClientRect()
     const relY   = touch.clientY - rect.top + (vScrollRef.current?.scrollTop ?? 0) - COL_HEADER
@@ -252,8 +257,8 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
   function onColTouchMove(e: React.TouchEvent, profId: string, colIdx: number) {
     if (!dragRef.current) return
     e.preventDefault()
-    const touch = e.touches[0]
-    const colEl = colRefs.current[colIdx]
+    const touch  = e.touches[0]
+    const colEl  = colRefs.current[colIdx]
     if (!colEl) return
     const rect   = colEl.getBoundingClientRect()
     const relY   = touch.clientY - rect.top + (vScrollRef.current?.scrollTop ?? 0) - COL_HEADER - dragRef.current.offsetY
@@ -281,120 +286,70 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
     doReschedule(bookingId, time, professionalId, true)
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: colors.background.page, fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif', overflow: 'hidden' }}>
+    <div style={{ height:'100%', display:'flex', flexDirection:'column', background:colors.background.page, fontFamily:'-apple-system,"SF Pro Display",system-ui,sans-serif', overflow:'hidden' }}>
 
       {conflict && <ConflictModal onConfirm={handleConflictConfirm} onCancel={() => setConflict(null)} />}
 
       <style>{`
-        .m-hscroll::-webkit-scrollbar { display:none; }
         .m-vscroll::-webkit-scrollbar { display:none; }
         .m-slot { cursor:pointer; }
         .m-slot:active { background:rgba(220,38,38,0.05) !important; }
       `}</style>
 
-      {/* Timeline: scroll vertical externo + scroll horizontal interno */}
-      <div
-        ref={vScrollRef}
-        className="m-vscroll"
-        style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative' }}
-      >
-        {/* Wrapper horizontal */}
-        <div style={{ display: 'flex', minHeight: TOTAL_H + COL_HEADER, width: `${TIME_COL_W + professionals.length * (COL_W + 1)}px` }}>
+      <div ref={vScrollRef} className="m-vscroll" style={{ flex:1, overflowY:'auto', overflowX:'auto', WebkitOverflowScrolling:'touch', position:'relative' }}>
+        <div style={{ display:'flex', minHeight:TOTAL_H+COL_HEADER, width:`${TIME_COL_W + professionals.length * (COL_W + 1)}px` }}>
 
-          {/* Coluna de horários — sticky left */}
-          <div style={{
-            width: TIME_COL_W, flexShrink: 0,
-            position: 'sticky', left: 0, zIndex: 12,
-            background: 'rgba(245,245,247,0.98)', backdropFilter: 'blur(8px)',
-            borderRight: `1px solid ${colors.gray.border}`,
-          }}>
-            {/* Espaço para o header das colunas */}
-            <div style={{ height: COL_HEADER, borderBottom: `1px solid ${colors.gray.border}` }} />
+          {/* Coluna horários — sticky left */}
+          <div style={{ width:TIME_COL_W, flexShrink:0, position:'sticky', left:0, zIndex:12, background:'rgba(245,245,247,0.98)', backdropFilter:'blur(8px)', borderRight:`1px solid ${colors.gray.border}` }}>
+            <div style={{ height:COL_HEADER, borderBottom:`1px solid ${colors.gray.border}` }} />
             {HALF_SLOTS.map((time, i) => {
               const isHour = i % 2 === 0
               return (
-                <div key={time} style={{
-                  height: ROW_H, display: 'flex', alignItems: 'flex-start',
-                  justifyContent: 'flex-end', paddingRight: 6, paddingTop: 3,
-                  boxSizing: 'border-box',
-                  borderTop: isHour ? `1px solid ${colors.gray.border}` : `1px dashed rgba(0,0,0,0.06)`,
-                }}>
-                  <span style={{ fontSize: isHour ? 10 : 9, fontWeight: isHour ? 600 : 400, color: isHour ? colors.gray.dimText : colors.gray.dimTextLight, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                    {time}
-                  </span>
+                <div key={time} style={{ height:ROW_H, display:'flex', alignItems:'flex-start', justifyContent:'flex-end', paddingRight:6, paddingTop:3, boxSizing:'border-box', borderTop:isHour?`1px solid ${colors.gray.border}`:`1px dashed rgba(0,0,0,0.06)` }}>
+                  <span style={{ fontSize:isHour?10:9, fontWeight:isHour?600:400, color:isHour?colors.gray.dimText:colors.gray.dimTextLight, fontVariantNumeric:'tabular-nums', lineHeight:1 }}>{time}</span>
                 </div>
               )
             })}
           </div>
 
-          {/* Colunas de profissionais */}
+          {/* Colunas profissionais */}
           {professionals.map((p, colIdx) => {
             const profBookings = unique.filter(b => b.professionalId === p.id)
             const layout       = computeOverlapLayout(profBookings)
             const isDragCol    = drag?.profId === p.id
-            const initials     = p.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+            const initials     = p.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
 
             return (
               <div
                 key={p.id}
                 ref={el => { colRefs.current[colIdx] = el }}
-                style={{
-                  width: COL_W, flexShrink: 0,
-                  position: 'relative',
-                  borderRight: `1px solid ${colors.gray.border}`,
-                }}
-                onTouchMove={(e) => onColTouchMove(e, p.id, colIdx)}
+                style={{ width:COL_W, flexShrink:0, position:'relative', borderRight:`1px solid ${colors.gray.border}` }}
+                onTouchMove={e => onColTouchMove(e, p.id, colIdx)}
                 onTouchEnd={onColTouchEnd}
               >
-                {/* Header sticky da coluna */}
-                <div style={{
-                  position: 'sticky', top: 0, zIndex: 10,
-                  height: COL_HEADER,
-                  background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)',
-                  borderBottom: `1px solid ${colors.gray.border}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}>
-                  <div style={{
-                    width: 22, height: 22, borderRadius: '50%',
-                    background: colors.red.gradient, color: '#fff',
-                    fontSize: 9, fontWeight: 700,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, boxShadow: `0 2px 6px ${colors.red.glow}`,
-                  }}>{initials}</div>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: colors.gray['900'], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>
-                    {p.name}
-                  </span>
+                {/* Header sticky */}
+                <div style={{ position:'sticky', top:0, zIndex:10, height:COL_HEADER, background:'rgba(255,255,255,0.97)', backdropFilter:'blur(16px)', borderBottom:`1px solid ${colors.gray.border}`, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                  <div style={{ width:22, height:22, borderRadius:'50%', background:colors.red.gradient, color:'#fff', fontSize:9, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:`0 2px 6px ${colors.red.glow}` }}>{initials}</div>
+                  <span style={{ fontSize:11, fontWeight:600, color:colors.gray['900'], whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:110 }}>{p.name}</span>
                 </div>
 
-                {/* Área de slots + bookings (posicionamento absoluto) */}
-                <div style={{ position: 'relative', height: TOTAL_H }}>
+                {/* Área de bookings */}
+                <div style={{ position:'relative', height:TOTAL_H }}>
 
                   {/* Slots clicáveis */}
                   {HALF_SLOTS.map((time, i) => {
                     const isHour = i % 2 === 0
                     return (
-                      <div
-                        key={time}
-                        className="m-slot"
-                        style={{
-                          position: 'absolute', top: i * ROW_H, left: 0, right: 0, height: ROW_H,
-                          borderTop: isHour ? `1px solid ${colors.gray.border}` : `1px dashed rgba(0,0,0,0.05)`,
-                        }}
-                        onClick={() => !drag && openCreate(time, p.id)}
-                      />
+                      <div key={time} className="m-slot" style={{ position:'absolute', top:i*ROW_H, left:0, right:0, height:ROW_H, borderTop:isHour?`1px solid ${colors.gray.border}`:`1px dashed rgba(0,0,0,0.05)` }} onClick={() => !drag && openCreate(time, p.id)} />
                     )
                   })}
 
                   {/* Indicador hora atual */}
                   {currentY >= 0 && (
-                    <div style={{
-                      position: 'absolute', top: currentY, left: 0, right: 0, height: 2,
-                      background: `linear-gradient(90deg,${colors.red.DEFAULT},${colors.red.light})`,
-                      zIndex: 15, pointerEvents: 'none', boxShadow: `0 0 5px ${colors.red.glow}`,
-                    }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: colors.red.DEFAULT, position: 'absolute', left: -3, top: -2 }} />
+                    <div style={{ position:'absolute', top:currentY, left:0, right:0, height:2, background:`linear-gradient(90deg,${colors.red.DEFAULT},${colors.red.light})`, zIndex:15, pointerEvents:'none', boxShadow:`0 0 5px ${colors.red.glow}` }}>
+                      <div style={{ width:6, height:6, borderRadius:'50%', background:colors.red.DEFAULT, position:'absolute', left:-3, top:-2 }} />
                     </div>
                   )}
 
@@ -404,10 +359,11 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
                     const endMin   = toMinutes(b.end)
                     if (startMin < START_MIN || startMin >= END_HOUR * 60) return null
 
-                    const duration  = Math.max(endMin - startMin, 15)
+                    const duration  = Math.max(endMin - startMin, SLOT_STEP)
                     const top       = (startMin - START_MIN) * PX_PER_MIN
                     const height    = Math.max(duration * PX_PER_MIN - 2, MIN_CARD_H)
-                    const { col, totalCols } = layout.get(b.id) ?? { col: 0, totalCols: 1 }
+
+                    const { col, totalCols } = layout.get(b.id) ?? { col:0, totalCols:1 }
                     const colFrac   = 1 / totalCols
                     const cardLeft  = `calc(${col * colFrac * 100}% + 3px)`
                     const cardWidth = `calc(${colFrac * 100}% - ${col === totalCols - 1 ? 6 : 3}px)`
@@ -421,17 +377,15 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
                         style={{
                           position: 'absolute',
                           top:    isThisDrag ? drag!.ghostTop : top,
-                          left:   cardLeft,
-                          width:  cardWidth,
-                          height,
+                          left:   cardLeft, width: cardWidth, height,
                           zIndex: isThisDrag ? 40 : 8,
                           opacity: isSaving ? 0.5 : 1,
                           transition: isThisDrag ? 'none' : 'top 0.12s ease, opacity 0.2s',
                           touchAction: 'none',
-                          filter: isThisDrag ? 'drop-shadow(0 6px 18px rgba(220,38,38,0.4))' : 'none',
+                          filter: isThisDrag ? `drop-shadow(0 6px 18px rgba(0,0,0,0.3))` : 'none',
                           transform: isThisDrag ? 'scale(1.02)' : 'scale(1)',
                         }}
-                        onTouchStart={(e) => onCardTouchStart(e, b, p.id, top)}
+                        onTouchStart={e => onCardTouchStart(e, b, p.id, top)}
                       >
                         <MobileBookingCard booking={b} height={height} />
                       </div>
@@ -440,14 +394,7 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
 
                   {/* Ghost time label */}
                   {isDragCol && drag && (
-                    <div style={{
-                      position: 'absolute', top: drag.ghostTop - 14,
-                      left: 0, right: 0, textAlign: 'center',
-                      fontSize: 10, fontWeight: 700, color: colors.red.DEFAULT,
-                      pointerEvents: 'none', zIndex: 41,
-                      fontVariantNumeric: 'tabular-nums',
-                      textShadow: '0 1px 3px rgba(255,255,255,0.9)',
-                    }}>
+                    <div style={{ position:'absolute', top:drag.ghostTop-14, left:0, right:0, textAlign:'center', fontSize:10, fontWeight:700, color:colors.red.DEFAULT, pointerEvents:'none', zIndex:41, fontVariantNumeric:'tabular-nums', textShadow:'0 1px 3px rgba(255,255,255,0.9)' }}>
                       {drag.ghostTime}
                     </div>
                   )}
