@@ -14,19 +14,22 @@ import utc from 'dayjs/plugin/utc'
 dayjs.extend(utc)
 dayjs.extend(timezone)
 
-// ─── Constantes ─────────────────────────────────────────────────────────────
-const START_HOUR = agendaLayout.startHour
-const END_HOUR   = agendaLayout.endHour
-const TIME_COL_W = agendaLayout.timeColWidth
-const MIN_COL_W  = agendaLayout.minColWidth
-const HEADER_H   = agendaLayout.headerHeight
+// ─── Constantes — fonte da verdade única ─────────────────────────────────────
+const START_HOUR = agendaLayout.startHour    // 8
+const END_HOUR   = agendaLayout.endHour      // 20
+const TIME_COL_W = agendaLayout.timeColWidth // 64
+const MIN_COL_W  = agendaLayout.minColWidth  // 140
+const HEADER_H   = agendaLayout.headerHeight // 56
 
-const SLOT_STEP  = 5
-const SLOT_H     = 10
-const PX_PER_MIN = SLOT_H / SLOT_STEP   // 2.0 px/min
+const SLOT_STEP  = 5          // minutos por slot
+const SLOT_H     = 10         // px por slot de 5min → 2px/min
+const PX_PER_MIN = SLOT_H / SLOT_STEP  // 2.0 px/min
 const START_MIN  = START_HOUR * 60
 
-// ─── Utilitários ────────────────────────────────────────────────────────────
+// Altura mínima visível de um card — equivale a 10min independente da duração real
+const MIN_CARD_H = 10 * PX_PER_MIN  // 20px
+
+// ─── Utilitários ─────────────────────────────────────────────────────────────
 function generateSlots(): string[] {
   const slots: string[] = []
   for (let h = START_HOUR; h < END_HOUR; h++)
@@ -41,9 +44,7 @@ function toMinutes(t: string): number {
 }
 
 function minutesToTime(min: number): string {
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`
+  return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`
 }
 
 function snapToSlot(min: number): number {
@@ -51,40 +52,36 @@ function snapToSlot(min: number): number {
 }
 
 const SLOTS = generateSlots()
+const TOTAL_H = SLOTS.length * SLOT_H  // altura total da grade em px
 
-// ─── Layout de sobreposição (colunas internas) ───────────────────────────────
-// Retorna para cada booking: { col, totalCols }
+// ─── Overlap layout ──────────────────────────────────────────────────────────
 function computeOverlapLayout(bookings: AgendaBooking[]): Map<string, { col: number; totalCols: number }> {
   const result = new Map<string, { col: number; totalCols: number }>()
   const sorted = [...bookings].sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
-
-  // Agrupa bookings que se sobrepõem
   const groups: AgendaBooking[][] = []
+
   for (const b of sorted) {
     let placed = false
     for (const group of groups) {
-      const overlaps = group.some(g =>
+      if (group.some(g =>
         toMinutes(b.start) < toMinutes(g.end) &&
         toMinutes(b.end)   > toMinutes(g.start)
-      )
-      if (overlaps) { group.push(b); placed = true; break }
+      )) { group.push(b); placed = true; break }
     }
     if (!placed) groups.push([b])
   }
 
-  for (const group of groups) {
-    const totalCols = group.length
-    group.forEach((b, col) => result.set(b.id, { col, totalCols }))
-  }
+  for (const group of groups)
+    group.forEach((b, col) => result.set(b.id, { col, totalCols: group.length }))
 
   return result
 }
 
-// ─── Hora atual ──────────────────────────────────────────────────────────────
+// ─── Hora atual ───────────────────────────────────────────────────────────────
 function useCurrentTimeY() {
   const [y, setY] = useState(-1)
   useEffect(() => {
-    function calc() {
+    const calc = () => {
       const now = new Date()
       const min = now.getHours() * 60 + now.getMinutes()
       setY(min < START_MIN || min > END_HOUR * 60 ? -1 : (min - START_MIN) * PX_PER_MIN)
@@ -97,62 +94,26 @@ function useCurrentTimeY() {
 }
 
 // ─── Modal de conflito ───────────────────────────────────────────────────────
-interface ConflictModalProps {
-  onConfirm: () => void
-  onCancel:  () => void
-}
-
-function ConflictModal({ onConfirm, onCancel }: ConflictModalProps) {
+function ConflictModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
     <>
-      <div onClick={onCancel} style={{
-        position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.3)',
-        backdropFilter: 'blur(6px)',
-        zIndex: 9998,
-      }} />
+      <div onClick={onCancel} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.3)', backdropFilter:'blur(6px)', zIndex:9998 }} />
       <div style={{
-        position: 'fixed', top: '50%', left: '50%',
-        transform: 'translate(-50%,-50%)',
-        width: 320, maxWidth: '90vw',
-        background: '#fff',
-        borderRadius: 20,
-        boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
-        zIndex: 9999,
-        padding: '28px 24px 20px',
-        fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
-        textAlign: 'center',
+        position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)',
+        width:320, maxWidth:'90vw', background:'#fff', borderRadius:20,
+        boxShadow:'0 24px 64px rgba(0,0,0,0.18)', zIndex:9999,
+        padding:'28px 24px 20px',
+        fontFamily:'-apple-system,"SF Pro Display",system-ui,sans-serif', textAlign:'center',
       }}>
-        <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
-        <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700, color: '#111827' }}>
-          Horário conflitante
-        </h3>
-        <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
-          Já existe um agendamento nesse horário.<br />
-          Deseja agendar mesmo assim e exibir os dois lado a lado?
+        <div style={{ fontSize:36, marginBottom:12 }}>⚠️</div>
+        <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:700, color:'#111827' }}>Horário conflitante</h3>
+        <p style={{ margin:'0 0 20px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>
+          Já existe um agendamento nesse horário.<br/>Deseja agendar mesmo assim e exibir os dois lado a lado?
         </p>
-        <button
-          onClick={onConfirm}
-          style={{
-            width: '100%', padding: '13px', marginBottom: 8,
-            background: 'linear-gradient(135deg,#dc2626,#b91c1c)',
-            color: '#fff', border: 'none', borderRadius: 12,
-            fontWeight: 600, fontSize: 14, cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(220,38,38,0.28)',
-          }}
-        >
+        <button onClick={onConfirm} style={{ width:'100%', padding:'13px', marginBottom:8, background:'linear-gradient(135deg,#dc2626,#b91c1c)', color:'#fff', border:'none', borderRadius:12, fontWeight:600, fontSize:14, cursor:'pointer', boxShadow:'0 4px 16px rgba(220,38,38,0.28)' }}>
           Confirmar sobreposição
         </button>
-        <button
-          onClick={onCancel}
-          style={{
-            width: '100%', padding: '11px',
-            background: 'rgba(0,0,0,0.04)',
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: 12, fontSize: 14, cursor: 'pointer',
-            color: 'rgba(0,0,0,0.5)',
-          }}
-        >
+        <button onClick={onCancel} style={{ width:'100%', padding:'11px', background:'rgba(0,0,0,0.04)', border:'1px solid rgba(0,0,0,0.08)', borderRadius:12, fontSize:14, cursor:'pointer', color:'rgba(0,0,0,0.5)' }}>
           Voltar
         </button>
       </div>
@@ -160,21 +121,21 @@ function ConflictModal({ onConfirm, onCancel }: ConflictModalProps) {
   )
 }
 
-// ─── Drag state ──────────────────────────────────────────────────────────────
+// ─── Drag state ───────────────────────────────────────────────────────────────
 interface DragState {
-  bookingId:      string
-  booking:        AgendaBooking
-  fromProfId:     string
-  ghostTop:       number
-  ghostLeft:      number
-  ghostWidth:     number
-  ghostHeight:    number
-  offsetY:        number    // onde dentro do card o usuário clicou
-  currentProfId:  string
-  currentTime:    string
+  bookingId:     string
+  booking:       AgendaBooking
+  fromProfId:    string
+  ghostTop:      number
+  ghostLeft:     number
+  ghostWidth:    number
+  ghostHeight:   number
+  offsetY:       number
+  currentProfId: string
+  currentTime:   string
 }
 
-// ─── Componente principal ────────────────────────────────────────────────────
+// ─── Componente principal ─────────────────────────────────────────────────────
 interface Props {
   professionals: AgendaProfessional[]
   bookings:      AgendaBooking[]
@@ -182,62 +143,50 @@ interface Props {
 
 export default function AgendaGrid({ professionals, bookings }: Props) {
   const { openCreate, selectedDate, updateBooking } = useAgendaStore()
-  const scrollRef   = useRef<HTMLDivElement>(null)
-  const gridRef     = useRef<HTMLDivElement>(null)
-  const currentY    = useCurrentTimeY()
-  const totalH      = SLOTS.length * SLOT_H
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const gridRef   = useRef<HTMLDivElement>(null)
+  const currentY  = useCurrentTimeY()
 
-  const [drag, setDrag]               = useState<DragState | null>(null)
-  const [conflict, setConflict]       = useState<{ bookingId: string; startAt: string; professionalId: string } | null>(null)
-  const [savingId, setSavingId]       = useState<string | null>(null)
+  const [drag,     setDrag]     = useState<DragState | null>(null)
+  const [conflict, setConflict] = useState<{ bookingId: string; startAt: string; professionalId: string } | null>(null)
+  const [savingId, setSavingId] = useState<string | null>(null)
 
-  // Deduplicação
-  const seen = new Set<string>()
+  // Deduplicação defensiva
+  const seen   = new Set<string>()
   const unique = bookings.filter(b => { if (seen.has(b.id)) return false; seen.add(b.id); return true })
 
-  // Scroll para hora atual
+  // Scroll para hora atual ao montar
   useEffect(() => {
     if (currentY > 0 && scrollRef.current)
       scrollRef.current.scrollTop = Math.max(0, currentY - 120)
   }, [currentY])
 
-  // ── API call de reschedule ─────────────────────────────────────────────────
+  // ── Reschedule API ───────────────────────────────────────────────────────────
   const doReschedule = useCallback(async (
-    bookingId: string,
-    time: string,
-    professionalId: string,
-    allowOverlap: boolean
+    bookingId: string, time: string, professionalId: string, allowOverlap: boolean
   ) => {
     const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
     const startAt = dayjs.tz(`${dateStr} ${time}`, 'America/Sao_Paulo').toISOString()
-
     try {
       setSavingId(bookingId)
-      const res = await api.patch(`/bookings/${bookingId}/reschedule`, {
-        startAt,
-        professionalId,
-        allowOverlap,
-      })
-      // Atualiza store otimisticamente com o retorno do backend
-      const b = res.data?.data ?? res.data
+      const res = await api.patch(`/bookings/${bookingId}/reschedule`, { startAt, professionalId, allowOverlap })
+      const b   = res.data?.data ?? res.data
       if (b) {
-        const tz = 'America/Sao_Paulo'
-        updateBooking(dayjs(selectedDate).format('YYYY-MM-DD'), {
+        updateBooking(dateStr, {
           id:             bookingId,
           professionalId: b.professionalId ?? professionalId,
           clientName:     b.clientName,
           serviceName:    b.service?.name ?? '',
-          start:          dayjs(b.startAt).tz(tz).format('HH:mm'),
-          end:            dayjs(b.endAt).tz(tz).format('HH:mm'),
+          serviceColor:   b.service?.color ?? undefined,
+          start:          dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),
+          end:            dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),
           status:         b.status,
         })
       }
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number; data?: { code?: string } } })?.response?.status
+      const status = (err as { response?: { status?: number } })?.response?.status
       const code   = (err as { response?: { data?: { code?: string } } })?.response?.data?.code
-
       if (status === 409 || code === 'BOOKING_CONFLICT') {
-        // Guarda contexto para o modal de confirmação
         setConflict({ bookingId, startAt, professionalId })
       } else {
         console.error('[AgendaGrid] reschedule error:', err)
@@ -247,33 +196,17 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
     }
   }, [selectedDate, updateBooking])
 
-  // ── Drag handlers ──────────────────────────────────────────────────────────
-  function onCardMouseDown(
-    e: React.MouseEvent,
-    booking: AgendaBooking,
-    profId: string,
-    cardTop: number,
-    cardHeight: number,
-    cardLeft: number,
-    cardWidth: number,
-  ) {
+  // ── Drag handlers ────────────────────────────────────────────────────────────
+  function onCardMouseDown(e: React.MouseEvent, booking: AgendaBooking, profId: string, cardTop: number, cardHeight: number) {
     e.preventDefault()
     e.stopPropagation()
-
     const scrollTop = scrollRef.current?.scrollTop ?? 0
-    const offsetY   = e.clientY - (HEADER_H - scrollTop + cardTop)
-
+    const offsetY   = Math.max(0, e.clientY - (HEADER_H - scrollTop + cardTop))
     setDrag({
-      bookingId:     booking.id,
-      booking,
-      fromProfId:    profId,
-      ghostTop:      cardTop,
-      ghostLeft:     cardLeft,
-      ghostWidth:    cardWidth,
-      ghostHeight:   cardHeight,
-      offsetY:       Math.max(0, offsetY),
-      currentProfId: profId,
-      currentTime:   booking.start,
+      bookingId: booking.id, booking, fromProfId: profId,
+      ghostTop: cardTop, ghostLeft: 0, ghostWidth: 0,
+      ghostHeight: cardHeight, offsetY,
+      currentProfId: profId, currentTime: booking.start,
     })
   }
 
@@ -282,20 +215,16 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
 
     function onMouseMove(e: MouseEvent) {
       if (!drag || !gridRef.current || !scrollRef.current) return
-
-      const gridRect   = gridRef.current.getBoundingClientRect()
-      const scrollTop  = scrollRef.current.scrollTop
+      const gridRect  = gridRef.current.getBoundingClientRect()
+      const scrollTop = scrollRef.current.scrollTop
       const scrollLeft = scrollRef.current.scrollLeft
 
-      // Posição Y relativa ao grid (com scroll)
-      const relY   = e.clientY - gridRect.top + scrollTop - HEADER_H - drag.offsetY
-      const rawMin = relY / PX_PER_MIN + START_MIN
+      const relY    = e.clientY - gridRect.top + scrollTop - HEADER_H - drag.offsetY
+      const rawMin  = relY / PX_PER_MIN + START_MIN
       const snapMin = Math.max(START_MIN, Math.min(snapToSlot(rawMin), END_HOUR * 60 - SLOT_STEP))
-      const snapTime = minutesToTime(snapMin)
 
-      // Posição X — detecta qual coluna de profissional
-      const relX = e.clientX - gridRect.left + scrollLeft - TIME_COL_W
-      const colW  = (gridRect.width - TIME_COL_W) / professionals.length
+      const relX   = e.clientX - gridRect.left + scrollLeft - TIME_COL_W
+      const colW   = (gridRect.width - TIME_COL_W) / professionals.length
       const colIdx = Math.max(0, Math.min(Math.floor(relX / colW), professionals.length - 1))
       const prof   = professionals[colIdx]
 
@@ -305,21 +234,16 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
         ghostLeft:     TIME_COL_W + colIdx * colW + 4,
         ghostWidth:    colW - 8,
         currentProfId: prof?.id ?? prev.currentProfId,
-        currentTime:   snapTime,
+        currentTime:   minutesToTime(snapMin),
       } : null)
     }
 
     function onMouseUp() {
       if (!drag) return
       const { bookingId, currentTime, currentProfId, fromProfId, booking } = drag
-
-      // Só salva se mudou algo
       const changed = currentTime !== booking.start || currentProfId !== fromProfId
       setDrag(null)
-
-      if (changed) {
-        doReschedule(bookingId, currentTime, currentProfId, false)
-      }
+      if (changed) doReschedule(bookingId, currentTime, currentProfId, false)
     }
 
     window.addEventListener('mousemove', onMouseMove)
@@ -330,34 +254,25 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
     }
   }, [drag, professionals, doReschedule])
 
-  // ── Conflict modal handlers ────────────────────────────────────────────────
   function handleConflictConfirm() {
     if (!conflict) return
-    const { bookingId, professionalId } = conflict
     const time = dayjs(conflict.startAt).tz('America/Sao_Paulo').format('HH:mm')
+    const { bookingId, professionalId } = conflict
     setConflict(null)
     doReschedule(bookingId, time, professionalId, true)
   }
 
-  function handleConflictCancel() {
-    setConflict(null)
-  }
-
   return (
     <>
-      {conflict && (
-        <ConflictModal
-          onConfirm={handleConflictConfirm}
-          onCancel={handleConflictCancel}
-        />
-      )}
+      {conflict && <ConflictModal onConfirm={handleConflictConfirm} onCancel={() => setConflict(null)} />}
 
       <div
         ref={scrollRef}
         style={{
-          flex: 1, overflowY: 'auto', overflowX: 'auto',
+          flex: 1, minHeight: 0,
+          overflowY: 'auto', overflowX: 'auto',
           background: colors.background.page,
-          fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
+          fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
           cursor: drag ? 'grabbing' : 'default',
           userSelect: drag ? 'none' : 'auto',
         }}
@@ -368,79 +283,40 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
           .ag-hour { border-top:1px solid ${colors.gray.border}; }
           .ag-half { border-top:1px dashed rgba(0,0,0,0.06); }
           .ag-5    { border-top:1px solid transparent; }
-          .ag-card-wrap { transition: opacity 0.15s; }
-          .ag-card-wrap:hover { opacity: 0.92; }
         `}</style>
 
-        {/* Grid container */}
         <div
           ref={gridRef}
           style={{
             display: 'grid',
             gridTemplateColumns: `${TIME_COL_W}px repeat(${professionals.length}, minmax(${MIN_COL_W}px, 1fr))`,
             minWidth: `${TIME_COL_W + professionals.length * MIN_COL_W}px`,
-            position: 'relative',
           }}
         >
-          {/* Header canto */}
-          <div style={{
-            height: HEADER_H, position: 'sticky', top: 0, zIndex: 20,
-            background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
-            borderBottom: `1px solid ${colors.gray.border}`,
-            borderRight:  `1px solid ${colors.gray.border}`,
-          }} />
+          {/* Header: canto */}
+          <div style={{ height:HEADER_H, position:'sticky', top:0, zIndex:20, background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)', borderBottom:`1px solid ${colors.gray.border}`, borderRight:`1px solid ${colors.gray.border}` }} />
 
-          {/* Header profissionais */}
+          {/* Header: profissionais */}
           {professionals.map(p => {
-            const initials = p.name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase()
+            const initials = p.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
             return (
-              <div key={p.id} style={{
-                height: HEADER_H, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                position: 'sticky', top: 0, zIndex: 20,
-                background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
-                borderBottom: `1px solid ${colors.gray.border}`,
-                borderLeft:   `1px solid ${colors.gray.border}`,
-                fontWeight: 600, fontSize: 13, color: colors.gray['900'],
-              }}>
-                <div style={{
-                  width: 30, height: 30, borderRadius: '50%',
-                  background: colors.red.gradient, color: '#fff',
-                  fontSize: 11, fontWeight: 700,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0, boxShadow: `0 2px 8px ${colors.red.glow}`,
-                }}>{initials}</div>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>
-                  {p.name}
-                </span>
+              <div key={p.id} style={{ height:HEADER_H, display:'flex', alignItems:'center', justifyContent:'center', gap:8, position:'sticky', top:0, zIndex:20, background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)', borderBottom:`1px solid ${colors.gray.border}`, borderLeft:`1px solid ${colors.gray.border}`, fontWeight:600, fontSize:13, color:colors.gray['900'] }}>
+                <div style={{ width:30, height:30, borderRadius:'50%', background:colors.red.gradient, color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:`0 2px 8px ${colors.red.glow}` }}>{initials}</div>
+                <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:100 }}>{p.name}</span>
               </div>
             )
           })}
 
           {/* Coluna de horários */}
-          <div style={{ position: 'relative', zIndex: 2, height: totalH }}>
+          <div style={{ position:'relative', zIndex:2, height:TOTAL_H }}>
             {SLOTS.map((time, i) => {
               const min    = i * SLOT_STEP
               const isHour = min % 60 === 0
               const isHalf = min % 30 === 0 && !isHour
               return (
-                <div key={time} style={{
-                  height: SLOT_H,
-                  display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
-                  paddingRight: 8, paddingTop: 2, boxSizing: 'border-box',
-                  borderTop: isHour
-                    ? `1px solid ${colors.gray.border}`
-                    : isHalf ? `1px dashed rgba(0,0,0,0.07)` : '1px solid transparent',
-                }}>
-                  {isHour && (
-                    <span style={{ fontSize: 10, fontWeight: 600, color: colors.gray.dimText, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                      {time}
-                    </span>
-                  )}
-                  {isHalf && (
-                    <span style={{ fontSize: 9, fontWeight: 400, color: colors.gray.dimTextLight, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                      {time}
-                    </span>
-                  )}
+                <div key={time} style={{ height:SLOT_H, display:'flex', alignItems:'flex-start', justifyContent:'flex-end', paddingRight:8, paddingTop:2, boxSizing:'border-box', borderTop: isHour ? `1px solid ${colors.gray.border}` : isHalf ? `1px dashed rgba(0,0,0,0.07)` : '1px solid transparent' }}>
+                  {isHour && <span style={{ fontSize:10, fontWeight:600, color:colors.gray.dimText, fontVariantNumeric:'tabular-nums', lineHeight:1 }}>{time}</span>}
+                  {isHalf && <span style={{ fontSize:9, fontWeight:400, color:colors.gray.dimTextLight, fontVariantNumeric:'tabular-nums', lineHeight:1 }}>{time}</span>}
                 </div>
               )
             })}
@@ -452,12 +328,8 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
             const layout       = computeOverlapLayout(profBookings)
 
             return (
-              <div key={p.id} style={{
-                position: 'relative',
-                borderLeft: `1px solid ${colors.gray.border}`,
-                zIndex: 5,
-                height: totalH,
-              }}>
+              <div key={p.id} style={{ position:'relative', borderLeft:`1px solid ${colors.gray.border}`, zIndex:5, height:TOTAL_H }}>
+
                 {/* Slots clicáveis */}
                 {SLOTS.map((time, i) => {
                   const min    = i * SLOT_STEP
@@ -476,16 +348,21 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
                 {profBookings.map(b => {
                   const startMin = toMinutes(b.start)
                   const endMin   = toMinutes(b.end)
+
+                  // Fora do range da grade — ignora silenciosamente
                   if (startMin < START_MIN || startMin >= END_HOUR * 60) return null
 
-                  const duration = Math.max(endMin - startMin, SLOT_STEP)
-                  const top      = (startMin - START_MIN) * PX_PER_MIN
-                  const height   = Math.max(duration * PX_PER_MIN - 2, SLOT_H * 3)
+                  const durationMin = Math.max(endMin - startMin, SLOT_STEP)
+                  const top         = (startMin - START_MIN) * PX_PER_MIN
+
+                  // Altura real proporcional à duração, com mínimo garantido
+                  const rawHeight   = durationMin * PX_PER_MIN - 2
+                  const height      = Math.max(rawHeight, MIN_CARD_H)
 
                   const { col, totalCols } = layout.get(b.id) ?? { col: 0, totalCols: 1 }
-                  const colW   = 1 / totalCols
-                  const left   = `calc(${col * colW * 100}% + 4px)`
-                  const width  = `calc(${colW * 100}% - ${col === totalCols - 1 ? 8 : 4}px)`
+                  const colFrac   = 1 / totalCols
+                  const left      = `calc(${col * colFrac * 100}% + 3px)`
+                  const width     = `calc(${colFrac * 100}% - ${col === totalCols - 1 ? 6 : 3}px)`
 
                   const isDragging = drag?.bookingId === b.id
                   const isSaving   = savingId === b.id
@@ -493,16 +370,14 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
                   return (
                     <div
                       key={b.id}
-                      className="ag-card-wrap"
                       style={{
-                        position: 'absolute',
-                        top, left, width, height,
-                        zIndex: isDragging ? 0 : 8,
-                        opacity: isDragging ? 0.35 : isSaving ? 0.6 : 1,
+                        position: 'absolute', top, left, width, height,
+                        zIndex:   isDragging ? 0 : 8,
+                        opacity:  isDragging ? 0.3 : isSaving ? 0.6 : 1,
                         transition: isDragging ? 'none' : 'opacity 0.2s',
                         cursor: 'grab',
                       }}
-                      onMouseDown={(e) => onCardMouseDown(e, b, p.id, top, height, 0, 0)}
+                      onMouseDown={e => onCardMouseDown(e, b, p.id, top, height)}
                     >
                       <BookingCard booking={b} totalHeight={height} />
                     </div>
@@ -511,19 +386,8 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
 
                 {/* Indicador hora atual */}
                 {currentY >= 0 && (
-                  <div style={{
-                    position: 'absolute', top: currentY, left: 0, right: 0,
-                    height: 2,
-                    background: `linear-gradient(90deg,${colors.red.DEFAULT},${colors.red.light})`,
-                    zIndex: 15, pointerEvents: 'none',
-                    boxShadow: `0 0 6px ${colors.red.glow}`,
-                  }}>
-                    <div style={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: colors.red.DEFAULT,
-                      position: 'absolute', left: -4, top: -3,
-                      boxShadow: `0 0 6px ${colors.red.glow}`,
-                    }} />
+                  <div style={{ position:'absolute', top:currentY, left:0, right:0, height:2, background:`linear-gradient(90deg,${colors.red.DEFAULT},${colors.red.light})`, zIndex:15, pointerEvents:'none', boxShadow:`0 0 6px ${colors.red.glow}` }}>
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:colors.red.DEFAULT, position:'absolute', left:-4, top:-3, boxShadow:`0 0 6px ${colors.red.glow}` }} />
                   </div>
                 )}
               </div>
@@ -535,26 +399,17 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
         {drag && (
           <div style={{
             position: 'fixed',
-            top:    drag.ghostTop + HEADER_H - (scrollRef.current?.scrollTop ?? 0) + (scrollRef.current?.getBoundingClientRect().top ?? 0),
-            left:   drag.ghostLeft + (scrollRef.current?.getBoundingClientRect().left ?? 0) - (scrollRef.current?.scrollLeft ?? 0),
+            top:  drag.ghostTop + HEADER_H - (scrollRef.current?.scrollTop ?? 0) + (scrollRef.current?.getBoundingClientRect().top ?? 0),
+            left: drag.ghostLeft + (scrollRef.current?.getBoundingClientRect().left ?? 0) - (scrollRef.current?.scrollLeft ?? 0),
             width:  drag.ghostWidth,
             height: drag.ghostHeight,
-            zIndex: 9997,
-            pointerEvents: 'none',
+            zIndex: 9997, pointerEvents: 'none',
             opacity: 0.85,
-            filter: 'drop-shadow(0 8px 24px rgba(220,38,38,0.35))',
+            filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.25))',
             transform: 'scale(1.02)',
-            transition: 'transform 0.1s',
           }}>
             <BookingCard booking={drag.booking} totalHeight={drag.ghostHeight} />
-            {/* Label de horário no ghost */}
-            <div style={{
-              position: 'absolute', bottom: -22, left: 0, right: 0,
-              textAlign: 'center', fontSize: 11, fontWeight: 700,
-              color: colors.red.DEFAULT,
-              fontVariantNumeric: 'tabular-nums',
-              textShadow: '0 1px 4px rgba(255,255,255,0.9)',
-            }}>
+            <div style={{ position:'absolute', bottom:-20, left:0, right:0, textAlign:'center', fontSize:11, fontWeight:700, color:colors.red.DEFAULT, fontVariantNumeric:'tabular-nums', textShadow:'0 1px 4px rgba(255,255,255,0.9)' }}>
               {drag.currentTime}
             </div>
           </div>

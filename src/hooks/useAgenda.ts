@@ -5,34 +5,38 @@ import { useEffect, useState, useCallback } from 'react'
 import api from '@/lib/api'
 import { AgendaBooking, AgendaProfessional } from '@/features/agenda/types'
 
-// ─── Tipos do payload bruto da API ─────────────────────────────────────────
+// ─── Tipos do payload bruto da API ───────────────────────────────────────────
 interface ApiBooking {
-  id: string
+  id:             string
   professionalId: string
-  clientName: string
-  serviceName?: string
-  service?: { name?: string; duration?: number }
-  start: string   // "HH:mm" — o backend já formata
-  end: string     // "HH:mm" — o backend já formata
-  status?: string
-  // campos legados que podem vir de versões antigas
-  time?: string
+  clientName:     string
+  serviceName?:   string
+  serviceColor?:  string | null   // ← vem do backend
+  service?: {
+    name?:  string
+    color?: string | null         // ← também pode vir aninhado
+  }
+  start:     string   // "HH:mm"
+  end:       string   // "HH:mm"
+  status?:   string
+  // legado
+  time?:     string
   duration?: number
 }
 
 interface AgendaPayload {
-  businessId: string
-  date: string
+  businessId:    string
+  date:          string
   professionals: AgendaProfessional[]
-  bookings: ApiBooking[]
+  bookings:      ApiBooking[]
 }
 
 interface ApiResponse {
   success?: boolean
-  data?: AgendaPayload
+  data?:    AgendaPayload
 }
 
-// ─── Adaptador único: normaliza o booking bruto para AgendaBooking ──────────
+// ─── Adaptador ───────────────────────────────────────────────────────────────
 function adaptBooking(b: ApiBooking): AgendaBooking {
   const validStatuses = ['CONFIRMED', 'COMPLETED', 'CANCELED'] as const
   type BS = typeof validStatuses[number]
@@ -41,22 +45,25 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
     ? (b.status as BS)
     : 'CONFIRMED'
 
-  // Usa start/end que o backend manda prontos; cai para legado se não existir
   const start = b.start || b.time || '08:00'
   const end   = b.end   || '08:30'
+
+  // Cor: pode vir diretamente como serviceColor ou dentro de service.color
+  const serviceColor = b.serviceColor ?? b.service?.color ?? null
 
   return {
     id:             b.id,
     professionalId: b.professionalId,
     clientName:     b.clientName,
     serviceName:    b.serviceName || b.service?.name || 'Serviço',
+    serviceColor:   serviceColor ?? undefined,
     start,
     end,
     status,
   }
 }
 
-// ─── Hook ───────────────────────────────────────────────────────────────────
+// ─── Hook ────────────────────────────────────────────────────────────────────
 export interface AgendaData {
   businessId:    string
   date:          string
@@ -74,7 +81,7 @@ export function useAgenda(date: string) {
       setLoading(true)
       setError(null)
 
-      const res = await api.get<ApiResponse>('/agenda/day', { params: { date } })
+      const res     = await api.get<ApiResponse>('/agenda/day', { params: { date } })
       const payload = res.data?.data ?? (res.data as unknown as AgendaPayload)
 
       setData({
