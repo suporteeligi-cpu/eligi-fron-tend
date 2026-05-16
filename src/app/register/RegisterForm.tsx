@@ -37,9 +37,9 @@ declare global {
 
 /* ── Component ── */
 export default function RegisterForm() {
-  const router                   = useRouter()
+  const router                        = useRouter()
   const { register, loginWithGoogle } = useAuth()
-  const googleButtonRef          = useRef<HTMLDivElement>(null)
+  const googleButtonRef               = useRef<HTMLDivElement>(null)
 
   const [name,     setName]     = useState('')
   const [email,    setEmail]    = useState('')
@@ -65,7 +65,6 @@ export default function RegisterForm() {
         try {
           setLoading(true)
           await loginWithGoogle(credential, 'register')
-          window.location.href = '/dashboard'
         } catch {
           setErrors({ general: 'Erro ao registrar com Google.' })
         } finally {
@@ -86,10 +85,9 @@ export default function RegisterForm() {
     e.preventDefault()
     if (loading) return
 
-    // Basic client validation
     const nextErrors: typeof errors = {}
-    if (!name.trim())     nextErrors.name     = 'Nome é obrigatório'
-    if (!email.trim())    nextErrors.email    = 'Email é obrigatório'
+    if (!name.trim())        nextErrors.name     = 'Nome é obrigatório'
+    if (!email.trim())       nextErrors.email    = 'Email é obrigatório'
     if (password.length < 6) nextErrors.password = 'Senha deve ter pelo menos 6 caracteres'
 
     if (Object.keys(nextErrors).length) {
@@ -102,7 +100,6 @@ export default function RegisterForm() {
 
     try {
       await register(name.trim(), email.trim(), password, role)
-      window.location.href = '/dashboard'
     } catch (error: unknown) {
       const code = (error && typeof error === 'object' && 'code' in error)
         ? (error as ApiError).code

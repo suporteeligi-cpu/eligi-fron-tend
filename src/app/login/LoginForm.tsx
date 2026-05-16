@@ -33,7 +33,6 @@ export default function LoginForm() {
     try {
       setLoading(true)
       await loginWithGoogle(response.credential, 'login')
-      window.location.href = '/dashboard'
     } catch {
       setErrors({ general: 'Erro ao autenticar com Google.' })
     } finally {
@@ -52,7 +51,6 @@ export default function LoginForm() {
 
     try {
       await login(email, password)
-      window.location.href = '/dashboard'
     } catch (error: unknown) {
       const mapped = mapAuthError(
         (error && typeof error === 'object' && 'code' in error)
@@ -130,7 +128,7 @@ export default function LoginForm() {
         <span className={styles.dividerLabel}>ou continue com</span>
       </div>
 
-      {/* Google — usa @react-oauth/google que já está no layout */}
+      {/* Google */}
       <div className={styles.googleWrapper}>
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
