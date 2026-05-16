@@ -2,8 +2,10 @@
 // src/features/agenda/components/AgendaGrid.tsx
 
 import { useRef, useEffect, useState, useCallback } from 'react'
-import BookingCard from './BookingCard'
-import BlockCard   from './BlockCard'
+import BookingCard      from './BookingCard'
+import BlockCard        from './BlockCard'
+import SlotContextMenu  from './SlotContextMenu'
+import BlockEditModal   from './BlockEditModal'
 import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
 import { colors, agendaLayout } from '@/shared/theme'
 import { useAgendaStore } from '../hooks/useAgendaStore'
@@ -28,7 +30,6 @@ const PX_PER_MIN = SLOT_H / SLOT_STEP
 const START_MIN  = START_HOUR * 60
 const MIN_CARD_H = 24
 
-// ─── Utilitários ──────────────────────────────────────────────────────────────
 function generateSlots(): string[] {
   const slots: string[] = []
   for (let h = START_HOUR; h < END_HOUR; h++)
@@ -36,24 +37,13 @@ function generateSlots(): string[] {
       slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`)
   return slots
 }
-
-function toMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + m
-}
-
-function minutesToTime(min: number): string {
-  return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`
-}
-
-function snapToSlot(min: number): number {
-  return Math.round(min / SLOT_STEP) * SLOT_STEP
-}
+function toMinutes(t: string): number { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+function minutesToTime(min: number): string { return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}` }
+function snapToSlot(min: number): number { return Math.round(min / SLOT_STEP) * SLOT_STEP }
 
 const SLOTS   = generateSlots()
 const TOTAL_H = SLOTS.length * SLOT_H
 
-// ─── Overlap layout ───────────────────────────────────────────────────────────
 function computeOverlapLayout(bookings: AgendaBooking[]): Map<string, { col: number; totalCols: number }> {
   const result = new Map<string, { col: number; totalCols: number }>()
   const sorted = [...bookings].sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
@@ -61,34 +51,23 @@ function computeOverlapLayout(bookings: AgendaBooking[]): Map<string, { col: num
   for (const b of sorted) {
     let placed = false
     for (const group of groups) {
-      if (group.some(g => toMinutes(b.start) < toMinutes(g.end) && toMinutes(b.end) > toMinutes(g.start))) {
-        group.push(b); placed = true; break
-      }
+      if (group.some(g => toMinutes(b.start) < toMinutes(g.end) && toMinutes(b.end) > toMinutes(g.start))) { group.push(b); placed = true; break }
     }
     if (!placed) groups.push([b])
   }
-  for (const group of groups)
-    group.forEach((b, col) => result.set(b.id, { col, totalCols: group.length }))
+  for (const group of groups) group.forEach((b, col) => result.set(b.id, { col, totalCols: group.length }))
   return result
 }
 
-// ─── Hora atual ───────────────────────────────────────────────────────────────
 function useCurrentTimeY() {
   const [y, setY] = useState(-1)
   useEffect(() => {
-    const calc = () => {
-      const now = new Date()
-      const min = now.getHours() * 60 + now.getMinutes()
-      setY(min < START_MIN || min > END_HOUR * 60 ? -1 : (min - START_MIN) * PX_PER_MIN)
-    }
-    calc()
-    const id = setInterval(calc, 30_000)
-    return () => clearInterval(id)
+    const calc = () => { const now = new Date(); const min = now.getHours()*60+now.getMinutes(); setY(min<START_MIN||min>END_HOUR*60?-1:(min-START_MIN)*PX_PER_MIN) }
+    calc(); const id = setInterval(calc, 30_000); return () => clearInterval(id)
   }, [])
   return y
 }
 
-// ─── Modal de conflito ────────────────────────────────────────────────────────
 function ConflictModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
     <>
@@ -96,7 +75,7 @@ function ConflictModal({ onConfirm, onCancel }: { onConfirm: () => void; onCance
       <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:320, maxWidth:'90vw', background:'#fff', borderRadius:20, boxShadow:'0 24px 64px rgba(0,0,0,0.18)', zIndex:9999, padding:'28px 24px 20px', fontFamily:'-apple-system,"SF Pro Display",system-ui,sans-serif', textAlign:'center' }}>
         <div style={{ fontSize:36, marginBottom:12 }}>⚠️</div>
         <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:700, color:'#111827' }}>Horário conflitante</h3>
-        <p style={{ margin:'0 0 20px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>Já existe um agendamento nesse horário.<br/>Deseja agendar mesmo assim e exibir os dois lado a lado?</p>
+        <p style={{ margin:'0 0 20px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>Já existe um agendamento nesse horário.<br/>Deseja agendar mesmo assim?</p>
         <button onClick={onConfirm} style={{ width:'100%', padding:'13px', marginBottom:8, background:'linear-gradient(135deg,#dc2626,#b91c1c)', color:'#fff', border:'none', borderRadius:12, fontWeight:600, fontSize:14, cursor:'pointer', boxShadow:'0 4px 16px rgba(220,38,38,0.28)' }}>Confirmar sobreposição</button>
         <button onClick={onCancel} style={{ width:'100%', padding:'11px', background:'rgba(0,0,0,0.04)', border:'1px solid rgba(0,0,0,0.08)', borderRadius:12, fontSize:14, cursor:'pointer', color:'rgba(0,0,0,0.5)' }}>Voltar</button>
       </div>
@@ -104,76 +83,59 @@ function ConflictModal({ onConfirm, onCancel }: { onConfirm: () => void; onCance
   )
 }
 
-// ─── Drag state ───────────────────────────────────────────────────────────────
 interface DragState {
   bookingId: string; booking: AgendaBooking; fromProfId: string
   ghostTop: number; ghostLeft: number; ghostWidth: number; ghostHeight: number
   offsetY: number; currentProfId: string; currentTime: string
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+interface ContextMenu { x: number; y: number; time: string; profId: string }
+
 interface Props {
   professionals:    AgendaProfessional[]
   bookings:         AgendaBooking[]
   blocks:           AgendaBlock[]
   onOpenBlockModal?:(time?: string, profId?: string) => void
   onDeleteBlock?:   (id: string) => void
+  onUpdateBlock?:   (block: AgendaBlock) => void
 }
 
-export default function AgendaGrid({ professionals, bookings, blocks, onOpenBlockModal, onDeleteBlock }: Props) {
+export default function AgendaGrid({ professionals, bookings, blocks, onOpenBlockModal, onDeleteBlock, onUpdateBlock }: Props) {
   const { openCreate, selectedDate, updateBooking } = useAgendaStore()
   const scrollRef = useRef<HTMLDivElement>(null)
   const gridRef   = useRef<HTMLDivElement>(null)
   const currentY  = useCurrentTimeY()
 
-  const [drag,     setDrag]     = useState<DragState | null>(null)
-  const [conflict, setConflict] = useState<{ bookingId: string; startAt: string; professionalId: string } | null>(null)
-  const [savingId, setSavingId] = useState<string | null>(null)
+  const [drag,        setDrag]        = useState<DragState | null>(null)
+  const [conflict,    setConflict]    = useState<{ bookingId: string; startAt: string; professionalId: string } | null>(null)
+  const [savingId,    setSavingId]    = useState<string | null>(null)
+  const [ctxMenu,     setCtxMenu]     = useState<ContextMenu | null>(null)
+  const [editBlock,   setEditBlock]   = useState<AgendaBlock | null>(null)
 
-  // Deduplicação
   const seen   = new Set<string>()
   const unique = bookings.filter(b => { if (seen.has(b.id)) return false; seen.add(b.id); return true })
 
-  // Scroll para hora atual
   useEffect(() => {
     if (currentY > 0 && scrollRef.current)
       scrollRef.current.scrollTop = Math.max(0, currentY - 120)
   }, [currentY])
 
-  // ── Reschedule ────────────────────────────────────────────────────────────────
-  const doReschedule = useCallback(async (
-    bookingId: string, time: string, professionalId: string, allowOverlap: boolean
-  ) => {
+  const doReschedule = useCallback(async (bookingId: string, time: string, professionalId: string, allowOverlap: boolean) => {
     const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
     const startAt = dayjs.tz(`${dateStr} ${time}`, 'America/Sao_Paulo').toISOString()
     try {
       setSavingId(bookingId)
       const res = await api.patch(`/bookings/${bookingId}/reschedule`, { startAt, professionalId, allowOverlap })
       const b   = res.data?.data ?? res.data
-      if (b) {
-        updateBooking(dateStr, {
-          id:             bookingId,
-          professionalId: b.professionalId ?? professionalId,
-          clientName:     b.clientName,
-          serviceName:    b.service?.name  ?? '',
-          serviceColor:   b.service?.color ?? undefined,
-          start:          dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),
-          end:            dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),
-          status:         b.status,
-        })
-      }
+      if (b) updateBooking(dateStr, { id: bookingId, professionalId: b.professionalId ?? professionalId, clientName: b.clientName, serviceName: b.service?.name ?? '', serviceColor: b.service?.color ?? undefined, start: dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'), end: dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'), status: b.status })
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status
       const code   = (err as { response?: { data?: { code?: string } } })?.response?.data?.code
-      if (status === 409 || code === 'BOOKING_CONFLICT') {
-        setConflict({ bookingId, startAt, professionalId })
-      } else {
-        console.error('[AgendaGrid] reschedule error:', err)
-      }
+      if (status === 409 || code === 'BOOKING_CONFLICT') setConflict({ bookingId, startAt, professionalId })
+      else console.error('[AgendaGrid] reschedule error:', err)
     } finally { setSavingId(null) }
   }, [selectedDate, updateBooking])
 
-  // ── Drag ──────────────────────────────────────────────────────────────────────
   function onCardMouseDown(e: React.MouseEvent, booking: AgendaBooking, profId: string, cardTop: number, cardHeight: number) {
     e.preventDefault(); e.stopPropagation()
     const scrollTop = scrollRef.current?.scrollTop ?? 0
@@ -185,13 +147,10 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
     if (!drag) return
     function onMouseMove(e: MouseEvent) {
       if (!drag || !gridRef.current || !scrollRef.current) return
-      const gridRect   = gridRef.current.getBoundingClientRect()
-      const scrollTop  = scrollRef.current.scrollTop
-      const scrollLeft = scrollRef.current.scrollLeft
-      const relY    = e.clientY - gridRect.top + scrollTop - HEADER_H - drag.offsetY
-      const rawMin  = relY / PX_PER_MIN + START_MIN
-      const snapMin = Math.max(START_MIN, Math.min(snapToSlot(rawMin), END_HOUR * 60 - SLOT_STEP))
-      const relX   = e.clientX - gridRect.left + scrollLeft - TIME_COL_W
+      const gridRect = gridRef.current.getBoundingClientRect()
+      const relY    = e.clientY - gridRect.top + scrollRef.current.scrollTop - HEADER_H - drag.offsetY
+      const snapMin = Math.max(START_MIN, Math.min(snapToSlot(relY / PX_PER_MIN + START_MIN), END_HOUR * 60 - SLOT_STEP))
+      const relX   = e.clientX - gridRect.left + scrollRef.current.scrollLeft - TIME_COL_W
       const colW   = (gridRect.width - TIME_COL_W) / professionals.length
       const colIdx = Math.max(0, Math.min(Math.floor(relX / colW), professionals.length - 1))
       const prof   = professionals[colIdx]
@@ -200,9 +159,8 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
     function onMouseUp() {
       if (!drag) return
       const { bookingId, currentTime, currentProfId, fromProfId, booking } = drag
-      const changed = currentTime !== booking.start || currentProfId !== fromProfId
       setDrag(null)
-      if (changed) doReschedule(bookingId, currentTime, currentProfId, false)
+      if (currentTime !== booking.start || currentProfId !== fromProfId) doReschedule(bookingId, currentTime, currentProfId, false)
     }
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup',   onMouseUp)
@@ -217,9 +175,40 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
     doReschedule(bookingId, time, professionalId, true)
   }
 
+  function handleSlotClick(e: React.MouseEvent, time: string, profId: string) {
+    if (drag) return
+    e.preventDefault()
+    setCtxMenu({ x: e.clientX, y: e.clientY, time, profId })
+  }
+
+  function handleBlockClick(e: React.MouseEvent, block: AgendaBlock) {
+    e.stopPropagation()
+    setEditBlock(block)
+  }
+
   return (
     <>
       {conflict && <ConflictModal onConfirm={handleConflictConfirm} onCancel={() => setConflict(null)} />}
+
+      {ctxMenu && (
+        <SlotContextMenu
+          x={ctxMenu.x} y={ctxMenu.y}
+          time={ctxMenu.time} profId={ctxMenu.profId}
+          onClose={() => setCtxMenu(null)}
+          onNewBooking={(time, profId) => openCreate(time, profId)}
+          onNewBlock={(time, profId) => onOpenBlockModal?.(time, profId)}
+        />
+      )}
+
+      {editBlock && (
+        <BlockEditModal
+          block={editBlock}
+          professionals={professionals}
+          onClose={() => setEditBlock(null)}
+          onDeleted={(id) => { onDeleteBlock?.(id); setEditBlock(null) }}
+          onUpdated={(updated) => { onUpdateBlock?.(updated); setEditBlock(null) }}
+        />
+      )}
 
       <div ref={scrollRef} style={{ flex:1, minHeight:0, overflowY:'auto', overflowX:'auto', background:colors.background.page, fontFamily:'-apple-system,"SF Pro Display",system-ui,sans-serif', cursor:drag?'grabbing':'default', userSelect:drag?'none':'auto' }}>
         <style>{`
@@ -268,20 +257,19 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
             return (
               <div key={p.id} style={{ position:'relative', borderLeft:`1px solid ${colors.gray.border}`, zIndex:5, height:TOTAL_H }}>
 
-                {/* Slots clicáveis */}
+                {/* Slots — clique abre menu de contexto */}
                 {SLOTS.map((time, i) => {
                   const min = i * SLOT_STEP, isHour = min % 60 === 0, isHalf = min % 30 === 0 && !isHour
                   return (
                     <div
                       key={time}
                       className={`ag-slot ${isHour?'ag-hour':isHalf?'ag-half':'ag-5'}`}
-                      onClick={() => !drag && openCreate(time, p.id)}
-                      onContextMenu={e => { e.preventDefault(); onOpenBlockModal?.(time, p.id) }}
+                      onClick={e => handleSlotClick(e, time, p.id)}
                     />
                   )
                 })}
 
-                {/* Bloqueios — zIndex 7, abaixo dos bookings (8) */}
+                {/* Bloqueios */}
                 {profBlocks.map(bl => {
                   const startMin = toMinutes(bl.startTime)
                   const endMin   = toMinutes(bl.endTime)
@@ -289,30 +277,30 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
                   const top    = (startMin - START_MIN) * PX_PER_MIN
                   const height = Math.max((endMin - startMin) * PX_PER_MIN - 2, MIN_CARD_H)
                   return (
-                    <div key={bl.id} style={{ position:'absolute', top, left:3, right:3, height, zIndex:7 }}>
-                      <BlockCard block={bl} totalHeight={height} onDelete={onDeleteBlock} />
+                    <div
+                      key={bl.id}
+                      style={{ position:'absolute', top, left:3, right:3, height, zIndex:7, cursor:'pointer' }}
+                      onClick={e => handleBlockClick(e, bl)}
+                    >
+                      <BlockCard block={bl} totalHeight={height} />
                     </div>
                   )
                 })}
 
                 {/* Bookings */}
                 {profBookings.map(b => {
-                  const startMin = toMinutes(b.start)
-                  const endMin   = toMinutes(b.end)
+                  const startMin    = toMinutes(b.start)
+                  const endMin      = toMinutes(b.end)
                   if (startMin < START_MIN || startMin >= END_HOUR * 60) return null
-
                   const durationMin = Math.max(endMin - startMin, SLOT_STEP)
                   const top         = (startMin - START_MIN) * PX_PER_MIN
                   const height      = Math.max(durationMin * PX_PER_MIN - 2, MIN_CARD_H)
-
                   const { col, totalCols } = layout.get(b.id) ?? { col:0, totalCols:1 }
                   const colFrac = 1 / totalCols
                   const left    = `calc(${col * colFrac * 100}% + 3px)`
                   const width   = `calc(${colFrac * 100}% - ${col === totalCols - 1 ? 6 : 3}px)`
-
                   const isDragging = drag?.bookingId === b.id
                   const isSaving   = savingId === b.id
-
                   return (
                     <div key={b.id} style={{ position:'absolute', top, left, width, height, zIndex:isDragging?0:8, opacity:isDragging?0.3:isSaving?0.6:1, transition:isDragging?'none':'opacity 0.2s', cursor:'grab' }}
                       onMouseDown={e => onCardMouseDown(e, b, p.id, top, height)}>

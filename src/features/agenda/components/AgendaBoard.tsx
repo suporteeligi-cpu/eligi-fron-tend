@@ -38,16 +38,9 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   const bookings = getBookingsForDate(dateStr)
   const blocks   = getBlocksForDate(dateStr)
 
-  // Sincroniza data externa
-  useEffect(() => {
-    if (externalDate) setSelectedDate(externalDate)
-  }, [externalDate, setSelectedDate])
+  useEffect(() => { if (externalDate) setSelectedDate(externalDate) }, [externalDate, setSelectedDate])
+  useEffect(() => { onDateChange?.(selectedDate) }, [selectedDate, onDateChange])
 
-  useEffect(() => {
-    onDateChange?.(selectedDate)
-  }, [selectedDate, onDateChange])
-
-  // Detecta mobile
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
     check()
@@ -55,31 +48,35 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  // Carrega bloqueios do dia ao mudar de data
   const fetchBlocks = useCallback(async () => {
     try {
       const res    = await api.get('/blocks', { params: { date: dateStr } })
       const data   = res.data?.data ?? res.data
-      const parsed = (Array.isArray(data) ? data : []) as AgendaBlock[]
-      setBlocksForDate(dateStr, parsed)
-    } catch { /* silencioso — bloqueios são secundários */ }
+      setBlocksForDate(dateStr, Array.isArray(data) ? data : [])
+    } catch { /* silencioso */ }
   }, [dateStr, setBlocksForDate])
 
   useEffect(() => { fetchBlocks() }, [fetchBlocks])
 
-  // Socket
+  // Atualiza bloco no store
+  function updateBlock(dateStr: string, updated: AgendaBlock) {
+    removeBlock(dateStr, updated.id)
+    addBlock(dateStr, updated)
+  }
+
   useAgendaSocket({
     businessId,
-    onCreate:       (b) => addBooking(dateStr, b),
-    onUpdate:       (b) => updateBooking(dateStr, b),
+    onCreate:       (b)  => addBooking(dateStr, b),
+    onUpdate:       (b)  => updateBooking(dateStr, b),
     onCancel:       (id) => removeBooking(dateStr, id),
-    onBlockCreate:  (b) => { if (b.date === dateStr) addBlock(dateStr, b) },
+    onBlockCreate:  (b)  => { if (b.date === dateStr) addBlock(dateStr, b) },
     onBlockDelete:  (id) => removeBlock(dateStr, id),
+    onBlockUpdate:  (b)  => { if (b.date === dateStr) updateBlock(dateStr, b) },
   })
 
   function openBlockModal(time?: string, profId?: string) {
     const resolvedProfId = profId ?? professionals[0]?.id
-    if (!resolvedProfId) return  // não abre se não há profissionais carregados
+    if (!resolvedProfId) return
     setBlockInitTime(time)
     setBlockInitProf(resolvedProfId)
     setBlockModal(true)
@@ -90,29 +87,26 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   }
 
   async function handleDeleteBlock(blockId: string) {
-    try {
-      await api.delete(`/blocks/${blockId}`)
-      removeBlock(dateStr, blockId)
-    } catch { /* silencioso */ }
+    try { await api.delete(`/blocks/${blockId}`); removeBlock(dateStr, blockId) } catch { /* silencioso */ }
+  }
+
+  function handleUpdateBlock(updated: AgendaBlock) {
+    updateBlock(dateStr, updated)
   }
 
   return (
     <>
-      <div style={{
-        width: '100%', height: '100%',
-        display: 'flex', flexDirection: 'column',
-        background: colors.background.page,
-        fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
-      }}>
+      <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', background:colors.background.page, fontFamily:'-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
         <AgendaToolbar onBlockClick={() => openBlockModal()} />
 
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column' }}>
           {isMobile ? (
             <AgendaMobileList
               professionals={professionals}
               bookings={bookings}
               blocks={blocks}
               onDeleteBlock={handleDeleteBlock}
+              onUpdateBlock={handleUpdateBlock}
             />
           ) : (
             <AgendaGrid
@@ -121,30 +115,24 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
               blocks={blocks}
               onOpenBlockModal={openBlockModal}
               onDeleteBlock={handleDeleteBlock}
+              onUpdateBlock={handleUpdateBlock}
             />
           )}
         </div>
       </div>
 
       <SideCheckoutPanel
-        open={checkout.open}
-        mode={checkout.mode}
-        time={checkout.time}
-        professionalId={checkout.professionalId}
-        booking={checkout.booking}
-        professionals={professionals}
-        selectedDate={selectedDate}
-        onClose={closeCheckout}
+        open={checkout.open} mode={checkout.mode}
+        time={checkout.time} professionalId={checkout.professionalId}
+        booking={checkout.booking} professionals={professionals}
+        selectedDate={selectedDate} onClose={closeCheckout}
       />
 
       {blockModal && (
         <BlockModal
-          professionals={professionals}
-          selectedDate={selectedDate}
-          initialTime={blockInitTime}
-          initialProfId={blockInitProf}
-          onClose={() => setBlockModal(false)}
-          onCreated={handleBlockCreated}
+          professionals={professionals} selectedDate={selectedDate}
+          initialTime={blockInitTime} initialProfId={blockInitProf}
+          onClose={() => setBlockModal(false)} onCreated={handleBlockCreated}
         />
       )}
     </>
