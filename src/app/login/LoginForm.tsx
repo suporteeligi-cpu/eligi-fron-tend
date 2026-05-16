@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthCard }   from '../components/auth/AuthCard'
 import { AuthInput }  from '../components/auth/AuthInput'
@@ -9,31 +10,11 @@ import { AuthButton } from '../components/auth/AuthButton'
 import { mapAuthError } from '@/lib/auth.error.map'
 import styles from './Login.module.css'
 
-/* ── Types ── */
 type ApiError = { code: string }
 
-interface GoogleCredentialResponse {
-  credential?: string
-}
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: { client_id: string; callback: (r: GoogleCredentialResponse) => void }) => void
-          renderButton: (parent: HTMLElement, options: { theme?: string; size?: string; width?: string | number }) => void
-        }
-      }
-    }
-  }
-}
-
-/* ── Component ── */
 export default function LoginForm() {
-  const router              = useRouter()
+  const router                     = useRouter()
   const { login, loginWithGoogle } = useAuth()
-  const googleButtonRef     = useRef<HTMLDivElement>(null)
 
   const [email,        setEmail]        = useState('')
   const [password,     setPassword]     = useState('')
@@ -43,36 +24,22 @@ export default function LoginForm() {
     email?: string; password?: string; general?: string
   }>({})
 
-  /* ── Google init ── */
-  useEffect(() => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    if (!clientId || !window.google || !googleButtonRef.current) return
-
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async ({ credential }: GoogleCredentialResponse) => {
-        if (!credential) {
-          setErrors({ general: 'Token Google inválido.' })
-          return
-        }
-        try {
-          setLoading(true)
-          await loginWithGoogle(credential, 'login')
-          window.location.href = '/dashboard'
-        } catch {
-          setErrors({ general: 'Erro ao autenticar com Google.' })
-        } finally {
-          setLoading(false)
-        }
-      },
-    })
-
-    window.google.accounts.id.renderButton(googleButtonRef.current, {
-      theme: 'outline',
-      size:  'large',
-      width: '100%',
-    })
-  }, [loginWithGoogle])
+  /* ── Google ── */
+  async function handleGoogleSuccess(response: CredentialResponse) {
+    if (!response.credential) {
+      setErrors({ general: 'Token Google inválido.' })
+      return
+    }
+    try {
+      setLoading(true)
+      await loginWithGoogle(response.credential, 'login')
+      window.location.href = '/dashboard'
+    } catch {
+      setErrors({ general: 'Erro ao autenticar com Google.' })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   /* ── Submit ── */
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -163,9 +130,16 @@ export default function LoginForm() {
         <span className={styles.dividerLabel}>ou continue com</span>
       </div>
 
-      {/* Google */}
+      {/* Google — usa @react-oauth/google que já está no layout */}
       <div className={styles.googleWrapper}>
-        <div ref={googleButtonRef} />
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() => setErrors({ general: 'Erro ao autenticar com Google.' })}
+          width="100%"
+          theme="outline"
+          size="large"
+          text="signin_with"
+        />
       </div>
     </AuthCard>
   )
