@@ -3,7 +3,8 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import BookingCard from './BookingCard'
-import { AgendaProfessional, AgendaBooking } from '../types'
+import BlockCard   from './BlockCard'
+import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
 import { colors, agendaLayout } from '@/shared/theme'
 import { useAgendaStore } from '../hooks/useAgendaStore'
 import api from '@/shared/lib/apiClient'
@@ -14,19 +15,17 @@ import utc from 'dayjs/plugin/utc'
 dayjs.extend(utc)
 dayjs.extend(timezone)
 
-// ─── Constantes — fonte da verdade única ──────────────────────────────────────
-const START_HOUR = agendaLayout.startHour    // 8
-const END_HOUR   = agendaLayout.endHour      // 20
-const TIME_COL_W = agendaLayout.timeColWidth // 64
-const MIN_COL_W  = agendaLayout.minColWidth  // 140
-const HEADER_H   = agendaLayout.headerHeight // 56
+// ─── Constantes ───────────────────────────────────────────────────────────────
+const START_HOUR = agendaLayout.startHour
+const END_HOUR   = agendaLayout.endHour
+const TIME_COL_W = agendaLayout.timeColWidth
+const MIN_COL_W  = agendaLayout.minColWidth
+const HEADER_H   = agendaLayout.headerHeight
 
 const SLOT_STEP  = 5
-const SLOT_H     = 10         // px por slot de 5min → 2px/min
-const PX_PER_MIN = SLOT_H / SLOT_STEP  // 2.0 px/min
+const SLOT_H     = 10
+const PX_PER_MIN = SLOT_H / SLOT_STEP
 const START_MIN  = START_HOUR * 60
-
-// Altura mínima: 24px garante espaço para texto mesmo em serviços de 5-10min
 const MIN_CARD_H = 24
 
 // ─── Utilitários ──────────────────────────────────────────────────────────────
@@ -51,7 +50,7 @@ function snapToSlot(min: number): number {
   return Math.round(min / SLOT_STEP) * SLOT_STEP
 }
 
-const SLOTS  = generateSlots()
+const SLOTS   = generateSlots()
 const TOTAL_H = SLOTS.length * SLOT_H
 
 // ─── Overlap layout ───────────────────────────────────────────────────────────
@@ -59,21 +58,17 @@ function computeOverlapLayout(bookings: AgendaBooking[]): Map<string, { col: num
   const result = new Map<string, { col: number; totalCols: number }>()
   const sorted = [...bookings].sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
   const groups: AgendaBooking[][] = []
-
   for (const b of sorted) {
     let placed = false
     for (const group of groups) {
-      if (group.some(g =>
-        toMinutes(b.start) < toMinutes(g.end) &&
-        toMinutes(b.end)   > toMinutes(g.start)
-      )) { group.push(b); placed = true; break }
+      if (group.some(g => toMinutes(b.start) < toMinutes(g.end) && toMinutes(b.end) > toMinutes(g.start))) {
+        group.push(b); placed = true; break
+      }
     }
     if (!placed) groups.push([b])
   }
-
   for (const group of groups)
     group.forEach((b, col) => result.set(b.id, { col, totalCols: group.length }))
-
   return result
 }
 
@@ -116,13 +111,16 @@ interface DragState {
   offsetY: number; currentProfId: string; currentTime: string
 }
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+// ─── Props ────────────────────────────────────────────────────────────────────
 interface Props {
-  professionals: AgendaProfessional[]
-  bookings:      AgendaBooking[]
+  professionals:    AgendaProfessional[]
+  bookings:         AgendaBooking[]
+  blocks:           AgendaBlock[]
+  onOpenBlockModal?:(time?: string, profId?: string) => void
+  onDeleteBlock?:   (id: string) => void
 }
 
-export default function AgendaGrid({ professionals, bookings }: Props) {
+export default function AgendaGrid({ professionals, bookings, blocks, onOpenBlockModal, onDeleteBlock }: Props) {
   const { openCreate, selectedDate, updateBooking } = useAgendaStore()
   const scrollRef = useRef<HTMLDivElement>(null)
   const gridRef   = useRef<HTMLDivElement>(null)
@@ -154,14 +152,14 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
       const b   = res.data?.data ?? res.data
       if (b) {
         updateBooking(dateStr, {
-          id: bookingId,
+          id:             bookingId,
           professionalId: b.professionalId ?? professionalId,
-          clientName:   b.clientName,
-          serviceName:  b.service?.name  ?? '',
-          serviceColor: b.service?.color ?? undefined,
-          start: dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),
-          end:   dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),
-          status: b.status,
+          clientName:     b.clientName,
+          serviceName:    b.service?.name  ?? '',
+          serviceColor:   b.service?.color ?? undefined,
+          start:          dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),
+          end:            dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),
+          status:         b.status,
         })
       }
     } catch (err: unknown) {
@@ -264,14 +262,37 @@ export default function AgendaGrid({ professionals, bookings }: Props) {
           {/* Colunas profissionais */}
           {professionals.map(p => {
             const profBookings = unique.filter(b => b.professionalId === p.id)
+            const profBlocks   = blocks.filter(bl => bl.professionalId === p.id)
             const layout       = computeOverlapLayout(profBookings)
+
             return (
               <div key={p.id} style={{ position:'relative', borderLeft:`1px solid ${colors.gray.border}`, zIndex:5, height:TOTAL_H }}>
 
                 {/* Slots clicáveis */}
                 {SLOTS.map((time, i) => {
                   const min = i * SLOT_STEP, isHour = min % 60 === 0, isHalf = min % 30 === 0 && !isHour
-                  return <div key={time} className={`ag-slot ${isHour?'ag-hour':isHalf?'ag-half':'ag-5'}`} onClick={() => !drag && openCreate(time, p.id)} />
+                  return (
+                    <div
+                      key={time}
+                      className={`ag-slot ${isHour?'ag-hour':isHalf?'ag-half':'ag-5'}`}
+                      onClick={() => !drag && openCreate(time, p.id)}
+                      onContextMenu={e => { e.preventDefault(); onOpenBlockModal?.(time, p.id) }}
+                    />
+                  )
+                })}
+
+                {/* Bloqueios — zIndex 7, abaixo dos bookings (8) */}
+                {profBlocks.map(bl => {
+                  const startMin = toMinutes(bl.startTime)
+                  const endMin   = toMinutes(bl.endTime)
+                  if (startMin < START_MIN || startMin >= END_HOUR * 60) return null
+                  const top    = (startMin - START_MIN) * PX_PER_MIN
+                  const height = Math.max((endMin - startMin) * PX_PER_MIN - 2, MIN_CARD_H)
+                  return (
+                    <div key={bl.id} style={{ position:'absolute', top, left:3, right:3, height, zIndex:7 }}>
+                      <BlockCard block={bl} totalHeight={height} onDelete={onDeleteBlock} />
+                    </div>
+                  )
                 })}
 
                 {/* Bookings */}

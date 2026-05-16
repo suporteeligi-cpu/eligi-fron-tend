@@ -3,7 +3,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { AgendaBooking } from '../types'
+import { AgendaBooking, AgendaBlock } from '../types'
 
 interface CheckoutState {
   open:           boolean
@@ -14,20 +14,26 @@ interface CheckoutState {
 }
 
 interface AgendaStore {
-  // ── Data selecionada ──
+  // ── Data ──
   selectedDate:    Date
   setSelectedDate: (date: Date) => void
 
-  // ── Cache de bookings por data "YYYY-MM-DD" ──
-  // Cada chave é uma data; assim bookings de dias diferentes nunca se misturam
-  bookingsByDate:    Record<string, AgendaBooking[]>
-  setBookingsForDate:(date: string, bookings: AgendaBooking[]) => void
-  addBooking:        (date: string, booking: AgendaBooking) => void
-  updateBooking:     (date: string, booking: AgendaBooking) => void
-  removeBooking:     (date: string, id: string) => void
-  getBookingsForDate:(date: string) => AgendaBooking[]
+  // ── Bookings por data ──
+  bookingsByDate:     Record<string, AgendaBooking[]>
+  setBookingsForDate: (date: string, bookings: AgendaBooking[]) => void
+  addBooking:         (date: string, booking: AgendaBooking) => void
+  updateBooking:      (date: string, booking: AgendaBooking) => void
+  removeBooking:      (date: string, id: string) => void
+  getBookingsForDate: (date: string) => AgendaBooking[]
 
-  // ── Checkout panel ──
+  // ── Bloqueios por data ──
+  blocksByDate:     Record<string, AgendaBlock[]>
+  setBlocksForDate: (date: string, blocks: AgendaBlock[]) => void
+  addBlock:         (date: string, block: AgendaBlock) => void
+  removeBlock:      (date: string, id: string) => void
+  getBlocksForDate: (date: string) => AgendaBlock[]
+
+  // ── Checkout ──
   checkout:      CheckoutState
   openCreate:    (time: string, professionalId: string) => void
   openEdit:      (booking: AgendaBooking) => void
@@ -45,39 +51,53 @@ export const useAgendaStore = create<AgendaStore>()(
       selectedDate:    new Date(),
       setSelectedDate: (date) => set({ selectedDate: date }),
 
-      // ── Bookings por data ──
+      // ── Bookings ──
       bookingsByDate: {},
 
       getBookingsForDate: (date) => get().bookingsByDate[date] ?? [],
 
       setBookingsForDate: (date, bookings) =>
-        set((s) => ({
-          bookingsByDate: { ...s.bookingsByDate, [date]: bookings },
-        })),
+        set(s => ({ bookingsByDate: { ...s.bookingsByDate, [date]: bookings } })),
 
       addBooking: (date, booking) =>
-        set((s) => {
-          const current = s.bookingsByDate[date] ?? []
-          // Guard anti-duplicata
-          if (current.some(b => b.id === booking.id)) return s
-          return { bookingsByDate: { ...s.bookingsByDate, [date]: [...current, booking] } }
+        set(s => {
+          const cur = s.bookingsByDate[date] ?? []
+          if (cur.some(b => b.id === booking.id)) return s
+          return { bookingsByDate: { ...s.bookingsByDate, [date]: [...cur, booking] } }
         }),
 
       updateBooking: (date, booking) =>
-        set((s) => {
-          const current = s.bookingsByDate[date] ?? []
-          const idx = current.findIndex(b => b.id === booking.id)
-          const next = idx === -1
-            ? [...current, booking]
-            : current.map((b, i) => i === idx ? booking : b)
+        set(s => {
+          const cur = s.bookingsByDate[date] ?? []
+          const idx = cur.findIndex(b => b.id === booking.id)
+          const next = idx === -1 ? [...cur, booking] : cur.map((b, i) => i === idx ? booking : b)
           return { bookingsByDate: { ...s.bookingsByDate, [date]: next } }
         }),
 
       removeBooking: (date, id) =>
-        set((s) => {
-          const current = s.bookingsByDate[date] ?? []
-          return { bookingsByDate: { ...s.bookingsByDate, [date]: current.filter(b => b.id !== id) } }
+        set(s => ({
+          bookingsByDate: { ...s.bookingsByDate, [date]: (s.bookingsByDate[date] ?? []).filter(b => b.id !== id) }
+        })),
+
+      // ── Blocks ──
+      blocksByDate: {},
+
+      getBlocksForDate: (date) => get().blocksByDate[date] ?? [],
+
+      setBlocksForDate: (date, blocks) =>
+        set(s => ({ blocksByDate: { ...s.blocksByDate, [date]: blocks } })),
+
+      addBlock: (date, block) =>
+        set(s => {
+          const cur = s.blocksByDate[date] ?? []
+          if (cur.some(b => b.id === block.id)) return s
+          return { blocksByDate: { ...s.blocksByDate, [date]: [...cur, block] } }
         }),
+
+      removeBlock: (date, id) =>
+        set(s => ({
+          blocksByDate: { ...s.blocksByDate, [date]: (s.blocksByDate[date] ?? []).filter(b => b.id !== id) }
+        })),
 
       // ── Checkout ──
       checkout: CHECKOUT_CLOSED,
@@ -86,21 +106,17 @@ export const useAgendaStore = create<AgendaStore>()(
         set({ checkout: { open: true, mode: 'create', time, professionalId, booking: null } }),
 
       openEdit: (booking) =>
-        set({ checkout: {
-          open: true, mode: 'edit',
-          time: booking.start,
-          professionalId: booking.professionalId,
-          booking,
-        }}),
+        set({ checkout: { open: true, mode: 'edit', time: booking.start, professionalId: booking.professionalId, booking } }),
 
       closeCheckout: () => set({ checkout: CHECKOUT_CLOSED }),
     }),
     {
       name:    'eligi-agenda',
-      storage: createJSONStorage(() => sessionStorage), // sessionStorage: persiste na aba, limpa ao fechar
-      partialize: (s) => ({
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: s => ({
         selectedDate:   s.selectedDate,
         bookingsByDate: s.bookingsByDate,
+        blocksByDate:   s.blocksByDate,
       }),
     }
   )

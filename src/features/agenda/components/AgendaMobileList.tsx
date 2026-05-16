@@ -2,11 +2,12 @@
 // src/features/agenda/components/AgendaMobileList.tsx
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { AgendaProfessional, AgendaBooking } from '../types'
+import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
 import { colors } from '@/shared/theme'
 import { useAgendaStore } from '../hooks/useAgendaStore'
 import { colorToGradient, colorToGlow } from '@/features/agenda/constants/serviceColors'
 import { bookingStatus as STATUS_CFG } from '@/shared/theme'
+import BlockCard from './BlockCard'
 import api from '@/shared/lib/apiClient'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
@@ -24,7 +25,7 @@ const PX_PER_MIN = ROW_H / 30
 const START_MIN  = START_HOUR * 60
 const TIME_COL_W = 42
 const COL_W      = 200
-const MIN_CARD_H = 28   // mínimo igual ao desktop tiny
+const MIN_CARD_H = 28
 
 function toMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number)
@@ -40,7 +41,7 @@ function generateHalfSlots(): string[] {
   const s: string[] = []
   for (let h = START_HOUR; h < END_HOUR; h++) {
     s.push(`${String(h).padStart(2,'0')}:00`)
-    s.push(`${String(h).padStart(2,'00')}:30`)
+    s.push(`${String(h).padStart(2,'0')}:30`)
   }
   return s
 }
@@ -100,16 +101,11 @@ function ConflictModal({ onConfirm, onCancel }: { onConfirm: () => void; onCance
   )
 }
 
-// ─── MobileBookingCard — mesma lógica de cor do desktop ──────────────────────
+// ─── MobileBookingCard ────────────────────────────────────────────────────────
 function MobileBookingCard({ booking, height }: { booking: AgendaBooking; height: number }) {
-  // Fonte da verdade de cor: serviceColor > status theme
   const statusTheme = STATUS_CFG[booking.status] ?? STATUS_CFG.CONFIRMED
-  const gradient    = booking.serviceColor
-    ? colorToGradient(booking.serviceColor)
-    : statusTheme.gradient
-  const glow        = booking.serviceColor
-    ? colorToGlow(booking.serviceColor)
-    : statusTheme.glow
+  const gradient    = booking.serviceColor ? colorToGradient(booking.serviceColor) : statusTheme.gradient
+  const glow        = booking.serviceColor ? colorToGlow(booking.serviceColor)     : statusTheme.glow
 
   const isTiny      = height <= 28
   const showService = height >= 44
@@ -118,54 +114,43 @@ function MobileBookingCard({ booking, height }: { booking: AgendaBooking; height
 
   return (
     <div style={{
-      width: '100%', height: '100%', borderRadius: 8,
-      background: gradient,
+      width:'100%', height:'100%', borderRadius:8,
+      background:gradient,
       padding: isTiny ? '0 7px 0 9px' : '5px 7px 5px 9px',
-      display: 'flex', flexDirection: 'column',
+      display:'flex', flexDirection:'column',
       justifyContent: isTiny ? 'center' : 'flex-start',
-      gap: 2,
-      overflow: 'hidden', boxSizing: 'border-box',
-      boxShadow: `0 3px 10px ${glow}`,
-      border: '1px solid rgba(255,255,255,0.15)',
-      position: 'relative', userSelect: 'none',
-      transition: 'transform 0.12s ease, box-shadow 0.12s ease',
+      gap:2, overflow:'hidden', boxSizing:'border-box',
+      boxShadow:`0 3px 10px ${glow}`,
+      border:'1px solid rgba(255,255,255,0.15)',
+      position:'relative', userSelect:'none',
+      transition:'transform 0.12s ease, box-shadow 0.12s ease',
     }}>
-      {/* Brilho topo */}
       <div style={{ position:'absolute', top:0, left:0, right:0, height:'45%', background:'linear-gradient(180deg,rgba(255,255,255,0.18) 0%,transparent 100%)', borderRadius:'8px 8px 0 0', pointerEvents:'none' }} />
-      {/* Barra lateral */}
       <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:'rgba(255,255,255,0.40)', borderRadius:'8px 0 0 8px' }} />
 
       {isTiny ? (
-        // Card tiny: horário + nome · serviço numa linha
         <div style={{ display:'flex', alignItems:'center', gap:4, overflow:'hidden', lineHeight:1 }}>
           <span style={{ fontSize:10, fontWeight:700, opacity:0.9, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', flexShrink:0, color:'#fff' }}>
             {booking.start}–{booking.end}
           </span>
           <span style={{ fontSize:10, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color:'#fff' }}>
             {booking.clientName}
-            {booking.serviceName
-              ? <span style={{ fontWeight:400, opacity:0.85 }}> · {booking.serviceName}</span>
-              : null}
+            {booking.serviceName ? <span style={{ fontWeight:400, opacity:0.85 }}> · {booking.serviceName}</span> : null}
           </span>
         </div>
       ) : (
         <>
-          {/* Nome */}
           <div style={{ color:'#fff', fontWeight:700, fontSize:12, lineHeight:1.2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
             {booking.clientName}
           </div>
-          {/* Serviço */}
           {showService && (
             <div style={{ color:'rgba(255,255,255,0.88)', fontWeight:500, fontSize:10, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
               {booking.serviceName}
             </div>
           )}
-          {/* Horário + duração */}
           {showTime && (
             <div style={{ marginTop:'auto', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <span style={{ color:'rgba(255,255,255,0.82)', fontSize:10, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>
-                {booking.start}–{booking.end}
-              </span>
+              <span style={{ color:'rgba(255,255,255,0.82)', fontSize:10, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>{booking.start}–{booking.end}</span>
               <span style={{ color:'rgba(255,255,255,0.65)', fontSize:9 }}>{dur}min</span>
             </div>
           )}
@@ -185,9 +170,11 @@ interface DragState {
 interface Props {
   professionals: AgendaProfessional[]
   bookings:      AgendaBooking[]
+  blocks:        AgendaBlock[]
+  onDeleteBlock: (id: string) => void
 }
 
-export default function AgendaMobileList({ professionals, bookings }: Props) {
+export default function AgendaMobileList({ professionals, bookings, blocks, onDeleteBlock }: Props) {
   const { openCreate, selectedDate, updateBooking } = useAgendaStore()
   const currentY = useCurrentTimeY()
   const dateStr  = dayjs(selectedDate).format('YYYY-MM-DD')
@@ -200,17 +187,14 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
   const [conflict, setConflict] = useState<{ bookingId: string; startAt: string; professionalId: string } | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
 
-  // Deduplicação
   const seen = new Set<string>()
   const unique = bookings.filter(b => { if (seen.has(b.id)) return false; seen.add(b.id); return true })
 
-  // Scroll para hora atual
   useEffect(() => {
     if (currentY > 0 && vScrollRef.current)
       vScrollRef.current.scrollTop = Math.max(0, currentY - 80)
   }, [currentY])
 
-  // ─── Reschedule ──────────────────────────────────────────────────────────────
   const doReschedule = useCallback(async (
     bookingId: string, time: string, professionalId: string, allowOverlap: boolean
   ) => {
@@ -225,7 +209,7 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
           professionalId: b.professionalId ?? professionalId,
           clientName:     b.clientName,
           serviceName:    b.service?.name  ?? '',
-          serviceColor:   b.service?.color ?? undefined,  // ← preserva cor após reschedule
+          serviceColor:   b.service?.color ?? undefined,
           start:          dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),
           end:            dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),
           status:         b.status,
@@ -240,7 +224,6 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
     } finally { setSavingId(null) }
   }, [dateStr, updateBooking])
 
-  // ─── Touch drag ───────────────────────────────────────────────────────────────
   function onCardTouchStart(e: React.TouchEvent, booking: AgendaBooking, profId: string, cardTop: number) {
     e.stopPropagation()
     const touch  = e.touches[0]
@@ -286,7 +269,6 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
     doReschedule(bookingId, time, professionalId, true)
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:colors.background.page, fontFamily:'-apple-system,"SF Pro Display",system-ui,sans-serif', overflow:'hidden' }}>
 
@@ -317,6 +299,7 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
           {/* Colunas profissionais */}
           {professionals.map((p, colIdx) => {
             const profBookings = unique.filter(b => b.professionalId === p.id)
+            const profBlocks   = blocks.filter(bl => bl.professionalId === p.id)
             const layout       = computeOverlapLayout(profBookings)
             const isDragCol    = drag?.profId === p.id
             const initials     = p.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
@@ -335,7 +318,7 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
                   <span style={{ fontSize:11, fontWeight:600, color:colors.gray['900'], whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:110 }}>{p.name}</span>
                 </div>
 
-                {/* Área de bookings */}
+                {/* Área de bookings + bloqueios */}
                 <div style={{ position:'relative', height:TOTAL_H }}>
 
                   {/* Slots clicáveis */}
@@ -352,6 +335,20 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
                       <div style={{ width:6, height:6, borderRadius:'50%', background:colors.red.DEFAULT, position:'absolute', left:-3, top:-2 }} />
                     </div>
                   )}
+
+                  {/* Bloqueios */}
+                  {profBlocks.map(bl => {
+                    const startMin = toMinutes(bl.startTime)
+                    const endMin   = toMinutes(bl.endTime)
+                    if (startMin < START_MIN || startMin >= END_HOUR * 60) return null
+                    const top    = (startMin - START_MIN) * PX_PER_MIN
+                    const height = Math.max((endMin - startMin) * PX_PER_MIN - 2, MIN_CARD_H)
+                    return (
+                      <div key={bl.id} style={{ position:'absolute', top, left:3, right:3, height, zIndex:7 }}>
+                        <BlockCard block={bl} totalHeight={height} onDelete={onDeleteBlock} />
+                      </div>
+                    )
+                  })}
 
                   {/* Bookings */}
                   {profBookings.map(b => {
@@ -375,14 +372,14 @@ export default function AgendaMobileList({ professionals, bookings }: Props) {
                       <div
                         key={b.id}
                         style={{
-                          position: 'absolute',
+                          position:'absolute',
                           top:    isThisDrag ? drag!.ghostTop : top,
-                          left:   cardLeft, width: cardWidth, height,
+                          left:   cardLeft, width:cardWidth, height,
                           zIndex: isThisDrag ? 40 : 8,
                           opacity: isSaving ? 0.5 : 1,
                           transition: isThisDrag ? 'none' : 'top 0.12s ease, opacity 0.2s',
-                          touchAction: 'none',
-                          filter: isThisDrag ? `drop-shadow(0 6px 18px rgba(0,0,0,0.3))` : 'none',
+                          touchAction:'none',
+                          filter: isThisDrag ? 'drop-shadow(0 6px 18px rgba(0,0,0,0.3))' : 'none',
                           transform: isThisDrag ? 'scale(1.02)' : 'scale(1)',
                         }}
                         onTouchStart={e => onCardTouchStart(e, b, p.id, top)}

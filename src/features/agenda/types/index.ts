@@ -12,8 +12,17 @@ export type AgendaBooking = {
   professionalId: string
   clientName:     string
   serviceName:    string
-  serviceColor?:  string   // ← hex da cor do serviço, ex: "#4a94e8"
+  serviceColor?:  string
   start:          string   // "HH:mm"
   end:            string   // "HH:mm"
   status:         BookingStatus
+}
+
+export type AgendaBlock = {
+  id:             string
+  professionalId: string
+  date:           string   // "YYYY-MM-DD"
+  startTime:      string   // "HH:mm"
+  endTime:        string   // "HH:mm"
+  reason:         string | null
 }
