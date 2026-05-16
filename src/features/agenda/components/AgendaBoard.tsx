@@ -78,8 +78,10 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   })
 
   function openBlockModal(time?: string, profId?: string) {
+    const resolvedProfId = profId ?? professionals[0]?.id
+    if (!resolvedProfId) return  // não abre se não há profissionais carregados
     setBlockInitTime(time)
-    setBlockInitProf(profId ?? professionals[0]?.id)
+    setBlockInitProf(resolvedProfId)
     setBlockModal(true)
   }
 
