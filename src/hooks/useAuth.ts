@@ -1,4 +1,5 @@
 'use client'
+
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -14,17 +15,21 @@ type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
 export function useAuth() {
   const router = useRouter()
+
   const [user,    setUser]    = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
+  /* ── Fetch current user ── */
   const refetchUser = useCallback(async (): Promise<AuthUser> => {
     const me: AuthUser = await getMe()
     setUser(me)
     return me
   }, [])
 
+  /* ── Load on mount ── */
   useEffect(() => {
     let cancelled = false
+
     async function loadUser() {
       try {
         const me = await getMe()
@@ -35,41 +40,55 @@ export function useAuth() {
         if (!cancelled) setLoading(false)
       }
     }
+
     loadUser()
     return () => { cancelled = true }
   }, [])
 
-  function redirectByRole(me: AuthUser) {
+  /* ── Redirect by role ── */
+  const redirectByRole = useCallback((me: AuthUser) => {
     if (me.role === 'BUSINESS_OWNER' && !me.businessId) {
       router.push('/onboarding')
     } else {
       router.push('/dashboard')
     }
-  }
+  }, [router])
 
-  async function login(email: string, password: string) {
+  /* ── Login ── */
+  const login = useCallback(async (email: string, password: string) => {
     await loginRequest(email, password)
     const me = await refetchUser()
     redirectByRole(me)
-  }
+  }, [refetchUser, redirectByRole])
 
-  async function register(name: string, email: string, password: string, role: Role) {
+  /* ── Register ── */
+  const register = useCallback(async (
+    name: string,
+    email: string,
+    password: string,
+    role: Role,
+  ) => {
     await registerRequest(name, email, password, role)
     const me = await refetchUser()
     redirectByRole(me)
-  }
+  }, [refetchUser, redirectByRole])
 
-  async function loginWithGoogle(idToken: string, mode: 'login' | 'register') {
+  /* ── Google ── */
+  const loginWithGoogle = useCallback(async (
+    idToken: string,
+    mode: 'login' | 'register',
+  ) => {
     await googleLoginRequest(idToken, mode)
     const me = await refetchUser()
     redirectByRole(me)
-  }
+  }, [refetchUser, redirectByRole])
 
-  async function logout() {
+  /* ── Logout ── */
+  const logout = useCallback(async () => {
     try { await logoutRequest() } catch { /* best-effort */ }
     setUser(null)
     router.replace('/login')
-  }
+  }, [router])
 
   return { user, loading, login, register, loginWithGoogle, logout, refetchUser }
 }
