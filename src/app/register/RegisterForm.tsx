@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { AuthCard }       from '../components/auth/AuthCard'
-import { AuthInput }      from '../components/auth/AuthInput'
-import { AuthButton }     from '../components/auth/AuthButton'
-import { AuthRoleSelect } from '../components/auth/AuthRoleSelect'
-import { mapAuthError }   from '@/lib/auth.error.map'
+import { AuthCard }         from '../components/auth/AuthCard'
+import { AuthInput }        from '../components/auth/AuthInput'
+import { AuthButton }       from '../components/auth/AuthButton'
+import { AuthRoleSelect }   from '../components/auth/AuthRoleSelect'
+import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
+import { mapAuthError }     from '@/lib/auth.error.map'
 import styles from './Register.module.css'
 
 /* ── Types ── */
@@ -27,8 +28,11 @@ declare global {
     google?: {
       accounts: {
         id: {
-          initialize: (config: { client_id: string; callback: (r: GoogleCredentialResponse) => void }) => void
-          renderButton: (parent: HTMLElement, options: { theme?: string; size?: string; width?: string | number }) => void
+          initialize: (config: {
+            client_id: string
+            callback: (r: GoogleCredentialResponse) => void
+          }) => void
+          prompt: () => void
         }
       }
     }
@@ -39,7 +43,6 @@ declare global {
 export default function RegisterForm() {
   const router                        = useRouter()
   const { register, loginWithGoogle } = useAuth()
-  const googleButtonRef               = useRef<HTMLDivElement>(null)
 
   const [name,     setName]     = useState('')
   const [email,    setEmail]    = useState('')
@@ -53,7 +56,7 @@ export default function RegisterForm() {
   /* ── Google init ── */
   useEffect(() => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    if (!clientId || !window.google || !googleButtonRef.current) return
+    if (!clientId || !window.google) return
 
     window.google.accounts.id.initialize({
       client_id: clientId,
@@ -72,13 +75,17 @@ export default function RegisterForm() {
         }
       },
     })
-
-    window.google.accounts.id.renderButton(googleButtonRef.current, {
-      theme: 'outline',
-      size:  'large',
-      width: '100%',
-    })
   }, [loginWithGoogle])
+
+  /* ── Google click ── */
+  const handleGoogleClick = useCallback(() => {
+    if (!window.google) {
+      setErrors({ general: 'Google não disponível.' })
+      return
+    }
+    setErrors({})
+    window.google.accounts.id.prompt()
+  }, [])
 
   /* ── Submit ── */
   async function handleSubmit(e: React.FormEvent) {
@@ -185,7 +192,11 @@ export default function RegisterForm() {
 
       {/* Google */}
       <div className={styles.googleWrapper}>
-        <div ref={googleButtonRef} />
+        <GoogleAuthButton
+          onClick={handleGoogleClick}
+          loading={loading}
+          label="Registrar com Google"
+        />
       </div>
     </AuthCard>
   )

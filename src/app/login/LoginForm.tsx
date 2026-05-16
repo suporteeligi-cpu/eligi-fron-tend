@@ -2,15 +2,36 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { GoogleLogin, CredentialResponse } from '@react-oauth/google'
 import { useAuth } from '@/hooks/useAuth'
-import { AuthCard }   from '../components/auth/AuthCard'
-import { AuthInput }  from '../components/auth/AuthInput'
-import { AuthButton } from '../components/auth/AuthButton'
-import { mapAuthError } from '@/lib/auth.error.map'
+import { AuthCard }         from '../components/auth/AuthCard'
+import { AuthInput }        from '../components/auth/AuthInput'
+import { AuthButton }       from '../components/auth/AuthButton'
+import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
+import { mapAuthError }     from '@/lib/auth.error.map'
 import styles from './Login.module.css'
 
+/* ── Types ── */
 type ApiError = { code: string }
+
+interface GoogleCredentialResponse {
+  credential?: string
+}
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string
+            callback: (r: GoogleCredentialResponse) => void
+          }) => void
+          prompt: () => void
+        }
+      }
+    }
+  }
+}
 
 export default function LoginForm() {
   const router                     = useRouter()
@@ -25,14 +46,31 @@ export default function LoginForm() {
   }>({})
 
   /* ── Google ── */
-  async function handleGoogleSuccess(response: CredentialResponse) {
-    if (!response.credential) {
-      setErrors({ general: 'Token Google inválido.' })
-      return
-    }
+  async function handleGoogleClick() {
     try {
       setLoading(true)
-      await loginWithGoogle(response.credential, 'login')
+      setErrors({})
+
+      if (!window.google) {
+        setErrors({ general: 'Google não disponível.' })
+        return
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        window.google!.accounts.id.initialize({
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+          callback: async ({ credential }: GoogleCredentialResponse) => {
+            if (!credential) { reject(new Error('no_credential')); return }
+            try {
+              await loginWithGoogle(credential, 'login')
+              resolve()
+            } catch (err) {
+              reject(err)
+            }
+          }
+        })
+        window.google!.accounts.id.prompt()
+      })
     } catch {
       setErrors({ general: 'Erro ao autenticar com Google.' })
     } finally {
@@ -130,13 +168,10 @@ export default function LoginForm() {
 
       {/* Google */}
       <div className={styles.googleWrapper}>
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={() => setErrors({ general: 'Erro ao autenticar com Google.' })}
-          width="100%"
-          theme="outline"
-          size="large"
-          text="signin_with"
+        <GoogleAuthButton
+          onClick={handleGoogleClick}
+          loading={loading}
+          label="Entrar com Google"
         />
       </div>
     </AuthCard>
