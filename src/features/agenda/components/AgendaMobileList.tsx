@@ -9,6 +9,7 @@ import { colorToGradient, colorToGlow } from '@/features/agenda/constants/servic
 import { bookingStatus as STATUS_CFG } from '@/shared/theme'
 import BlockCard      from './BlockCard'
 import BlockEditModal from './BlockEditModal'
+import SlotContextMenu from './SlotContextMenu'
 import api from '@/shared/lib/apiClient'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
@@ -126,9 +127,10 @@ interface Props {
   blocks:        AgendaBlock[]
   onDeleteBlock: (id: string) => void
   onUpdateBlock: (block: AgendaBlock) => void
+  onOpenBlockModal?: (time?: string, profId?: string) => void
 }
 
-export default function AgendaMobileList({ professionals, bookings, blocks, onDeleteBlock, onUpdateBlock }: Props) {
+export default function AgendaMobileList({ professionals, bookings, blocks, onDeleteBlock, onUpdateBlock, onOpenBlockModal }: Props) {
   const { openCreate, selectedDate, updateBooking } = useAgendaStore()
   const currentY = useCurrentTimeY()
   const dateStr  = dayjs(selectedDate).format('YYYY-MM-DD')
@@ -141,6 +143,7 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
   const [conflict,  setConflict]  = useState<{ bookingId: string; startAt: string; professionalId: string } | null>(null)
   const [savingId,  setSavingId]  = useState<string | null>(null)
   const [editBlock, setEditBlock] = useState<AgendaBlock | null>(null)
+  const [ctxMenu,   setCtxMenu]   = useState<{ x: number; y: number; time: string; profId: string } | null>(null)
 
   const seen   = new Set<string>()
   const unique = bookings.filter(b => { if (seen.has(b.id)) return false; seen.add(b.id); return true })
@@ -208,6 +211,16 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
 
       {conflict && <ConflictModal onConfirm={handleConflictConfirm} onCancel={() => setConflict(null)} />}
 
+      {ctxMenu && (
+        <SlotContextMenu
+          x={ctxMenu.x} y={ctxMenu.y}
+          time={ctxMenu.time} profId={ctxMenu.profId}
+          onClose={() => setCtxMenu(null)}
+          onNewBooking={(time, profId) => { openCreate(time, profId); setCtxMenu(null) }}
+          onNewBlock={(time, profId) => { onOpenBlockModal?.(time, profId); setCtxMenu(null) }}
+        />
+      )}
+
       {editBlock && (
         <BlockEditModal
           block={editBlock}
@@ -260,7 +273,9 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
                 <div style={{ position:'relative', height:TOTAL_H }}>
                   {/* Slots */}
                   {HALF_SLOTS.map((time, i) => (
-                    <div key={time} className="m-slot" style={{ position:'absolute', top:i*ROW_H, left:0, right:0, height:ROW_H, borderTop:i%2===0?`1px solid ${colors.gray.border}`:`1px dashed rgba(0,0,0,0.05)` }} onClick={() => !drag && openCreate(time, p.id)} />
+                    <div key={time} className="m-slot" style={{ position:'absolute', top:i*ROW_H, left:0, right:0, height:ROW_H, borderTop:i%2===0?`1px solid ${colors.gray.border}`:`1px dashed rgba(0,0,0,0.05)` }}
+                      onClick={e => { if (drag) return; setCtxMenu({ x: e.clientX, y: e.clientY, time, profId: p.id }) }}
+                    />
                   ))}
 
                   {/* Hora atual */}

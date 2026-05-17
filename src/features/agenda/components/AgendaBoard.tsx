@@ -107,6 +107,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
               blocks={blocks}
               onDeleteBlock={handleDeleteBlock}
               onUpdateBlock={handleUpdateBlock}
+              onOpenBlockModal={openBlockModal}
             />
           ) : (
             <AgendaGrid
