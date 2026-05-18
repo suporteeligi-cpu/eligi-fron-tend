@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, UserPlus, Phone, Calendar, ChevronRight } from 'lucide-react'
+import { Search, X, UserPlus, Phone, Calendar, ChevronRight, Users, ArrowUpDown } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, radius, shadows, transitions, glass } from '@/shared/theme'
 import dayjs from 'dayjs'
@@ -20,17 +20,6 @@ interface ClientItem {
   lastStatus:    string | null
 }
 
-function getInitials(name: string): string {
-  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
-}
-
-function formatPhone(p: string): string {
-  const d = p.replace(/\D/g, '')
-  if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
-  if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
-  return p
-}
-
 const AVATAR_COLORS = [
   colors.red.gradient,
   'linear-gradient(135deg,#475569,#334155)',
@@ -40,96 +29,131 @@ const AVATAR_COLORS = [
   'linear-gradient(135deg,#d97706,#b45309)',
 ]
 
-function avatarColor(name: string): string {
-  const idx = name.charCodeAt(0) % AVATAR_COLORS.length
-  return AVATAR_COLORS[idx]
+function avatarColor(name: string) { return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length] }
+function getInitials(name: string) { return name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase() }
+function formatPhone(p: string) {
+  const d = p.replace(/\D/g,'')
+  if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
+  if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
+  return p
 }
 
-export default function ClientesPage() {
-  const router  = useRouter()
-  const [clients, setClients]   = useState<ClientItem[]>([])
-  const [total,   setTotal]     = useState(0)
-  const [page,    setPage]      = useState(1)
-  const [pages,   setPages]     = useState(1)
-  const [search,  setSearch]    = useState('')
-  const [loading, setLoading]   = useState(true)
-  const [query,   setQuery]     = useState('')
+const ORDER_OPTIONS = [
+  { value:'createdAt:desc', label:'Mais recentes' },
+  { value:'createdAt:asc',  label:'Mais antigos' },
+  { value:'name:asc',       label:'Nome A-Z' },
+  { value:'name:desc',      label:'Nome Z-A' },
+  { value:'bookings:desc',  label:'Mais agendamentos' },
+]
 
-  const fetchClients = useCallback(async (q: string, p: number) => {
+export default function ClientesPage() {
+  const router = useRouter()
+  const [clients,    setClients]    = useState<ClientItem[]>([])
+  const [total,      setTotal]      = useState(0)
+  const [totalAll,   setTotalAll]   = useState(0)
+  const [page,       setPage]       = useState(1)
+  const [pages,      setPages]      = useState(1)
+  const [search,     setSearch]     = useState('')
+  const [sort,       setSort]       = useState('createdAt:desc')
+  const [loading,    setLoading]    = useState(true)
+
+  const fetchClients = useCallback(async (q: string, p: number, s: string) => {
     try {
       setLoading(true)
-      const res  = await api.get('/clients', { params: { search: q || undefined, page: p, limit: 30 } })
+      const [orderBy, order] = s.split(':')
+      const res  = await api.get('/clients', { params: { search: q || undefined, page: p, limit: 30, orderBy, order } })
       const data = res.data?.data ?? res.data
       setClients(data.clients ?? [])
       setTotal(data.total ?? 0)
+      setTotalAll(data.stats?.totalClients ?? data.total ?? 0)
       setPage(data.page ?? 1)
       setPages(data.pages ?? 1)
     } catch { setClients([]) }
     finally  { setLoading(false) }
   }, [])
 
-  // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => { setPage(1); fetchClients(search, 1) }, 350)
+    const t = setTimeout(() => { setPage(1); fetchClients(search, 1, sort) }, 350)
     return () => clearTimeout(t)
-  }, [search, fetchClients])
+  }, [search, sort, fetchClients])
 
-  useEffect(() => { fetchClients(query, page) }, [page, fetchClients, query])
+  useEffect(() => { fetchClients(search, page, sort) }, [page]) // eslint-disable-line
 
   return (
     <>
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes spin{to{transform:rotate(360deg)}}
         .cl-row{display:flex;align-items:center;gap:14px;padding:14px 20px;cursor:pointer;transition:background ${transitions.fast};border-bottom:1px solid ${colors.gray.border}}
         .cl-row:last-child{border-bottom:none}
         .cl-row:hover{background:${colors.red.subtle}}
-        .cl-row:hover .cl-arrow{opacity:1}
-        .cl-arrow{opacity:0;transition:opacity ${transitions.fast}}
-        .pg-btn{padding:6px 12px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.surface};font-size:${typography.scale.sm}px;font-weight:${typography.weight.semibold};cursor:pointer;color:${colors.gray[700]};transition:all ${transitions.fast}}
+        .cl-row:hover .cl-arrow{opacity:1;transform:translateX(2px)}
+        .cl-arrow{opacity:0;transition:all ${transitions.fast}}
+        .pg-btn{padding:7px 14px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.surface};font-size:${typography.scale.sm}px;font-weight:${typography.weight.semibold};cursor:pointer;color:${colors.gray[700]};transition:all ${transitions.fast}}
         .pg-btn:hover:not(:disabled){border-color:${colors.red.borderHover};color:${colors.red.DEFAULT}}
-        .pg-btn:disabled{opacity:0.4;cursor:not-allowed}
+        .pg-btn:disabled{opacity:0.35;cursor:not-allowed}
+        .sort-sel{padding:8px 12px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.surface};font-size:${typography.scale.sm}px;font-weight:${typography.weight.semibold};cursor:pointer;color:${colors.gray[700]};outline:none;appearance:none;padding-right:28px;font-family:${typography.fontFamily}}
       `}</style>
 
       <div style={{ maxWidth:800, animation:'fadeUp 0.3s ease', fontFamily:typography.fontFamily }}>
 
         {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24, gap:12 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, gap:12 }}>
           <div>
             <h2 style={{ margin:0, fontSize:typography.scale['2xl'], fontWeight:typography.weight.bold, letterSpacing:'-0.025em', color:typography.color.primary }}>
               Clientes
             </h2>
-            <p style={{ margin:'4px 0 0', fontSize:typography.scale.base, color:typography.color.muted }}>
-              {total > 0 ? `${total} cliente${total !== 1 ? 's' : ''} cadastrado${total !== 1 ? 's' : ''}` : 'Nenhum cliente ainda'}
+            <p style={{ margin:'3px 0 0', fontSize:typography.scale.sm, color:typography.color.muted }}>
+              {totalAll} cliente{totalAll !== 1 ? 's' : ''} cadastrado{totalAll !== 1 ? 's' : ''}
             </p>
           </div>
-          <button
-            onClick={() => router.push('/dashboard/clientes/novo')}
-            style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 16px', borderRadius:radius.md, border:'none', background:colors.red.gradient, color:'#fff', fontSize:typography.scale.base, fontWeight:typography.weight.semibold, cursor:'pointer', boxShadow:shadows.redMd, flexShrink:0 }}
+          <button onClick={() => router.push('/dashboard/clientes/novo')} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 16px', borderRadius:radius.md, border:'none', background:colors.red.gradient, color:'#fff', fontSize:typography.scale.base, fontWeight:typography.weight.semibold, cursor:'pointer', boxShadow:shadows.redMd, flexShrink:0, transition:transitions.base }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = shadows.redLg }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = shadows.redMd }}
           >
             <UserPlus size={15} strokeWidth={2.5} /> Novo cliente
           </button>
         </div>
 
-        {/* Busca */}
-        <div style={{ position:'relative', marginBottom:20 }}>
-          <Search size={15} color={colors.gray.dimText} style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)' }} />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome ou telefone..."
-            style={{ width:'100%', padding:'11px 14px 11px 40px', borderRadius:radius.md, border:`1px solid ${colors.gray.borderMd}`, background:glass.surface.default.background, backdropFilter:glass.surface.default.backdropFilter, fontSize:typography.scale.base, outline:'none', boxSizing:'border-box', fontFamily:typography.fontFamily, boxShadow:shadows.sm, color:typography.color.primary }}
-          />
-          {search && (
-            <button onClick={() => setSearch('')} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center' }}>
-              <X size={14} color={colors.gray.dimText} />
-            </button>
-          )}
+        {/* Stat card */}
+        {totalAll > 0 && (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:20 }}>
+            {[
+              { label:'Total de clientes', value:totalAll,                 icon:Users },
+              { label:'Com agendamentos',  value:clients.filter(c=>c.totalBookings>0).length, icon:Calendar },
+              { label:'Sem agendamentos',  value:clients.filter(c=>c.totalBookings===0).length, icon:UserPlus },
+            ].map(s => (
+              <div key={s.label} style={{ padding:'12px 16px', borderRadius:radius.lg, background:glass.surface.default.background, backdropFilter:glass.surface.default.backdropFilter, border:`1px solid ${colors.gray.border}`, boxShadow:shadows.sm }}>
+                <div style={{ fontSize:typography.scale.xs, fontWeight:typography.weight.bold, color:typography.color.muted, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>{s.label}</div>
+                <div style={{ fontSize:20, fontWeight:typography.weight.bold, color:typography.color.primary }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Busca + Ordenação */}
+        <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+          <div style={{ flex:1, position:'relative' }}>
+            <Search size={15} color={colors.gray.dimText} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)' }} />
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar por nome ou telefone..."
+              style={{ width:'100%', padding:'10px 14px 10px 38px', borderRadius:radius.sm, border:`1px solid ${colors.gray.borderMd}`, background:colors.background.surface, fontSize:typography.scale.base, outline:'none', boxSizing:'border-box', fontFamily:typography.fontFamily, color:typography.color.primary, transition:`border-color ${transitions.fast}` }}
+            />
+            {search && <button onClick={() => setSearch('')} style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', display:'flex' }}><X size={14} color={colors.gray.dimText} /></button>}
+          </div>
+          <div style={{ position:'relative', flexShrink:0 }}>
+            <ArrowUpDown size={13} color={colors.gray.dimText} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} />
+            <select className="sort-sel" value={sort} onChange={e => setSort(e.target.value)} style={{ paddingLeft:30 }}>
+              {ORDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <div style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', fontSize:10, color:colors.gray.dimText }}>▾</div>
+          </div>
         </div>
 
         {/* Loading */}
         {loading && (
           <div style={{ display:'flex', justifyContent:'center', padding:48 }}>
-            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
             <div style={{ width:28, height:28, borderRadius:'50%', border:`3px solid ${colors.red.subtle}`, borderTopColor:colors.red.DEFAULT, animation:'spin 0.8s linear infinite' }} />
           </div>
         )}
@@ -137,13 +161,13 @@ export default function ClientesPage() {
         {/* Lista */}
         {!loading && (
           clients.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'64px 32px', background:glass.surface.default.background, backdropFilter:glass.surface.default.backdropFilter, borderRadius:radius.xl, border:`1px solid ${colors.gray.border}` }}>
+            <div style={{ textAlign:'center', padding:'56px 32px', background:glass.surface.default.background, backdropFilter:glass.surface.default.backdropFilter, borderRadius:radius.xl, border:`1px solid ${colors.gray.border}` }}>
               <div style={{ fontSize:40, marginBottom:12 }}>👥</div>
               <div style={{ fontSize:16, fontWeight:typography.weight.semibold, color:typography.color.primary, marginBottom:6 }}>
-                {search ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
+                {search ? 'Nenhum cliente encontrado' : 'Nenhum cliente ainda'}
               </div>
               <div style={{ fontSize:typography.scale.base, color:typography.color.muted, marginBottom:20 }}>
-                {search ? 'Tente outro termo.' : 'Adicione seu primeiro cliente.'}
+                {search ? `Nenhum resultado para "${search}"` : 'Comece adicionando seu primeiro cliente.'}
               </div>
               {!search && (
                 <button onClick={() => router.push('/dashboard/clientes/novo')} style={{ padding:'10px 20px', borderRadius:radius.sm, background:colors.red.gradient, color:'#fff', border:'none', fontWeight:typography.weight.semibold, cursor:'pointer', fontSize:typography.scale.base, boxShadow:shadows.redSm }}>
@@ -154,38 +178,35 @@ export default function ClientesPage() {
           ) : (
             <>
               <div style={{ background:glass.surface.default.background, backdropFilter:glass.surface.default.backdropFilter, borderRadius:radius.xl, border:`1px solid ${colors.gray.border}`, boxShadow:shadows.sm, overflow:'hidden' }}>
+                {/* Cabeçalho da lista */}
+                <div style={{ padding:'10px 20px', borderBottom:`1px solid ${colors.gray.border}`, display:'flex', alignItems:'center', gap:14 }}>
+                  <div style={{ width:42, flexShrink:0 }} />
+                  <div style={{ flex:1, fontSize:typography.scale.xs, fontWeight:typography.weight.bold, color:typography.color.muted, textTransform:'uppercase', letterSpacing:'.07em' }}>Cliente</div>
+                  <div style={{ minWidth:80, textAlign:'center', fontSize:typography.scale.xs, fontWeight:typography.weight.bold, color:typography.color.muted, textTransform:'uppercase', letterSpacing:'.07em' }}>Agend.</div>
+                  <div style={{ minWidth:100, fontSize:typography.scale.xs, fontWeight:typography.weight.bold, color:typography.color.muted, textTransform:'uppercase', letterSpacing:'.07em' }}>Última visita</div>
+                  <div style={{ width:16 }} />
+                </div>
+
                 {clients.map(c => (
                   <div key={c.id} className="cl-row" onClick={() => router.push(`/dashboard/clientes/${c.id}`)}>
-                    {/* Avatar */}
                     <div style={{ width:42, height:42, borderRadius:radius.full, background:avatarColor(c.name), color:'#fff', fontSize:typography.scale.base, fontWeight:typography.weight.bold, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:shadows.sm }}>
                       {getInitials(c.name)}
                     </div>
-
-                    {/* Info */}
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:typography.scale.md, fontWeight:typography.weight.semibold, color:typography.color.primary, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                        {c.name}
-                      </div>
-                      <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:2, flexWrap:'wrap' }}>
-                        <span style={{ display:'flex', alignItems:'center', gap:3, fontSize:typography.scale.sm, color:typography.color.muted }}>
-                          <Phone size={11} color={colors.gray.dimText} />
-                          {formatPhone(c.phone)}
-                        </span>
-                        {c.lastVisit && (
-                          <span style={{ display:'flex', alignItems:'center', gap:3, fontSize:typography.scale.sm, color:typography.color.muted }}>
-                            <Calendar size={11} color={colors.gray.dimText} />
-                            {dayjs(c.lastVisit).format('DD MMM YYYY')}
-                          </span>
-                        )}
+                      <div style={{ fontSize:typography.scale.md, fontWeight:typography.weight.semibold, color:typography.color.primary, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name}</div>
+                      <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
+                        <Phone size={11} color={colors.gray.dimText} />
+                        <span style={{ fontSize:typography.scale.sm, color:typography.color.muted }}>{formatPhone(c.phone)}</span>
                       </div>
                     </div>
-
-                    {/* Agendamentos */}
-                    <div style={{ textAlign:'center', flexShrink:0 }}>
-                      <div style={{ fontSize:typography.scale.lg, fontWeight:typography.weight.bold, color:typography.color.primary }}>{c.totalBookings}</div>
-                      <div style={{ fontSize:typography.scale.xs, color:typography.color.muted }}>agend.</div>
+                    <div style={{ minWidth:80, textAlign:'center' }}>
+                      <span style={{ fontSize:typography.scale.lg, fontWeight:typography.weight.bold, color: c.totalBookings > 0 ? typography.color.primary : typography.color.muted }}>{c.totalBookings}</span>
                     </div>
-
+                    <div style={{ minWidth:100 }}>
+                      <span style={{ fontSize:typography.scale.sm, color:typography.color.muted }}>
+                        {c.lastVisit ? dayjs(c.lastVisit).format('DD MMM YY') : '—'}
+                      </span>
+                    </div>
                     <ChevronRight size={15} color={colors.gray.dimText} className="cl-arrow" />
                   </div>
                 ))}
@@ -193,10 +214,15 @@ export default function ClientesPage() {
 
               {/* Paginação */}
               {pages > 1 && (
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginTop:20 }}>
-                  <button className="pg-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Anterior</button>
-                  <span style={{ fontSize:typography.scale.sm, color:typography.color.muted, padding:'0 8px' }}>{page} / {pages}</span>
-                  <button className="pg-btn" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>Próxima →</button>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:16, padding:'0 4px' }}>
+                  <span style={{ fontSize:typography.scale.sm, color:typography.color.muted }}>
+                    Mostrando {(page-1)*30+1}–{Math.min(page*30,total)} de {total}
+                  </span>
+                  <div style={{ display:'flex', gap:6 }}>
+                    <button className="pg-btn" disabled={page<=1} onClick={() => setPage(p=>p-1)}>← Anterior</button>
+                    <span style={{ padding:'7px 12px', fontSize:typography.scale.sm, color:typography.color.muted }}>{page} / {pages}</span>
+                    <button className="pg-btn" disabled={page>=pages} onClick={() => setPage(p=>p+1)}>Próxima →</button>
+                  </div>
                 </div>
               )}
             </>
