@@ -1,12 +1,12 @@
 'use client'
 // src/features/agenda/components/AgendaToolbar.tsx
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import weekOfYear from 'dayjs/plugin/weekOfYear'
-import { ChevronLeft, ChevronRight, Plus, X, Ban } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Ban } from 'lucide-react'
 import { colors, transitions, radius, typography, shadows, glass } from '@/shared/theme'
 import { useAgendaStore } from '../hooks/useAgendaStore'
 import { useIsMobile } from '@/hooks/useIsMobile'

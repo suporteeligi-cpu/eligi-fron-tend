@@ -5,7 +5,7 @@
 import { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
-import { colors, glass, typography, radius, shadows, transitions } from '@/shared/theme'
+import { colors, glass, typography, radius, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface Props {
@@ -26,8 +26,6 @@ export default function MobileSheet({
   const isMobile = useIsMobile()
 
   if (!open || typeof document === 'undefined') return null
-
-  const accentColor = danger ? colors.red.DEFAULT : colors.red.DEFAULT
 
   const panel = (
     <>

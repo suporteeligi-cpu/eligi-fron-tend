@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { Ban, Trash2, AlertTriangle } from 'lucide-react'
 import { AgendaBlock, AgendaProfessional } from '../types'
-import { colors, typography, radius, shadows, transitions, glass } from '@/shared/theme'
+import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
 import MobileSheet from '@/app/components/ui/MobileSheet'
 import { createPortal } from 'react-dom'
 import api from '@/shared/lib/apiClient'
