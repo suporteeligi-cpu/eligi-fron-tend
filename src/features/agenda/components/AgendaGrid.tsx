@@ -86,6 +86,7 @@ interface MoveDrag {
   type:'move'; bookingId:string; booking:AgendaBooking; fromProfId:string
   ghostTop:number; ghostLeft:number; ghostWidth:number; ghostHeight:number
   offsetY:number; currentProfId:string; currentTime:string
+  mouseX:number; mouseY:number  // posição atual do mouse para o ghost fixed
 }
 interface ResizeDrag {
   type:'resize'; bookingId:string; booking:AgendaBooking; profId:string
@@ -149,7 +150,7 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
   function onCardMouseDown(e:React.MouseEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
     e.preventDefault(); e.stopPropagation()
     const offsetY = Math.max(0, e.clientY-(HEADER_H-(scrollRef.current?.scrollTop??0)+cardTop))
-    setDrag({type:'move',bookingId:booking.id,booking,fromProfId:profId,ghostTop:cardTop,ghostLeft:0,ghostWidth:0,ghostHeight:cardHeight,offsetY,currentProfId:profId,currentTime:booking.start})
+    setDrag({type:'move',bookingId:booking.id,booking,fromProfId:profId,ghostTop:cardTop,ghostLeft:0,ghostWidth:0,ghostHeight:cardHeight,offsetY,currentProfId:profId,currentTime:booking.start,mouseX:e.clientX,mouseY:e.clientY})
   }
 
   function onResizeMouseDown(e:React.MouseEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
@@ -169,7 +170,7 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
         const colW  = (rect.width-TIME_COL_W)/professionals.length
         const colIdx= Math.max(0,Math.min(Math.floor(relX/colW),professionals.length-1))
         const prof  = professionals[colIdx]
-        setDrag(prev=>prev?.type==='move'?{...prev,ghostTop:(snap-START_MIN)*PX_PER_MIN,ghostLeft:TIME_COL_W+colIdx*colW+4,ghostWidth:colW-8,currentProfId:prof?.id??prev.currentProfId,currentTime:minutesToTime(snap)}:prev)
+        setDrag(prev=>prev?.type==='move'?{...prev,ghostTop:(snap-START_MIN)*PX_PER_MIN,ghostLeft:TIME_COL_W+colIdx*colW+4,ghostWidth:colW-8,currentProfId:prof?.id??prev.currentProfId,currentTime:minutesToTime(snap),mouseX:e.clientX,mouseY:e.clientY}:prev)
       }
       if (drag.type==='resize') {
         const rect   = gridRef.current.getBoundingClientRect()
@@ -325,9 +326,20 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
           })}
         </div>
 
-        {/* Ghost mover */}
+        {/* Ghost mover — segue o mouse diretamente via clientX/Y */}
         {isMoving && drag?.type==='move' && (
-          <div style={{position:'fixed',top:drag.ghostTop+HEADER_H-(scrollRef.current?.scrollTop??0)+(scrollRef.current?.getBoundingClientRect().top??0),left:drag.ghostLeft+(scrollRef.current?.getBoundingClientRect().left??0)-(scrollRef.current?.scrollLeft??0),width:drag.ghostWidth,height:drag.ghostHeight,zIndex:9997,pointerEvents:'none',opacity:0.88,filter:'drop-shadow(0 8px 24px rgba(0,0,0,0.25))',transform:'scale(1.02)'}}>
+          <div style={{
+            position:'fixed',
+            top:  drag.mouseY - drag.offsetY,
+            left: drag.ghostLeft + (scrollRef.current?.getBoundingClientRect().left ?? 0) - (scrollRef.current?.scrollLeft ?? 0),
+            width:  drag.ghostWidth,
+            height: drag.ghostHeight,
+            zIndex:9997, pointerEvents:'none',
+            opacity:0.90,
+            filter:'drop-shadow(0 10px 28px rgba(0,0,0,0.28))',
+            transform:'scale(1.025)',
+            transition:'none',
+          }}>
             <BookingCard booking={drag.booking} totalHeight={drag.ghostHeight}/>
             <div style={{position:'absolute',bottom:-20,left:0,right:0,textAlign:'center',fontSize:11,fontWeight:700,color:colors.red.DEFAULT,fontVariantNumeric:'tabular-nums',textShadow:'0 1px 4px rgba(255,255,255,0.9)'}}>{drag.currentTime}</div>
           </div>
