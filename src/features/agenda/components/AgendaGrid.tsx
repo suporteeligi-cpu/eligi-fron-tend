@@ -335,12 +335,12 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
           })}
         </div>
 
-        {/* Ghost mover — segue o mouse pixel a pixel */}
+        {/* Ghost mover — coluna correta + mouse Y */}
         {isMoving && drag?.type==='move' && drag.ghostWidth > 0 && (
           <div style={{
             position:'fixed',
             top:    drag.mouseY - drag.offsetY,
-            left:   drag.mouseX - drag.ghostWidth / 2,
+            left:   drag.ghostLeft,
             width:  drag.ghostWidth,
             height: drag.ghostHeight,
             zIndex:9997, pointerEvents:'none',
