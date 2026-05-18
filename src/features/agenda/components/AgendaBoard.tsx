@@ -3,9 +3,10 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import dayjs from 'dayjs'
-import AgendaToolbar     from './AgendaToolbar'
-import AgendaGrid        from './AgendaGrid'
-import AgendaMobileList  from './AgendaMobileList'
+import AgendaToolbar    from './AgendaToolbar'
+import AgendaGrid       from './AgendaGrid'
+import AgendaIPadList   from './AgendaIPadList'
+import AgendaMobileList from './AgendaMobileList'
 import SideCheckoutPanel from '@/features/booking/components/SideCheckoutPanel'
 import BlockModal        from './BlockModal'
 import { useAgendaStore }  from '../hooks/useAgendaStore'
@@ -13,6 +14,18 @@ import { useAgendaSocket } from '../hooks/useAgendaSocket'
 import { AgendaProfessional, AgendaBlock } from '../types'
 import { colors } from '@/shared/theme'
 import api from '@/shared/lib/apiClient'
+
+type DeviceMode = 'desktop' | 'ipad' | 'mobile'
+
+function detectMode(): DeviceMode {
+  if (typeof window === 'undefined') return 'desktop'
+  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+  if (!hasTouch) return 'desktop'
+  // iPad: touch + tela >= 768px
+  const w = window.innerWidth
+  if (w >= 768) return 'ipad'
+  return 'mobile'
+}
 
 interface Props {
   professionals: AgendaProfessional[]
@@ -29,11 +42,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     checkout, closeCheckout,
   } = useAgendaStore()
 
-  // Detecta touch puro — cobre iPhone, Android, iPad mini, iPad, iPad Pro
-  const [isTouchDevice, setIsTouchDevice] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return 'ontouchstart' in window || navigator.maxTouchPoints > 0
-  })
+  const [mode, setMode] = useState<DeviceMode>(() => detectMode())
 
   const [blockModal,    setBlockModal]    = useState(false)
   const [blockInitTime, setBlockInitTime] = useState<string | undefined>()
@@ -47,9 +56,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   useEffect(() => { onDateChange?.(selectedDate) }, [selectedDate, onDateChange])
 
   useEffect(() => {
-    function onResize() {
-      setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0)
-    }
+    function onResize() { setMode(detectMode()) }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -82,9 +89,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   function openBlockModal(time?: string, profId?: string) {
     const resolvedProfId = profId ?? professionals[0]?.id
     if (!resolvedProfId) return
-    setBlockInitTime(time)
-    setBlockInitProf(resolvedProfId)
-    setBlockModal(true)
+    setBlockInitTime(time); setBlockInitProf(resolvedProfId); setBlockModal(true)
   }
 
   function handleBlockCreated(block: AgendaBlock) {
@@ -92,12 +97,10 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   }
 
   async function handleDeleteBlock(blockId: string) {
-    try { await api.delete(`/blocks/${blockId}`); removeBlock(dateStr, blockId) } catch { /* silencioso */ }
+    try { await api.delete(`/blocks/${blockId}`); removeBlock(dateStr, blockId) } catch { /**/ }
   }
 
-  function handleUpdateBlock(updated: AgendaBlock) {
-    updateBlock(dateStr, updated)
-  }
+  function handleUpdateBlock(updated: AgendaBlock) { updateBlock(dateStr, updated) }
 
   return (
     <>
@@ -105,23 +108,25 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
         <AgendaToolbar onBlockClick={() => openBlockModal()} />
 
         <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column' }}>
-          {isTouchDevice ? (
-            <AgendaMobileList
-              professionals={professionals}
-              bookings={bookings}
-              blocks={blocks}
-              onDeleteBlock={handleDeleteBlock}
-              onUpdateBlock={handleUpdateBlock}
-              onOpenBlockModal={openBlockModal}
-            />
-          ) : (
+          {mode === 'desktop' && (
             <AgendaGrid
-              professionals={professionals}
-              bookings={bookings}
-              blocks={blocks}
+              professionals={professionals} bookings={bookings} blocks={blocks}
               onOpenBlockModal={openBlockModal}
-              onDeleteBlock={handleDeleteBlock}
-              onUpdateBlock={handleUpdateBlock}
+              onDeleteBlock={handleDeleteBlock} onUpdateBlock={handleUpdateBlock}
+            />
+          )}
+          {mode === 'ipad' && (
+            <AgendaIPadList
+              professionals={professionals} bookings={bookings} blocks={blocks}
+              onOpenBlockModal={openBlockModal}
+              onDeleteBlock={handleDeleteBlock} onUpdateBlock={handleUpdateBlock}
+            />
+          )}
+          {mode === 'mobile' && (
+            <AgendaMobileList
+              professionals={professionals} bookings={bookings} blocks={blocks}
+              onDeleteBlock={handleDeleteBlock} onUpdateBlock={handleUpdateBlock}
+              onOpenBlockModal={openBlockModal}
             />
           )}
         </div>

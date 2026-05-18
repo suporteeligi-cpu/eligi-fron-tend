@@ -1,0 +1,483 @@
+'use client'
+// src/features/agenda/components/AgendaIPadList.tsx
+// Grade multi-coluna com touch events — exclusivo para iPad/tablet
+
+import { useRef, useEffect, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import BookingCard      from './BookingCard'
+import BlockCard        from './BlockCard'
+import SlotContextMenu  from './SlotContextMenu'
+import BlockEditModal   from './BlockEditModal'
+import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
+import { colors, agendaLayout } from '@/shared/theme'
+import { useAgendaStore } from '../hooks/useAgendaStore'
+import api from '@/shared/lib/apiClient'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
+import utc from 'dayjs/plugin/utc'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
+
+const START_HOUR = agendaLayout.startHour
+const END_HOUR   = agendaLayout.endHour
+const TIME_COL_W = agendaLayout.timeColWidth
+const MIN_COL_W  = agendaLayout.minColWidth
+const HEADER_H   = agendaLayout.headerHeight
+const SLOT_STEP  = 5
+const SLOT_H     = 10
+const PX_PER_MIN = SLOT_H / SLOT_STEP
+const START_MIN  = START_HOUR * 60
+const MIN_CARD_H = 24
+const MIN_DUR    = 5
+const LONG_PRESS_MS = 400
+
+function generateSlots() {
+  const s: string[] = []
+  for (let h = START_HOUR; h < END_HOUR; h++)
+    for (let m = 0; m < 60; m += SLOT_STEP)
+      s.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`)
+  return s
+}
+function toMinutes(t: string) { const [h,m]=t.split(':').map(Number); return h*60+m }
+function minutesToTime(min: number) { return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'00')}` }
+function snapToSlot(min: number) { return Math.round(min/SLOT_STEP)*SLOT_STEP }
+
+const SLOTS   = generateSlots()
+const TOTAL_H = SLOTS.length * SLOT_H
+
+function computeOverlapLayout(bookings: AgendaBooking[]) {
+  const result = new Map<string,{col:number;totalCols:number}>()
+  const sorted = [...bookings].sort((a,b)=>toMinutes(a.start)-toMinutes(b.start))
+  const groups: AgendaBooking[][] = []
+  for (const b of sorted) {
+    let placed=false
+    for (const g of groups) {
+      if (g.some(x=>toMinutes(b.start)<toMinutes(x.end)&&toMinutes(b.end)>toMinutes(x.start))) { g.push(b); placed=true; break }
+    }
+    if (!placed) groups.push([b])
+  }
+  for (const g of groups) g.forEach((b,col)=>result.set(b.id,{col,totalCols:g.length}))
+  return result
+}
+
+function useCurrentTimeY() {
+  const [y, setY] = useState(-1)
+  useEffect(() => {
+    const calc = () => { const n=new Date(),min=n.getHours()*60+n.getMinutes(); setY(min<START_MIN||min>END_HOUR*60?-1:(min-START_MIN)*PX_PER_MIN) }
+    calc(); const id=setInterval(calc,30_000); return ()=>clearInterval(id)
+  },[])
+  return y
+}
+
+function ConflictModal({ onConfirm, onCancel }: { onConfirm:()=>void; onCancel:()=>void }) {
+  return createPortal(
+    <>
+      <div onClick={onCancel} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',backdropFilter:'blur(6px)',zIndex:9998}}/>
+      <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:340,maxWidth:'88vw',background:'#fff',borderRadius:20,boxShadow:'0 24px 64px rgba(0,0,0,0.18)',zIndex:9999,padding:'28px 24px 20px',fontFamily:'-apple-system,system-ui,sans-serif',textAlign:'center'}}>
+        <div style={{fontSize:36,marginBottom:12}}>⚠️</div>
+        <h3 style={{margin:'0 0 8px',fontSize:17,fontWeight:700,color:'#111827'}}>Horário conflitante</h3>
+        <p style={{margin:'0 0 20px',fontSize:14,color:'#6b7280',lineHeight:1.5}}>Já existe um agendamento nesse horário.<br/>Deseja agendar mesmo assim?</p>
+        <button onClick={onConfirm} style={{width:'100%',padding:'13px',marginBottom:8,background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',border:'none',borderRadius:12,fontWeight:700,fontSize:15,cursor:'pointer'}}>Confirmar sobreposição</button>
+        <button onClick={onCancel} style={{width:'100%',padding:'11px',background:'rgba(0,0,0,0.04)',border:'1px solid rgba(0,0,0,0.08)',borderRadius:12,fontSize:14,cursor:'pointer',color:'rgba(0,0,0,0.5)'}}>Voltar</button>
+      </div>
+    </>,
+    document.body
+  )
+}
+
+interface MoveDrag {
+  type:'move'; bookingId:string; booking:AgendaBooking; fromProfId:string
+  ghostTop:number; ghostLeft:number; ghostWidth:number; ghostHeight:number
+  currentProfId:string; currentTime:string
+  touchX:number; touchY:number
+}
+interface ResizeDrag {
+  type:'resize'; bookingId:string; booking:AgendaBooking; profId:string
+  ghostHeight:number; currentEnd:string
+}
+type ActiveDrag = MoveDrag | ResizeDrag
+
+interface ContextMenu { x:number; y:number; time:string; profId:string }
+
+interface Props {
+  professionals:AgendaProfessional[]; bookings:AgendaBooking[]; blocks:AgendaBlock[]
+  onOpenBlockModal?:(time?:string,profId?:string)=>void
+  onDeleteBlock?:(id:string)=>void; onUpdateBlock?:(block:AgendaBlock)=>void
+}
+
+export default function AgendaIPadList({ professionals, bookings, blocks, onOpenBlockModal, onDeleteBlock, onUpdateBlock }: Props) {
+  const { openCreate, selectedDate, updateBooking } = useAgendaStore()
+  const scrollRef  = useRef<HTMLDivElement>(null)
+  const gridRef    = useRef<HTMLDivElement>(null)
+  const currentY   = useCurrentTimeY()
+  const dragRef    = useRef<ActiveDrag|null>(null)
+  const longPressRef = useRef<ReturnType<typeof setTimeout>|null>(null)
+  const touchStartRef= useRef<{x:number;y:number}|null>(null)
+
+  const [drag,       setDrag]       = useState<ActiveDrag|null>(null)
+  const [hoverSlot,  setHoverSlot]  = useState<string|null>(null)
+  const [longPressId,setLongPressId]= useState<string|null>(null)
+  const [conflict,   setConflict]   = useState<{bookingId:string;startAt:string;professionalId:string}|null>(null)
+  const [savingId,   setSavingId]   = useState<string|null>(null)
+  const [ctxMenu,    setCtxMenu]    = useState<ContextMenu|null>(null)
+  const [editBlock,  setEditBlock]  = useState<AgendaBlock|null>(null)
+
+  const seen   = new Set<string>()
+  const unique = bookings.filter(b=>{ if(seen.has(b.id)) return false; seen.add(b.id); return true })
+
+  useEffect(() => {
+    if (currentY>0 && scrollRef.current) scrollRef.current.scrollTop=Math.max(0,currentY-120)
+  },[currentY])
+
+  // ─── helpers ───────────────────────────────────────────────────────────────
+  function getScrollRect() {
+    return scrollRef.current?.getBoundingClientRect() ?? {top:0,left:0,width:0}
+  }
+
+  function snapFromTouch(clientY: number) {
+    const rect    = getScrollRect()
+    const scrollT = scrollRef.current?.scrollTop ?? 0
+    const relY    = clientY - rect.top + scrollT - HEADER_H
+    const absMin  = START_MIN + relY / PX_PER_MIN
+    return Math.max(START_MIN, Math.min(snapToSlot(absMin), END_HOUR*60-SLOT_STEP))
+  }
+
+  function colInfoFromTouch(clientX: number) {
+    const rect   = getScrollRect()
+    const scrollL= scrollRef.current?.scrollLeft ?? 0
+    const relX   = clientX - rect.left + scrollL - TIME_COL_W
+    const colW   = (rect.width - TIME_COL_W) / professionals.length
+    const colIdx = Math.max(0, Math.min(Math.floor(relX/colW), professionals.length-1))
+    return { colIdx, colW, colLeft: rect.left + TIME_COL_W + colIdx*colW }
+  }
+
+  // ─── Reschedule ────────────────────────────────────────────────────────────
+  const doReschedule = useCallback(async (bookingId:string, time:string, professionalId:string, allowOverlap:boolean) => {
+    const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
+    const startAt = dayjs.tz(`${dateStr} ${time}`,'America/Sao_Paulo').toISOString()
+    try {
+      setSavingId(bookingId)
+      const res = await api.patch(`/bookings/${bookingId}/reschedule`,{startAt,professionalId,allowOverlap})
+      const b   = res.data?.data??res.data
+      if (b) updateBooking(dateStr,{id:bookingId,professionalId:b.professionalId??professionalId,clientName:b.clientName,serviceName:b.service?.name??'',serviceColor:b.service?.color??undefined,start:dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),end:dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),status:b.status})
+    } catch (err:unknown) {
+      const status=(err as {response?:{status?:number}})?.response?.status
+      const code  =(err as {response?:{data?:{code?:string}}})?.response?.data?.code
+      if (status===409||code==='BOOKING_CONFLICT') setConflict({bookingId,startAt,professionalId})
+    } finally { setSavingId(null) }
+  },[selectedDate,updateBooking])
+
+  // ─── Resize ────────────────────────────────────────────────────────────────
+  const doResize = useCallback(async (bookingId:string, booking:AgendaBooking, newEnd:string) => {
+    const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
+    const startAt = dayjs.tz(`${dateStr} ${booking.start}`,'America/Sao_Paulo').toISOString()
+    const endAt   = dayjs.tz(`${dateStr} ${newEnd}`,'America/Sao_Paulo').toISOString()
+    try {
+      setSavingId(bookingId)
+      const res = await api.patch(`/bookings/${bookingId}/resize`,{startAt,endAt})
+      const b   = res.data?.data??res.data
+      if (b) updateBooking(dateStr,{id:bookingId,professionalId:b.professionalId??booking.professionalId,clientName:b.clientName,serviceName:b.service?.name??'',serviceColor:b.service?.color??undefined,start:dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),end:dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),status:b.status})
+    } catch(err) { console.error('[resize]',err) }
+    finally { setSavingId(null) }
+  },[selectedDate,updateBooking])
+
+  // ─── Long press → Move ─────────────────────────────────────────────────────
+  function onCardTouchStart(e:React.TouchEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
+    const touch = e.touches[0]
+    touchStartRef.current = {x:touch.clientX, y:touch.clientY}
+    setLongPressId(booking.id)
+
+    longPressRef.current = setTimeout(() => {
+      if (navigator.vibrate) navigator.vibrate(40)
+      setLongPressId(null)
+
+      const snapMin = snapFromTouch(touch.clientY)
+      const { colIdx, colW, colLeft } = colInfoFromTouch(touch.clientX)
+      const prof = professionals[colIdx]
+
+      const state: MoveDrag = {
+        type:'move', bookingId:booking.id, booking,
+        fromProfId:profId,
+        ghostTop:    (snapMin-START_MIN)*PX_PER_MIN,
+        ghostLeft:   colLeft + 4,
+        ghostWidth:  colW - 8,
+        ghostHeight: cardHeight,
+        currentProfId: prof?.id ?? profId,
+        currentTime:   minutesToTime(snapMin),
+        touchX: touch.clientX,
+        touchY: touch.clientY,
+      }
+      dragRef.current = state
+      setDrag(state)
+    }, LONG_PRESS_MS)
+  }
+
+  function onCardTouchEnd() {
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current=null }
+    setLongPressId(null)
+  }
+
+  // ─── Resize touch ──────────────────────────────────────────────────────────
+  function onResizeTouchStart(e:React.TouchEvent, booking:AgendaBooking, cardTop:number, cardHeight:number) {
+    e.stopPropagation()
+    if (navigator.vibrate) navigator.vibrate(30)
+    const state: ResizeDrag = {
+      type:'resize', bookingId:booking.id, booking,
+      profId: booking.professionalId,
+      ghostHeight: cardHeight,
+      currentEnd:  booking.end,
+    }
+    dragRef.current = state
+    setDrag(state)
+  }
+
+  // ─── Touch move global ─────────────────────────────────────────────────────
+  function onTouchMove(e:React.TouchEvent) {
+    const touch = e.touches[0]
+
+    // Cancela long press se moveu
+    if (longPressRef.current && touchStartRef.current) {
+      const dx=Math.abs(touch.clientX-touchStartRef.current.x)
+      const dy=Math.abs(touch.clientY-touchStartRef.current.y)
+      if (dx>8||dy>8) {
+        clearTimeout(longPressRef.current); longPressRef.current=null; setLongPressId(null)
+      }
+    }
+
+    const d = dragRef.current
+    if (!d) return
+    e.preventDefault()
+
+    if (d.type==='move') {
+      const snapMin = snapFromTouch(touch.clientY)
+      const { colIdx, colW, colLeft } = colInfoFromTouch(touch.clientX)
+      const prof = professionals[colIdx]
+      const next: MoveDrag = {
+        ...d,
+        ghostTop:  (snapMin-START_MIN)*PX_PER_MIN,
+        ghostLeft: colLeft + 4,
+        ghostWidth:colW - 8,
+        currentProfId: prof?.id ?? d.currentProfId,
+        currentTime:   minutesToTime(snapMin),
+        touchX: touch.clientX,
+        touchY: touch.clientY,
+      }
+      dragRef.current = next; setDrag(next)
+      setHoverSlot(minutesToTime(snapMin))
+    }
+
+    if (d.type==='resize') {
+      const rect    = getScrollRect()
+      const scrollT = scrollRef.current?.scrollTop ?? 0
+      const relY    = touch.clientY - rect.top + scrollT - HEADER_H
+      const endMin  = Math.max(toMinutes(d.booking.start)+MIN_DUR, Math.min(snapToSlot(START_MIN+relY/PX_PER_MIN), END_HOUR*60))
+      const h       = Math.max((endMin-toMinutes(d.booking.start))*PX_PER_MIN-2, MIN_CARD_H)
+      const next: ResizeDrag = { ...d, ghostHeight:h, currentEnd:minutesToTime(endMin) }
+      dragRef.current = next; setDrag(next)
+    }
+  }
+
+  function onTouchEnd() {
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current=null }
+    setLongPressId(null); setHoverSlot(null)
+
+    const d = dragRef.current; dragRef.current=null; setDrag(null)
+    if (!d) return
+
+    if (d.type==='move' && (d.currentTime!==d.booking.start||d.currentProfId!==d.fromProfId))
+      doReschedule(d.bookingId, d.currentTime, d.currentProfId, false)
+
+    if (d.type==='resize' && d.currentEnd!==d.booking.end)
+      doResize(d.bookingId, d.booking, d.currentEnd)
+  }
+
+  function handleConflictConfirm() {
+    if (!conflict) return
+    const time=dayjs(conflict.startAt).tz('America/Sao_Paulo').format('HH:mm')
+    setConflict(null); doReschedule(conflict.bookingId, time, conflict.professionalId, true)
+  }
+
+  const isMoving   = drag?.type==='move'
+  const isResizing = drag?.type==='resize'
+
+  return (
+    <>
+      {conflict && <ConflictModal onConfirm={handleConflictConfirm} onCancel={()=>setConflict(null)}/>}
+      {ctxMenu && <SlotContextMenu x={ctxMenu.x} y={ctxMenu.y} time={ctxMenu.time} profId={ctxMenu.profId} onClose={()=>setCtxMenu(null)} onNewBooking={(t,p)=>openCreate(t,p)} onNewBlock={(t,p)=>onOpenBlockModal?.(t,p)}/>}
+      {editBlock && <BlockEditModal block={editBlock} professionals={professionals} onClose={()=>setEditBlock(null)} onDeleted={id=>{onDeleteBlock?.(id);setEditBlock(null)}} onUpdated={u=>{onUpdateBlock?.(u);setEditBlock(null)}}/>}
+
+      {/* Ghost durante move */}
+      {isMoving && drag?.type==='move' && createPortal(
+        <div style={{
+          position:'fixed',
+          top:  drag.touchY - (drag.ghostHeight/2),
+          left: drag.ghostLeft,
+          width: drag.ghostWidth,
+          height:drag.ghostHeight,
+          zIndex:99997, pointerEvents:'none',
+          opacity:0.88, filter:'drop-shadow(0 8px 24px rgba(0,0,0,0.28))',
+          transform:'scale(1.02)', transition:'top 0.05s ease, left 0.05s ease',
+        }}>
+          <BookingCard booking={drag.booking} totalHeight={drag.ghostHeight}/>
+          <div style={{position:'absolute',bottom:-20,left:0,right:0,textAlign:'center',fontSize:11,fontWeight:700,color:colors.red.DEFAULT,fontVariantNumeric:'tabular-nums',textShadow:'0 1px 4px rgba(255,255,255,0.9)'}}>{drag.currentTime}</div>
+        </div>,
+        document.body
+      )}
+
+      <div
+        ref={scrollRef}
+        style={{
+          flex:1, minHeight:0, overflowY:'auto', overflowX:'auto',
+          background:colors.background.page,
+          fontFamily:'-apple-system,system-ui,sans-serif',
+          cursor: isMoving?'grabbing':isResizing?'ns-resize':'default',
+          userSelect:'none', WebkitUserSelect:'none',
+          touchAction: drag ? 'none' : 'pan-y pan-x',
+        }}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
+        <style>{`
+          .ip-slot{height:${SLOT_H}px;cursor:pointer;box-sizing:border-box;transition:background 0.1s}
+          .ip-slot:active{background:${colors.red.subtle}!important}
+          .ip-slot-hover{background:rgba(220,38,38,0.12)!important;border-top:2px solid ${colors.red.DEFAULT}!important}
+          .ip-hour{border-top:1px solid ${colors.gray.border}}
+          .ip-half{border-top:1px dashed rgba(0,0,0,0.06)}
+          .ip-5{border-top:1px solid transparent}
+          .ip-rh{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:32px;height:12px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;z-index:20;touch-action:none}
+          .ip-rh::after{content:'';width:22px;height:5px;background:rgba(255,255,255,0.55);border-radius:3px;transition:all 0.15s}
+          .ip-rh:active::after{background:rgba(255,255,255,0.95);width:26px}
+          @keyframes ip-pulse{0%{opacity:1}50%{opacity:0.55}100%{opacity:1}}
+          .ip-waiting{animation:ip-pulse 0.4s ease infinite}
+        `}</style>
+
+        <div ref={gridRef} style={{display:'grid',gridTemplateColumns:`${TIME_COL_W}px repeat(${professionals.length},minmax(${MIN_COL_W}px,1fr))`,minWidth:`${TIME_COL_W+professionals.length*MIN_COL_W}px`}}>
+
+          {/* Header canto */}
+          <div style={{height:HEADER_H,position:'sticky',top:0,zIndex:20,background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${colors.gray.border}`,borderRight:`1px solid ${colors.gray.border}`}}/>
+
+          {/* Header profissionais */}
+          {professionals.map(p => {
+            const initials=p.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
+            return (
+              <div key={p.id} style={{height:HEADER_H,display:'flex',alignItems:'center',justifyContent:'center',gap:8,position:'sticky',top:0,zIndex:20,background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${colors.gray.border}`,borderLeft:`1px solid ${colors.gray.border}`,fontWeight:600,fontSize:13,color:colors.gray['900']}}>
+                <div style={{width:30,height:30,borderRadius:'50%',background:colors.red.gradient,color:'#fff',fontSize:11,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 2px 8px ${colors.red.glow}`}}>{initials}</div>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:120}}>{p.name}</span>
+              </div>
+            )
+          })}
+
+          {/* Coluna horários */}
+          <div style={{position:'relative',zIndex:2,height:TOTAL_H}}>
+            {SLOTS.map((time,i) => {
+              const min=i*SLOT_STEP, isHour=min%60===0, isHalf=min%30===0&&!isHour
+              return (
+                <div key={time} style={{height:SLOT_H,display:'flex',alignItems:'flex-start',justifyContent:'flex-end',paddingRight:8,paddingTop:2,boxSizing:'border-box',borderTop:isHour?`1px solid ${colors.gray.border}`:isHalf?`1px dashed rgba(0,0,0,0.07)`:'1px solid transparent'}}>
+                  {isHour && <span style={{fontSize:10,fontWeight:600,color:colors.gray.dimText,fontVariantNumeric:'tabular-nums',lineHeight:1}}>{time}</span>}
+                  {isHalf && <span style={{fontSize:9,fontWeight:400,color:colors.gray.dimTextLight,fontVariantNumeric:'tabular-nums',lineHeight:1}}>{time}</span>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Colunas profissionais */}
+          {professionals.map(p => {
+            const profBookings = unique.filter(b=>b.professionalId===p.id)
+            const profBlocks   = blocks.filter(bl=>bl.professionalId===p.id)
+            const layout       = computeOverlapLayout(profBookings)
+
+            return (
+              <div key={p.id} style={{position:'relative',borderLeft:`1px solid ${colors.gray.border}`,zIndex:5,height:TOTAL_H}}>
+
+                {/* Slots */}
+                {SLOTS.map((time,i) => {
+                  const min=i*SLOT_STEP, isHour=min%60===0, isHalf=min%30===0&&!isHour
+                  const isHover = isMoving && hoverSlot===time
+                  return (
+                    <div key={time}
+                      className={`ip-slot${isHover?' ip-slot-hover':''} ${isHour?'ip-hour':isHalf?'ip-half':'ip-5'}`}
+                      onClick={e=>{ if(drag||longPressId) return; setCtxMenu({x:e.clientX,y:e.clientY,time,profId:p.id}) }}
+                    />
+                  )
+                })}
+
+                {/* Bloqueios */}
+                {profBlocks.map(bl => {
+                  const sMin=toMinutes(bl.startTime), eMin=toMinutes(bl.endTime)
+                  if (sMin<START_MIN||sMin>=END_HOUR*60) return null
+                  const top=(sMin-START_MIN)*PX_PER_MIN
+                  const height=Math.max((eMin-sMin)*PX_PER_MIN-2,MIN_CARD_H)
+                  return (
+                    <div key={bl.id} style={{position:'absolute',top,left:3,right:3,height,zIndex:7,cursor:'pointer'}} onClick={e=>{e.stopPropagation();setEditBlock(bl)}}>
+                      <BlockCard block={bl} totalHeight={height}/>
+                    </div>
+                  )
+                })}
+
+                {/* Bookings */}
+                {profBookings.map(b => {
+                  const sMin=toMinutes(b.start), eMin=toMinutes(b.end)
+                  if (sMin<START_MIN||sMin>=END_HOUR*60) return null
+                  const dur=Math.max(eMin-sMin,SLOT_STEP)
+                  const top=(sMin-START_MIN)*PX_PER_MIN
+                  const baseH=Math.max(dur*PX_PER_MIN-2,MIN_CARD_H)
+                  const {col,totalCols}=layout.get(b.id)??{col:0,totalCols:1}
+                  const frac=1/totalCols
+                  const left=`calc(${col*frac*100}% + 3px)`
+                  const width=`calc(${frac*100}% - ${col===totalCols-1?6:3}px)`
+                  const isThisMove  = isMoving  && drag?.bookingId===b.id
+                  const isThisResize= isResizing && drag?.bookingId===b.id
+                  const isSaving    = savingId===b.id
+                  const isWaiting   = longPressId===b.id
+                  const height = isThisResize && drag?.type==='resize' ? drag.ghostHeight : baseH
+
+                  return (
+                    <div key={b.id} style={{
+                      position:'absolute', top, left, width, height,
+                      zIndex: isThisMove?0:8,
+                      opacity: isThisMove?0.2:isSaving?0.55:1,
+                      transition: isThisResize?'height 0s':'opacity 0.2s',
+                      touchAction:'none',
+                    }}
+                      onTouchStart={e=>onCardTouchStart(e,b,p.id,top,baseH)}
+                      onTouchEnd={onCardTouchEnd}
+                    >
+                      {isThisMove ? (
+                        <div style={{width:'100%',height:'100%',borderRadius:7,background:'rgba(220,38,38,0.10)',border:`2px dashed ${colors.red.border}`}}/>
+                      ) : (
+                        <div className={isWaiting?'ip-waiting':''} style={{width:'100%',height:'100%'}}>
+                          <BookingCard booking={b} totalHeight={height}/>
+                        </div>
+                      )}
+
+                      {/* Resize handle */}
+                      {!isThisMove && height>18 && (
+                        <div className="ip-rh" onTouchStart={e=>onResizeTouchStart(e,b,top,baseH)}/>
+                      )}
+
+                      {/* Label resize */}
+                      {isThisResize && drag?.type==='resize' && (
+                        <div style={{position:'absolute',bottom:-18,left:0,right:0,textAlign:'center',fontSize:10,fontWeight:700,color:colors.red.DEFAULT,pointerEvents:'none',fontVariantNumeric:'tabular-nums',textShadow:'0 1px 3px rgba(255,255,255,0.9)',zIndex:50}}>
+                          {drag.currentEnd}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {/* Hora atual */}
+                {currentY>=0 && (
+                  <div style={{position:'absolute',top:currentY,left:0,right:0,height:2,background:`linear-gradient(90deg,${colors.red.DEFAULT},${colors.red.light})`,zIndex:15,pointerEvents:'none',boxShadow:`0 0 6px ${colors.red.glow}`}}>
+                    <div style={{width:8,height:8,borderRadius:'50%',background:colors.red.DEFAULT,position:'absolute',left:-4,top:-3,boxShadow:`0 0 6px ${colors.red.glow}`}}/>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </>
+  )
+}
