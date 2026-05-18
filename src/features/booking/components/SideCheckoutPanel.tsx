@@ -10,6 +10,7 @@ import timezone from 'dayjs/plugin/timezone'
 import api from '@/shared/lib/apiClient'
 import { AgendaBooking, AgendaProfessional } from '@/features/agenda/types'
 import { colors, glass, typography, radius, shadows, transitions } from '@/shared/theme'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -300,6 +301,7 @@ export default function SideCheckoutPanel({
   open, mode, time, professionalId, booking, professionals, selectedDate, onClose,
 }: Props) {
   const [mounted,          setMounted]          = useState(false)
+  const isMobile = useIsMobile()
   const [tab,              setTab]              = useState<'booking' | 'info'>('booking')
   const [selectedClient,   setSelectedClient]   = useState<Client | null>(null)
   const [clientName,       setClientName]       = useState('')
@@ -387,7 +389,8 @@ export default function SideCheckoutPanel({
   const panel = (
     <>
       <style>{`
-        @keyframes cpPanelIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
+        @keyframes cpPanelIn  { from{transform:translateX(100%)} to{transform:translateX(0)} }
+        @keyframes cpSheetUp  { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
         .cp-input{width:100%;padding:0 12px;height:40px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.surface};color:${colors.gray[900]};font-size:${typography.scale.base}px;outline:none;box-sizing:border-box;font-family:${typography.fontFamily};transition:border-color ${transitions.fast},box-shadow ${transitions.fast}}
         .cp-input:focus{border-color:${colors.red.borderHover};box-shadow:0 0 0 3px ${colors.red.focusRing}}
         .cp-input::placeholder{color:${colors.gray.dimTextLight}}
@@ -425,8 +428,20 @@ export default function SideCheckoutPanel({
         />
       )}
 
-      {/* Painel lateral */}
-      <div style={{
+      {/* Painel lateral — desktop | fullscreen — mobile */}
+      <div style={ isMobile ? {
+        position:'fixed', left:0, right:0, bottom:0,
+        height:'96dvh',
+        background:glass.surface.modal.background,
+        backdropFilter:glass.surface.modal.backdropFilter,
+        WebkitBackdropFilter:glass.surface.modal.backdropFilter,
+        borderRadius:`${radius['2xl']}px ${radius['2xl']}px 0 0`,
+        boxShadow:'0 -8px 48px rgba(0,0,0,0.18)',
+        zIndex:9995,
+        display:'flex', flexDirection:'column',
+        fontFamily:typography.fontFamily,
+        animation:'cpSheetUp 0.3s cubic-bezier(0.34,1.2,0.64,1)',
+      } : {
         position:'fixed', top:0, right:0, bottom:0,
         width:360, maxWidth:'100vw',
         background:glass.surface.modal.background,
@@ -439,6 +454,13 @@ export default function SideCheckoutPanel({
         fontFamily:typography.fontFamily,
         animation:'cpPanelIn 0.22s cubic-bezier(0.25,0.46,0.45,0.94)',
       }}>
+
+        {/* Handle bar — mobile only */}
+        {isMobile && (
+          <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 4px', flexShrink:0 }}>
+            <div style={{ width:40, height:4, borderRadius:2, background:'rgba(0,0,0,0.12)' }} />
+          </div>
+        )}
 
         {/* Header */}
         <div style={{ padding:'16px 20px 0', flexShrink:0 }}>
@@ -598,7 +620,7 @@ export default function SideCheckoutPanel({
         </div>
 
         {/* Footer */}
-        <div style={{ padding:'12px 20px 20px', borderTop:`1px solid ${colors.gray.border}`, flexShrink:0, background:colors.background.surface, backdropFilter:glass.blur.sm }}>
+        <div style={{ padding:`12px 20px ${isMobile ? 'max(20px, env(safe-area-inset-bottom))' : '20px'}`, borderTop:`1px solid ${colors.gray.border}`, flexShrink:0, background:colors.background.surface, backdropFilter:glass.blur.sm }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:12 }}>
             <div>
               <div style={{ fontSize:typography.scale.xs, fontWeight:typography.weight.bold, color:colors.gray.dimText, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:2 }}>Total</div>
