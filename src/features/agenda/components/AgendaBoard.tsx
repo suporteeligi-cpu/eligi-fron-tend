@@ -29,12 +29,12 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     checkout, closeCheckout,
   } = useAgendaStore()
 
-  // Detecta touch em vez de largura — cobre iPad, tablets e phones
+  // Detecta touch puro — cobre iPhone, Android, iPad mini, iPad, iPad Pro
   const [isTouchDevice, setIsTouchDevice] = useState(() => {
     if (typeof window === 'undefined') return false
-    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-    return hasTouch && window.innerWidth <= 1024
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0
   })
+
   const [blockModal,    setBlockModal]    = useState(false)
   const [blockInitTime, setBlockInitTime] = useState<string | undefined>()
   const [blockInitProf, setBlockInitProf] = useState<string | undefined>()
@@ -48,9 +48,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
 
   useEffect(() => {
     function onResize() {
-      const hasT = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-      const isS  = window.innerWidth <= 1024
-      setIsTouchDevice(hasT && isS)
+      setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0)
     }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
@@ -73,12 +71,12 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
 
   useAgendaSocket({
     businessId,
-    onCreate:      b   => addBooking(dateStr, b),
-    onUpdate:      b   => updateBooking(dateStr, b),
-    onCancel:      id  => removeBooking(dateStr, id),
-    onBlockCreate: b   => { if (b.date === dateStr) addBlock(dateStr, b) },
-    onBlockDelete: id  => removeBlock(dateStr, id),
-    onBlockUpdate: b   => { if (b.date === dateStr) updateBlock(dateStr, b) },
+    onCreate:      b  => addBooking(dateStr, b),
+    onUpdate:      b  => updateBooking(dateStr, b),
+    onCancel:      id => removeBooking(dateStr, id),
+    onBlockCreate: b  => { if (b.date === dateStr) addBlock(dateStr, b) },
+    onBlockDelete: id => removeBlock(dateStr, id),
+    onBlockUpdate: b  => { if (b.date === dateStr) updateBlock(dateStr, b) },
   })
 
   function openBlockModal(time?: string, profId?: string) {
