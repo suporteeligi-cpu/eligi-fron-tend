@@ -29,7 +29,12 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     checkout, closeCheckout,
   } = useAgendaStore()
 
-  const [isMobile,      setIsMobile]      = useState(false)
+  // Detecta touch em vez de largura — cobre iPad, tablets e phones
+  const [isTouchDevice, setIsTouchDevice] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    return hasTouch && window.innerWidth <= 1024
+  })
   const [blockModal,    setBlockModal]    = useState(false)
   const [blockInitTime, setBlockInitTime] = useState<string | undefined>()
   const [blockInitProf, setBlockInitProf] = useState<string | undefined>()
@@ -42,36 +47,38 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   useEffect(() => { onDateChange?.(selectedDate) }, [selectedDate, onDateChange])
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
+    function onResize() {
+      const hasT = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+      const isS  = window.innerWidth <= 1024
+      setIsTouchDevice(hasT && isS)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   const fetchBlocks = useCallback(async () => {
     try {
-      const res    = await api.get('/blocks', { params: { date: dateStr } })
-      const data   = res.data?.data ?? res.data
+      const res  = await api.get('/blocks', { params: { date: dateStr } })
+      const data = res.data?.data ?? res.data
       setBlocksForDate(dateStr, Array.isArray(data) ? data : [])
     } catch { /* silencioso */ }
   }, [dateStr, setBlocksForDate])
 
   useEffect(() => { fetchBlocks() }, [fetchBlocks])
 
-  // Atualiza bloco no store
-  function updateBlock(dateStr: string, updated: AgendaBlock) {
-    removeBlock(dateStr, updated.id)
-    addBlock(dateStr, updated)
+  function updateBlock(ds: string, updated: AgendaBlock) {
+    removeBlock(ds, updated.id)
+    addBlock(ds, updated)
   }
 
   useAgendaSocket({
     businessId,
-    onCreate:       (b)  => addBooking(dateStr, b),
-    onUpdate:       (b)  => updateBooking(dateStr, b),
-    onCancel:       (id) => removeBooking(dateStr, id),
-    onBlockCreate:  (b)  => { if (b.date === dateStr) addBlock(dateStr, b) },
-    onBlockDelete:  (id) => removeBlock(dateStr, id),
-    onBlockUpdate:  (b)  => { if (b.date === dateStr) updateBlock(dateStr, b) },
+    onCreate:      b   => addBooking(dateStr, b),
+    onUpdate:      b   => updateBooking(dateStr, b),
+    onCancel:      id  => removeBooking(dateStr, id),
+    onBlockCreate: b   => { if (b.date === dateStr) addBlock(dateStr, b) },
+    onBlockDelete: id  => removeBlock(dateStr, id),
+    onBlockUpdate: b   => { if (b.date === dateStr) updateBlock(dateStr, b) },
   })
 
   function openBlockModal(time?: string, profId?: string) {
@@ -100,7 +107,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
         <AgendaToolbar onBlockClick={() => openBlockModal()} />
 
         <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column' }}>
-          {isMobile ? (
+          {isTouchDevice ? (
             <AgendaMobileList
               professionals={professionals}
               bookings={bookings}

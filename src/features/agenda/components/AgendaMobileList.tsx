@@ -184,6 +184,7 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
   const dragRef     = useRef<ActiveDrag|null>(null)
   const longPressRef= useRef<ReturnType<typeof setTimeout>|null>(null)
   const touchStartRef = useRef<{y:number;x:number;time:number}|null>(null)
+  const [hoverSlot, setHoverSlot] = useState<string|null>(null) // slot destacado
 
   const [drag,           setDrag]           = useState<ActiveDrag|null>(null)
   const [conflict,       setConflict]       = useState<{bookingId:string;startAt:string;professionalId:string}|null>(null)
@@ -280,19 +281,15 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
     }, LONG_PRESS_MS)
   }
 
-  function onCardTouchEnd(e: React.TouchEvent, booking: AgendaBooking) {
-    // Cancela long press se soltou antes
+  function onCardTouchEnd() {
     if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null }
     setLongPressId(null)
-    if (dragRef.current) return // já em drag, deixa o onTouchEnd global tratar
+    if (dragRef.current) return
   }
 
   // ─── Long press handlers para RESIZE ─────────────────────────────────────────
   function onResizeTouchStart(e: React.TouchEvent, booking: AgendaBooking, cardTop: number, cardHeight: number) {
     e.stopPropagation()
-    const touch = e.touches[0]
-
-    // Resize ativa imediato (não precisa de long press — área dedicada)
     if (navigator.vibrate) navigator.vibrate(30)
     const state: ResizeDrag = {
       type:'resize', booking, profId:activeProfId,
@@ -324,9 +321,11 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
     if (d.type === 'move') {
       const snapMin  = snapFromClientY(touch.clientY)
       const ghostTop = (snapMin - START_MIN) * PX_PER_MIN
+      const hSlot    = minutesToTime(snapMin)
       const next: MoveDrag = { ...d, ghostTop, ghostTime:minutesToTime(snapMin), touchY:touch.clientY, touchX:touch.clientX }
       dragRef.current = next
       setDrag(next)
+      setHoverSlot(hSlot)
     }
 
     if (d.type === 'resize') {
@@ -343,6 +342,7 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
   function onTouchEnd() {
     if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null }
     setLongPressId(null)
+    setHoverSlot(null)
 
     const d = dragRef.current
     dragRef.current = null
@@ -375,9 +375,18 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
     <div style={{height:'100%',display:'flex',flexDirection:'column',background:colors.background.page,fontFamily:typography.fontFamily,overflow:'hidden'}}>
       <style>{`
         .m-vscroll::-webkit-scrollbar{display:none}
+        /* Bloqueia seleção de texto em toda a grade */
+        .m-grid-wrap{
+          -webkit-user-select:none;
+          -moz-user-select:none;
+          user-select:none;
+          -webkit-touch-callout:none;
+        }
         .m-slot{cursor:pointer;transition:background 0.1s}
         .m-slot:active{background:rgba(220,38,38,0.06)!important}
-        /* Handle de resize — faixa na parte inferior do card */
+        /* Slot destacado durante drag */
+        .m-slot-hover{background:rgba(220,38,38,0.10)!important;border-top:2px solid ${colors.red.DEFAULT}!important}
+        /* Handle de resize */
         .m-rh{
           position:absolute;bottom:0;left:0;right:0;height:14px;
           display:flex;align-items:flex-end;justify-content:center;
@@ -390,7 +399,7 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
           background:rgba(255,255,255,0.55);
           border-radius:2px;
         }
-        /* Pulsação quando aguarda long press */
+        /* Pulsação long press */
         @keyframes lp-pulse{0%{opacity:1;transform:scale(1)}50%{opacity:0.6;transform:scale(0.97)}100%{opacity:1;transform:scale(1)}}
         .lp-waiting{animation:lp-pulse 0.4s ease infinite}
       `}</style>
@@ -479,7 +488,7 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
       {/* Grade */}
       <div
         ref={vScrollRef}
-        className="m-vscroll"
+        className="m-vscroll m-grid-wrap"
         style={{flex:1,overflowY:'auto',overflowX:'hidden',WebkitOverflowScrolling:'touch',position:'relative',touchAction:drag?'none':'pan-y'}}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -504,7 +513,8 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
 
             {/* Slots */}
             {HALF_SLOTS.map((time,i)=>(
-              <div key={time} className="m-slot"
+              <div key={time}
+                className={`m-slot${isMoving && hoverSlot===time ? ' m-slot-hover' : ''}`}
                 style={{position:'absolute',top:i*ROW_H,left:0,right:0,height:ROW_H,borderTop:i%2===0?`1px solid ${colors.gray.border}`:`1px dashed rgba(0,0,0,0.05)`}}
                 onClick={e=>{if(drag||longPressId) return; setCtxMenu({x:e.clientX,y:e.clientY,time,profId:activeProfId})}}
               />
@@ -564,7 +574,7 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
                   touchAction:'none',
                 }}
                   onTouchStart={e=>onCardTouchStart(e, b, top, cardWidthPx, cardLeftPx, baseH)}
-                  onTouchEnd={e=>onCardTouchEnd(e, b)}
+                  onTouchEnd={onCardTouchEnd}
                 >
                   {/* Placeholder in-place durante move */}
                   {isThisMove ? (

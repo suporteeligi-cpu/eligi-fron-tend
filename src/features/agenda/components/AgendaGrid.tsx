@@ -107,6 +107,7 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
   const currentY  = useCurrentTimeY()
 
   const [drag,      setDrag]      = useState<ActiveDrag|null>(null)
+  const [hoverSlot, setHoverSlot] = useState<string|null>(null)
   const [conflict,  setConflict]  = useState<{bookingId:string;startAt:string;professionalId:string}|null>(null)
   const [savingId,  setSavingId]  = useState<string|null>(null)
   const [ctxMenu,   setCtxMenu]   = useState<ContextMenu|null>(null)
@@ -180,6 +181,7 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
         const colIdx = Math.max(0,Math.min(Math.floor(relX/colW),professionals.length-1))
         const prof   = professionals[colIdx]
         setDrag(prev=>prev?.type==='move'?{...prev,ghostTop:(snap-START_MIN)*PX_PER_MIN,ghostLeft:(rect.left)+TIME_COL_W+colIdx*colW+4,ghostWidth:colW-8,currentProfId:prof?.id??prev.currentProfId,currentTime:minutesToTime(snap),mouseX:e.clientX,mouseY:e.clientY}:prev)
+        setHoverSlot(minutesToTime(snap))
       }
       if (drag.type==='resize') {
         const rect   = scrollRef.current.getBoundingClientRect()
@@ -193,12 +195,12 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
       if (!drag) return
       if (drag.type==='move') {
         const {bookingId,currentTime,currentProfId,fromProfId,booking}=drag
-        setDrag(null)
+        setDrag(null); setHoverSlot(null)
         if (currentTime!==booking.start||currentProfId!==fromProfId) doReschedule(bookingId,currentTime,currentProfId,false)
       }
       if (drag.type==='resize') {
         const {bookingId,booking,currentEnd}=drag
-        setDrag(null)
+        setDrag(null); setHoverSlot(null)
         if (currentEnd!==booking.end) doResize(bookingId,booking,currentEnd)
       }
     }
@@ -227,6 +229,7 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
         <style>{`
           .ag-slot{height:${SLOT_H}px;cursor:pointer;box-sizing:border-box;transition:background 0.1s}
           .ag-slot:hover{background:${colors.red.subtle}!important}
+          .ag-slot-hover{background:rgba(220,38,38,0.12)!important;border-top:2px solid ${colors.red.DEFAULT}!important;z-index:6;position:relative}
           .ag-hour{border-top:1px solid ${colors.gray.border}}
           .ag-half{border-top:1px dashed rgba(0,0,0,0.06)}
           .ag-5{border-top:1px solid transparent}
@@ -273,7 +276,8 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
               <div key={p.id} style={{position:'relative',borderLeft:`1px solid ${colors.gray.border}`,zIndex:5,height:TOTAL_H}}>
                 {SLOTS.map((time,i) => {
                   const min=i*SLOT_STEP,isHour=min%60===0,isHalf=min%30===0&&!isHour
-                  return <div key={time} className={`ag-slot ${isHour?'ag-hour':isHalf?'ag-half':'ag-5'}`} onClick={e=>{ if(drag) return; e.preventDefault(); setCtxMenu({x:e.clientX,y:e.clientY,time,profId:p.id}) }}/>
+                  const isHover = isMoving && hoverSlot===time
+                  return <div key={time} className={`ag-slot${isHover?' ag-slot-hover':''} ${isHour?'ag-hour':isHalf?'ag-half':'ag-5'}`} onClick={e=>{ if(drag) return; e.preventDefault(); setCtxMenu({x:e.clientX,y:e.clientY,time,profId:p.id}) }}/>
                 })}
 
                 {profBlocks.map(bl => {
