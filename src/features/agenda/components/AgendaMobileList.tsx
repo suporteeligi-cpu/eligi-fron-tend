@@ -257,10 +257,13 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
 
   function onCardTouchStart(e:React.TouchEvent, booking:AgendaBooking, cardTop:number, cardWidth:number, cardLeft:number) {
     e.stopPropagation()
-    const touch=e.touches[0]
-    const relY=getColY(touch.clientY)
-    const offset=Math.max(0,relY-cardTop)
-    const state:MoveDrag={type:'move',booking,profId:activeProfId,offsetY:offset,ghostTop:cardTop,ghostTime:booking.start,touchY:touch.clientY,touchX:touch.clientX,cardWidth,cardLeft}
+    const touch = e.touches[0]
+    // cardTopScreen = posição do topo do card na tela
+    const colRect     = colRef.current?.getBoundingClientRect()
+    const scrollTop   = vScrollRef.current?.scrollTop ?? 0
+    const cardTopScreen = (colRect?.top ?? 0) + cardTop - scrollTop
+    const offsetY = Math.max(0, touch.clientY - cardTopScreen)
+    const state:MoveDrag = {type:'move',booking,profId:activeProfId,offsetY,ghostTop:cardTop,ghostTime:booking.start,touchY:touch.clientY,touchX:touch.clientX,cardWidth,cardLeft}
     dragRef.current=state; setDrag(state)
   }
 
@@ -278,13 +281,11 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
     const touch=e.touches[0]
 
     if (d.type==='move') {
-      // relY = posição em px desde o topo da grade (início = START_HOUR)
-      const relY    = getColY(touch.clientY) - d.offsetY
-      // minutos absolutos desde meia-noite
-      const absMin  = START_MIN + relY / PX_PER_MIN
-      const snap    = Math.max(START_MIN, Math.min(snapToSlot(absMin), END_HOUR * 60 - SLOT_STEP))
-      const ghostTop = (snap - START_MIN) * PX_PER_MIN
-      const next:MoveDrag={...d, ghostTop, ghostTime:minutesToTime(snap), touchY:touch.clientY, touchX:touch.clientX}
+      // Simplesmente: qual slot está sob o dedo?
+      const relY   = getColY(touch.clientY)
+      const absMin = START_MIN + relY / PX_PER_MIN
+      const snap   = Math.max(START_MIN, Math.min(snapToSlot(absMin), END_HOUR * 60 - SLOT_STEP))
+      const next:MoveDrag={...d, ghostTop:(snap-START_MIN)*PX_PER_MIN, ghostTime:minutesToTime(snap), touchY:touch.clientY, touchX:touch.clientX}
       dragRef.current=next; setDrag(next)
     }
 
@@ -379,21 +380,20 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
         />
       )}
 
-      {/* Ghost fixo que segue o dedo — só no move */}
+      {/* Ghost fixo que segue o dedo */}
       {isMoving && drag?.type==='move' && createPortal(
         <div style={{
           position:'fixed',
           top:  drag.touchY - drag.offsetY,
-          left: drag.cardLeft,
+          left: drag.touchX - drag.cardWidth / 2,
           width: drag.cardWidth,
-          height: Math.max((toMinutes(drag.booking.end)-toMinutes(drag.booking.start))*PX_PER_MIN-2,MIN_CARD_H),
+          height: Math.max((toMinutes(drag.booking.end)-toMinutes(drag.booking.start))*PX_PER_MIN-2, MIN_CARD_H),
           zIndex:99999, pointerEvents:'none',
           opacity:0.92,
           filter:'drop-shadow(0 12px 32px rgba(0,0,0,0.35))',
           transform:'scale(1.03)',
         }}>
           <MobileBookingCard booking={drag.booking} height={Math.max((toMinutes(drag.booking.end)-toMinutes(drag.booking.start))*PX_PER_MIN-2,MIN_CARD_H)}/>
-          {/* Label horário */}
           <div style={{position:'absolute',bottom:-20,left:0,right:0,textAlign:'center',fontSize:11,fontWeight:700,color:colors.red.DEFAULT,fontVariantNumeric:'tabular-nums',textShadow:'0 1px 4px rgba(255,255,255,0.95)',pointerEvents:'none'}}>
             {drag.ghostTime}
           </div>

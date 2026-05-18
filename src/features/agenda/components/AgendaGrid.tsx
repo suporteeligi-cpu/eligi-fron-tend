@@ -149,8 +149,13 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
 
   function onCardMouseDown(e:React.MouseEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
     e.preventDefault(); e.stopPropagation()
-    const offsetY = Math.max(0, e.clientY-(HEADER_H-(scrollRef.current?.scrollTop??0)+cardTop))
-    setDrag({type:'move',bookingId:booking.id,booking,fromProfId:profId,ghostTop:cardTop,ghostLeft:0,ghostWidth:0,ghostHeight:cardHeight,offsetY,currentProfId:profId,currentTime:booking.start,mouseX:e.clientX,mouseY:e.clientY})
+    const rect   = gridRef.current?.getBoundingClientRect()
+    const colW   = rect ? (rect.width - TIME_COL_W) / professionals.length : 120
+    const profIdx = professionals.findIndex(p => p.id === profId)
+    const ghostLeft  = (rect?.left ?? 0) + TIME_COL_W + profIdx * colW + 4
+    const ghostWidth = colW - 8
+    const offsetY = Math.max(0, e.clientY - (HEADER_H - (scrollRef.current?.scrollTop ?? 0) + cardTop))
+    setDrag({type:'move',bookingId:booking.id,booking,fromProfId:profId,ghostTop:cardTop,ghostLeft,ghostWidth,ghostHeight:cardHeight,offsetY,currentProfId:profId,currentTime:booking.start,mouseX:e.clientX,mouseY:e.clientY})
   }
 
   function onResizeMouseDown(e:React.MouseEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
@@ -164,9 +169,9 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
       if (!drag||!gridRef.current||!scrollRef.current) return
       if (drag.type==='move') {
         const rect  = gridRef.current.getBoundingClientRect()
-        const relY  = e.clientY-rect.top+scrollRef.current.scrollTop-HEADER_H-drag.offsetY
+        const relY   = e.clientY-rect.top+scrollRef.current.scrollTop-HEADER_H
         const absMin = START_MIN + relY / PX_PER_MIN
-        const snap  = Math.max(START_MIN,Math.min(snapToSlot(absMin),END_HOUR*60-SLOT_STEP))
+        const snap   = Math.max(START_MIN,Math.min(snapToSlot(absMin),END_HOUR*60-SLOT_STEP))
         const relX  = e.clientX-rect.left+scrollRef.current.scrollLeft-TIME_COL_W
         const colW  = (rect.width-TIME_COL_W)/professionals.length
         const colIdx= Math.max(0,Math.min(Math.floor(relX/colW),professionals.length-1))
@@ -327,12 +332,12 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
           })}
         </div>
 
-        {/* Ghost mover — segue o mouse diretamente via clientX/Y */}
-        {isMoving && drag?.type==='move' && (
+        {/* Ghost mover — segue o mouse pixel a pixel */}
+        {isMoving && drag?.type==='move' && drag.ghostWidth > 0 && (
           <div style={{
             position:'fixed',
-            top:  drag.mouseY - drag.offsetY,
-            left: drag.ghostLeft + (scrollRef.current?.getBoundingClientRect().left ?? 0) - (scrollRef.current?.scrollLeft ?? 0),
+            top:    drag.mouseY - drag.offsetY,
+            left:   drag.mouseX - drag.ghostWidth / 2,
             width:  drag.ghostWidth,
             height: drag.ghostHeight,
             zIndex:9997, pointerEvents:'none',
