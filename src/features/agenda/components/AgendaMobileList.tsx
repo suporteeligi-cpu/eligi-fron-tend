@@ -249,19 +249,20 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
     } finally { setSavingId(null) }
   },[dateStr,updateBooking])
 
-  // ─── Touch handlers ──────────────────────────────────────────────────────────
-  function getColY(clientY:number) {
-    if (!colRef.current||!vScrollRef.current) return 0
-    return clientY - colRef.current.getBoundingClientRect().top + vScrollRef.current.scrollTop
+  // Converte clientY para posição em px dentro da grade (desde o topo = START_HOUR)
+  function getColY(clientY: number) {
+    if (!vScrollRef.current) return 0
+    const rect = vScrollRef.current.getBoundingClientRect()
+    return clientY - rect.top + vScrollRef.current.scrollTop
   }
 
   function onCardTouchStart(e:React.TouchEvent, booking:AgendaBooking, cardTop:number, cardWidth:number, cardLeft:number) {
     e.stopPropagation()
     const touch = e.touches[0]
-    // cardTopScreen = posição do topo do card na tela
-    const colRect     = colRef.current?.getBoundingClientRect()
-    const scrollTop   = vScrollRef.current?.scrollTop ?? 0
-    const cardTopScreen = (colRect?.top ?? 0) + cardTop - scrollTop
+    const rect  = vScrollRef.current?.getBoundingClientRect()
+    const scrollTop = vScrollRef.current?.scrollTop ?? 0
+    // posição do topo do card na tela
+    const cardTopScreen = (rect?.top ?? 0) + cardTop - scrollTop
     const offsetY = Math.max(0, touch.clientY - cardTopScreen)
     const state:MoveDrag = {type:'move',booking,profId:activeProfId,offsetY,ghostTop:cardTop,ghostTime:booking.start,touchY:touch.clientY,touchX:touch.clientX,cardWidth,cardLeft}
     dragRef.current=state; setDrag(state)

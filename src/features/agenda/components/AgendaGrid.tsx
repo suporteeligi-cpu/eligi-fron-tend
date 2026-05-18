@@ -149,12 +149,15 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
 
   function onCardMouseDown(e:React.MouseEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
     e.preventDefault(); e.stopPropagation()
-    const rect   = gridRef.current?.getBoundingClientRect()
-    const colW   = rect ? (rect.width - TIME_COL_W) / professionals.length : 120
-    const profIdx = professionals.findIndex(p => p.id === profId)
+    const rect       = gridRef.current?.getBoundingClientRect()
+    const scrollTop  = scrollRef.current?.scrollTop ?? 0
+    const colW       = rect ? (rect.width - TIME_COL_W) / professionals.length : 120
+    const profIdx    = professionals.findIndex(p => p.id === profId)
     const ghostLeft  = (rect?.left ?? 0) + TIME_COL_W + profIdx * colW + 4
     const ghostWidth = colW - 8
-    const offsetY = Math.max(0, e.clientY - (HEADER_H - (scrollRef.current?.scrollTop ?? 0) + cardTop))
+    // offsetY = distância do clique ao topo do card, em coordenadas de tela
+    const cardTopScreen = (rect?.top ?? 0) + HEADER_H + cardTop - scrollTop
+    const offsetY    = Math.max(0, e.clientY - cardTopScreen)
     setDrag({type:'move',bookingId:booking.id,booking,fromProfId:profId,ghostTop:cardTop,ghostLeft,ghostWidth,ghostHeight:cardHeight,offsetY,currentProfId:profId,currentTime:booking.start,mouseX:e.clientX,mouseY:e.clientY})
   }
 
@@ -168,19 +171,19 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
     function onMouseMove(e:MouseEvent) {
       if (!drag||!gridRef.current||!scrollRef.current) return
       if (drag.type==='move') {
-        const rect  = gridRef.current.getBoundingClientRect()
-        const relY   = e.clientY-rect.top+scrollRef.current.scrollTop-HEADER_H
+        const rect   = scrollRef.current.getBoundingClientRect()
+        const relY   = e.clientY - rect.top + scrollRef.current.scrollTop - HEADER_H
         const absMin = START_MIN + relY / PX_PER_MIN
         const snap   = Math.max(START_MIN,Math.min(snapToSlot(absMin),END_HOUR*60-SLOT_STEP))
-        const relX  = e.clientX-rect.left+scrollRef.current.scrollLeft-TIME_COL_W
-        const colW  = (rect.width-TIME_COL_W)/professionals.length
-        const colIdx= Math.max(0,Math.min(Math.floor(relX/colW),professionals.length-1))
-        const prof  = professionals[colIdx]
-        setDrag(prev=>prev?.type==='move'?{...prev,ghostTop:(snap-START_MIN)*PX_PER_MIN,ghostLeft:TIME_COL_W+colIdx*colW+4,ghostWidth:colW-8,currentProfId:prof?.id??prev.currentProfId,currentTime:minutesToTime(snap),mouseX:e.clientX,mouseY:e.clientY}:prev)
+        const relX   = e.clientX-rect.left+scrollRef.current.scrollLeft-TIME_COL_W
+        const colW   = (rect.width-TIME_COL_W)/professionals.length
+        const colIdx = Math.max(0,Math.min(Math.floor(relX/colW),professionals.length-1))
+        const prof   = professionals[colIdx]
+        setDrag(prev=>prev?.type==='move'?{...prev,ghostTop:(snap-START_MIN)*PX_PER_MIN,ghostLeft:(rect.left)+TIME_COL_W+colIdx*colW+4,ghostWidth:colW-8,currentProfId:prof?.id??prev.currentProfId,currentTime:minutesToTime(snap),mouseX:e.clientX,mouseY:e.clientY}:prev)
       }
       if (drag.type==='resize') {
-        const rect   = gridRef.current.getBoundingClientRect()
-        const relY   = e.clientY-rect.top+scrollRef.current.scrollTop-HEADER_H
+        const rect   = scrollRef.current.getBoundingClientRect()
+        const relY   = e.clientY - rect.top + scrollRef.current.scrollTop - HEADER_H
         const endMin = Math.max(toMinutes(drag.booking.start)+MIN_DUR,Math.min(snapToSlot(START_MIN+relY/PX_PER_MIN),END_HOUR*60))
         const h      = Math.max((endMin-toMinutes(drag.booking.start))*PX_PER_MIN-2,MIN_CARD_H)
         setDrag(prev=>prev?.type==='resize'?{...prev,ghostHeight:h,currentEnd:minutesToTime(endMin)}:prev)
