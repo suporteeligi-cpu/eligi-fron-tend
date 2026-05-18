@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import weekOfYear from 'dayjs/plugin/weekOfYear'
-import { Ban, ChevronLeft, ChevronRight, Plus, X, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Ban } from 'lucide-react'
 import { colors, transitions, radius, typography, shadows, glass } from '@/shared/theme'
 import { useAgendaStore } from '../hooks/useAgendaStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -15,139 +15,216 @@ dayjs.extend(weekOfYear)
 dayjs.locale('pt-br')
 
 const DAYS_PT      = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+const DAYS_HEADER  = ['SEG','TER','QUA','QUI','SEX','SÁB','DOM']
 const MONTHS_PT    = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const MONTHS_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
-// ─── WheelPicker ─────────────────────────────────────────────────────────────
-const ITEM_H  = 40
-const VISIBLE = 5
-
-function WheelPicker({ items, selectedIdx, onChange }: {
-  items: string[]; selectedIdx: number; onChange: (i: number) => void
+// ─── CalendarPicker ───────────────────────────────────────────────────────────
+function CalendarPicker({ date, onSelect, onClose, isMobile }: {
+  date: dayjs.Dayjs
+  onSelect: (d: dayjs.Dayjs) => void
+  onClose:  () => void
+  isMobile: boolean
 }) {
-  const ref         = useRef<HTMLDivElement>(null)
-  const isDragging  = useRef(false)
-  const startY      = useRef(0)
-  const startScroll = useRef(0)
-  const timer       = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const padding     = Math.floor(VISIBLE / 2)
+  const today = dayjs()
+  const [viewMonth, setViewMonth] = useState(date.startOf('month'))
 
-  const scrollTo = useCallback((idx: number, smooth = true) => {
-    ref.current?.scrollTo({ top: idx * ITEM_H, behavior: smooth ? 'smooth' : 'instant' })
-  }, [])
+  // Gera grade do calendário (semana começa na segunda)
+  function buildGrid(month: dayjs.Dayjs) {
+    const firstDay = month.startOf('month')
+    // Ajusta para segunda (dayjs: 0=dom,1=seg,...6=sab)
+    const startOffset = (firstDay.day() + 6) % 7  // 0=seg
+    const daysInMonth = month.daysInMonth()
+    const cells: (dayjs.Dayjs | null)[] = []
 
-  useEffect(() => { scrollTo(selectedIdx, false) }, [selectedIdx, scrollTo])
+    for (let i = 0; i < startOffset; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(month.date(d))
 
-  const snap = useCallback(() => {
-    if (!ref.current) return
-    const idx = Math.round(ref.current.scrollTop / ITEM_H)
-    const c   = Math.max(0, Math.min(idx, items.length - 1))
-    scrollTo(c); onChange(c)
-  }, [items.length, onChange, scrollTo])
-
-  return (
-    <div style={{ position:'relative', height:VISIBLE*ITEM_H, overflow:'hidden', userSelect:'none' }}>
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:padding*ITEM_H, background:'linear-gradient(to bottom,rgba(255,255,255,0.97),transparent)', zIndex:2, pointerEvents:'none' }} />
-      <div style={{ position:'absolute', top:padding*ITEM_H, left:0, right:0, height:ITEM_H, background:colors.red.subtle, borderTop:`1px solid ${colors.red.border}`, borderBottom:`1px solid ${colors.red.border}`, zIndex:2, pointerEvents:'none', borderRadius:8 }} />
-      <div style={{ position:'absolute', bottom:0, left:0, right:0, height:padding*ITEM_H, background:'linear-gradient(to top,rgba(255,255,255,0.97),transparent)', zIndex:2, pointerEvents:'none' }} />
-      <div
-        ref={ref}
-        onScroll={() => { if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(snap, 100) }}
-        onTouchStart={e => { startY.current = e.touches[0].clientY; startScroll.current = ref.current?.scrollTop ?? 0 }}
-        onTouchMove={e => { if (ref.current) ref.current.scrollTop = startScroll.current + (startY.current - e.touches[0].clientY) }}
-        onTouchEnd={snap}
-        onMouseDown={e => { isDragging.current = true; startY.current = e.clientY; startScroll.current = ref.current?.scrollTop ?? 0 }}
-        onMouseMove={e => { if (isDragging.current && ref.current) ref.current.scrollTop = startScroll.current + (startY.current - e.clientY) }}
-        onMouseUp={snap} onMouseLeave={snap}
-        style={{ height:'100%', overflowY:'scroll', scrollbarWidth:'none', cursor:'grab' }}
-      >
-        <div style={{ height:padding*ITEM_H }} />
-        {items.map((item, i) => {
-          const dist = Math.abs(i - selectedIdx)
-          return (
-            <div key={i} onClick={() => { onChange(i); scrollTo(i) }} style={{
-              height:ITEM_H, display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:15, fontWeight:dist===0?700:400,
-              color:dist===0?colors.red.DEFAULT:colors.gray.dimText,
-              opacity:dist===0?1:dist===1?0.55:0.25,
-              transform:`scale(${dist===0?1:dist===1?0.88:0.76})`,
-              transition:`all ${transitions.fast}`, cursor:'pointer',
-            }}>{item}</div>
-          )
-        })}
-        <div style={{ height:padding*ITEM_H }} />
-      </div>
-    </div>
-  )
-}
-
-// ─── MonthYearPicker ─────────────────────────────────────────────────────────
-function MonthYearPicker({ date, onSelect, onClose, isMobile }: {
-  date: dayjs.Dayjs; onSelect: (d: dayjs.Dayjs) => void; onClose: () => void; isMobile: boolean
-}) {
-  const currentYear = dayjs().year()
-  const years       = Array.from({ length: 10 }, (_, i) => String(currentYear - 2 + i))
-  const [monthIdx, setMonthIdx] = useState(date.month())
-  const [yearIdx,  setYearIdx]  = useState(years.indexOf(String(date.year())))
-
-  function handleConfirm() {
-    onSelect(dayjs().year(Number(years[yearIdx])).month(monthIdx).date(1))
-    onClose()
+    // Completa para múltiplo de 7
+    while (cells.length % 7 !== 0) cells.push(null)
+    return cells
   }
+
+  const grid = buildGrid(viewMonth)
+
+  // Semana do dia selecionado
+  const selWeekStart = date.startOf('week').add(1, 'day') // segunda
+  function isInSelWeek(d: dayjs.Dayjs) {
+    const start = selWeekStart
+    const end   = start.add(6, 'day')
+    return !d.isBefore(start, 'day') && !d.isAfter(end, 'day')
+  }
+
+  function isWeekStart(d: dayjs.Dayjs) { return d.day() === 1 } // segunda
+  function isWeekEnd(d: dayjs.Dayjs)   { return d.day() === 0 } // domingo
+
+  const calW = isMobile ? Math.min(340, (typeof window !== 'undefined' ? window.innerWidth - 32 : 320)) : 320
 
   const content = (
     <>
       <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.22)', backdropFilter:'blur(6px)', zIndex:9998 }} />
+
       <div style={isMobile ? {
         position:'fixed', bottom:0, left:0, right:0,
-        background:'rgba(255,255,255,0.98)', backdropFilter:'blur(32px)',
+        background:'rgba(255,255,255,0.99)',
         borderRadius:'24px 24px 0 0',
         boxShadow:'0 -8px 40px rgba(0,0,0,0.18)',
         zIndex:9999, fontFamily:typography.fontFamily,
-        animation:'mpUp 0.28s cubic-bezier(0.34,1.2,0.64,1)',
+        animation:'calUp 0.28s cubic-bezier(0.34,1.2,0.64,1)',
         paddingBottom:'max(20px,env(safe-area-inset-bottom))',
       } : {
-        position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)',
-        width:300, background:'rgba(255,255,255,0.97)',
-        backdropFilter:'blur(32px)', borderRadius:24,
-        boxShadow:shadows.lg, zIndex:9999,
-        fontFamily:typography.fontFamily,
-        animation:'mpIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+        position:'fixed', top:'50%', left:'50%',
+        transform:'translate(-50%,-50%)',
+        width: calW,
+        background:'rgba(255,255,255,0.99)',
+        borderRadius:radius['2xl'],
+        boxShadow:shadows.lg,
+        zIndex:9999, fontFamily:typography.fontFamily,
+        animation:'calIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',
         overflow:'hidden',
       }}>
         <style>{`
-          @keyframes mpIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.92)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-          @keyframes mpUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+          @keyframes calIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+          @keyframes calUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+          .cal-day{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.12s;border:none;background:transparent;-webkit-tap-highlight-color:transparent}
+          .cal-day:active{transform:scale(0.88)}
+          .cal-week-cell{display:flex;align-items:center;justify-content:center}
+          .cal-jump-btn{flex:1;padding:8px 0;border:1px solid ${colors.gray.borderMd};border-radius:8px;background:${colors.background.surface};font-size:12px;font-weight:600;cursor:pointer;color:${colors.gray[700]};transition:all 0.12s;-webkit-tap-highlight-color:transparent}
+          .cal-jump-btn:hover{border-color:${colors.red.borderHover};color:${colors.red.DEFAULT};background:${colors.red.subtle}}
+          .cal-jump-btn:active{transform:scale(0.94)}
         `}</style>
 
         {/* Handle mobile */}
         {isMobile && (
-          <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 4px' }}>
+          <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 2px' }}>
             <div style={{ width:40, height:4, borderRadius:2, background:'rgba(0,0,0,0.12)' }} />
           </div>
         )}
 
-        <div style={{ padding:'16px 20px 12px', borderBottom:`1px solid ${colors.gray.border}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <span style={{ fontSize:16, fontWeight:700, color:colors.gray[900] }}>Selecionar mês</span>
-          <button onClick={onClose} style={{ width:28, height:28, borderRadius:radius.full, border:`1px solid ${colors.gray.borderMd}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <X size={13} color={colors.gray.dimText} />
+        {/* Header do calendário */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px 10px' }}>
+          <button
+            onClick={() => setViewMonth(v => v.subtract(1,'month'))}
+            style={{ width:32, height:32, borderRadius:'50%', border:`1px solid ${colors.gray.borderMd}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:transitions.fast }}
+            onMouseEnter={e => { e.currentTarget.style.background = colors.red.subtle; e.currentTarget.style.borderColor = colors.red.border }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = colors.gray.borderMd }}
+          >
+            <ChevronLeft size={16} color={colors.gray[700]} strokeWidth={2.5} />
+          </button>
+
+          <button
+            onClick={() => { setViewMonth(today.startOf('month')); onSelect(today); onClose() }}
+            style={{ fontSize:16, fontWeight:700, color:colors.gray[900], background:'none', border:'none', cursor:'pointer', letterSpacing:'-0.3px', padding:'4px 8px', borderRadius:8, transition:transitions.fast }}
+            onMouseEnter={e => { e.currentTarget.style.color = colors.red.DEFAULT }}
+            onMouseLeave={e => { e.currentTarget.style.color = colors.gray[900] }}
+          >
+            {MONTHS_PT[viewMonth.month()]} {viewMonth.year()}
+          </button>
+
+          <button
+            onClick={() => setViewMonth(v => v.add(1,'month'))}
+            style={{ width:32, height:32, borderRadius:'50%', border:`1px solid ${colors.gray.borderMd}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:transitions.fast }}
+            onMouseEnter={e => { e.currentTarget.style.background = colors.red.subtle; e.currentTarget.style.borderColor = colors.red.border }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = colors.gray.borderMd }}
+          >
+            <ChevronRight size={16} color={colors.gray[700]} strokeWidth={2.5} />
           </button>
         </div>
 
-        <div style={{ display:'flex', padding:'8px 20px' }}>
-          <div style={{ flex:2 }}>
-            <div style={{ fontSize:10, fontWeight:700, color:colors.gray.dimText, textTransform:'uppercase', letterSpacing:'.07em', textAlign:'center', marginBottom:4 }}>Mês</div>
-            <WheelPicker items={MONTHS_PT} selectedIdx={monthIdx} onChange={setMonthIdx} />
+        {/* Cabeçalho dos dias — Seg a Dom */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'0 16px', marginBottom:4 }}>
+          {/* Coluna semana */}
+          <div style={{ width:32 }} />
+          {DAYS_HEADER.map(d => (
+            <div key={d} style={{ textAlign:'center', fontSize:10, fontWeight:700, color:colors.gray.dimText, letterSpacing:'.06em', padding:'4px 0' }}>{d}</div>
+          ))}
+        </div>
+
+        {/* Grade */}
+        <div style={{ padding:'0 16px 12px' }}>
+          {Array.from({ length: grid.length / 7 }, (_, row) => {
+            const week      = grid.slice(row * 7, row * 7 + 7)
+            const weekNum   = week.find(d => d != null)?.week() ?? 0
+            const hasSelDay = week.some(d => d && d.isSame(date,'day'))
+
+            return (
+              <div key={row} style={{ display:'flex', alignItems:'center', gap:0, marginBottom:2 }}>
+                {/* Número da semana */}
+                <div style={{ width:32, flexShrink:0, textAlign:'center', fontSize:10, fontWeight:600, color: hasSelDay ? colors.red.DEFAULT : 'rgba(0,0,0,0.22)', letterSpacing:'.02em' }}>
+                  {weekNum}
+                </div>
+
+                {/* 7 dias */}
+                <div style={{ flex:1, display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:0 }}>
+                  {week.map((day, ci) => {
+                    if (!day) return <div key={ci} />
+
+                    const isSel     = day.isSame(date,  'day')
+                    const isTodayD  = day.isSame(today, 'day')
+                    const inSelWeek = isInSelWeek(day)
+                    const isStart   = inSelWeek && (isWeekStart(day) || day.isSame(selWeekStart,'day'))
+                    const isEnd     = inSelWeek && (isWeekEnd(day)   || day.isSame(selWeekStart.add(6,'day'),'day'))
+                    const isOtherMonth = day.month() !== viewMonth.month()
+
+                    return (
+                      <div key={ci} style={{ position:'relative', display:'flex', justifyContent:'center' }}>
+                        {/* Faixa de semana */}
+                        {inSelWeek && !isSel && (
+                          <div style={{
+                            position:'absolute', inset:0, top:'50%', height:36, transform:'translateY(-50%)',
+                            background:colors.red.subtle,
+                            borderRadius: isStart ? '18px 0 0 18px' : isEnd ? '0 18px 18px 0' : 0,
+                            zIndex:0,
+                          }} />
+                        )}
+
+                        <button
+                          className="cal-day"
+                          onClick={() => { onSelect(day); onClose() }}
+                          style={{
+                            position:'relative', zIndex:1,
+                            background: isSel ? colors.red.gradient : 'transparent',
+                            color: isSel ? '#fff' : isTodayD ? colors.red.DEFAULT : isOtherMonth ? 'rgba(0,0,0,0.2)' : colors.gray[900],
+                            fontWeight: isSel || isTodayD ? 700 : 500,
+                            boxShadow: isSel ? `0 3px 10px ${colors.red.glow}` : 'none',
+                          }}
+                        >
+                          {day.date()}
+                          {/* Ponto "hoje" quando não selecionado */}
+                          {isTodayD && !isSel && (
+                            <div style={{ position:'absolute', bottom:3, left:'50%', transform:'translateX(-50%)', width:4, height:4, borderRadius:'50%', background:colors.red.DEFAULT }} />
+                          )}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Divisor */}
+        <div style={{ height:1, background:colors.gray.border, margin:'0 16px 12px' }} />
+
+        {/* Pular por semana */}
+        <div style={{ padding:'0 16px 4px' }}>
+          <div style={{ fontSize:11, fontWeight:700, color:colors.gray.dimText, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:8 }}>Pular por semana</div>
+          <div style={{ display:'flex', gap:4, marginBottom:4 }}>
+            {[1,2,3,4,5,6].map(n => (
+              <button key={n} className="cal-jump-btn" onClick={() => { onSelect(date.add(n,'week')); onClose() }}>+{n}</button>
+            ))}
           </div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:10, fontWeight:700, color:colors.gray.dimText, textTransform:'uppercase', letterSpacing:'.07em', textAlign:'center', marginBottom:4 }}>Ano</div>
-            <WheelPicker items={years} selectedIdx={yearIdx} onChange={setYearIdx} />
+          <div style={{ display:'flex', gap:4 }}>
+            {[1,2,3,4,5,6].map(n => (
+              <button key={-n} className="cal-jump-btn" onClick={() => { onSelect(date.subtract(n,'week')); onClose() }} style={{ color:colors.gray.dimText }}>-{n}</button>
+            ))}
           </div>
         </div>
 
-        <div style={{ padding:'12px 20px 16px', display:'flex', gap:8 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'12px', borderRadius:radius.sm, border:`1px solid ${colors.gray.borderMd}`, background:'transparent', fontSize:13, cursor:'pointer', color:colors.gray[700], fontWeight:600 }}>Cancelar</button>
-          <button onClick={handleConfirm} style={{ flex:2, padding:'12px', borderRadius:radius.sm, border:'none', background:colors.red.gradient, color:'#fff', fontSize:13, cursor:'pointer', fontWeight:700, boxShadow:shadows.redSm }}>Confirmar</button>
+        {/* Fechar */}
+        <div style={{ padding:'10px 16px 0', display:'flex', justifyContent:'flex-end' }}>
+          <button onClick={onClose} style={{ padding:'8px 20px', borderRadius:radius.sm, border:`1px solid ${colors.gray.borderMd}`, background:'transparent', fontSize:13, fontWeight:600, cursor:'pointer', color:colors.gray[700] }}>Fechar</button>
         </div>
       </div>
     </>
@@ -166,10 +243,9 @@ export default function AgendaToolbar({ onBlockClick }: Props) {
   const selected   = dayjs(selectedDate)
   const today      = dayjs()
   const isToday    = selected.isSame(today, 'day')
-  const [showPicker, setShowPicker] = useState(false)
-  const stripRef   = useRef<HTMLDivElement>(null)
+  const [showCal, setShowCal] = useState(false)
+  const stripRef  = useRef<HTMLDivElement>(null)
 
-  // 7 dias centrados no selecionado
   const startDay  = selected.subtract(3, 'day')
   const stripDays = Array.from({ length: 7 }, (_, i) => startDay.add(i, 'day'))
 
@@ -181,10 +257,6 @@ export default function AgendaToolbar({ onBlockClick }: Props) {
 
   function goDay(delta: number) { setSelectedDate(selected.add(delta, 'day').toDate()) }
 
-  const dayLabel = isToday
-    ? `Hoje · ${MONTHS_SHORT[today.month()]} ${today.year()}`
-    : `${DAYS_PT[selected.day()]}, ${selected.date()} ${MONTHS_SHORT[selected.month()]}`
-
   return (
     <div style={{
       background: glass.surface.toolbar.background,
@@ -195,15 +267,15 @@ export default function AgendaToolbar({ onBlockClick }: Props) {
       fontFamily: typography.fontFamily,
     }}>
       <style>{`
-        .day-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;border:1px solid transparent;cursor:pointer;transition:${transitions.spring};background:transparent;flex:1;padding:6px 2px;-webkit-tap-highlight-color:transparent}
-        .day-chip:active{transform:scale(0.92)}
+        .day-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;border:1px solid transparent;cursor:pointer;transition:${transitions.spring};background:transparent;flex:1;-webkit-tap-highlight-color:transparent}
+        .day-chip:active{transform:scale(0.90)}
         .day-chip.day-active{background:${colors.red.gradient};border-color:transparent;box-shadow:0 3px 12px ${colors.red.glow}}
         .day-chip:not(.day-active):active{background:${colors.red.subtle}}
         .nav-btn{width:30px;height:30px;border-radius:50%;border:1px solid ${colors.gray.borderMd};background:${colors.background.surface};cursor:pointer;display:flex;align-items:center;justify-content:center;transition:${transitions.fast};color:${colors.gray[700]};flex-shrink:0;-webkit-tap-highlight-color:transparent}
         .nav-btn:hover{background:${colors.red.subtle};border-color:${colors.red.border};color:${colors.red.DEFAULT}}
         .nav-btn:active{transform:scale(0.90)}
         .strip-scroll::-webkit-scrollbar{display:none}
-        .tb-new-btn{display:flex;align-items:center;gap:4px;padding:8px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:${colors.red.gradient};color:#fff;transition:${transitions.spring};box-shadow:0 3px 10px ${colors.red.glow};-webkit-tap-highlight-color:transparent;white-space:nowrap}
+        .tb-new-btn{display:flex;align-items:center;gap:4px;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:${colors.red.gradient};color:#fff;transition:${transitions.spring};box-shadow:0 3px 10px ${colors.red.glow};-webkit-tap-highlight-color:transparent;white-space:nowrap}
         .tb-new-btn:active{transform:scale(0.94)}
         .tb-block-btn{display:flex;align-items:center;gap:4px;padding:7px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(71,85,105,0.20);background:rgba(71,85,105,0.06);color:#475569;transition:${transitions.fast};white-space:nowrap}
         .tb-block-btn:hover{background:rgba(71,85,105,0.12)}
@@ -216,54 +288,37 @@ export default function AgendaToolbar({ onBlockClick }: Props) {
         .tb-month-btn:active{transform:scale(0.96)}
       `}</style>
 
-      {showPicker && (
-        <MonthYearPicker
+      {showCal && (
+        <CalendarPicker
           date={selected}
           onSelect={d => setSelectedDate(d.toDate())}
-          onClose={() => setShowPicker(false)}
+          onClose={() => setShowCal(false)}
           isMobile={isMobile}
         />
       )}
 
       {isMobile ? (
-        /* ══════════════ MOBILE LAYOUT ══════════════ */
+        /* ══ MOBILE ══ */
         <>
-          {/* Linha 1: título + mês + botão novo */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px 8px', gap:8 }}>
-            {/* Esquerda: título compacto */}
-            <div style={{ minWidth:0 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                <h1 style={{ margin:0, fontSize:17, fontWeight:700, letterSpacing:'-0.3px', color:colors.gray[900], lineHeight:1 }}>
-                  Agenda
-                </h1>
-                {/* Mês integrado ao título */}
-                <button className="tb-month-btn" onClick={() => setShowPicker(true)} style={{ fontSize:12 }}>
-                  {MONTHS_SHORT[selected.month()]} {selected.year()}
-                  <span style={{ fontSize:8, opacity:0.45, marginLeft:1 }}>▾</span>
-                </button>
-              </div>
-              <p style={{ margin:'2px 0 0', fontSize:11, color:colors.gray.dimText, lineHeight:1, textTransform:'capitalize' }}>
-                {dayLabel}
-              </p>
-            </div>
+          {/* Linha 1: mês + botão novo */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px 6px', gap:8 }}>
+            <button className="tb-month-btn" onClick={() => setShowCal(true)} style={{ fontSize:13 }}>
+              {MONTHS_SHORT[selected.month()]} {selected.year()}
+              <span style={{ fontSize:9, opacity:0.45 }}>▾</span>
+            </button>
 
-            {/* Direita: só botão Novo */}
             <button className="tb-new-btn" onClick={() => openCreate('09:00', '')}>
               <Plus size={14} strokeWidth={2.5} /> Novo
             </button>
           </div>
 
-          {/* Linha 2: seta ‹ + strip + seta › — ocupa 100% */}
-          <div style={{ display:'flex', alignItems:'center', gap:4, padding:'0 10px 10px' }}>
+          {/* Linha 2: setas + strip */}
+          <div style={{ display:'flex', alignItems:'center', gap:4, padding:'0 10px 8px' }}>
             <button className="nav-btn" onClick={() => goDay(-1)}>
               <ChevronLeft size={15} strokeWidth={2.5} />
             </button>
 
-            <div
-              ref={stripRef}
-              className="strip-scroll"
-              style={{ flex:1, display:'flex', gap:3, overflowX:'auto', scrollbarWidth:'none' }}
-            >
+            <div ref={stripRef} className="strip-scroll" style={{ flex:1, display:'flex', gap:2, overflowX:'auto', scrollbarWidth:'none' }}>
               {stripDays.map(day => {
                 const isSel    = day.isSame(selected, 'day')
                 const isTodayD = day.isSame(today, 'day')
@@ -272,6 +327,7 @@ export default function AgendaToolbar({ onBlockClick }: Props) {
                     key={day.format('YYYY-MM-DD')}
                     className={`day-chip${isSel?' day-active':''}`}
                     onClick={() => setSelectedDate(day.toDate())}
+                    style={{ padding:'5px 2px' }}
                   >
                     <span style={{ fontSize:9, fontWeight:700, letterSpacing:'.05em', color:isSel?'rgba(255,255,255,0.7)':colors.gray.dimText, marginBottom:2 }}>
                       {DAYS_PT[day.day()].toUpperCase()}
@@ -279,8 +335,7 @@ export default function AgendaToolbar({ onBlockClick }: Props) {
                     <span style={{ fontSize:17, fontWeight:700, lineHeight:1, color:isSel?'#fff':isTodayD?colors.red.DEFAULT:colors.gray[900] }}>
                       {day.date()}
                     </span>
-                    {/* dot indicador do dia atual */}
-                    <div style={{ width:4, height:4, borderRadius:'50%', marginTop:3, background:isTodayD?(isSel?'rgba(255,255,255,0.7)':colors.red.DEFAULT):'transparent' }} />
+                    <div style={{ width:4, height:4, borderRadius:'50%', marginTop:2, background:isTodayD?(isSel?'rgba(255,255,255,0.7)':colors.red.DEFAULT):'transparent' }} />
                   </button>
                 )
               })}
@@ -292,39 +347,26 @@ export default function AgendaToolbar({ onBlockClick }: Props) {
           </div>
         </>
       ) : (
-        /* ══════════════ DESKTOP LAYOUT ══════════════ */
+        /* ══ DESKTOP ══ */
         <>
-          {/* Linha 1: título + ações */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px 10px', gap:8 }}>
-            <div style={{ minWidth:0 }}>
-              <h1 style={{ margin:0, fontSize:20, fontWeight:700, letterSpacing:'-0.4px', color:colors.gray[900], lineHeight:1 }}>
-                Agenda
-              </h1>
-              <p style={{ margin:'3px 0 0', fontSize:12, color:colors.gray.dimText, textTransform:'capitalize', lineHeight:1 }}>
-                {isToday
-                  ? `Hoje, ${today.date()} de ${MONTHS_PT[today.month()].toLowerCase()}`
-                  : `${DAYS_PT[selected.day()]}, ${selected.date()} de ${MONTHS_PT[selected.month()].toLowerCase()}`
-                }
-              </p>
-            </div>
-            <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-              {onBlockClick && (
-                <button className="tb-block-btn" onClick={onBlockClick}>
-                  <Ban size={11} strokeWidth={2.5} /> Bloquear
-                </button>
-              )}
-              <button className={`tb-today-btn${isToday?' is-today':''}`} onClick={() => setSelectedDate(today.toDate())}>
-                Hoje
+          {/* Linha 1: ações */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', padding:'10px 20px 8px', gap:6 }}>
+            {onBlockClick && (
+              <button className="tb-block-btn" onClick={onBlockClick}>
+                <Ban size={11} strokeWidth={2.5} /> Bloquear
               </button>
-              <button className="tb-new-btn" onClick={() => openCreate('09:00', '')}>
-                <Plus size={13} strokeWidth={2.5} /> Novo
-              </button>
-            </div>
+            )}
+            <button className={`tb-today-btn${isToday?' is-today':''}`} onClick={() => setSelectedDate(today.toDate())}>
+              Hoje
+            </button>
+            <button className="tb-new-btn" onClick={() => openCreate('09:00', '')}>
+              <Plus size={13} strokeWidth={2.5} /> Novo
+            </button>
           </div>
 
           {/* Linha 2: mês + setas + strip */}
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 20px 14px' }}>
-            <button className="tb-month-btn" onClick={() => setShowPicker(true)} style={{ fontSize:13, minWidth:106 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 20px 10px' }}>
+            <button className="tb-month-btn" onClick={() => setShowCal(true)} style={{ fontSize:13, minWidth:106 }}>
               {MONTHS_SHORT[selected.month()]} {selected.year()}
               <span style={{ fontSize:9, opacity:0.45 }}>▾</span>
             </button>
@@ -342,7 +384,7 @@ export default function AgendaToolbar({ onBlockClick }: Props) {
                       key={day.format('YYYY-MM-DD')}
                       className={`day-chip${isSel?' day-active':''}`}
                       onClick={() => setSelectedDate(day.toDate())}
-                      style={{ minWidth:44, padding:'8px 6px' }}
+                      style={{ minWidth:44, padding:'7px 6px' }}
                     >
                       <span style={{ fontSize:9, fontWeight:700, letterSpacing:'.06em', color:isSel?'rgba(255,255,255,0.75)':colors.gray.dimText, marginBottom:3 }}>
                         {DAYS_PT[day.day()].toUpperCase()}
