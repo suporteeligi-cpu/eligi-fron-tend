@@ -165,7 +165,8 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
       if (drag.type==='move') {
         const rect  = gridRef.current.getBoundingClientRect()
         const relY  = e.clientY-rect.top+scrollRef.current.scrollTop-HEADER_H-drag.offsetY
-        const snap  = Math.max(START_MIN,Math.min(snapToSlot(relY/PX_PER_MIN+START_MIN),END_HOUR*60-SLOT_STEP))
+        const absMin = START_MIN + relY / PX_PER_MIN
+        const snap  = Math.max(START_MIN,Math.min(snapToSlot(absMin),END_HOUR*60-SLOT_STEP))
         const relX  = e.clientX-rect.left+scrollRef.current.scrollLeft-TIME_COL_W
         const colW  = (rect.width-TIME_COL_W)/professionals.length
         const colIdx= Math.max(0,Math.min(Math.floor(relX/colW),professionals.length-1))
@@ -175,7 +176,7 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
       if (drag.type==='resize') {
         const rect   = gridRef.current.getBoundingClientRect()
         const relY   = e.clientY-rect.top+scrollRef.current.scrollTop-HEADER_H
-        const endMin = Math.max(toMinutes(drag.booking.start)+MIN_DUR,Math.min(snapToSlot(relY/PX_PER_MIN+START_MIN),END_HOUR*60))
+        const endMin = Math.max(toMinutes(drag.booking.start)+MIN_DUR,Math.min(snapToSlot(START_MIN+relY/PX_PER_MIN),END_HOUR*60))
         const h      = Math.max((endMin-toMinutes(drag.booking.start))*PX_PER_MIN-2,MIN_CARD_H)
         setDrag(prev=>prev?.type==='resize'?{...prev,ghostHeight:h,currentEnd:minutesToTime(endMin)}:prev)
       }

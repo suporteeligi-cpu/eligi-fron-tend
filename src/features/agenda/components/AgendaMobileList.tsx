@@ -278,17 +278,22 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
     const touch=e.touches[0]
 
     if (d.type==='move') {
-      const relY=getColY(touch.clientY)-d.offsetY
-      const snap=Math.max(START_MIN,Math.min(snapToSlot(relY/PX_PER_MIN+START_MIN),END_HOUR*60-SLOT_STEP))
-      const next:MoveDrag={...d,ghostTop:(snap-START_MIN)*PX_PER_MIN,ghostTime:minutesToTime(snap),touchY:touch.clientY,touchX:touch.clientX}
+      // relY = posição em px desde o topo da grade (início = START_HOUR)
+      const relY    = getColY(touch.clientY) - d.offsetY
+      // minutos absolutos desde meia-noite
+      const absMin  = START_MIN + relY / PX_PER_MIN
+      const snap    = Math.max(START_MIN, Math.min(snapToSlot(absMin), END_HOUR * 60 - SLOT_STEP))
+      const ghostTop = (snap - START_MIN) * PX_PER_MIN
+      const next:MoveDrag={...d, ghostTop, ghostTime:minutesToTime(snap), touchY:touch.clientY, touchX:touch.clientX}
       dragRef.current=next; setDrag(next)
     }
 
     if (d.type==='resize') {
-      const relY=getColY(touch.clientY)
-      const endMin=Math.max(toMinutes(d.booking.start)+MIN_DUR,Math.min(snapToSlot(relY/PX_PER_MIN+START_MIN),END_HOUR*60))
-      const h=Math.max((endMin-toMinutes(d.booking.start))*PX_PER_MIN-2,MIN_CARD_H)
-      const next:ResizeDrag={...d,ghostHeight:h,currentEnd:minutesToTime(endMin)}
+      const relY   = getColY(touch.clientY)
+      const absMin = START_MIN + relY / PX_PER_MIN
+      const endMin = Math.max(toMinutes(d.booking.start)+MIN_DUR, Math.min(snapToSlot(absMin), END_HOUR*60))
+      const h      = Math.max((endMin - toMinutes(d.booking.start)) * PX_PER_MIN - 2, MIN_CARD_H)
+      const next:ResizeDrag={...d, ghostHeight:h, currentEnd:minutesToTime(endMin)}
       dragRef.current=next; setDrag(next)
     }
   }
