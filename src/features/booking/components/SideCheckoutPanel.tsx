@@ -108,22 +108,45 @@ function ServiceSheet({ services, selected, loading, onSelect, onClose }: {
   services: Service[]; selected: Service | null; loading: boolean
   onSelect: (s: Service) => void; onClose: () => void
 }) {
+  const isMobile = useIsMobile()
+  const mobileStyle = {
+    position:'fixed' as const, left:0, right:0, bottom:0,
+    height:'88dvh',
+    background:glass.surface.modal.background,
+    backdropFilter:glass.surface.modal.backdropFilter,
+    WebkitBackdropFilter:glass.surface.modal.backdropFilter,
+    borderRadius:`${radius['2xl']}px ${radius['2xl']}px 0 0`,
+    boxShadow:'0 -8px 40px rgba(0,0,0,0.15)',
+    zIndex:10999, display:'flex', flexDirection:'column' as const,
+    fontFamily:typography.fontFamily,
+    animation:'sheetUp 0.28s cubic-bezier(0.34,1.2,0.64,1)',
+  }
+  const desktopStyle = {
+    position:'fixed' as const, top:0, right:0, bottom:0,
+    width:360, maxWidth:'100vw',
+    background:glass.surface.modal.background,
+    backdropFilter:glass.surface.modal.backdropFilter,
+    WebkitBackdropFilter:glass.surface.modal.backdropFilter,
+    borderLeft:`1px solid ${colors.gray.borderMd}`,
+    boxShadow:`-8px 0 32px rgba(0,0,0,0.12)`,
+    zIndex:10999, display:'flex', flexDirection:'column' as const,
+    fontFamily:typography.fontFamily,
+    animation:'sheetIn 0.2s cubic-bezier(0.25,0.46,0.45,0.94)',
+  }
   return createPortal(
     <>
       <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:10998, background:colors.background.overlay }} />
-      <div style={{
-        position:'fixed', top:0, right:0, bottom:0,
-        width:360, maxWidth:'100vw',
-        background:glass.surface.modal.background,
-        backdropFilter:glass.surface.modal.backdropFilter,
-        WebkitBackdropFilter:glass.surface.modal.backdropFilter,
-        borderLeft:`1px solid ${colors.gray.borderMd}`,
-        boxShadow:`-8px 0 32px rgba(0,0,0,0.12)`,
-        zIndex:10999, display:'flex', flexDirection:'column',
-        fontFamily:typography.fontFamily,
-        animation:'sheetIn 0.2s cubic-bezier(0.25,0.46,0.45,0.94)',
-      }}>
-        <style>{`@keyframes sheetIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
+      <div style={isMobile ? mobileStyle : desktopStyle}>
+        <style>{`
+          @keyframes sheetIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+          @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        `}</style>
+        {/* Handle mobile */}
+        {isMobile && (
+          <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 4px', flexShrink:0 }}>
+            <div style={{ width:40, height:4, borderRadius:2, background:'rgba(0,0,0,0.12)' }} />
+          </div>
+        )}
         <div style={{ padding:'16px 20px', borderBottom:`1px solid ${colors.gray.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <h3 style={{ margin:0, fontSize:typography.scale.lg, fontWeight:typography.weight.bold, color:colors.gray[900] }}>Selecione o serviço</h3>
           <button onClick={onClose} style={{ width:28, height:28, borderRadius:radius.full, border:`1px solid ${colors.gray.borderMd}`, background:colors.background.surfaceLight, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -176,6 +199,7 @@ function ClientSearchSheet({ selected, onSelect, onClose }: {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100) }, [])
 
@@ -202,21 +226,47 @@ function ClientSearchSheet({ selected, onSelect, onClose }: {
     return p
   }
 
+  const mobileStyle = {
+    position:'fixed' as const, left:0, right:0, bottom:0,
+    height:'92dvh',
+    background:glass.surface.modal.background,
+    backdropFilter:glass.surface.modal.backdropFilter,
+    WebkitBackdropFilter:glass.surface.modal.backdropFilter,
+    borderRadius:`${radius['2xl']}px ${radius['2xl']}px 0 0`,
+    boxShadow:'0 -8px 40px rgba(0,0,0,0.15)',
+    zIndex:10999, display:'flex', flexDirection:'column' as const,
+    fontFamily:typography.fontFamily,
+    animation:'sheetUp 0.28s cubic-bezier(0.34,1.2,0.64,1)',
+  }
+  const desktopStyle = {
+    position:'fixed' as const, top:0, right:0, bottom:0,
+    width:360, maxWidth:'100vw',
+    background:glass.surface.modal.background,
+    backdropFilter:glass.surface.modal.backdropFilter,
+    WebkitBackdropFilter:glass.surface.modal.backdropFilter,
+    borderLeft:`1px solid ${colors.gray.borderMd}`,
+    boxShadow:`-8px 0 32px rgba(0,0,0,0.12)`,
+    zIndex:10999, display:'flex', flexDirection:'column' as const,
+    fontFamily:typography.fontFamily,
+    animation:'sheetIn 0.2s cubic-bezier(0.25,0.46,0.45,0.94)',
+  }
+
   return createPortal(
     <>
       <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:10998, background:colors.background.overlay }} />
-      <div style={{
-        position:'fixed', top:0, right:0, bottom:0,
-        width:360, maxWidth:'100vw',
-        background:glass.surface.modal.background,
-        backdropFilter:glass.surface.modal.backdropFilter,
-        WebkitBackdropFilter:glass.surface.modal.backdropFilter,
-        borderLeft:`1px solid ${colors.gray.borderMd}`,
-        boxShadow:`-8px 0 32px rgba(0,0,0,0.12)`,
-        zIndex:10999, display:'flex', flexDirection:'column',
-        fontFamily:typography.fontFamily,
-        animation:'sheetIn 0.2s cubic-bezier(0.25,0.46,0.45,0.94)',
-      }}>
+      <div style={isMobile ? mobileStyle : desktopStyle}>
+        <style>{`
+          @keyframes sheetIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+          @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+          @keyframes spin{to{transform:rotate(360deg)}}
+        `}</style>
+
+        {/* Handle mobile */}
+        {isMobile && (
+          <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 4px', flexShrink:0 }}>
+            <div style={{ width:40, height:4, borderRadius:2, background:'rgba(0,0,0,0.12)' }} />
+          </div>
+        )}
 
         {/* Header com busca */}
         <div style={{ padding:'14px 16px', borderBottom:`1px solid ${colors.gray.border}`, display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
@@ -260,7 +310,6 @@ function ClientSearchSheet({ selected, onSelect, onClose }: {
           {loading ? (
             <div style={{ display:'flex', justifyContent:'center', padding:32 }}>
               <div style={{ width:24, height:24, borderRadius:'50%', border:`3px solid ${colors.red.subtle}`, borderTopColor:colors.red.DEFAULT, animation:'spin 0.8s linear infinite' }} />
-              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
             </div>
           ) : clients.length === 0 ? (
             <div style={{ padding:32, textAlign:'center', color:colors.gray.dimText, fontSize:typography.scale.base }}>
