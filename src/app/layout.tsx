@@ -12,10 +12,10 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default:  'Eligi — Sistema para Barbearias',
+    default:  'Eligi — Sistemas',
     template: '%s | Eligi',
   },
-  description:    'Sistema inteligente de agendamento e gestão para barbearias e salões.',
+  description:    'Sistema inteligente de agendamento e gestão.',
   applicationName:'Eligi',
   authors:        [{ name: 'Eligi' }],
   keywords:       ['barbearia', 'agendamento', 'salão', 'gestão', 'eligi'],
