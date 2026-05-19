@@ -119,9 +119,20 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
   const seen   = new Set<string>()
   const unique = bookings.filter(b => { if(seen.has(b.id)) return false; seen.add(b.id); return true })
 
+  // Scroll inicial: 1h antes do expediente (ou hora atual se dentro do expediente)
   useEffect(() => {
-    if (currentY>0 && scrollRef.current) scrollRef.current.scrollTop = Math.max(0,currentY-120)
-  },[currentY])
+    if (!scrollRef.current) return
+    if (currentY > 0) {
+      // Hora atual visível — mostra 1h antes da posição atual
+      scrollRef.current.scrollTop = Math.max(0, currentY - 60 * PX_PER_MIN)
+    } else if (workingHours?.open) {
+      // Fora do horário atual — mostra 1h antes do início do expediente
+      const wStartMin = toMinutes(workingHours.startTime)
+      const targetY   = Math.max(0, (wStartMin - START_MIN - 60) * PX_PER_MIN)
+      scrollRef.current.scrollTop = targetY
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workingHours?.startTime])
 
   const doReschedule = useCallback(async (bookingId:string, time:string, professionalId:string, allowOverlap:boolean) => {
     const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')

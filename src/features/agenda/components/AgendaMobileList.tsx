@@ -237,8 +237,15 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
   const layout       = computeOverlapLayout(profBookings)
 
   useEffect(() => {
-    if (currentY>0 && vScrollRef.current) vScrollRef.current.scrollTop=Math.max(0,currentY-120)
-  },[currentY,activeProfId])
+    if (!vScrollRef.current) return
+    if (currentY > 0) {
+      vScrollRef.current.scrollTop = Math.max(0, currentY - 60 * PX_PER_MIN)
+    } else if (workingHours?.open) {
+      const wStartMin = toMinutes(workingHours.startTime)
+      vScrollRef.current.scrollTop = Math.max(0, (wStartMin - START_MIN - 60) * PX_PER_MIN)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workingHours?.startTime, activeProfId])
 
   // Converte clientY → px desde o topo da grade
   function getGridY(clientY: number) {
@@ -525,7 +532,13 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
       <div
         ref={vScrollRef}
         className="m-vscroll m-grid-wrap"
-        style={{flex:1,overflowY:'auto',overflowX:'hidden',WebkitOverflowScrolling:'touch',position:'relative',touchAction:drag?'none':'pan-y'}}
+        style={{
+          flex:1, overflowY:'auto', overflowX:'hidden',
+          WebkitOverflowScrolling:'touch', position:'relative',
+          touchAction:drag?'none':'pan-y',
+          // Compensa a bottom nav (64px) + safe area do iPhone
+          paddingBottom:'calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px))',
+        }}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}

@@ -130,8 +130,15 @@ export default function AgendaIPadList({ professionals, bookings, blocks, workin
   const unique = bookings.filter(b=>{ if(seen.has(b.id)) return false; seen.add(b.id); return true })
 
   useEffect(() => {
-    if (currentY>0 && scrollRef.current) scrollRef.current.scrollTop=Math.max(0,currentY-120)
-  },[currentY])
+    if (!scrollRef.current) return
+    if (currentY > 0) {
+      scrollRef.current.scrollTop = Math.max(0, currentY - 60 * PX_PER_MIN)
+    } else if (workingHours?.open) {
+      const wStartMin = toMinutes(workingHours.startTime)
+      scrollRef.current.scrollTop = Math.max(0, (wStartMin - START_MIN - 60) * PX_PER_MIN)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workingHours?.startTime])
 
   // ─── helpers ───────────────────────────────────────────────────────────────
   function getScrollRect() {
