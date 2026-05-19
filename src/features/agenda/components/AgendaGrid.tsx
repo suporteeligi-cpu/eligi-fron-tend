@@ -93,14 +93,17 @@ interface ResizeDrag {
   startTop:number; ghostHeight:number; currentEnd:string
 }
 type ActiveDrag = MoveDrag | ResizeDrag
+import { WorkingHours } from './AgendaBoard'
+
 interface ContextMenu { x:number; y:number; time:string; profId:string }
 interface Props {
   professionals:AgendaProfessional[]; bookings:AgendaBooking[]; blocks:AgendaBlock[]
+  workingHours?: WorkingHours
   onOpenBlockModal?:(time?:string,profId?:string)=>void
   onDeleteBlock?:(id:string)=>void; onUpdateBlock?:(block:AgendaBlock)=>void
 }
 
-export default function AgendaGrid({ professionals, bookings, blocks, onOpenBlockModal, onDeleteBlock, onUpdateBlock }: Props) {
+export default function AgendaGrid({ professionals, bookings, blocks, workingHours, onOpenBlockModal, onDeleteBlock, onUpdateBlock }: Props) {
   const { openCreate, selectedDate, updateBooking } = useAgendaStore()
   const scrollRef = useRef<HTMLDivElement>(null)
   const gridRef   = useRef<HTMLDivElement>(null)
@@ -272,6 +275,15 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
             const profBookings = unique.filter(b=>b.professionalId===p.id)
             const profBlocks   = blocks.filter(bl=>bl.professionalId===p.id)
             const layout       = computeOverlapLayout(profBookings)
+
+            // Zonas fora do expediente
+            const wStart = workingHours?.open ? toMinutes(workingHours.startTime) : START_MIN
+            const wEnd   = workingHours?.open ? toMinutes(workingHours.endTime)   : END_HOUR*60
+            const preH   = Math.max(0, (wStart - START_MIN) * PX_PER_MIN)
+            const postTop= Math.max(0, (wEnd   - START_MIN) * PX_PER_MIN)
+            const postH  = Math.max(0, TOTAL_H - postTop)
+            const closed = workingHours && !workingHours.open
+
             return (
               <div key={p.id} style={{position:'relative',borderLeft:`1px solid ${colors.gray.border}`,zIndex:5,height:TOTAL_H}}>
                 {SLOTS.map((time,i) => {
@@ -279,6 +291,27 @@ export default function AgendaGrid({ professionals, bookings, blocks, onOpenBloc
                   const isHover = isMoving && hoverSlot===time
                   return <div key={time} className={`ag-slot${isHover?' ag-slot-hover':''} ${isHour?'ag-hour':isHalf?'ag-half':'ag-5'}`} onClick={e=>{ if(drag) return; e.preventDefault(); setCtxMenu({x:e.clientX,y:e.clientY,time,profId:p.id}) }}/>
                 })}
+
+                {/* Zona antes do expediente */}
+                {(preH > 0 || closed) && (
+                  <div style={{
+                    position:'absolute', top:0, left:0, right:0,
+                    height: closed ? TOTAL_H : preH,
+                    zIndex:6, pointerEvents:'none',
+                    background:'repeating-linear-gradient(-45deg,rgba(0,0,0,0.03) 0px,rgba(0,0,0,0.03) 4px,transparent 4px,transparent 10px)',
+                    borderBottom: closed ? 'none' : `1px solid rgba(0,0,0,0.06)`,
+                  }}/>
+                )}
+
+                {/* Zona após o expediente */}
+                {!closed && postH > 0 && (
+                  <div style={{
+                    position:'absolute', top:postTop, left:0, right:0, height:postH,
+                    zIndex:6, pointerEvents:'none',
+                    background:'repeating-linear-gradient(-45deg,rgba(0,0,0,0.03) 0px,rgba(0,0,0,0.03) 4px,transparent 4px,transparent 10px)',
+                    borderTop:`1px solid rgba(0,0,0,0.06)`,
+                  }}/>
+                )}
 
                 {profBlocks.map(bl => {
                   const sMin=toMinutes(bl.startTime),eMin=toMinutes(bl.endTime)

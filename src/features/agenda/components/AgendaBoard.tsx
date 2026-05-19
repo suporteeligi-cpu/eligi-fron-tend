@@ -21,10 +21,22 @@ function detectMode(): DeviceMode {
   if (typeof window === 'undefined') return 'desktop'
   const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
   if (!hasTouch) return 'desktop'
-  // iPad: touch + tela >= 768px
-  const w = window.innerWidth
-  if (w >= 768) return 'ipad'
+  if (window.innerWidth >= 768) return 'ipad'
   return 'mobile'
+}
+
+// Horário de expediente do dia selecionado
+export interface WorkingHours {
+  open:      boolean
+  startTime: string   // ex: "10:00"
+  endTime:   string   // ex: "20:00"
+}
+
+interface HourSlot {
+  weekday:   number
+  open:      boolean
+  startTime: string
+  endTime:   string
 }
 
 interface Props {
@@ -42,15 +54,22 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     checkout, closeCheckout,
   } = useAgendaStore()
 
-  const [mode, setMode] = useState<DeviceMode>(() => detectMode())
-
-  const [blockModal,    setBlockModal]    = useState(false)
-  const [blockInitTime, setBlockInitTime] = useState<string | undefined>()
-  const [blockInitProf, setBlockInitProf] = useState<string | undefined>()
+  const [mode,         setMode]         = useState<DeviceMode>(() => detectMode())
+  const [allHours,     setAllHours]     = useState<HourSlot[]>([])
+  const [blockModal,   setBlockModal]   = useState(false)
+  const [blockInitTime,setBlockInitTime]= useState<string | undefined>()
+  const [blockInitProf,setBlockInitProf]= useState<string | undefined>()
 
   const dateStr  = dayjs(selectedDate).format('YYYY-MM-DD')
   const bookings = getBookingsForDate(dateStr)
   const blocks   = getBlocksForDate(dateStr)
+
+  // Dia da semana do dia selecionado (0=Dom, 1=Seg, ...)
+  const weekday     = dayjs(selectedDate).day()
+  const todaySlot   = allHours.find(s => s.weekday === weekday)
+  const workingHours: WorkingHours = todaySlot
+    ? { open: todaySlot.open, startTime: todaySlot.startTime, endTime: todaySlot.endTime }
+    : { open: true, startTime: '08:00', endTime: '20:00' } // fallback
 
   useEffect(() => { if (externalDate) setSelectedDate(externalDate) }, [externalDate, setSelectedDate])
   useEffect(() => { onDateChange?.(selectedDate) }, [selectedDate, onDateChange])
@@ -59,6 +78,16 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     function onResize() { setMode(detectMode()) }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // Busca horários de funcionamento (uma vez, não muda por data)
+  useEffect(() => {
+    api.get('/business-hours')
+      .then(res => {
+        const data = res.data?.data ?? res.data
+        if (Array.isArray(data)) setAllHours(data)
+      })
+      .catch(() => { /* silencioso — usa fallback */ })
   }, [])
 
   const fetchBlocks = useCallback(async () => {
@@ -111,6 +140,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           {mode === 'desktop' && (
             <AgendaGrid
               professionals={professionals} bookings={bookings} blocks={blocks}
+              workingHours={workingHours}
               onOpenBlockModal={openBlockModal}
               onDeleteBlock={handleDeleteBlock} onUpdateBlock={handleUpdateBlock}
             />
@@ -118,6 +148,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           {mode === 'ipad' && (
             <AgendaIPadList
               professionals={professionals} bookings={bookings} blocks={blocks}
+              workingHours={workingHours}
               onOpenBlockModal={openBlockModal}
               onDeleteBlock={handleDeleteBlock} onUpdateBlock={handleUpdateBlock}
             />
@@ -125,6 +156,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           {mode === 'mobile' && (
             <AgendaMobileList
               professionals={professionals} bookings={bookings} blocks={blocks}
+              workingHours={workingHours}
               onDeleteBlock={handleDeleteBlock} onUpdateBlock={handleUpdateBlock}
               onOpenBlockModal={openBlockModal}
             />

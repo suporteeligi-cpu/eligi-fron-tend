@@ -182,6 +182,8 @@ function ProfTabs({ professionals, selected, bookings, onChange }: {
   )
 }
 
+import { WorkingHours } from './AgendaBoard'
+
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface MoveDrag {
   type:'move'; booking:AgendaBooking; profId:string
@@ -197,12 +199,13 @@ type ActiveDrag = MoveDrag | ResizeDrag
 
 interface Props {
   professionals:AgendaProfessional[]; bookings:AgendaBooking[]; blocks:AgendaBlock[]
+  workingHours?: WorkingHours
   onDeleteBlock:(id:string)=>void; onUpdateBlock:(block:AgendaBlock)=>void
   onOpenBlockModal?:(time?:string,profId?:string)=>void
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function AgendaMobileList({ professionals, bookings, blocks, onDeleteBlock, onUpdateBlock, onOpenBlockModal }: Props) {
+export default function AgendaMobileList({ professionals, bookings, blocks, workingHours, onDeleteBlock, onUpdateBlock, onOpenBlockModal }: Props) {
   const { openCreate, selectedDate, updateBooking } = useAgendaStore()
   const currentY = useCurrentTimeY()
   const dateStr  = dayjs(selectedDate).format('YYYY-MM-DD')
@@ -552,6 +555,40 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
                 onClick={e=>{if(drag||longPressId) return; setCtxMenu({x:e.clientX,y:e.clientY,time,profId:activeProfId})}}
               />
             ))}
+
+            {/* Zona antes do expediente */}
+            {(() => {
+              const wStart = workingHours?.open ? toMinutes(workingHours.startTime) : START_MIN
+              const preH   = Math.max(0, (wStart - START_MIN) * PX_PER_MIN)
+              const closed = workingHours && !workingHours.open
+              if (!preH && !closed) return null
+              return (
+                <div style={{
+                  position:'absolute', top:0, left:0, right:0,
+                  height: closed ? TOTAL_H : preH,
+                  zIndex:6, pointerEvents:'none',
+                  background:'repeating-linear-gradient(-45deg,rgba(0,0,0,0.03) 0px,rgba(0,0,0,0.03) 4px,transparent 4px,transparent 10px)',
+                  borderBottom: closed ? 'none' : `1px solid rgba(0,0,0,0.06)`,
+                }}/>
+              )
+            })()}
+
+            {/* Zona após o expediente */}
+            {(() => {
+              if (workingHours && !workingHours.open) return null
+              const wEnd   = workingHours?.open ? toMinutes(workingHours.endTime) : END_HOUR*60
+              const postTop= Math.max(0, (wEnd - START_MIN) * PX_PER_MIN)
+              const postH  = Math.max(0, TOTAL_H - postTop)
+              if (!postH) return null
+              return (
+                <div style={{
+                  position:'absolute', top:postTop, left:0, right:0, height:postH,
+                  zIndex:6, pointerEvents:'none',
+                  background:'repeating-linear-gradient(-45deg,rgba(0,0,0,0.03) 0px,rgba(0,0,0,0.03) 4px,transparent 4px,transparent 10px)',
+                  borderTop:`1px solid rgba(0,0,0,0.06)`,
+                }}/>
+              )
+            })()}
 
             {/* Hora atual */}
             {currentY>=0 && (
