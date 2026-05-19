@@ -17,31 +17,31 @@ import utc from 'dayjs/plugin/utc'
 dayjs.extend(utc)
 dayjs.extend(timezone)
 
-const START_HOUR = agendaLayout.startHour
-const END_HOUR   = agendaLayout.endHour
+import { WorkingHours } from './AgendaBoard'
 const TIME_COL_W = agendaLayout.timeColWidth
 const MIN_COL_W  = agendaLayout.minColWidth
 const HEADER_H   = agendaLayout.headerHeight
 const SLOT_STEP  = 5
 const SLOT_H     = 10
 const PX_PER_MIN = SLOT_H / SLOT_STEP
-const START_MIN  = START_HOUR * 60
 const MIN_CARD_H = 24
 const MIN_DUR    = 5
 
-function generateSlots(): string[] {
-  const s: string[] = []
-  for (let h = START_HOUR; h < END_HOUR; h++)
-    for (let m = 0; m < 60; m += SLOT_STEP)
-      s.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`)
-  return s
-}
+// Defaults fixos — substituídos dinamicamente via workingHours
+const DEFAULT_START = 8
+const DEFAULT_END   = 20
+
 function toMinutes(t: string) { const [h, m] = t.split(':').map(Number); return h*60+m }
 function minutesToTime(min: number) { return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'00')}` }
 function snapToSlot(min: number) { return Math.round(min/SLOT_STEP)*SLOT_STEP }
 
-const SLOTS   = generateSlots()
-const TOTAL_H = SLOTS.length * SLOT_H
+function buildSlots(startHour: number, endHour: number): string[] {
+  const s: string[] = []
+  for (let h = startHour; h < endHour; h++)
+    for (let m = 0; m < 60; m += SLOT_STEP)
+      s.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`)
+  return s
+}
 
 function computeOverlapLayout(bookings: AgendaBooking[]) {
   const result = new Map<string, { col: number; totalCols: number }>()
@@ -58,12 +58,15 @@ function computeOverlapLayout(bookings: AgendaBooking[]) {
   return result
 }
 
-function useCurrentTimeY() {
+function useCurrentTimeY(startMin: number) {
   const [y, setY] = useState(-1)
   useEffect(() => {
-    const calc = () => { const n=new Date(),min=n.getHours()*60+n.getMinutes(); setY(min<START_MIN||min>END_HOUR*60?-1:(min-START_MIN)*PX_PER_MIN) }
+    const calc = () => {
+      const n=new Date(), min=n.getHours()*60+n.getMinutes()
+      setY(min < startMin || min > startMin + 24*60 ? -1 : (min - startMin) * PX_PER_MIN)
+    }
     calc(); const id=setInterval(calc,30_000); return ()=>clearInterval(id)
-  },[])
+  },[startMin])
   return y
 }
 
@@ -93,7 +96,6 @@ interface ResizeDrag {
   startTop:number; ghostHeight:number; currentEnd:string
 }
 type ActiveDrag = MoveDrag | ResizeDrag
-import { WorkingHours } from './AgendaBoard'
 
 interface ContextMenu { x:number; y:number; time:string; profId:string }
 interface Props {
@@ -107,7 +109,19 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
   const { openCreate, selectedDate, updateBooking } = useAgendaStore()
   const scrollRef = useRef<HTMLDivElement>(null)
   const gridRef   = useRef<HTMLDivElement>(null)
-  const currentY  = useCurrentTimeY()
+
+  // Grade dinâmica: 1h antes do expediente, 1h depois
+  const START_HOUR = workingHours?.open
+    ? Math.max(0,  Math.floor(toMinutes(workingHours.startTime) / 60) - 1)
+    : DEFAULT_START
+  const END_HOUR   = workingHours?.open
+    ? Math.min(24, Math.floor(toMinutes(workingHours.endTime)   / 60) + 1)
+    : DEFAULT_END
+  const START_MIN  = START_HOUR * 60
+  const SLOTS      = buildSlots(START_HOUR, END_HOUR)
+  const TOTAL_H    = SLOTS.length * SLOT_H
+
+  const currentY  = useCurrentTimeY(START_MIN)
 
   const [drag,      setDrag]      = useState<ActiveDrag|null>(null)
   const [hoverSlot, setHoverSlot] = useState<string|null>(null)
@@ -119,20 +133,16 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
   const seen   = new Set<string>()
   const unique = bookings.filter(b => { if(seen.has(b.id)) return false; seen.add(b.id); return true })
 
-  // Scroll inicial: 1h antes do expediente (ou hora atual se dentro do expediente)
+  // Scroll inicial: 1h antes do expediente (ou hora atual)
   useEffect(() => {
     if (!scrollRef.current) return
-    if (currentY > 0) {
-      // Hora atual visível — mostra 1h antes da posição atual
-      scrollRef.current.scrollTop = Math.max(0, currentY - 60 * PX_PER_MIN)
-    } else if (workingHours?.open) {
-      // Fora do horário atual — mostra 1h antes do início do expediente
-      const wStartMin = toMinutes(workingHours.startTime)
-      const targetY   = Math.max(0, (wStartMin - START_MIN - 60) * PX_PER_MIN)
-      scrollRef.current.scrollTop = targetY
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workingHours?.startTime])
+    const target = currentY > 0
+      ? Math.max(0, currentY - 60 * PX_PER_MIN)
+      : workingHours?.open
+        ? Math.max(0, (toMinutes(workingHours.startTime) - START_MIN - 60) * PX_PER_MIN)
+        : 0
+    scrollRef.current.scrollTop = target
+  }, [workingHours?.open, workingHours?.startTime, currentY, START_MIN])
 
   const doReschedule = useCallback(async (bookingId:string, time:string, professionalId:string, allowOverlap:boolean) => {
     const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
@@ -221,7 +231,7 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
     window.addEventListener('mousemove',onMouseMove)
     window.addEventListener('mouseup',onMouseUp)
     return ()=>{window.removeEventListener('mousemove',onMouseMove);window.removeEventListener('mouseup',onMouseUp)}
-  },[drag,professionals,doReschedule,doResize])
+  },[drag,professionals,doReschedule,doResize,START_MIN,END_HOUR])
 
   function handleConflictConfirm() {
     if (!conflict) return

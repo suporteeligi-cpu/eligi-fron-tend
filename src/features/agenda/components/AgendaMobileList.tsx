@@ -20,38 +20,38 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
-const SLOT_STEP  = 5
-const START_HOUR = 7
-const END_HOUR   = 21
-const ROW_H      = 56
-const PX_PER_MIN = ROW_H / 30
-const START_MIN  = START_HOUR * 60
-const TIME_COL_W = 48
-const MIN_CARD_H = 28
-const MIN_DUR    = 5
-const LONG_PRESS_MS = 450  // ms para ativar drag
+const SLOT_STEP     = 5
+const ROW_H         = 56
+const PX_PER_MIN    = ROW_H / 30
+const TIME_COL_W    = 48
+const MIN_CARD_H    = 28
+const MIN_DUR       = 5
+const LONG_PRESS_MS = 450
+const DEFAULT_START = 7
+const DEFAULT_END   = 21
 
 function toMinutes(t: string) { const [h,m]=t.split(':').map(Number); return h*60+m }
 function minutesToTime(min: number) { return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'00')}` }
 function snapToSlot(min: number) { return Math.round(min/SLOT_STEP)*SLOT_STEP }
 
-function generateHalfSlots() {
+function buildHalfSlots(startHour: number, endHour: number): string[] {
   const s: string[] = []
-  for (let h = START_HOUR; h < END_HOUR; h++) {
+  for (let h = startHour; h < endHour; h++) {
     s.push(`${String(h).padStart(2,'0')}:00`)
     s.push(`${String(h).padStart(2,'0')}:30`)
   }
   return s
 }
-const HALF_SLOTS = generateHalfSlots()
-const TOTAL_H    = HALF_SLOTS.length * ROW_H
 
-function useCurrentTimeY() {
+function useCurrentTimeY(startMin: number) {
   const [y, setY] = useState(-1)
   useEffect(() => {
-    const calc = () => { const n=new Date(),min=n.getHours()*60+n.getMinutes(); setY(min<START_MIN||min>END_HOUR*60?-1:(min-START_MIN)*PX_PER_MIN) }
+    const calc = () => {
+      const n=new Date(), min=n.getHours()*60+n.getMinutes()
+      setY(min < startMin ? -1 : (min - startMin) * PX_PER_MIN)
+    }
     calc(); const id=setInterval(calc,30_000); return ()=>clearInterval(id)
-  },[])
+  },[startMin])
   return y
 }
 
@@ -207,7 +207,14 @@ interface Props {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function AgendaMobileList({ professionals, bookings, blocks, workingHours, onDeleteBlock, onUpdateBlock, onOpenBlockModal }: Props) {
   const { openCreate, selectedDate, updateBooking } = useAgendaStore()
-  const currentY = useCurrentTimeY()
+
+  const START_HOUR = workingHours?.open ? Math.max(0,  Math.floor(toMinutes(workingHours.startTime)/60) - 1) : DEFAULT_START
+  const END_HOUR   = workingHours?.open ? Math.min(24, Math.floor(toMinutes(workingHours.endTime)  /60) + 1) : DEFAULT_END
+  const START_MIN  = START_HOUR * 60
+  const HALF_SLOTS = buildHalfSlots(START_HOUR, END_HOUR)
+  const TOTAL_H    = HALF_SLOTS.length * ROW_H
+
+  const currentY = useCurrentTimeY(START_MIN)
   const dateStr  = dayjs(selectedDate).format('YYYY-MM-DD')
 
   const [activeProfId, setActiveProfId] = useState(professionals[0]?.id ?? '')
@@ -238,14 +245,13 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
 
   useEffect(() => {
     if (!vScrollRef.current) return
-    if (currentY > 0) {
-      vScrollRef.current.scrollTop = Math.max(0, currentY - 60 * PX_PER_MIN)
-    } else if (workingHours?.open) {
-      const wStartMin = toMinutes(workingHours.startTime)
-      vScrollRef.current.scrollTop = Math.max(0, (wStartMin - START_MIN - 60) * PX_PER_MIN)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workingHours?.startTime, activeProfId])
+    const target = currentY > 0
+      ? Math.max(0, currentY - 60 * PX_PER_MIN)
+      : workingHours?.open
+        ? Math.max(0, (toMinutes(workingHours.startTime) - START_MIN - 60) * PX_PER_MIN)
+        : 0
+    vScrollRef.current.scrollTop = target
+  }, [workingHours?.open, workingHours?.startTime, currentY, START_MIN, activeProfId])
 
   // Converte clientY → px desde o topo da grade
   function getGridY(clientY: number) {
