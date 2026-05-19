@@ -9,7 +9,7 @@ import 'dayjs/locale/pt-br'
 import utc      from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import api from '@/shared/lib/apiClient'
-import { AgendaBooking, AgendaProfessional } from '@/features/agenda/types'
+import { AgendaProfessional } from '@/features/agenda/types'
 import { colors, glass, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
@@ -33,7 +33,6 @@ interface Props {
   mode:           'create' | 'edit'
   time:           string | null
   professionalId: string | null
-  booking:        AgendaBooking | null
   professionals:  AgendaProfessional[]
   selectedDate:   Date
   onClose:        () => void

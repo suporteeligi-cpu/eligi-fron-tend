@@ -167,8 +167,9 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
       <SideCheckoutPanel
         open={checkout.open} mode={checkout.mode}
         time={checkout.time} professionalId={checkout.professionalId}
-        booking={checkout.booking} professionals={professionals}
+        professionals={professionals}
         selectedDate={selectedDate} onClose={closeCheckout}
+        onDateChange={date => setSelectedDate(date)}
       />
 
       {blockModal && (
