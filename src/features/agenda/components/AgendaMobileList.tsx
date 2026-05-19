@@ -93,31 +93,59 @@ function BottomModal({ emoji, title, body, confirmLabel, onConfirm, onCancel }: 
 }
 
 // ─── Booking Card ─────────────────────────────────────────────────────────────
+// Mobile: PX_PER_MIN = ROW_H/30 = 56/30 ≈ 1.87px/min
+// 5min ≈ 9px, 10min ≈ 19px, 15min ≈ 28px, 30min ≈ 56px
 function MobileBookingCard({ booking, height, isDragging }: { booking:AgendaBooking; height:number; isDragging?:boolean }) {
   const statusTheme = STATUS_CFG[booking.status] ?? STATUS_CFG.CONFIRMED
   const gradient    = booking.serviceColor ? colorToGradient(booking.serviceColor) : statusTheme.gradient
   const glow        = booking.serviceColor ? colorToGlow(booking.serviceColor)     : statusTheme.glow
-  const isTiny      = height <= 32
-  const showService = height >= 48
-  const showTime    = height >= 64
+
+  const isMicro     = height <= 16   // só horário início
+  const isTiny      = height <= 30 && height > 16  // horário + nome linha única
+  const showService = height >= 52
+  const showTime    = height >= 68
   const dur         = toMinutes(booking.end) - toMinutes(booking.start)
+
   return (
-    <div style={{width:'100%',height:'100%',borderRadius:10,background:gradient,padding:isTiny?'0 8px 0 10px':'6px 8px 6px 10px',display:'flex',flexDirection:'column',justifyContent:isTiny?'center':'flex-start',gap:2,overflow:'hidden',boxSizing:'border-box',boxShadow:isDragging?`0 12px 32px ${glow}`:`0 3px 12px ${glow}`,border:'1px solid rgba(255,255,255,0.18)',position:'relative',userSelect:'none',transform:isDragging?'scale(1.04)':'scale(1)'}}>
+    <div style={{
+      width:'100%', height:'100%', borderRadius:10,
+      background:gradient,
+      padding: isMicro ? '0 6px 0 8px' : isTiny ? '0 8px 0 10px' : '6px 8px 6px 10px',
+      display:'flex', flexDirection:'column',
+      justifyContent:(isMicro||isTiny)?'center':'flex-start',
+      gap:2, overflow:'hidden', boxSizing:'border-box',
+      boxShadow:isDragging?`0 12px 32px ${glow}`:`0 3px 12px ${glow}`,
+      border:'1px solid rgba(255,255,255,0.18)',
+      position:'relative', userSelect:'none',
+      transform:isDragging?'scale(1.04)':'scale(1)',
+    }}>
       <div style={{position:'absolute',top:0,left:0,right:0,height:'40%',background:'linear-gradient(180deg,rgba(255,255,255,0.16) 0%,transparent 100%)',borderRadius:'10px 10px 0 0',pointerEvents:'none'}}/>
       <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:'rgba(255,255,255,0.45)',borderRadius:'10px 0 0 10px'}}/>
-      {isTiny ? (
+
+      {/* MICRO: só hora início */}
+      {isMicro && (
+        <span style={{fontSize:9,fontWeight:800,color:'#fff',opacity:0.95,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',letterSpacing:'-0.2px'}}>
+          {booking.start}
+        </span>
+      )}
+
+      {/* TINY: hora + nome */}
+      {isTiny && (
         <div style={{display:'flex',alignItems:'center',gap:5,overflow:'hidden'}}>
-          <span style={{fontSize:10,fontWeight:700,color:'#fff',opacity:0.9,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0}}>{booking.start}–{booking.end}</span>
-          <span style={{fontSize:10,fontWeight:600,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{booking.clientName}</span>
+          <span style={{fontSize:10,fontWeight:800,color:'#fff',opacity:0.95,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0,letterSpacing:'-0.2px'}}>{booking.start}</span>
+          <span style={{fontSize:10,fontWeight:700,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{booking.clientName}</span>
         </div>
-      ) : (
+      )}
+
+      {/* NORMAL */}
+      {!isMicro && !isTiny && (
         <>
-          <div style={{color:'#fff',fontWeight:700,fontSize:13,lineHeight:1.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{booking.clientName}</div>
-          {showService && <div style={{color:'rgba(255,255,255,0.85)',fontWeight:500,fontSize:11,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{booking.serviceName}</div>}
+          <div style={{color:'#fff',fontWeight:800,fontSize:13,lineHeight:1.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',letterSpacing:'-0.2px'}}>{booking.clientName}</div>
+          {showService && <div style={{color:'rgba(255,255,255,0.88)',fontWeight:600,fontSize:11,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{booking.serviceName}</div>}
           {showTime && (
             <div style={{marginTop:'auto',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <span style={{color:'rgba(255,255,255,0.80)',fontSize:11,fontWeight:600,fontVariantNumeric:'tabular-nums'}}>{booking.start}–{booking.end}</span>
-              <span style={{color:'rgba(255,255,255,0.60)',fontSize:10}}>{dur}min</span>
+              <span style={{color:'rgba(255,255,255,0.82)',fontSize:11,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{booking.start}–{booking.end}</span>
+              <span style={{color:'rgba(255,255,255,0.62)',fontSize:10,fontWeight:600}}>{dur}min</span>
             </div>
           )}
         </>
@@ -375,7 +403,6 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
     <div style={{height:'100%',display:'flex',flexDirection:'column',background:colors.background.page,fontFamily:typography.fontFamily,overflow:'hidden'}}>
       <style>{`
         .m-vscroll::-webkit-scrollbar{display:none}
-        /* Bloqueia seleção de texto em toda a grade */
         .m-grid-wrap{
           -webkit-user-select:none;
           -moz-user-select:none;
@@ -384,24 +411,31 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
         }
         .m-slot{cursor:pointer;transition:background 0.1s}
         .m-slot:active{background:rgba(220,38,38,0.06)!important}
-        /* Slot destacado durante drag */
         .m-slot-hover{background:rgba(220,38,38,0.10)!important;border-top:2px solid ${colors.red.DEFAULT}!important}
-        /* Handle de resize */
+        /* Handle resize — faixa generosa para toque fácil */
         .m-rh{
-          position:absolute;bottom:0;left:0;right:0;height:14px;
+          position:absolute;bottom:0;left:0;right:0;height:20px;
           display:flex;align-items:flex-end;justify-content:center;
-          padding-bottom:3px;
-          cursor:ns-resize;z-index:25;touch-action:none;
+          padding-bottom:4px;
+          z-index:25;touch-action:none;
           border-radius:0 0 10px 10px;
         }
         .m-rh::after{
-          content:'';width:24px;height:4px;
-          background:rgba(255,255,255,0.55);
-          border-radius:2px;
+          content:'';width:28px;height:5px;
+          background:rgba(255,255,255,0.60);
+          border-radius:3px;transition:all 0.15s;
         }
-        /* Pulsação long press */
-        @keyframes lp-pulse{0%{opacity:1;transform:scale(1)}50%{opacity:0.6;transform:scale(0.97)}100%{opacity:1;transform:scale(1)}}
-        .lp-waiting{animation:lp-pulse 0.4s ease infinite}
+        .m-rh:active::after{background:rgba(255,255,255,0.98);width:32px;height:6px}
+        /* Long press: anel de progresso via outline animado */
+        @keyframes lp-ring{from{outline-width:0px;outline-offset:0px;opacity:0}to{outline-width:3px;outline-offset:2px;opacity:1}}
+        .lp-waiting{
+          outline:3px solid ${colors.red.DEFAULT};
+          outline-offset:2px;
+          border-radius:10px;
+          animation:lp-ring 0.45s ease forwards;
+        }
+        @keyframes lp-pulse{0%{opacity:1}50%{opacity:0.55}100%{opacity:1}}
+        .lp-waiting > div{animation:lp-pulse 0.45s ease infinite}
       `}</style>
 
       {/* Modais */}
@@ -438,13 +472,11 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
         />
       )}
 
-      {/* Ghost FIXO que segue o dedo durante move */}
+      {/* Ghost FIXO que segue o slot snapped */}
       {isMoving && drag?.type==='move' && createPortal(
         <div style={{
           position:'fixed',
-          // Centro horizontal do card sob o dedo
           left: drag.cardLeft,
-          // Topo: onde o slot snapped está na tela
           top: (() => {
             const rect = vScrollRef.current?.getBoundingClientRect()
             const scrollTop = vScrollRef.current?.scrollTop ?? 0
@@ -453,11 +485,12 @@ export default function AgendaMobileList({ professionals, bookings, blocks, onDe
           width: drag.cardWidth,
           height: drag.cardHeight,
           zIndex:99999, pointerEvents:'none',
-          filter:'drop-shadow(0 12px 32px rgba(0,0,0,0.35))',
-          transition:'top 0.05s ease',
+          filter:'drop-shadow(0 14px 36px rgba(0,0,0,0.38))',
+          transform:'scale(1.04)',
+          transition:'top 0.06s ease',
         }}>
           <MobileBookingCard booking={drag.booking} height={drag.cardHeight} isDragging/>
-          <div style={{position:'absolute',bottom:-22,left:0,right:0,textAlign:'center',fontSize:12,fontWeight:700,color:colors.red.DEFAULT,fontVariantNumeric:'tabular-nums',textShadow:'0 1px 4px rgba(255,255,255,0.95)',pointerEvents:'none',background:'rgba(255,255,255,0.85)',borderRadius:6,padding:'2px 8px',margin:'0 auto',width:'fit-content'}}>
+          <div style={{position:'absolute',bottom:-26,left:'50%',transform:'translateX(-50%)',background:'rgba(220,38,38,0.92)',color:'#fff',fontSize:12,fontWeight:800,fontVariantNumeric:'tabular-nums',padding:'3px 10px',borderRadius:8,whiteSpace:'nowrap',boxShadow:'0 2px 8px rgba(220,38,38,0.35)',pointerEvents:'none'}}>
             {drag.ghostTime}
           </div>
         </div>,

@@ -316,11 +316,13 @@ export default function AgendaIPadList({ professionals, bookings, blocks, onOpen
           width: drag.ghostWidth,
           height:drag.ghostHeight,
           zIndex:99997, pointerEvents:'none',
-          opacity:0.88, filter:'drop-shadow(0 8px 24px rgba(0,0,0,0.28))',
-          transform:'scale(1.02)', transition:'top 0.05s ease, left 0.05s ease',
+          opacity:0.90, filter:'drop-shadow(0 10px 28px rgba(0,0,0,0.30))',
+          transform:'scale(1.03)', transition:'top 0.05s ease, left 0.05s ease',
         }}>
           <BookingCard booking={drag.booking} totalHeight={drag.ghostHeight}/>
-          <div style={{position:'absolute',bottom:-20,left:0,right:0,textAlign:'center',fontSize:11,fontWeight:700,color:colors.red.DEFAULT,fontVariantNumeric:'tabular-nums',textShadow:'0 1px 4px rgba(255,255,255,0.9)'}}>{drag.currentTime}</div>
+          <div style={{position:'absolute',bottom:-26,left:'50%',transform:'translateX(-50%)',background:'rgba(220,38,38,0.92)',color:'#fff',fontSize:12,fontWeight:800,fontVariantNumeric:'tabular-nums',padding:'3px 10px',borderRadius:8,whiteSpace:'nowrap',boxShadow:'0 2px 8px rgba(220,38,38,0.35)',pointerEvents:'none'}}>
+            {drag.currentTime}
+          </div>
         </div>,
         document.body
       )}
@@ -346,11 +348,15 @@ export default function AgendaIPadList({ professionals, bookings, blocks, onOpen
           .ip-hour{border-top:1px solid ${colors.gray.border}}
           .ip-half{border-top:1px dashed rgba(0,0,0,0.06)}
           .ip-5{border-top:1px solid transparent}
-          .ip-rh{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:32px;height:12px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;z-index:20;touch-action:none}
-          .ip-rh::after{content:'';width:22px;height:5px;background:rgba(255,255,255,0.55);border-radius:3px;transition:all 0.15s}
-          .ip-rh:active::after{background:rgba(255,255,255,0.95);width:26px}
+          /* Handle resize maior para toque fácil */
+          .ip-rh{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:48px;height:18px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;cursor:ns-resize;z-index:20;touch-action:none}
+          .ip-rh::after{content:'';width:28px;height:5px;background:rgba(255,255,255,0.60);border-radius:3px;transition:all 0.15s}
+          .ip-rh:active::after{background:rgba(255,255,255,0.98);width:34px;height:6px}
+          /* Long press: anel de progresso */
+          @keyframes ip-ring{from{outline-width:0px;outline-offset:0px;opacity:0}to{outline-width:3px;outline-offset:2px;opacity:1}}
+          .ip-waiting{outline:3px solid ${colors.red.DEFAULT};outline-offset:2px;border-radius:7px;animation:ip-ring 0.4s ease forwards}
           @keyframes ip-pulse{0%{opacity:1}50%{opacity:0.55}100%{opacity:1}}
-          .ip-waiting{animation:ip-pulse 0.4s ease infinite}
+          .ip-waiting > div{animation:ip-pulse 0.4s ease infinite}
         `}</style>
 
         <div ref={gridRef} style={{display:'grid',gridTemplateColumns:`${TIME_COL_W}px repeat(${professionals.length},minmax(${MIN_COL_W}px,1fr))`,minWidth:`${TIME_COL_W+professionals.length*MIN_COL_W}px`}}>
