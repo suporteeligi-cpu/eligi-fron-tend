@@ -70,16 +70,47 @@ function useCurrentTimeY(startMin: number) {
   return y
 }
 
-function ConflictModal({ onConfirm, onCancel }: { onConfirm:()=>void; onCancel:()=>void }) {
+// ─── Modal de confirmação padrão eligi ────────────────────────────────────────
+function ConfirmModal({ title, confirmLabel, onConfirm, onCancel }: {
+  title:        string
+  confirmLabel: string
+  onConfirm:    () => void
+  onCancel:     () => void
+}) {
   return (
     <>
-      <div onClick={onCancel} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.3)',backdropFilter:'blur(6px)',zIndex:9998}}/>
-      <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:320,maxWidth:'90vw',background:'#fff',borderRadius:20,boxShadow:'0 24px 64px rgba(0,0,0,0.18)',zIndex:9999,padding:'28px 24px 20px',fontFamily:'-apple-system,system-ui,sans-serif',textAlign:'center'}}>
-        <div style={{fontSize:36,marginBottom:12}}>⚠️</div>
-        <h3 style={{margin:'0 0 8px',fontSize:17,fontWeight:700,color:'#111827'}}>Horário conflitante</h3>
-        <p style={{margin:'0 0 20px',fontSize:13,color:'#6b7280',lineHeight:1.5}}>Já existe um agendamento nesse horário.<br/>Deseja agendar mesmo assim?</p>
-        <button onClick={onConfirm} style={{width:'100%',padding:'13px',marginBottom:8,background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',border:'none',borderRadius:12,fontWeight:600,fontSize:14,cursor:'pointer'}}>Confirmar sobreposição</button>
-        <button onClick={onCancel} style={{width:'100%',padding:'11px',background:'rgba(0,0,0,0.04)',border:'1px solid rgba(0,0,0,0.08)',borderRadius:12,fontSize:14,cursor:'pointer',color:'rgba(0,0,0,0.5)'}}>Voltar</button>
+      <div onClick={onCancel} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.28)',backdropFilter:'blur(8px)',zIndex:9998}}/>
+      <div style={{
+        position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',
+        width:340,maxWidth:'88vw',
+        background:'rgba(255,255,255,0.98)',
+        borderRadius:22,
+        boxShadow:'0 32px 72px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)',
+        zIndex:9999,padding:'32px 24px 22px',
+        fontFamily:'-apple-system,"SF Pro Display",system-ui,sans-serif',
+        textAlign:'center',
+        animation:'cmIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+      }}>
+        <style>{`@keyframes cmIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}`}</style>
+        {/* Logo eligi */}
+        <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(145deg,#ef4444,#dc2626,#b91c1c)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px',boxShadow:'0 6px 18px rgba(220,38,38,0.30)'}}>
+          <span style={{color:'#fff',fontWeight:800,fontSize:20,letterSpacing:'-0.04em'}}>e</span>
+        </div>
+        <h3 style={{margin:'0 0 24px',fontSize:18,fontWeight:700,color:'#0f0f14',lineHeight:1.3,letterSpacing:'-0.02em'}}>
+          {title}
+        </h3>
+        <button onClick={onConfirm} style={{width:'100%',padding:'14px',marginBottom:10,background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',border:'none',borderRadius:13,fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'0.04em',textTransform:'uppercase',boxShadow:'0 4px 16px rgba(220,38,38,0.28)',transition:'transform 0.12s'}}
+          onMouseEnter={e=>(e.currentTarget.style.transform='translateY(-1px)')}
+          onMouseLeave={e=>(e.currentTarget.style.transform='translateY(0)')}
+        >
+          {confirmLabel}
+        </button>
+        <button onClick={onCancel} style={{width:'100%',padding:'13px',background:'transparent',border:'1px solid rgba(0,0,0,0.08)',borderRadius:13,fontSize:14,cursor:'pointer',color:'rgba(0,0,0,0.45)',fontWeight:500,transition:'background 0.12s'}}
+          onMouseEnter={e=>(e.currentTarget.style.background='rgba(0,0,0,0.04)')}
+          onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
+        >
+          Voltar
+        </button>
       </div>
     </>
   )
@@ -123,9 +154,14 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
 
   const currentY  = useCurrentTimeY(START_MIN)
 
-  const [drag,      setDrag]      = useState<ActiveDrag|null>(null)
-  const [hoverSlot, setHoverSlot] = useState<string|null>(null)
-  const [conflict,  setConflict]  = useState<{bookingId:string;startAt:string;professionalId:string}|null>(null)
+  const [drag,         setDrag]         = useState<ActiveDrag|null>(null)
+  const [hoverSlot,    setHoverSlot]    = useState<string|null>(null)
+  const [pendingAction,setPendingAction]= useState<{
+    type: 'move' | 'resize' | 'conflict'
+    title: string
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null)
   const [savingId,  setSavingId]  = useState<string|null>(null)
   const [ctxMenu,   setCtxMenu]   = useState<ContextMenu|null>(null)
   const [editBlock, setEditBlock] = useState<AgendaBlock|null>(null)
@@ -155,7 +191,14 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
     } catch (err:unknown) {
       const status = (err as {response?:{status?:number}})?.response?.status
       const code   = (err as {response?:{data?:{code?:string}}})?.response?.data?.code
-      if (status===409||code==='BOOKING_CONFLICT') setConflict({bookingId,startAt,professionalId})
+      if (status===409||code==='BOOKING_CONFLICT') {
+        setPendingAction({
+          type:'conflict',
+          title:'Já existe um agendamento\nnesse horário. Confirma mesmo assim?',
+          confirmLabel:'Confirmar sobreposição',
+          onConfirm: () => { setPendingAction(null); doReschedule(bookingId,time,professionalId,true) },
+        })
+      }
     } finally { setSavingId(null) }
   },[selectedDate,updateBooking])
 
@@ -168,8 +211,18 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
       const res = await api.patch(`/bookings/${bookingId}/resize`,{startAt,endAt})
       const b   = res.data?.data ?? res.data
       if (b) updateBooking(dateStr,{id:bookingId,professionalId:b.professionalId??booking.professionalId,clientName:b.clientName,serviceName:b.service?.name??'',serviceColor:b.service?.color??undefined,start:dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),end:dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),status:b.status})
-    } catch (err) { console.error('[resize]',err) }
-    finally { setSavingId(null) }
+    } catch (err:unknown) {
+      const status = (err as {response?:{status?:number}})?.response?.status
+      const code   = (err as {response?:{data?:{code?:string}}})?.response?.data?.code
+      if (status===409||code==='BOOKING_CONFLICT') {
+        setPendingAction({
+          type:'conflict',
+          title:'Existe um conflito nesse horário.\nDeseja confirmar mesmo assim?',
+          confirmLabel:'Confirmar sobreposição',
+          onConfirm: () => { setPendingAction(null); doResize(bookingId,booking,newEnd) },
+        })
+      }
+    } finally { setSavingId(null) }
   },[selectedDate,updateBooking])
 
   function onCardMouseDown(e:React.MouseEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
@@ -220,12 +273,26 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
       if (drag.type==='move') {
         const {bookingId,currentTime,currentProfId,fromProfId,booking}=drag
         setDrag(null); setHoverSlot(null)
-        if (currentTime!==booking.start||currentProfId!==fromProfId) doReschedule(bookingId,currentTime,currentProfId,false)
+        if (currentTime!==booking.start||currentProfId!==fromProfId) {
+          setPendingAction({
+            type:'move',
+            title:`Confirmar alteração de\n${booking.start} para ${currentTime}?`,
+            confirmLabel:'Salvar alteração',
+            onConfirm: () => { setPendingAction(null); doReschedule(bookingId,currentTime,currentProfId,false) },
+          })
+        }
       }
       if (drag.type==='resize') {
         const {bookingId,booking,currentEnd}=drag
         setDrag(null); setHoverSlot(null)
-        if (currentEnd!==booking.end) doResize(bookingId,booking,currentEnd)
+        if (currentEnd!==booking.end) {
+          setPendingAction({
+            type:'resize',
+            title:`Confirmar alteração de\n${booking.start}–${booking.end} para ${booking.start}–${currentEnd}?`,
+            confirmLabel:'Salvar alteração',
+            onConfirm: () => { setPendingAction(null); doResize(bookingId,booking,currentEnd) },
+          })
+        }
       }
     }
     window.addEventListener('mousemove',onMouseMove)
@@ -233,19 +300,19 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
     return ()=>{window.removeEventListener('mousemove',onMouseMove);window.removeEventListener('mouseup',onMouseUp)}
   },[drag,professionals,doReschedule,doResize,START_MIN,END_HOUR])
 
-  function handleConflictConfirm() {
-    if (!conflict) return
-    const time=dayjs(conflict.startAt).tz('America/Sao_Paulo').format('HH:mm')
-    const {bookingId,professionalId}=conflict
-    setConflict(null); doReschedule(bookingId,time,professionalId,true)
-  }
-
   const isMoving   = drag?.type==='move'
   const isResizing = drag?.type==='resize'
 
   return (
     <>
-      {conflict && <ConflictModal onConfirm={handleConflictConfirm} onCancel={()=>setConflict(null)}/>}
+      {pendingAction && (
+        <ConfirmModal
+          title={pendingAction.title}
+          confirmLabel={pendingAction.confirmLabel}
+          onConfirm={pendingAction.onConfirm}
+          onCancel={() => setPendingAction(null)}
+        />
+      )}
       {ctxMenu && <SlotContextMenu x={ctxMenu.x} y={ctxMenu.y} time={ctxMenu.time} profId={ctxMenu.profId} onClose={()=>setCtxMenu(null)} onNewBooking={(t,p)=>openCreate(t,p)} onNewBlock={(t,p)=>onOpenBlockModal?.(t,p)}/>}
       {editBlock && <BlockEditModal block={editBlock} professionals={professionals} onClose={()=>setEditBlock(null)} onDeleted={id=>{onDeleteBlock?.(id);setEditBlock(null)}} onUpdated={u=>{onUpdateBlock?.(u);setEditBlock(null)}}/>}
 

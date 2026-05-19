@@ -70,22 +70,26 @@ function computeOverlapLayout(bookings: AgendaBooking[]) {
   return result
 }
 
-// ─── Modal bottom sheet ───────────────────────────────────────────────────────
-function BottomModal({ emoji, title, body, confirmLabel, onConfirm, onCancel }: {
-  emoji:string; title:string; body:string; confirmLabel:string
-  onConfirm:()=>void; onCancel:()=>void
+// ─── Modal de confirmação padrão eligi (bottom sheet no mobile) ───────────────
+function ConfirmModal({ title, confirmLabel, onConfirm, onCancel }: {
+  title:string; confirmLabel:string; onConfirm:()=>void; onCancel:()=>void
 }) {
   return createPortal(
     <>
-      <div onClick={onCancel} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',backdropFilter:'blur(8px)',zIndex:9998}}/>
-      <div style={{position:'fixed',bottom:0,left:0,right:0,background:'#fff',borderRadius:'24px 24px 0 0',boxShadow:'0 -8px 40px rgba(0,0,0,0.18)',zIndex:9999,padding:`20px 24px max(36px,env(safe-area-inset-bottom))`,textAlign:'center',fontFamily:typography.fontFamily,animation:'bmu 0.28s cubic-bezier(0.34,1.2,0.64,1)'}}>
-        <style>{`@keyframes bmu{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
-        <div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)',margin:'0 auto 20px'}}/>
-        <div style={{fontSize:36,marginBottom:12}}>{emoji}</div>
-        <h3 style={{margin:'0 0 8px',fontSize:17,fontWeight:700,color:colors.gray[900]}}>{title}</h3>
-        <p style={{margin:'0 0 22px',fontSize:14,color:colors.gray.dimText,lineHeight:1.5}} dangerouslySetInnerHTML={{__html:body}}/>
-        <button onClick={onConfirm} style={{width:'100%',padding:'14px',marginBottom:10,background:colors.red.gradient,color:'#fff',border:'none',borderRadius:radius.sm,fontWeight:700,fontSize:15,cursor:'pointer'}}>{confirmLabel}</button>
-        <button onClick={onCancel} style={{width:'100%',padding:'13px',background:'rgba(0,0,0,0.04)',border:`1px solid ${colors.gray.borderMd}`,borderRadius:radius.sm,fontSize:14,cursor:'pointer',color:colors.gray.dimText}}>Voltar</button>
+      <div onClick={onCancel} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.32)',backdropFilter:'blur(8px)',zIndex:9998}}/>
+      <div style={{position:'fixed',bottom:0,left:0,right:0,background:'rgba(255,255,255,0.99)',borderRadius:'24px 24px 0 0',boxShadow:'0 -8px 40px rgba(0,0,0,0.15)',zIndex:9999,padding:`28px 24px max(36px,env(safe-area-inset-bottom))`,textAlign:'center',fontFamily:typography.fontFamily,animation:'cmUp 0.28s cubic-bezier(0.34,1.2,0.64,1)'}}>
+        <style>{`@keyframes cmUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+        <div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)',margin:'0 auto 24px'}}/>
+        <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(145deg,#ef4444,#dc2626,#b91c1c)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px',boxShadow:'0 6px 18px rgba(220,38,38,0.30)'}}>
+          <span style={{color:'#fff',fontWeight:800,fontSize:20,letterSpacing:'-0.04em'}}>e</span>
+        </div>
+        <h3 style={{margin:'0 0 24px',fontSize:18,fontWeight:700,color:'#0f0f14',lineHeight:1.3,letterSpacing:'-0.02em',whiteSpace:'pre-line'}}>{title}</h3>
+        <button onClick={onConfirm} style={{width:'100%',padding:'15px',marginBottom:10,background:colors.red.gradient,color:'#fff',border:'none',borderRadius:radius.sm,fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'0.04em',textTransform:'uppercase',boxShadow:`0 4px 16px ${colors.red.glow}`}}>
+          {confirmLabel}
+        </button>
+        <button onClick={onCancel} style={{width:'100%',padding:'14px',background:'transparent',border:`1px solid ${colors.gray.borderMd}`,borderRadius:radius.sm,fontSize:14,cursor:'pointer',color:colors.gray.dimText,fontWeight:500}}>
+          Voltar
+        </button>
       </div>
     </>,
     document.body
@@ -225,8 +229,7 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
   const [hoverSlot, setHoverSlot] = useState<string|null>(null) // slot destacado
 
   const [drag,           setDrag]           = useState<ActiveDrag|null>(null)
-  const [conflict,       setConflict]       = useState<{bookingId:string;startAt:string;professionalId:string}|null>(null)
-  const [resizeConflict, setResizeConflict] = useState<{bookingId:string;booking:AgendaBooking;newEnd:string}|null>(null)
+  const [pendingAction,  setPendingAction]  = useState<{title:string;confirmLabel:string;onConfirm:()=>void}|null>(null)
   const [savingId,       setSavingId]       = useState<string|null>(null)
   const [editBlock,      setEditBlock]      = useState<AgendaBlock|null>(null)
   const [ctxMenu,        setCtxMenu]        = useState<{x:number;y:number;time:string;profId:string}|null>(null)
@@ -278,15 +281,14 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
     } catch (err:unknown) {
       const status=(err as {response?:{status?:number}})?.response?.status
       const code=(err as {response?:{data?:{code?:string}}})?.response?.data?.code
-      if (status===409||code==='BOOKING_CONFLICT') setConflict({bookingId,startAt,professionalId})
+      if (status===409||code==='BOOKING_CONFLICT') {
+        setPendingAction({title:'Já existe um agendamento\nnesse horário. Confirma mesmo assim?',confirmLabel:'Confirmar sobreposição',onConfirm:()=>{setPendingAction(null);doReschedule(bookingId,time,professionalId,true)}})
+      }
     } finally { setSavingId(null) }
   },[dateStr,updateBooking])
 
   // ─── Resize ─────────────────────────────────────────────────────────────────
-  const doResize = useCallback(async (bookingId:string, booking:AgendaBooking, newEnd:string, force=false) => {
-    if (!force && toMinutes(newEnd) < toMinutes(booking.end)) {
-      setResizeConflict({bookingId,booking,newEnd}); return
-    }
+  const doResize = useCallback(async (bookingId:string, booking:AgendaBooking, newEnd:string) => {
     const startAt=dayjs.tz(`${dateStr} ${booking.start}`,'America/Sao_Paulo').toISOString()
     const endAt=dayjs.tz(`${dateStr} ${newEnd}`,'America/Sao_Paulo').toISOString()
     try {
@@ -297,7 +299,9 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
     } catch (err:unknown) {
       const status=(err as {response?:{status?:number}})?.response?.status
       const code=(err as {response?:{data?:{code?:string}}})?.response?.data?.code
-      if (status===409||code==='BOOKING_CONFLICT') setResizeConflict({bookingId,booking,newEnd})
+      if (status===409||code==='BOOKING_CONFLICT') {
+        setPendingAction({title:'Existe um conflito nesse horário.\nDeseja confirmar mesmo assim?',confirmLabel:'Confirmar sobreposição',onConfirm:()=>{setPendingAction(null);doResize(bookingId,booking,newEnd)}})
+      }
     } finally { setSavingId(null) }
   },[dateStr,updateBooking])
 
@@ -393,23 +397,20 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
     setDrag(null)
     if (!d) return
 
-    if (d.type === 'move' && d.ghostTime !== d.booking.start)
-      doReschedule(d.booking.id, d.ghostTime, d.profId, false)
-
-    if (d.type === 'resize' && d.currentEnd !== d.booking.end)
-      doResize(d.booking.id, d.booking, d.currentEnd, false)
-  }
-
-  function handleConflictConfirm() {
-    if (!conflict) return
-    const time=dayjs(conflict.startAt).tz('America/Sao_Paulo').format('HH:mm')
-    setConflict(null); doReschedule(conflict.bookingId, time, conflict.professionalId, true)
-  }
-
-  function handleResizeConfirm() {
-    if (!resizeConflict) return
-    const {bookingId,booking,newEnd}=resizeConflict
-    setResizeConflict(null); doResize(bookingId, booking, newEnd, true)
+    if (d.type === 'move' && d.ghostTime !== d.booking.start) {
+      setPendingAction({
+        title:`Confirmar alteração de\n${d.booking.start} para ${d.ghostTime}?`,
+        confirmLabel:'Salvar alteração',
+        onConfirm:()=>{setPendingAction(null);doReschedule(d.booking.id,d.ghostTime,d.profId,false)},
+      })
+    }
+    if (d.type === 'resize' && d.currentEnd !== d.booking.end) {
+      setPendingAction({
+        title:`Confirmar alteração de\n${d.booking.start}–${d.booking.end} para ${d.booking.start}–${d.currentEnd}?`,
+        confirmLabel:'Salvar alteração',
+        onConfirm:()=>{setPendingAction(null);doResize(d.booking.id,d.booking,d.currentEnd)},
+      })
+    }
   }
 
   const isMoving   = drag?.type === 'move'
@@ -454,23 +455,13 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
         .lp-waiting > div{animation:lp-pulse 0.45s ease infinite}
       `}</style>
 
-      {/* Modais */}
-      {conflict && (
-        <BottomModal emoji="⚠️" title="Horário conflitante"
-          body="Já existe um agendamento nesse horário.<br/>Deseja agendar mesmo assim?"
-          confirmLabel="Confirmar sobreposição"
-          onConfirm={handleConflictConfirm} onCancel={()=>setConflict(null)}
-        />
-      )}
-      {resizeConflict && (
-        <BottomModal
-          emoji={toMinutes(resizeConflict.newEnd)<toMinutes(resizeConflict.booking.end)?'✂️':'⚠️'}
-          title={toMinutes(resizeConflict.newEnd)<toMinutes(resizeConflict.booking.end)?'Encurtar agendamento?':'Horário conflitante'}
-          body={toMinutes(resizeConflict.newEnd)<toMinutes(resizeConflict.booking.end)
-            ?`Encurtar para terminar às <strong>${resizeConflict.newEnd}</strong>?`
-            :`Conflito ao estender até <strong>${resizeConflict.newEnd}</strong>. Confirma?`}
-          confirmLabel={toMinutes(resizeConflict.newEnd)<toMinutes(resizeConflict.booking.end)?'Confirmar':'Confirmar sobreposição'}
-          onConfirm={handleResizeConfirm} onCancel={()=>setResizeConflict(null)}
+      {/* Modal de confirmação */}
+      {pendingAction && (
+        <ConfirmModal
+          title={pendingAction.title}
+          confirmLabel={pendingAction.confirmLabel}
+          onConfirm={pendingAction.onConfirm}
+          onCancel={()=>setPendingAction(null)}
         />
       )}
       {ctxMenu && (
