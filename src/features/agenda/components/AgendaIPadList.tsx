@@ -118,7 +118,7 @@ interface Props {
 }
 
 export default function AgendaIPadList({ professionals, bookings, blocks, workingHours, onOpenBlockModal, onDeleteBlock, onUpdateBlock }: Props) {
-  const { openCreate, selectedDate, updateBooking } = useAgendaStore()
+  const { openCreate, selectedDate, updateBooking, preview } = useAgendaStore()
   const scrollRef  = useRef<HTMLDivElement>(null)
   const gridRef    = useRef<HTMLDivElement>(null)
 
@@ -144,6 +144,14 @@ export default function AgendaIPadList({ professionals, bookings, blocks, workin
   const seen   = new Set<string>()
   const unique = bookings.filter(b=>{ if(seen.has(b.id)) return false; seen.add(b.id); return true })
 
+  // Scroll para o preview
+  useEffect(() => {
+    if (!preview?.active || !scrollRef.current) return
+    const targetY = Math.max(0, (toMinutes(preview.time) - START_MIN - 60) * PX_PER_MIN)
+    scrollRef.current.scrollTo({ top: targetY, behavior: 'smooth' })
+  }, [preview?.time, preview?.active, START_MIN])
+
+  // Scroll inicial
   useEffect(() => {
     if (!scrollRef.current) return
     const target = currentY > 0
@@ -533,6 +541,24 @@ export default function AgendaIPadList({ professionals, bookings, blocks, workin
                     </div>
                   )
                 })}
+
+                {/* Ghost preview */}
+                {preview?.active && preview.professionalId===p.id && (() => {
+                  const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
+                  if (preview.date!==dateStr) return null
+                  const sMin=toMinutes(preview.time)
+                  if (sMin<START_MIN||sMin>=END_HOUR*60) return null
+                  const top=(sMin-START_MIN)*PX_PER_MIN
+                  const h=Math.max(preview.duration*PX_PER_MIN-2,MIN_CARD_H)
+                  return (
+                    <div key="preview" style={{position:'absolute',top,left:3,right:3,height:h,zIndex:9,pointerEvents:'none',opacity:0.65}}>
+                      <div style={{width:'100%',height:'100%',borderRadius:7,background:colors.red.gradient,border:'2px dashed rgba(255,255,255,0.6)',display:'flex',flexDirection:'column',justifyContent:'center',padding:'4px 8px',boxSizing:'border-box',overflow:'hidden'}}>
+                        <div style={{color:'#fff',fontSize:10,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{preview.time}</div>
+                        {preview.serviceName&&h>28&&<div style={{color:'rgba(255,255,255,0.85)',fontSize:10,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{preview.serviceName}</div>}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Hora atual */}
                 {currentY>=0 && (

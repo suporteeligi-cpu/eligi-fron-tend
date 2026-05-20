@@ -187,6 +187,7 @@ function ProfTabs({ professionals, selected, bookings, onChange }: {
 }
 
 import { WorkingHours } from './AgendaBoard'
+import { PreviewState } from '../hooks/useAgendaStore'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface MoveDrag {
@@ -210,7 +211,7 @@ interface Props {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function AgendaMobileList({ professionals, bookings, blocks, workingHours, onDeleteBlock, onUpdateBlock, onOpenBlockModal }: Props) {
-  const { openCreate, selectedDate, updateBooking } = useAgendaStore()
+  const { openCreate, selectedDate, updateBooking, preview } = useAgendaStore()
 
   const START_HOUR = workingHours?.open ? Math.max(0,  Math.floor(toMinutes(workingHours.startTime)/60) - 1) : DEFAULT_START
   const END_HOUR   = workingHours?.open ? Math.min(24, Math.floor(toMinutes(workingHours.endTime)  /60) + 1) : DEFAULT_END
@@ -245,6 +246,13 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
   const profBookings = unique.filter(b=>b.professionalId===activeProfId)
   const profBlocks   = blocks.filter(bl=>bl.professionalId===activeProfId)
   const layout       = computeOverlapLayout(profBookings)
+
+  // Scroll para o preview quando muda horário no checkout
+  useEffect(() => {
+    if (!preview?.active || !vScrollRef.current) return
+    const targetY = Math.max(0, (toMinutes(preview.time) - START_MIN - 60) * PX_PER_MIN)
+    vScrollRef.current.scrollTo({ top: targetY, behavior: 'smooth' })
+  }, [preview?.time, preview?.active, START_MIN])
 
   useEffect(() => {
     if (!vScrollRef.current) return
@@ -597,6 +605,24 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
                   background:'repeating-linear-gradient(-45deg,rgba(0,0,0,0.03) 0px,rgba(0,0,0,0.03) 4px,transparent 4px,transparent 10px)',
                   borderTop:`1px solid rgba(0,0,0,0.06)`,
                 }}/>
+              )
+            })()}
+
+            {/* Ghost preview do checkout */}
+            {preview?.active && preview.professionalId===activeProfId && (() => {
+              const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
+              if (preview.date!==dateStr) return null
+              const sMin=toMinutes(preview.time)
+              if (sMin<START_MIN||sMin>=END_HOUR*60) return null
+              const top=(sMin-START_MIN)*PX_PER_MIN
+              const h=Math.max(preview.duration*PX_PER_MIN-2,MIN_CARD_H)
+              return (
+                <div key="preview" style={{position:'absolute',top,left:4,right:4,height:h,zIndex:9,pointerEvents:'none',opacity:0.65,filter:'drop-shadow(0 4px 12px rgba(220,38,38,0.25))'}}>
+                  <div style={{width:'100%',height:'100%',borderRadius:10,background:colors.red.gradient,border:'2px dashed rgba(255,255,255,0.6)',display:'flex',flexDirection:'column',justifyContent:'center',padding:'4px 10px',boxSizing:'border-box',overflow:'hidden'}}>
+                    <div style={{color:'#fff',fontSize:11,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{preview.time}</div>
+                    {preview.serviceName&&h>30&&<div style={{color:'rgba(255,255,255,0.85)',fontSize:11,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{preview.serviceName}</div>}
+                  </div>
+                </div>
               )
             })()}
 

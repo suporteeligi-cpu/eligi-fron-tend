@@ -12,6 +12,7 @@ import api from '@/shared/lib/apiClient'
 import { AgendaProfessional } from '@/features/agenda/types'
 import { colors, glass, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -48,7 +49,7 @@ function generateTimeSlots(): string[] {
   return s
 }
 const TIME_SLOTS = generateTimeSlots()
-const ITEM_H = 40, VISIBLE = 5
+const ITEM_H = 36, VISIBLE = 3
 
 function addMinutes(time: string, min: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -446,6 +447,7 @@ function CreateClientSheet({ onCreated, onClose }: {
 // ─── SideCheckoutPanel ────────────────────────────────────────────────────────
 export default function SideCheckoutPanel({ open, mode, time, professionalId, professionals, selectedDate, onClose, onDateChange }: Props) {
   const isMobile = useIsMobile()
+  const { setPreview, setSelectedDate } = useAgendaStore()
 
   const [tab,           setTab]          = useState<'booking'|'info'>('booking')
   const [selectedClient,setSelectedClient]= useState<Client|null>(null)
@@ -454,6 +456,8 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
 
   // Múltiplos serviços
   const [items, setItems] = useState<ServiceItem[]>([])
+  const firstItem = items[0]
+  const total     = items.reduce((acc, it) => acc + (it.service?.price ?? 0), 0)
 
   // Data
   const [date, setDate] = useState<dayjs.Dayjs>(dayjs(selectedDate))
@@ -493,7 +497,6 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
 
   // Busca serviços
   useEffect(() => {
-    if (!open) return
     setServicesLoad(true)
     api.get('/services').then(res => {
       const data = res.data?.data ?? res.data
@@ -506,8 +509,32 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
     if (open) setDate(dayjs(selectedDate))
   }, [selectedDate, open])
 
+  // ── Preview em tempo real na grade ──────────────────────────────────────────
+  const dateStr2   = date.format('YYYY-MM-DD')
+  const svcId      = firstItem?.service?.id
+  const svcName    = firstItem?.service?.name
+  const svcDur     = firstItem?.service?.duration
+  const startTime  = firstItem?.startTime
+  const profId     = firstItem?.profId
+
+  useEffect(() => {
+    if (!open || !svcId) {
+      setPreview(null)
+      return
+    }
+    setPreview({
+      active:         true,
+      date:           dateStr2,
+      time:           startTime || '09:00',
+      professionalId: profId ?? '',
+      duration:       svcDur ?? 30,
+      serviceName:    svcName,
+    })
+  }, [open, svcId, svcName, svcDur, startTime, profId, dateStr2, setPreview])
+
   function handleDateSelect(d: dayjs.Dayjs) {
     setDate(d)
+    setSelectedDate(d.toDate())   // muda a grade imediatamente
     onDateChange?.(d.toDate())
   }
 
@@ -533,7 +560,6 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
     setItems(prev => {
       const next = [...prev]
       next[idx]  = { ...next[idx], [field]: val }
-      // Se alterou inicio, recalcula fim com base na duração do serviço
       if (field === 'startTime' && next[idx].service) {
         next[idx].endTime = addMinutes(val, next[idx].service.duration)
       }
@@ -542,11 +568,18 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
   }
 
   function removeItem(idx: number) {
-    setItems(prev => prev.filter((_,i)=>i!==idx))
+    setItems(prev => prev.filter((_,i) => i !== idx))
   }
 
-  const total = items.reduce((acc, it) => acc + (it.service?.price ?? 0), 0)
-  const firstItem = items[0]
+  // Busca serviços
+  useEffect(() => {
+    if (!open) return
+    setServicesLoad(true)
+    api.get('/services').then(res => {
+      const data = res.data?.data ?? res.data
+      setServices(Array.isArray(data) ? data : data.services ?? [])
+    }).catch(()=>{}).finally(()=>setServicesLoad(false))
+  }, [open])
 
   async function handleSave() {
     if (!firstItem?.service) { setError('Selecione pelo menos um serviço'); return }
@@ -563,9 +596,9 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
         startAt,
         internalNote:   internalNote || undefined,
         clientMessage:  clientMessage || undefined,
-        // Serviços extras (se backend suportar)
         extraServices:  items.slice(1).map(it=>({serviceId:it.service.id,startAt:dayjs.tz(`${dateStr} ${it.startTime}`,'America/Sao_Paulo').toISOString()})),
       })
+      setPreview(null)
       setSuccess(true)
       setTimeout(() => onClose(), 1400)
     } catch (e: unknown) {

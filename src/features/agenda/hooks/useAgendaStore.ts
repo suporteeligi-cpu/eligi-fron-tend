@@ -13,6 +13,17 @@ interface CheckoutState {
   booking:        AgendaBooking | null
 }
 
+// Preview — ghost na grade enquanto o checkout está aberto
+export interface PreviewState {
+  active:         boolean
+  date:           string        // YYYY-MM-DD
+  time:           string        // HH:mm
+  professionalId: string
+  duration:       number        // minutos
+  serviceName?:   string
+  serviceColor?:  string
+}
+
 interface AgendaStore {
   // ── Data ──
   selectedDate:    Date
@@ -38,6 +49,10 @@ interface AgendaStore {
   openCreate:    (time: string, professionalId: string) => void
   openEdit:      (booking: AgendaBooking) => void
   closeCheckout: () => void
+
+  // ── Preview (ghost na grade) ──
+  preview:       PreviewState | null
+  setPreview:    (p: PreviewState | null) => void
 }
 
 const CHECKOUT_CLOSED: CheckoutState = {
@@ -76,7 +91,10 @@ export const useAgendaStore = create<AgendaStore>()(
 
       removeBooking: (date, id) =>
         set(s => ({
-          bookingsByDate: { ...s.bookingsByDate, [date]: (s.bookingsByDate[date] ?? []).filter(b => b.id !== id) }
+          bookingsByDate: {
+            ...s.bookingsByDate,
+            [date]: (s.bookingsByDate[date] ?? []).filter(b => b.id !== id),
+          },
         })),
 
       // ── Blocks ──
@@ -96,7 +114,10 @@ export const useAgendaStore = create<AgendaStore>()(
 
       removeBlock: (date, id) =>
         set(s => ({
-          blocksByDate: { ...s.blocksByDate, [date]: (s.blocksByDate[date] ?? []).filter(b => b.id !== id) }
+          blocksByDate: {
+            ...s.blocksByDate,
+            [date]: (s.blocksByDate[date] ?? []).filter(b => b.id !== id),
+          },
         })),
 
       // ── Checkout ──
@@ -106,9 +127,20 @@ export const useAgendaStore = create<AgendaStore>()(
         set({ checkout: { open: true, mode: 'create', time, professionalId, booking: null } }),
 
       openEdit: (booking) =>
-        set({ checkout: { open: true, mode: 'edit', time: booking.start, professionalId: booking.professionalId, booking } }),
+        set({
+          checkout: {
+            open: true, mode: 'edit',
+            time: booking.start,
+            professionalId: booking.professionalId,
+            booking,
+          },
+        }),
 
-      closeCheckout: () => set({ checkout: CHECKOUT_CLOSED }),
+      closeCheckout: () => set({ checkout: CHECKOUT_CLOSED, preview: null }),
+
+      // ── Preview ──
+      preview: null,
+      setPreview: (p) => set({ preview: p }),
     }),
     {
       name:    'eligi-agenda',
