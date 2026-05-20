@@ -496,8 +496,9 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
     }
   }, [open, mode, time, professionalId, professionals, selectedDate])
 
-  // Busca serviços
+  // Busca serviços ao abrir
   useEffect(() => {
+    if (!open) return
     setServicesLoad(true)
     api.get('/services').then(res => {
       const data = res.data?.data ?? res.data
@@ -590,33 +591,29 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
     setItems(prev => prev.filter((_,i) => i !== idx))
   }
 
-  // Busca serviços
-  useEffect(() => {
-    if (!open) return
-    setServicesLoad(true)
-    api.get('/services').then(res => {
-      const data = res.data?.data ?? res.data
-      setServices(Array.isArray(data) ? data : data.services ?? [])
-    }).catch(()=>{}).finally(()=>setServicesLoad(false))
-  }, [open])
-
   async function handleSave() {
     if (!firstItem?.service) { setError('Selecione pelo menos um serviço'); return }
+    const invalidExtra = items.slice(1).find(it => !it.service)
+    if (invalidExtra) { setError('Selecione o serviço de todos os itens adicionados'); return }
+
     try {
       setSaving(true); setError(null)
       const dateStr = date.format('YYYY-MM-DD')
-      const startAt = dayjs.tz(`${dateStr} ${firstItem.startTime}`, 'America/Sao_Paulo').toISOString()
 
-      await api.post('/bookings/confirm', {
-        clientName:     selectedClient?.name ?? 'Chegada',
-        clientPhone:    selectedClient?.phone ?? '',
-        professionalId: firstItem.profId,
-        serviceId:      firstItem.service.id,
-        startAt,
-        internalNote:   internalNote || undefined,
-        clientMessage:  clientMessage || undefined,
-        extraServices:  items.slice(1).map(it=>({serviceId:it.service.id,startAt:dayjs.tz(`${dateStr} ${it.startTime}`,'America/Sao_Paulo').toISOString()})),
-      })
+      // Salva cada serviço como um booking separado
+      await Promise.all(items.map(it => {
+        const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
+        return api.post('/bookings/confirm', {
+          clientName:     selectedClient?.name ?? 'Chegada',
+          clientPhone:    selectedClient?.phone ?? '',
+          professionalId: it.profId,
+          serviceId:      it.service.id,
+          startAt,
+          internalNote:   internalNote || undefined,
+          clientMessage:  clientMessage || undefined,
+        })
+      }))
+
       setPreview(null)
       setSuccess(true)
       setTimeout(() => onClose(), 1400)
