@@ -464,7 +464,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
   const [showDatePicker,setShowDatePicker] = useState(false)
 
   const [showSvcSheet,  setShowSvcSheet]   = useState(false)
-  const [addingSvcIdx,  setAddingSvcIdx]   = useState<number|null>(null) // null = novo, index = editar
+  const [addingSvcIdx,  setAddingSvcIdx]   = useState<number>(-1) // -1 = novo, >= 0 = editar índice
   const [showClientSheet,setShowClientSheet]= useState(false)
   const [showCreateClient,setShowCreateClient]= useState(false)
 
@@ -489,6 +489,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
 
     setDate(initDate)
     setSelectedClient(null)
+    setAddingSvcIdx(-1)
 
     if (mode === 'create') {
       setItems([{ service: null as unknown as Service, startTime: initTime, endTime: '', profId: initProf }])
@@ -547,10 +548,12 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
     setItems(prev => {
       const next = [...prev]
 
-      if (addingSvcIdx === null) {
-        // Adicionar novo serviço — inicia no endTime do último
+      if (addingSvcIdx === -1) {
+        // ── Novo serviço no final ─────────────────────────────────────────
         const last   = next[next.length - 1]
-        const startT = last?.endTime || last?.startTime || time || '09:00'
+        const startT = (last?.endTime && last.endTime !== '')
+          ? last.endTime
+          : (last?.startTime || time || '09:00')
         const endT   = addMinutes(startT, svc.duration)
         next.push({
           service:   svc,
@@ -559,17 +562,17 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
           profId:    next[0]?.profId ?? professionals[0]?.id ?? '',
         })
       } else {
-        // Editar serviço existente — mantém o startTime, recalcula endTime
+        // ── Editar serviço existente ──────────────────────────────────────
         const idx    = addingSvcIdx
         const startT = idx === 0
           ? (next[0]?.startTime || time || '09:00')
-          : next[idx-1]?.endTime || next[idx-1]?.startTime || '09:00'
-        const endT = addMinutes(startT, svc.duration)
+          : (next[idx-1]?.endTime || next[idx-1]?.startTime || '09:00')
+        const endT   = addMinutes(startT, svc.duration)
         next[idx] = { ...next[idx], service: svc, startTime: startT, endTime: endT }
       }
       return next
     })
-    setAddingSvcIdx(null)
+    setAddingSvcIdx(-1)
   }
 
   function updateItemTime(idx: number, field: 'startTime'|'endTime', val: string) {
@@ -672,7 +675,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
 
       {showSvcSheet && (
         <ServiceSheet
-          services={services} selected={items[addingSvcIdx??0]?.service ?? null}
+          services={services} selected={addingSvcIdx >= 0 ? (items[addingSvcIdx]?.service ?? null) : null}
           loading={servicesLoad}
           onSelect={handleServiceSelect}
           onClose={()=>setShowSvcSheet(false)}
@@ -820,7 +823,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
               ))}
 
               {/* Adicionar outro serviço */}
-              <button className="add-svc-btn" onClick={()=>{setAddingSvcIdx(null);setShowSvcSheet(true)}}>
+              <button className="add-svc-btn" onClick={()=>{setAddingSvcIdx(-1);setShowSvcSheet(true)}}>
                 <Plus size={15} strokeWidth={2}/> Adicionar outro serviço
               </button>
 
