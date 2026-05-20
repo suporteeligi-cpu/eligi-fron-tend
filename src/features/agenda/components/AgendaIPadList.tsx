@@ -43,6 +43,7 @@ function buildSlots(startHour: number, endHour: number): string[] {
 function toMinutes(t: string) { const [h,m]=t.split(':').map(Number); return h*60+m }
 function minutesToTime(min: number) { return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'00')}` }
 function snapToSlot(min: number) { return Math.round(min/SLOT_STEP)*SLOT_STEP }
+function addMin(t: string, min: number): string { const [h,m]=t.split(':').map(Number); const tot=h*60+m+min; return `${String(Math.floor(tot/60)).padStart(2,'0')}:${String(tot%60).padStart(2,'00')}` }
 
 function useCurrentTimeY(startMin: number) {
   const [y, setY] = useState(-1)
@@ -543,21 +544,28 @@ export default function AgendaIPadList({ professionals, bookings, blocks, workin
                 })}
 
                 {/* Ghost preview */}
-                {preview?.active && preview.professionalId===p.id && (() => {
+                {preview?.active && (() => {
                   const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
-                  if (preview.date!==dateStr) return null
-                  const sMin=toMinutes(preview.time)
-                  if (sMin<START_MIN||sMin>=END_HOUR*60) return null
-                  const top=(sMin-START_MIN)*PX_PER_MIN
-                  const h=Math.max(preview.duration*PX_PER_MIN-2,MIN_CARD_H)
-                  return (
-                    <div key="preview" style={{position:'absolute',top,left:3,right:3,height:h,zIndex:9,pointerEvents:'none',opacity:0.65}}>
-                      <div style={{width:'100%',height:'100%',borderRadius:7,background:colors.red.gradient,border:'2px dashed rgba(255,255,255,0.6)',display:'flex',flexDirection:'column',justifyContent:'center',padding:'4px 8px',boxSizing:'border-box',overflow:'hidden'}}>
-                        <div style={{color:'#fff',fontSize:10,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{preview.time}</div>
-                        {preview.serviceName&&h>28&&<div style={{color:'rgba(255,255,255,0.85)',fontSize:10,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{preview.serviceName}</div>}
+                  if (preview.date !== dateStr) return null
+                  const previewItems = preview.allItems?.length
+                    ? preview.allItems.filter(it => it.profId === p.id)
+                    : preview.professionalId === p.id
+                      ? [{ startTime: preview.time, endTime: addMin(preview.time, preview.duration), duration: preview.duration, serviceName: preview.serviceName ?? '', profId: p.id }]
+                      : []
+                  return previewItems.map((it, gi) => {
+                    const sMin = toMinutes(it.startTime)
+                    if (sMin < START_MIN || sMin >= END_HOUR*60) return null
+                    const top = (sMin - START_MIN) * PX_PER_MIN
+                    const h   = Math.max(it.duration * PX_PER_MIN - 2, MIN_CARD_H)
+                    return (
+                      <div key={`preview-${gi}`} style={{position:'absolute',top,left:3,right:3,height:h,zIndex:9,pointerEvents:'none',opacity:0.70,filter:'drop-shadow(0 4px 12px rgba(220,38,38,0.25))'}}>
+                        <div style={{width:'100%',height:'100%',borderRadius:7,background:colors.red.gradient,border:'2px dashed rgba(255,255,255,0.55)',display:'flex',flexDirection:'column',justifyContent:'center',padding:'4px 8px',boxSizing:'border-box',overflow:'hidden'}}>
+                          <div style={{color:'#fff',fontSize:10,fontWeight:800,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap'}}>{it.startTime}–{it.endTime}</div>
+                          {it.serviceName && h > 28 && <div style={{color:'rgba(255,255,255,0.85)',fontSize:10,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{it.serviceName}</div>}
+                        </div>
                       </div>
-                    </div>
-                  )
+                    )
+                  })
                 })()}
 
                 {/* Hora atual */}

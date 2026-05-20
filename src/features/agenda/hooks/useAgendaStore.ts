@@ -22,6 +22,13 @@ export interface PreviewState {
   duration:       number        // minutos
   serviceName?:   string
   serviceColor?:  string
+  allItems?:      Array<{
+    startTime:   string
+    endTime:     string
+    duration:    number
+    serviceName: string
+    profId:      string
+  }>
 }
 
 interface AgendaStore {

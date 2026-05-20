@@ -510,27 +510,32 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
   }, [selectedDate, open])
 
   // ── Preview em tempo real na grade ──────────────────────────────────────────
-  const dateStr2   = date.format('YYYY-MM-DD')
-  const svcId      = firstItem?.service?.id
-  const svcName    = firstItem?.service?.name
-  const svcDur     = firstItem?.service?.duration
-  const startTime  = firstItem?.startTime
-  const profId     = firstItem?.profId
+  const dateStr2 = date.format('YYYY-MM-DD')
 
   useEffect(() => {
-    if (!open || !svcId) {
+    if (!open || !items.length || !items[0]?.service) {
       setPreview(null)
       return
     }
+    // Usa o primeiro item como âncora — a grade renderiza todos via items
+    const first = items[0]
     setPreview({
       active:         true,
       date:           dateStr2,
-      time:           startTime || '09:00',
-      professionalId: profId ?? '',
-      duration:       svcDur ?? 30,
-      serviceName:    svcName,
+      time:           first.startTime || '09:00',
+      professionalId: first.profId,
+      duration:       first.service?.duration ?? 30,
+      serviceName:    first.service?.name,
+      // Passa todos os itens para múltiplos ghosts
+      allItems:       items.map(it => ({
+        startTime:   it.startTime,
+        endTime:     it.endTime,
+        duration:    it.service?.duration ?? 30,
+        serviceName: it.service?.name ?? '',
+        profId:      it.profId,
+      })),
     })
-  }, [open, svcId, svcName, svcDur, startTime, profId, dateStr2, setPreview])
+  }, [open, dateStr2, items, setPreview])
 
   function handleDateSelect(d: dayjs.Dayjs) {
     setDate(d)
@@ -541,15 +546,26 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
   function handleServiceSelect(svc: Service) {
     setItems(prev => {
       const next = [...prev]
-      const idx  = addingSvcIdx ?? 0
-      const startT = idx === 0 ? (next[0]?.startTime ?? time ?? '09:00')
-        : next[idx-1]?.endTime ?? next[idx-1]?.startTime ?? '09:00'
-      const endT = addMinutes(startT, svc.duration)
+
       if (addingSvcIdx === null) {
-        // Adicionar novo
-        next.push({ service: svc, startTime: startT, endTime: endT, profId: next[0]?.profId ?? professionals[0]?.id ?? '' })
+        // Adicionar novo serviço — inicia no endTime do último
+        const last   = next[next.length - 1]
+        const startT = last?.endTime || last?.startTime || time || '09:00'
+        const endT   = addMinutes(startT, svc.duration)
+        next.push({
+          service:   svc,
+          startTime: startT,
+          endTime:   endT,
+          profId:    next[0]?.profId ?? professionals[0]?.id ?? '',
+        })
       } else {
-        next[idx] = { ...next[idx], service: svc, endTime: endT }
+        // Editar serviço existente — mantém o startTime, recalcula endTime
+        const idx    = addingSvcIdx
+        const startT = idx === 0
+          ? (next[0]?.startTime || time || '09:00')
+          : next[idx-1]?.endTime || next[idx-1]?.startTime || '09:00'
+        const endT = addMinutes(startT, svc.duration)
+        next[idx] = { ...next[idx], service: svc, startTime: startT, endTime: endT }
       }
       return next
     })
