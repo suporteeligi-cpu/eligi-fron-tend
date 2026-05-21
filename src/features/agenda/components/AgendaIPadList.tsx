@@ -557,11 +557,26 @@ export default function AgendaIPadList({ professionals, bookings, blocks, workin
                     if (sMin < START_MIN || sMin >= END_HOUR*60) return null
                     const top = (sMin - START_MIN) * PX_PER_MIN
                     const h   = Math.max(it.duration * PX_PER_MIN - 2, MIN_CARD_H)
+                    const isInline = h < 48
+                    const clientName = (it as {clientName?:string}).clientName ?? 'Avulso'
                     return (
-                      <div key={`preview-${gi}`} style={{position:'absolute',top,left:3,right:3,height:h,zIndex:9,pointerEvents:'none',opacity:0.70,filter:'drop-shadow(0 4px 12px rgba(220,38,38,0.25))'}}>
-                        <div style={{width:'100%',height:'100%',borderRadius:7,background:colors.red.gradient,border:'2px dashed rgba(255,255,255,0.55)',display:'flex',flexDirection:'column',justifyContent:'center',padding:'4px 8px',boxSizing:'border-box',overflow:'hidden'}}>
-                          <div style={{color:'#fff',fontSize:10,fontWeight:800,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap'}}>{it.startTime}–{it.endTime}</div>
-                          {it.serviceName && h > 28 && <div style={{color:'rgba(255,255,255,0.85)',fontSize:10,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{it.serviceName}</div>}
+                      <div key={`preview-${gi}`} style={{position:'absolute',top,left:3,right:3,height:h,zIndex:9,pointerEvents:'none',opacity:0.82,filter:'drop-shadow(0 4px 12px rgba(220,38,38,0.28))'}}>
+                        <div style={{width:'100%',height:'100%',borderRadius:7,background:colors.red.gradient,border:'2px dashed rgba(255,255,255,0.55)',boxSizing:'border-box',position:'relative',overflow:'hidden',display:'flex',flexDirection:'column',justifyContent:'center',padding:isInline?'0 8px 0 11px':'4px 8px 4px 11px'}}>
+                          <div aria-hidden style={{position:'absolute',left:0,top:0,bottom:0,width:4,background:'rgba(255,255,255,0.42)',borderRadius:'7px 0 0 7px'}}/>
+                          {isInline ? (
+                            <div style={{display:'flex',alignItems:'center',gap:4,overflow:'hidden',width:'100%',lineHeight:1}}>
+                              <span style={{fontSize:10,fontWeight:800,color:'#fff',opacity:0.90,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0}}>{it.startTime}–{it.endTime}</span>
+                              <span style={{color:'rgba(255,255,255,0.45)',fontSize:8,flexShrink:0}}>·</span>
+                              <span style={{fontSize:11,fontWeight:800,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flexShrink:1,minWidth:0}}>{clientName}</span>
+                              {it.serviceName&&<><span style={{color:'rgba(255,255,255,0.45)',fontSize:8,flexShrink:0}}>·</span><span style={{fontSize:10,fontWeight:600,color:'rgba(255,255,255,0.88)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flexShrink:2,minWidth:0}}>{it.serviceName}</span></>}
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{color:'rgba(255,255,255,0.78)',fontSize:9,fontWeight:700,fontVariantNumeric:'tabular-nums',lineHeight:1,marginBottom:2}}>{it.startTime}–{it.endTime}</div>
+                              <div style={{color:'#fff',fontSize:12,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.2}}>{clientName}</div>
+                              {it.serviceName&&<div style={{color:'rgba(255,255,255,0.82)',fontSize:10,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1}}>{it.serviceName}</div>}
+                            </>
+                          )}
                         </div>
                       </div>
                     )

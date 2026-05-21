@@ -16,18 +16,20 @@ interface CheckoutState {
 // Preview — ghost na grade enquanto o checkout está aberto
 export interface PreviewState {
   active:         boolean
-  date:           string        // YYYY-MM-DD
-  time:           string        // HH:mm
+  date:           string
+  time:           string
   professionalId: string
-  duration:       number        // minutos
+  duration:       number
   serviceName?:   string
   serviceColor?:  string
+  clientName?:    string   // nome do cliente ou 'Avulso'
   allItems?:      Array<{
     startTime:   string
     endTime:     string
     duration:    number
     serviceName: string
     profId:      string
+    clientName?: string
   }>
 }
 

@@ -18,6 +18,42 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 dayjs.locale('pt-br')
 
+// ─── Modal de confirmação padrão eligi ────────────────────────────────────────
+function ConfirmModal({ title, confirmLabel, onConfirm, onCancel, isMobile }: {
+  title:string; confirmLabel:string; onConfirm:()=>void; onCancel:()=>void; isMobile:boolean
+}) {
+  const content = isMobile ? (
+    <>
+      <div onClick={onCancel} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.32)',backdropFilter:'blur(8px)',zIndex:10998}}/>
+      <div style={{position:'fixed',bottom:0,left:0,right:0,background:'rgba(255,255,255,0.99)',borderRadius:'24px 24px 0 0',boxShadow:'0 -8px 40px rgba(0,0,0,0.15)',zIndex:10999,padding:`28px 24px max(36px,env(safe-area-inset-bottom))`,textAlign:'center',fontFamily:typography.fontFamily,animation:'cmUp 0.28s cubic-bezier(0.34,1.2,0.64,1)'}}>
+        <style>{`@keyframes cmUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+        <div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)',margin:'0 auto 24px'}}/>
+        <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(145deg,#ef4444,#dc2626,#b91c1c)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px',boxShadow:'0 6px 18px rgba(220,38,38,0.30)'}}>
+          <span style={{color:'#fff',fontWeight:800,fontSize:20,letterSpacing:'-0.04em'}}>e</span>
+        </div>
+        <h3 style={{margin:'0 0 22px',fontSize:17,fontWeight:700,color:'#0f0f14',lineHeight:1.3,whiteSpace:'pre-line'}}>{title}</h3>
+        <button onClick={onConfirm} style={{width:'100%',padding:'15px',marginBottom:10,background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',border:'none',borderRadius:13,fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'0.04em',textTransform:'uppercase' as const,boxShadow:'0 4px 16px rgba(220,38,38,0.28)'}}>{confirmLabel}</button>
+        <button onClick={onCancel} style={{width:'100%',padding:'14px',background:'transparent',border:'1px solid rgba(0,0,0,0.08)',borderRadius:13,fontSize:14,cursor:'pointer',color:'rgba(0,0,0,0.45)',fontWeight:500}}>Voltar</button>
+      </div>
+    </>
+  ) : (
+    <>
+      <div onClick={onCancel} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.28)',backdropFilter:'blur(8px)',zIndex:10998}}/>
+      <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:340,maxWidth:'88vw',background:'rgba(255,255,255,0.98)',borderRadius:22,boxShadow:'0 32px 72px rgba(0,0,0,0.18)',zIndex:10999,padding:'32px 24px 22px',fontFamily:typography.fontFamily,textAlign:'center',animation:'cmIn 0.22s cubic-bezier(0.34,1.56,0.64,1)'}}>
+        <style>{`@keyframes cmIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}`}</style>
+        <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(145deg,#ef4444,#dc2626,#b91c1c)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px',boxShadow:'0 6px 18px rgba(220,38,38,0.30)'}}>
+          <span style={{color:'#fff',fontWeight:800,fontSize:20,letterSpacing:'-0.04em'}}>e</span>
+        </div>
+        <h3 style={{margin:'0 0 24px',fontSize:18,fontWeight:700,color:'#0f0f14',lineHeight:1.3,letterSpacing:'-0.02em',whiteSpace:'pre-line'}}>{title}</h3>
+        <button onClick={onConfirm} style={{width:'100%',padding:'14px',marginBottom:10,background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',border:'none',borderRadius:13,fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'0.04em',textTransform:'uppercase' as const,boxShadow:'0 4px 16px rgba(220,38,38,0.28)'}}>{confirmLabel}</button>
+        <button onClick={onCancel} style={{width:'100%',padding:'13px',background:'transparent',border:'1px solid rgba(0,0,0,0.08)',borderRadius:13,fontSize:14,cursor:'pointer',color:'rgba(0,0,0,0.45)',fontWeight:500}}>Voltar</button>
+      </div>
+    </>
+  )
+  if (typeof document==='undefined') return null
+  return createPortal(content, document.body)
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Service = { id: string; name: string; duration: number; price?: number }
 type Client  = { id: string; name: string; phone: string }
@@ -475,12 +511,13 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
   const [saving,  setSaving]  = useState(false)
   const [success, setSuccess] = useState(false)
   const [error,   setError]   = useState<string|null>(null)
+  const [pendingOverlap, setPendingOverlap] = useState(false)
 
   // Reset ao abrir
   useEffect(() => {
     if (!open) return
     setTab('booking')
-    setSuccess(false); setError(null)
+    setSuccess(false); setError(null); setPendingOverlap(false)
     setInternalNote(''); setClientMessage('')
 
     const initTime  = time ?? '09:00'
@@ -512,15 +549,16 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
   }, [selectedDate, open])
 
   // ── Preview em tempo real na grade ──────────────────────────────────────────
-  const dateStr2 = date.format('YYYY-MM-DD')
+  const dateStr2    = date.format('YYYY-MM-DD')
+  const clientLabel = selectedClient?.name ?? 'Avulso'
 
   useEffect(() => {
     if (!open || !items.length || !items[0]?.service) {
       setPreview(null)
       return
     }
-    // Usa o primeiro item como âncora — a grade renderiza todos via items
-    const first = items[0]
+    const first      = items[0]
+    const validItems = items.filter(it => it.service)
     setPreview({
       active:         true,
       date:           dateStr2,
@@ -528,16 +566,17 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
       professionalId: first.profId,
       duration:       first.service?.duration ?? 30,
       serviceName:    first.service?.name,
-      // Passa todos os itens para múltiplos ghosts
-      allItems:       items.map(it => ({
+      clientName:     clientLabel,
+      allItems:       validItems.map(it => ({
         startTime:   it.startTime,
         endTime:     it.endTime,
         duration:    it.service?.duration ?? 30,
         serviceName: it.service?.name ?? '',
         profId:      it.profId,
+        clientName:  clientLabel,
       })),
     })
-  }, [open, dateStr2, items, setPreview])
+  }, [open, dateStr2, items, clientLabel, setPreview])
 
   function handleDateSelect(d: dayjs.Dayjs) {
     setDate(d)
@@ -591,16 +630,15 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
     setItems(prev => prev.filter((_,i) => i !== idx))
   }
 
-  async function handleSave() {
+  async function handleSave(allowOverlap = false) {
     if (!firstItem?.service) { setError('Selecione pelo menos um serviço'); return }
     const invalidExtra = items.slice(1).find(it => !it.service)
-    if (invalidExtra) { setError('Selecione o serviço de todos os itens adicionados'); return }
+    if (invalidExtra) { setError('Selecione o serviço de todos os itens'); return }
 
     try {
       setSaving(true); setError(null)
       const dateStr = date.format('YYYY-MM-DD')
 
-      // Salva cada serviço como um booking separado
       await Promise.all(items.map(it => {
         const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
         return api.post('/bookings/confirm', {
@@ -609,6 +647,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
           professionalId: it.profId,
           serviceId:      it.service.id,
           startAt,
+          allowOverlap,
           internalNote:   internalNote || undefined,
           clientMessage:  clientMessage || undefined,
         })
@@ -616,10 +655,18 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
 
       setPreview(null)
       setSuccess(true)
+      setPendingOverlap(false)
       setTimeout(() => onClose(), 1400)
     } catch (e: unknown) {
-      const msg = (e as {response?:{data?:{error?:string}}})?.response?.data?.error
-      setError(msg ?? 'Erro ao salvar agendamento')
+      const status = (e as {response?:{status?:number}})?.response?.status
+      const code   = (e as {response?:{data?:{code?:string}}})?.response?.data?.code
+      if (status === 409 || code === 'BOOKING_CONFLICT') {
+        // Mostra modal de sobreposição em vez de erro
+        setPendingOverlap(true)
+      } else {
+        const msg = (e as {response?:{data?:{error?:string}}})?.response?.data?.error
+        setError(msg ?? 'Erro ao salvar agendamento')
+      }
     } finally { setSaving(false) }
   }
 
@@ -697,6 +744,16 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
           date={date}
           onSelect={handleDateSelect}
           onClose={()=>setShowDatePicker(false)}
+          isMobile={isMobile}
+        />
+      )}
+
+      {pendingOverlap && (
+        <ConfirmModal
+          title={'Já existe um agendamento\nnesse horário. Confirmar mesmo assim?'}
+          confirmLabel="Confirmar sobreposição"
+          onConfirm={() => { setPendingOverlap(false); handleSave(true) }}
+          onCancel={() => setPendingOverlap(false)}
           isMobile={isMobile}
         />
       )}
@@ -857,7 +914,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
           </div>
           <div style={{display:'flex',gap:8}}>
             <button className="cp-discard" onClick={onClose}>DESCARTAR</button>
-            <button className="cp-save" disabled={isDisabled} onClick={handleSave} style={{background:success?'linear-gradient(135deg,#16a34a,#15803d)':isDisabled?undefined:colors.red.gradient,boxShadow:success?'0 4px 14px rgba(22,163,74,0.28)':isDisabled?'none':shadows.redMd}}>
+            <button className="cp-save" disabled={isDisabled} onClick={()=>handleSave(false)} style={{background:success?'linear-gradient(135deg,#16a34a,#15803d)':isDisabled?undefined:colors.red.gradient,boxShadow:success?'0 4px 14px rgba(22,163,74,0.28)':isDisabled?'none':shadows.redMd}}>
               {success?'✓ CONFIRMADO':saving?'SALVANDO...':'SALVAR'}
             </button>
           </div>

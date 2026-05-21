@@ -98,59 +98,87 @@ function ConfirmModal({ title, confirmLabel, onConfirm, onCancel }: {
 }
 
 // ─── Booking Card ─────────────────────────────────────────────────────────────
-// Mobile: PX_PER_MIN = ROW_H/30 = 56/30 ≈ 1.87px/min
-// 5min ≈ 9px, 10min ≈ 19px, 15min ≈ 28px, 30min ≈ 56px
+// Mobile/iPad: PX_PER_MIN ≈ 1.87 → 20min ≈ 37px
+// ≤ 13px  : só horário início (micro)
+// ≤ 37px  : horário · Nome · Serviço inline (compact ≤ 20min)
+// < 56px  : horário + nome · serviço (normal)
+// ≥ 56px  : layout completo com horários no rodapé
 function MobileBookingCard({ booking, height, isDragging }: { booking:AgendaBooking; height:number; isDragging?:boolean }) {
   const statusTheme = STATUS_CFG[booking.status] ?? STATUS_CFG.CONFIRMED
   const gradient    = booking.serviceColor ? colorToGradient(booking.serviceColor) : statusTheme.gradient
   const glow        = booking.serviceColor ? colorToGlow(booking.serviceColor)     : statusTheme.glow
 
-  const isMicro     = height <= 16   // só horário início
-  const isTiny      = height <= 30 && height > 16  // horário + nome linha única
-  const showService = height >= 52
-  const showTime    = height >= 68
-  const dur         = toMinutes(booking.end) - toMinutes(booking.start)
+  const isMicro   = height <= 13
+  const isCompact = height > 13 && height <= 37   // ≤ 20min
+  const isNormal  = height > 37 && height < 56
+  const showTime  = height >= 68
+  const dur       = toMinutes(booking.end) - toMinutes(booking.start)
 
   return (
     <div style={{
-      width:'100%', height:'100%', borderRadius:10,
-      background:gradient,
-      padding: isMicro ? '0 6px 0 8px' : isTiny ? '0 8px 0 10px' : '6px 8px 6px 10px',
+      width:'100%', height:'100%', borderRadius:10, background:gradient,
+      padding: isMicro ? '0 6px' : isCompact ? '0 8px 0 10px' : '5px 8px 5px 10px',
       display:'flex', flexDirection:'column',
-      justifyContent:(isMicro||isTiny)?'center':'flex-start',
-      gap:2, overflow:'hidden', boxSizing:'border-box',
+      justifyContent:(isMicro||isCompact)?'center':'flex-start',
+      gap:1, overflow:'hidden', boxSizing:'border-box',
       boxShadow:isDragging?`0 12px 32px ${glow}`:`0 3px 12px ${glow}`,
       border:'1px solid rgba(255,255,255,0.18)',
       position:'relative', userSelect:'none',
       transform:isDragging?'scale(1.04)':'scale(1)',
     }}>
       <div style={{position:'absolute',top:0,left:0,right:0,height:'40%',background:'linear-gradient(180deg,rgba(255,255,255,0.16) 0%,transparent 100%)',borderRadius:'10px 10px 0 0',pointerEvents:'none'}}/>
-      <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:'rgba(255,255,255,0.45)',borderRadius:'10px 0 0 10px'}}/>
+      {!isMicro&&<div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:'rgba(255,255,255,0.42)',borderRadius:'10px 0 0 10px'}}/>}
 
-      {/* MICRO: só hora início */}
+      {/* MICRO: só horário */}
       {isMicro && (
-        <span style={{fontSize:9,fontWeight:800,color:'#fff',opacity:0.95,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',letterSpacing:'-0.2px'}}>
+        <span style={{fontSize:9,fontWeight:800,color:'#fff',opacity:0.95,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',letterSpacing:'-0.3px',lineHeight:1}}>
           {booking.start}
         </span>
       )}
 
-      {/* TINY: hora + nome */}
-      {isTiny && (
-        <div style={{display:'flex',alignItems:'center',gap:5,overflow:'hidden'}}>
-          <span style={{fontSize:10,fontWeight:800,color:'#fff',opacity:0.95,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0,letterSpacing:'-0.2px'}}>{booking.start}</span>
-          <span style={{fontSize:10,fontWeight:700,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{booking.clientName}</span>
+      {/* COMPACT: ≤ 20min — tudo inline */}
+      {isCompact && (
+        <div style={{display:'flex',alignItems:'center',gap:4,overflow:'hidden',width:'100%',lineHeight:1}}>
+          <span style={{fontSize:10,fontWeight:800,color:'#fff',opacity:0.92,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0,letterSpacing:'-0.2px'}}>
+            {booking.start} - {booking.end}
+          </span>
+          <span style={{color:'rgba(255,255,255,0.50)',fontSize:9,flexShrink:0}}>·</span>
+          <span style={{fontSize:11,fontWeight:800,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',letterSpacing:'-0.15px',flexShrink:1,minWidth:0}}>
+            {booking.clientName}
+          </span>
+          {booking.serviceName && (
+            <>
+              <span style={{color:'rgba(255,255,255,0.50)',fontSize:9,flexShrink:0}}>·</span>
+              <span style={{fontSize:10,fontWeight:600,color:'rgba(255,255,255,0.90)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flexShrink:2,minWidth:0}}>
+                {booking.serviceName}
+              </span>
+            </>
+          )}
         </div>
       )}
 
-      {/* NORMAL */}
-      {!isMicro && !isTiny && (
+      {/* NORMAL: 20-30min */}
+      {isNormal && (
+        <>
+          <div style={{color:'#fff',fontWeight:800,fontSize:10,lineHeight:1,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+            {booking.start}–{booking.end}
+          </div>
+          <div style={{color:'#fff',fontWeight:800,fontSize:12,lineHeight:1.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',letterSpacing:'-0.15px'}}>
+            {booking.clientName}
+            {booking.serviceName&&<span style={{fontWeight:600,opacity:0.82,fontSize:10}}> · {booking.serviceName}</span>}
+          </div>
+        </>
+      )}
+
+      {/* FULL: ≥ 30min */}
+      {!isMicro&&!isCompact&&!isNormal&&(
         <>
           <div style={{color:'#fff',fontWeight:800,fontSize:13,lineHeight:1.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',letterSpacing:'-0.2px'}}>{booking.clientName}</div>
-          {showService && <div style={{color:'rgba(255,255,255,0.88)',fontWeight:600,fontSize:11,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{booking.serviceName}</div>}
-          {showTime && (
+          <div style={{color:'rgba(255,255,255,0.88)',fontWeight:600,fontSize:11,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{booking.serviceName}</div>
+          {showTime&&(
             <div style={{marginTop:'auto',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <span style={{color:'rgba(255,255,255,0.82)',fontSize:11,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{booking.start}–{booking.end}</span>
-              <span style={{color:'rgba(255,255,255,0.62)',fontSize:10,fontWeight:600}}>{dur}min</span>
+              <span style={{color:'rgba(255,255,255,0.80)',fontSize:11,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{booking.start}–{booking.end}</span>
+              <span style={{color:'rgba(255,255,255,0.55)',fontSize:10,fontWeight:600}}>{dur}min</span>
             </div>
           )}
         </>
@@ -622,11 +650,26 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
                 if (sMin < START_MIN || sMin >= END_HOUR*60) return null
                 const top = (sMin - START_MIN) * PX_PER_MIN
                 const h   = Math.max(it.duration * PX_PER_MIN - 2, MIN_CARD_H)
+                const isInline = h < 48
+                const clientName = (it as {clientName?:string}).clientName ?? 'Avulso'
                 return (
-                  <div key={`preview-${gi}`} style={{position:'absolute',top,left:4,right:4,height:h,zIndex:9,pointerEvents:'none',opacity:0.70,filter:'drop-shadow(0 4px 12px rgba(220,38,38,0.25))'}}>
-                    <div style={{width:'100%',height:'100%',borderRadius:10,background:colors.red.gradient,border:'2px dashed rgba(255,255,255,0.55)',display:'flex',flexDirection:'column',justifyContent:'center',padding:'4px 10px',boxSizing:'border-box',overflow:'hidden'}}>
-                      <div style={{color:'#fff',fontSize:11,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{it.startTime}–{it.endTime}</div>
-                      {it.serviceName && h > 30 && <div style={{color:'rgba(255,255,255,0.85)',fontSize:11,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{it.serviceName}</div>}
+                  <div key={`preview-${gi}`} style={{position:'absolute',top,left:4,right:4,height:h,zIndex:9,pointerEvents:'none',opacity:0.82,filter:'drop-shadow(0 4px 12px rgba(220,38,38,0.28))'}}>
+                    <div style={{width:'100%',height:'100%',borderRadius:10,background:colors.red.gradient,border:'2px dashed rgba(255,255,255,0.55)',boxSizing:'border-box',position:'relative',overflow:'hidden',display:'flex',flexDirection:'column',justifyContent:'center',padding:isInline?'0 8px 0 11px':'5px 8px 5px 11px'}}>
+                      <div aria-hidden style={{position:'absolute',left:0,top:0,bottom:0,width:4,background:'rgba(255,255,255,0.42)',borderRadius:'10px 0 0 10px'}}/>
+                      {isInline ? (
+                        <div style={{display:'flex',alignItems:'center',gap:4,overflow:'hidden',width:'100%',lineHeight:1}}>
+                          <span style={{fontSize:10,fontWeight:800,color:'#fff',opacity:0.90,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0}}>{it.startTime}–{it.endTime}</span>
+                          <span style={{color:'rgba(255,255,255,0.45)',fontSize:8,flexShrink:0}}>·</span>
+                          <span style={{fontSize:11,fontWeight:800,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flexShrink:1,minWidth:0}}>{clientName}</span>
+                          {it.serviceName&&<><span style={{color:'rgba(255,255,255,0.45)',fontSize:8,flexShrink:0}}>·</span><span style={{fontSize:10,fontWeight:600,color:'rgba(255,255,255,0.88)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flexShrink:2,minWidth:0}}>{it.serviceName}</span></>}
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{color:'rgba(255,255,255,0.78)',fontSize:9,fontWeight:700,fontVariantNumeric:'tabular-nums',lineHeight:1,marginBottom:2}}>{it.startTime}–{it.endTime}</div>
+                          <div style={{color:'#fff',fontSize:12,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.2}}>{clientName}</div>
+                          {it.serviceName&&<div style={{color:'rgba(255,255,255,0.82)',fontSize:10,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:1}}>{it.serviceName}</div>}
+                        </>
+                      )}
                     </div>
                   </div>
                 )
