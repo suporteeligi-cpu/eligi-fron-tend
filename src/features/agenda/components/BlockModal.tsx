@@ -49,7 +49,7 @@ export default function BlockModal({ professionals, selectedDate, initialTime, i
     if (startTime >= endTime) { setError('Horário de início deve ser antes do fim'); return }
     try {
       setSaving(true); setError(null)
-      const res   = await api.post('/blocks', { professionalId: profId, date: dateStr, startTime, endTime, reason: reason.trim() || null })
+      const res   = await api.post('/blocks', { professionalId: profId, date: dateStr, startTime, endTime, reason: reason.trim() || "Indisponível" })
       const block = res.data?.data ?? res.data
       onCreated(block); onClose()
     } catch (e: unknown) {

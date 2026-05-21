@@ -642,7 +642,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
       await Promise.all(items.map(it => {
         const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
         return api.post('/bookings/confirm', {
-          clientName:     selectedClient?.name ?? 'Chegada',
+          clientName:     selectedClient?.name ?? 'Avulso',
           clientPhone:    selectedClient?.phone ?? '',
           professionalId: it.profId,
           serviceId:      it.service.id,
