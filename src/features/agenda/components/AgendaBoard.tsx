@@ -3,11 +3,12 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import dayjs from 'dayjs'
-import AgendaToolbar    from './AgendaToolbar'
-import AgendaGrid       from './AgendaGrid'
-import AgendaIPadList   from './AgendaIPadList'
-import AgendaMobileList from './AgendaMobileList'
+import AgendaToolbar     from './AgendaToolbar'
+import AgendaGrid        from './AgendaGrid'
+import AgendaIPadList    from './AgendaIPadList'
+import AgendaMobileList  from './AgendaMobileList'
 import SideCheckoutPanel from '@/features/booking/components/SideCheckoutPanel'
+import BookingViewPanel  from '@/features/booking/components/BookingViewPanel'
 import BlockModal        from './BlockModal'
 import { useAgendaStore }  from '../hooks/useAgendaStore'
 import { useAgendaSocket } from '../hooks/useAgendaSocket'
@@ -25,11 +26,10 @@ function detectMode(): DeviceMode {
   return 'mobile'
 }
 
-// Horário de expediente do dia selecionado
 export interface WorkingHours {
   open:      boolean
-  startTime: string   // ex: "10:00"
-  endTime:   string   // ex: "20:00"
+  startTime: string
+  endTime:   string
 }
 
 interface HourSlot {
@@ -54,22 +54,21 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     checkout, closeCheckout,
   } = useAgendaStore()
 
-  const [mode,         setMode]         = useState<DeviceMode>(() => detectMode())
-  const [allHours,     setAllHours]     = useState<HourSlot[]>([])
-  const [blockModal,   setBlockModal]   = useState(false)
-  const [blockInitTime,setBlockInitTime]= useState<string | undefined>()
-  const [blockInitProf,setBlockInitProf]= useState<string | undefined>()
+  const [mode,          setMode]          = useState<DeviceMode>(() => detectMode())
+  const [allHours,      setAllHours]      = useState<HourSlot[]>([])
+  const [blockModal,    setBlockModal]    = useState(false)
+  const [blockInitTime, setBlockInitTime] = useState<string | undefined>()
+  const [blockInitProf, setBlockInitProf] = useState<string | undefined>()
 
   const dateStr  = dayjs(selectedDate).format('YYYY-MM-DD')
   const bookings = getBookingsForDate(dateStr)
   const blocks   = getBlocksForDate(dateStr)
 
-  // Dia da semana do dia selecionado (0=Dom, 1=Seg, ...)
   const weekday     = dayjs(selectedDate).day()
   const todaySlot   = allHours.find(s => s.weekday === weekday)
   const workingHours: WorkingHours = todaySlot
     ? { open: todaySlot.open, startTime: todaySlot.startTime, endTime: todaySlot.endTime }
-    : { open: true, startTime: '08:00', endTime: '20:00' } // fallback
+    : { open: true, startTime: '08:00', endTime: '20:00' }
 
   useEffect(() => { if (externalDate) setSelectedDate(externalDate) }, [externalDate, setSelectedDate])
   useEffect(() => { onDateChange?.(selectedDate) }, [selectedDate, onDateChange])
@@ -80,14 +79,13 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  // Busca horários de funcionamento (uma vez, não muda por data)
   useEffect(() => {
     api.get('/business-hours')
       .then(res => {
         const data = res.data?.data ?? res.data
         if (Array.isArray(data)) setAllHours(data)
       })
-      .catch(() => { /* silencioso — usa fallback */ })
+      .catch(() => {})
   }, [])
 
   const fetchBlocks = useCallback(async () => {
@@ -95,7 +93,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
       const res  = await api.get('/blocks', { params: { date: dateStr } })
       const data = res.data?.data ?? res.data
       setBlocksForDate(dateStr, Array.isArray(data) ? data : [])
-    } catch { /* silencioso */ }
+    } catch {}
   }, [dateStr, setBlocksForDate])
 
   useEffect(() => { fetchBlocks() }, [fetchBlocks])
@@ -126,10 +124,14 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   }
 
   async function handleDeleteBlock(blockId: string) {
-    try { await api.delete(`/blocks/${blockId}`); removeBlock(dateStr, blockId) } catch { /**/ }
+    try { await api.delete(`/blocks/${blockId}`); removeBlock(dateStr, blockId) } catch {}
   }
 
   function handleUpdateBlock(updated: AgendaBlock) { updateBlock(dateStr, updated) }
+
+  // Painel de checkout — view = BookingViewPanel, create/edit = SideCheckoutPanel
+  const isView   = checkout.open && checkout.mode === 'view'
+  const isCreate = checkout.open && (checkout.mode === 'create' || checkout.mode === 'edit')
 
   return (
     <>
@@ -164,13 +166,29 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
         </div>
       </div>
 
-      <SideCheckoutPanel
-        open={checkout.open} mode={checkout.mode}
-        time={checkout.time} professionalId={checkout.professionalId}
-        professionals={professionals}
-        selectedDate={selectedDate} onClose={closeCheckout}
-        onDateChange={date => setSelectedDate(date)}
-      />
+      {/* Painel de visualização de agendamento existente */}
+      {isView && checkout.booking && (
+        <BookingViewPanel
+          booking={checkout.booking}
+          date={selectedDate}
+          open={isView}
+          onClose={closeCheckout}
+        />
+      )}
+
+      {/* Painel de criação/edição de agendamento */}
+      {isCreate && (
+        <SideCheckoutPanel
+          open={isCreate}
+          mode={checkout.mode as 'create' | 'edit'}
+          time={checkout.time}
+          professionalId={checkout.professionalId}
+          professionals={professionals}
+          selectedDate={selectedDate}
+          onClose={closeCheckout}
+          onDateChange={date => setSelectedDate(date)}
+        />
+      )}
 
       {blockModal && (
         <BlockModal

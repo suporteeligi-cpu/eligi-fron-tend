@@ -7,7 +7,7 @@ import { AgendaBooking, AgendaBlock } from '../types'
 
 interface CheckoutState {
   open:           boolean
-  mode:           'create' | 'edit'
+  mode:           'create' | 'edit' | 'view'
   time:           string | null
   professionalId: string | null
   booking:        AgendaBooking | null
@@ -53,10 +53,11 @@ interface AgendaStore {
   removeBlock:      (date: string, id: string) => void
   getBlocksForDate: (date: string) => AgendaBlock[]
 
-  // ── Checkout ──
+  // ── Checkout / View ──
   checkout:      CheckoutState
   openCreate:    (time: string, professionalId: string) => void
   openEdit:      (booking: AgendaBooking) => void
+  openView:      (booking: AgendaBooking) => void
   closeCheckout: () => void
 
   // ── Preview (ghost na grade) ──
@@ -136,14 +137,10 @@ export const useAgendaStore = create<AgendaStore>()(
         set({ checkout: { open: true, mode: 'create', time, professionalId, booking: null } }),
 
       openEdit: (booking) =>
-        set({
-          checkout: {
-            open: true, mode: 'edit',
-            time: booking.start,
-            professionalId: booking.professionalId,
-            booking,
-          },
-        }),
+        set({ checkout: { open: true, mode: 'edit', time: booking.start, professionalId: booking.professionalId, booking } }),
+
+      openView: (booking) =>
+        set({ checkout: { open: true, mode: 'view', time: booking.start, professionalId: booking.professionalId, booking } }),
 
       closeCheckout: () => set({ checkout: CHECKOUT_CLOSED, preview: null }),
 
