@@ -43,14 +43,16 @@ const TIME_OPTS = generateTimeOptions()
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 function Avatar({ name, size=40, url }: { name:string; size?:number; url?:string }) {
+  const isColor = url?.startsWith('color:')
+  const colorBg = isColor ? url!.replace('color:','') : null
   return (
     <div style={{ width:size, height:size, borderRadius:'50%', flexShrink:0,
-      background: url?'transparent':colors.red.gradient,
+      background: colorBg ?? (url && !isColor ? 'transparent' : colors.red.gradient),
       display:'flex', alignItems:'center', justifyContent:'center',
       fontSize:size*0.33, fontWeight:700, color:'#fff',
       boxShadow:`0 3px 10px ${colors.red.glow}`, overflow:'hidden',
     }}>
-      {url
+      {url && !isColor
         // eslint-disable-next-line @next/next/no-img-element
         ? <img src={url} alt={name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
         : getInitials(name)
@@ -86,7 +88,113 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }: {
   )
 }
 
-// ─── Services Picker ──────────────────────────────────────────────────────────
+// ─── Avatar Picker ────────────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  { bg: 'linear-gradient(145deg,#ef4444,#dc2626)', label: 'Vermelho' },
+  { bg: 'linear-gradient(145deg,#3b82f6,#2563eb)', label: 'Azul' },
+  { bg: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', label: 'Roxo' },
+  { bg: 'linear-gradient(145deg,#10b981,#059669)', label: 'Verde' },
+  { bg: 'linear-gradient(145deg,#f59e0b,#d97706)', label: 'Âmbar' },
+  { bg: 'linear-gradient(145deg,#ec4899,#db2777)', label: 'Rosa' },
+  { bg: 'linear-gradient(145deg,#06b6d4,#0891b2)', label: 'Ciano' },
+  { bg: 'linear-gradient(145deg,#64748b,#475569)', label: 'Cinza' },
+]
+
+function AvatarPicker({ name, current, onChange }: {
+  name: string; current?: string; onChange: (url: string|null) => void
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<string|null>(current??null)
+  const [loading, setLoading] = useState(false)
+  const initials = getInitials(name||'?')
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { alert('Imagem muito grande. Máximo 2MB.'); return }
+    setLoading(true)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const b64 = ev.target?.result as string
+      setPreview(b64)
+      onChange(b64)
+      setLoading(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function handleColor(bg: string) {
+    setPreview(null)
+    onChange(null)
+    // Salva a cor como avatarUrl especial
+    onChange(`color:${bg}`)
+  }
+
+  function handleRemove() {
+    setPreview(null)
+    onChange(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const isColor = preview?.startsWith('color:')
+  const colorBg = isColor ? preview!.replace('color:','') : null
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
+      {/* Preview atual */}
+      <div style={{ position:'relative' }}>
+        <div style={{
+          width:80, height:80, borderRadius:'50%',
+          background: colorBg ?? (preview && !isColor ? 'transparent' : colors.red.gradient),
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:28, fontWeight:700, color:'#fff',
+          boxShadow:`0 4px 16px rgba(0,0,0,0.12)`, overflow:'hidden',
+          border:'3px solid rgba(255,255,255,0.9)',
+        }}>
+          {preview && !isColor
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={preview} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+            : initials
+          }
+          {loading && <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'#fff'}}>...</div>}
+        </div>
+        {preview && (
+          <button onClick={handleRemove} style={{position:'absolute',top:-4,right:-4,width:22,height:22,borderRadius:'50%',background:'#fff',border:`1.5px solid ${colors.gray.borderMd}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 2px 6px rgba(0,0,0,0.12)'}}>
+            <X size={11} color={colors.gray.dimText} strokeWidth={2.5}/>
+          </button>
+        )}
+      </div>
+
+      {/* Upload de foto */}
+      <div style={{width:'100%'}}>
+        <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{display:'none'}}/>
+        <button onClick={()=>fileRef.current?.click()} style={{width:'100%',padding:'9px',borderRadius:10,border:`1.5px dashed ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',fontSize:13,fontWeight:600,color:colors.gray[700],display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:`all ${transitions.fast}`}}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor=colors.red.DEFAULT;e.currentTarget.style.color=colors.red.DEFAULT;e.currentTarget.style.background=colors.red.subtle}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=colors.gray.borderMd;e.currentTarget.style.color=colors.gray[700];e.currentTarget.style.background='transparent'}}
+        >
+          <User size={14} strokeWidth={2}/>Enviar foto
+        </button>
+        <div style={{fontSize:11,color:colors.gray.dimText,textAlign:'center',marginTop:5}}>JPG, PNG ou WEBP · máx 2MB</div>
+      </div>
+
+      {/* Cores pré-definidas */}
+      <div style={{width:'100%'}}>
+        <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:8}}>Ou escolha uma cor</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(8,1fr)',gap:6}}>
+          {AVATAR_COLORS.map(c=>{
+            const isSel = preview===`color:${c.bg}`
+            return (
+              <button key={c.bg} onClick={()=>handleColor(c.bg)} title={c.label} style={{width:'100%',aspectRatio:'1',borderRadius:'50%',background:c.bg,border:isSel?`3px solid ${colors.gray[900]}`:'3px solid transparent',cursor:'pointer',transition:`transform ${transitions.fast}, border ${transitions.fast}`,boxShadow:'0 2px 6px rgba(0,0,0,0.15)'}}
+                onMouseEnter={e=>e.currentTarget.style.transform='scale(1.15)'}
+                onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}
+              />
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
 function ServicesPicker({ selected, allServices, onChange }: {
   selected: string[]; allServices: Service[]; onChange:(ids:string[])=>void
 }) {
@@ -192,6 +300,7 @@ function ProfessionalPanel({
   const [showInCalendar,  setShowInCalendar]  = useState(prof.showInCalendar??true)
   const [availableOnline, setAvailableOnline] = useState(prof.availableOnline??true)
   const [selectedSvcs,    setSelectedSvcs]    = useState<string[]>((prof.services??[]).map(ps=>ps.service.id))
+  const [avatarUrl,       setAvatarUrl]       = useState<string|null>(prof.avatarUrl??null)
 
   // Carrega horários ao abrir aba
   useEffect(() => {
@@ -215,6 +324,7 @@ function ProfessionalPanel({
       const res = await api.patch(`/equipe/${prof.id}`, {
         name:name.trim(), phone:phone||null, email:email||null,
         role:role||null, description:description||null,
+        avatarUrl: avatarUrl||null,
         showInCalendar, availableOnline, serviceIds: selectedSvcs,
       })
       const updated = res.data?.data??res.data
@@ -303,8 +413,11 @@ function ProfessionalPanel({
 
           {/* Perfil */}
           <div style={{display:'flex',alignItems:'flex-start',gap:16,marginBottom:16}}>
-            <div style={{position:'relative',flexShrink:0}}>
-              <Avatar name={prof.name} size={64} url={prof.avatarUrl}/>
+            <div style={{flexShrink:0}}>
+              {editing
+                ? <AvatarPicker name={name} current={avatarUrl??undefined} onChange={v=>setAvatarUrl(v)}/>
+                : <Avatar name={prof.name} size={64} url={prof.avatarUrl??undefined}/>
+              }
             </div>
             <div style={{flex:1,minWidth:0}}>
               {editing ? (
@@ -534,7 +647,7 @@ function ProfItem({ prof, selected, onClick }: { prof:Professional; selected:boo
       onMouseEnter={e=>{ if(!selected) e.currentTarget.style.background=colors.gray.hover }}
       onMouseLeave={e=>{ if(!selected) e.currentTarget.style.background='transparent' }}
     >
-      <Avatar name={prof.name} size={42} url={prof.avatarUrl}/>
+      <Avatar name={prof.name} size={42} url={prof.avatarUrl??undefined}/>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:13,fontWeight:700,color:selected?colors.red.DEFAULT:colors.gray[900],whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{prof.name}</div>
         <div style={{fontSize:12,color:colors.gray.dimText,marginTop:1}}>{prof.role??'Profissional'}</div>
