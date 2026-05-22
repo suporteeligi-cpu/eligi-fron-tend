@@ -642,7 +642,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
       await Promise.all(items.map(it => {
         const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
         return api.post('/bookings/confirm', {
-          clientName:     selectedClient?.name ?? 'Avulso',
+          clientName:     selectedClient?.name ?? 'Chegada',
           clientPhone:    selectedClient?.phone ?? '',
           professionalId: it.profId,
           serviceId:      it.service.id,
@@ -676,7 +676,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
   if (!open || typeof document === 'undefined') return null
 
   const panelStyle = isMobile ? {
-    position:'fixed' as const, left:0, right:0, bottom:0, height:'96dvh',
+    position:'fixed' as const, left:0, right:0, bottom:'calc(64px + env(safe-area-inset-bottom, 0px))', top:'104px',
     background:glass.surface.modal.background, backdropFilter:glass.surface.modal.backdropFilter,
     WebkitBackdropFilter:glass.surface.modal.backdropFilter,
     borderRadius:`${radius['2xl']}px ${radius['2xl']}px 0 0`,
@@ -901,7 +901,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
         </div>
 
         {/* Footer */}
-        <div style={{padding:`12px 20px ${isMobile?'max(20px,env(safe-area-inset-bottom))':'20px'}`,borderTop:`1px solid ${colors.gray.border}`,flexShrink:0,background:colors.background.surface,backdropFilter:glass.blur.sm}}>
+        <div style={{padding:'12px 20px 20px',borderTop:`1px solid ${colors.gray.border}`,flexShrink:0,background:colors.background.surface,backdropFilter:glass.blur.sm}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:12}}>
             <div>
               <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:2}}>Total</div>
