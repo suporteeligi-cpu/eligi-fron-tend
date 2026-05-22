@@ -27,7 +27,6 @@ interface HourSlot {
 }
 
 const DAYS_FULL = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado']
-const DAYS_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
 
 function getInitials(n: string) { return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase() }
 function fmtDur(m: number) { return m<60?`${m}min`:m%60===0?`${m/60}h`:`${Math.floor(m/60)}h ${m%60}min` }

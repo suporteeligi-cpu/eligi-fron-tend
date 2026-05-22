@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, UserPlus, Phone, Calendar, ChevronRight, Users, ArrowUpDown, TrendingUp, CheckCircle, XCircle } from 'lucide-react'
+import { Search, X, UserPlus, Phone, ChevronRight, Users, ArrowUpDown, TrendingUp, CheckCircle, XCircle } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, radius, shadows, transitions, glass } from '@/shared/theme'
 import dayjs from 'dayjs'

@@ -7,7 +7,7 @@ import { X, ChevronDown, Clock, User, Calendar, AlertTriangle, CheckCircle, Ban,
 import { useRouter } from 'next/navigation'
 import api from '@/shared/lib/apiClient'
 import { AgendaBooking } from '@/features/agenda/types'
-import { colors, typography, radius } from '@/shared/theme'
+import { colors, typography } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
 import dayjs from 'dayjs'
