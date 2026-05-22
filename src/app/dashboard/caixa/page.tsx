@@ -137,26 +137,26 @@ function CheckoutModal({ booking, onClose, onDone }: { booking:Booking; onClose:
         {isMobile && <div style={{display:'flex',justifyContent:'center',paddingTop:10,flexShrink:0}}><div style={{width:36,height:4,borderRadius:2,background:'rgba(0,0,0,0.14)'}}/></div>}
 
         {/* Header escuro */}
-        <div style={{background:'linear-gradient(135deg,#1e293b,#0f172a)',padding:'16px 20px 18px',flexShrink:0}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+        <div style={{background:'linear-gradient(135deg,#1e293b,#0f172a)',padding:isMobile?'12px 16px 14px':'16px 20px 18px',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:isMobile?8:12}}>
             <span style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:'.08em'}}>Checkout</span>
             <button onClick={onClose} style={{width:28,height:28,borderRadius:'50%',border:'1px solid rgba(255,255,255,0.2)',background:'rgba(255,255,255,0.1)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
               <X size={13} color="#fff" strokeWidth={2.5}/>
             </button>
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <Avatar name={booking.clientName} size={44}/>
-            <div>
-              <div style={{fontSize:17,fontWeight:800,color:'#fff',letterSpacing:'-0.02em'}}>{booking.clientName}</div>
-              <div style={{fontSize:13,color:'rgba(255,255,255,0.55)',marginTop:2}}>{time} · {booking.service.name} · {fmtBRL(booking.service.price??0)}</div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <Avatar name={booking.clientName} size={isMobile?36:44}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:isMobile?15:17,fontWeight:800,color:'#fff',letterSpacing:'-0.02em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{booking.clientName}</div>
+              <div style={{fontSize:12,color:'rgba(255,255,255,0.55)',marginTop:1}}>{time} · {booking.service.name} · {fmtBRL(booking.service.price??0)}</div>
             </div>
           </div>
         </div>
 
-        {/* Body */}
-        <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'flex',flexDirection:'column',gap:14}}>
+        {/* Body — no mobile: sem scroll, tudo cabe na tela */}
+        <div style={{flex:1,overflowY:isMobile?'hidden':'auto',padding:isMobile?'12px 16px':'16px 20px',display:'flex',flexDirection:'column',gap:isMobile?10:14}}>
           {success ? (
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'28px 0',gap:12}}>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flex:1,gap:12}}>
               <div style={{width:60,height:60,borderRadius:'50%',background:'linear-gradient(135deg,#22c55e,#16a34a)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 10px 28px rgba(22,163,74,0.35)',animation:'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)'}}>
                 <Check size={30} color="#fff" strokeWidth={3}/>
               </div>
@@ -164,42 +164,65 @@ function CheckoutModal({ booking, onClose, onDone }: { booking:Booking; onClose:
             </div>
           ) : (
             <>
-              <div>
-                <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:10}}>Método de pagamento</div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:7}}>
-                  {METHODS.map(m=>{
-                    const isSel=method===m.id
-                    return (
-                      <button key={m.id} onClick={()=>setMethod(m.id)} style={{padding:'12px 6px 10px',borderRadius:12,border:isSel?'2px solid #0f172a':'1.5px solid rgba(0,0,0,0.10)',background:isSel?'#0f172a':'#fff',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:5,transition:`all ${transitions.spring}`,boxShadow:isSel?'0 4px 16px rgba(15,23,42,0.22)':'0 1px 4px rgba(0,0,0,0.05)',position:'relative'}}>
-                        {isSel&&<div style={{position:'absolute',top:5,right:5,width:16,height:16,borderRadius:'50%',background:colors.red.DEFAULT,display:'flex',alignItems:'center',justifyContent:'center'}}><Check size={10} color="#fff" strokeWidth={3}/></div>}
-                        <m.icon size={20} strokeWidth={1.8} color={isSel?'#fff':'#374151'}/>
-                        <span style={{fontSize:10,fontWeight:700,color:isSel?'rgba(255,255,255,0.9)':'#374151',textAlign:'center',lineHeight:1.2}}>{m.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
+              {/* Label */}
+              <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.08em',flexShrink:0}}>Método de pagamento</div>
+
+              {/* Grid de métodos — flex:1 no mobile para preencher espaço disponível */}
+              <div style={{
+                display:'grid',
+                gridTemplateColumns:'repeat(3,1fr)',
+                gap:isMobile?6:7,
+                flex:isMobile?1:undefined,
+              }}>
+                {METHODS.map(m=>{
+                  const isSel=method===m.id
+                  return (
+                    <button key={m.id} onClick={()=>setMethod(m.id)} style={{
+                      padding: isMobile ? '0' : '12px 6px 10px',
+                      borderRadius:12,
+                      border:isSel?'2px solid #0f172a':'1.5px solid rgba(0,0,0,0.10)',
+                      background:isSel?'#0f172a':'#fff',
+                      cursor:'pointer',
+                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                      gap: isMobile ? 4 : 5,
+                      transition:`all ${transitions.spring}`,
+                      boxShadow:isSel?'0 4px 16px rgba(15,23,42,0.22)':'0 1px 4px rgba(0,0,0,0.05)',
+                      position:'relative',
+                      minHeight: isMobile ? 0 : undefined,
+                    }}>
+                      {isSel&&<div style={{position:'absolute',top:4,right:4,width:15,height:15,borderRadius:'50%',background:colors.red.DEFAULT,display:'flex',alignItems:'center',justifyContent:'center'}}><Check size={9} color="#fff" strokeWidth={3}/></div>}
+                      <m.icon size={isMobile?18:20} strokeWidth={1.8} color={isSel?'#fff':'#374151'}/>
+                      <span style={{fontSize:isMobile?10:10,fontWeight:700,color:isSel?'rgba(255,255,255,0.9)':'#374151',textAlign:'center',lineHeight:1.2}}>{m.label}</span>
+                    </button>
+                  )
+                })}
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                <div>
-                  <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6}}>Total</div>
-                  <div style={{padding:'11px 13px',borderRadius:11,background:'rgba(0,0,0,0.04)',fontSize:17,fontWeight:800,color:'#0f0f14',fontVariantNumeric:'tabular-nums'}}>{fmtBRL(total)}</div>
+
+              {/* Desconto — só mostra se selecionou método, para economizar espaço no mobile */}
+              {(!isMobile || method) && (
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,flexShrink:0}}>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6}}>Total</div>
+                    <div style={{padding:'10px 13px',borderRadius:11,background:'rgba(0,0,0,0.04)',fontSize:16,fontWeight:800,color:'#0f0f14',fontVariantNumeric:'tabular-nums'}}>{fmtBRL(total)}</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6}}>Desconto</div>
+                    <input value={discount} onChange={e=>setDiscount(e.target.value)} placeholder="0,00" inputMode="decimal"
+                      style={{width:'100%',padding:'10px 13px',borderRadius:11,border:`1.5px solid ${colors.gray.borderMd}`,background:'#fff',fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:typography.fontFamily,color:'#0f0f14'}}/>
+                  </div>
                 </div>
-                <div>
-                  <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6}}>Desconto</div>
-                  <input value={discount} onChange={e=>setDiscount(e.target.value)} placeholder="0,00"
-                    style={{width:'100%',padding:'11px 13px',borderRadius:11,border:`1.5px solid ${colors.gray.borderMd}`,background:'#fff',fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:typography.fontFamily,color:'#0f0f14'}}/>
-                </div>
-              </div>
-              {error&&<div style={{padding:'9px 13px',borderRadius:10,background:'rgba(220,38,38,0.06)',border:`1px solid ${colors.red.border}`,color:colors.red.DEFAULT,fontSize:13}}>{error}</div>}
+              )}
+
+              {error&&<div style={{padding:'9px 13px',borderRadius:10,background:'rgba(220,38,38,0.06)',border:`1px solid ${colors.red.border}`,color:colors.red.DEFAULT,fontSize:13,flexShrink:0}}>{error}</div>}
             </>
           )}
         </div>
 
         {/* Footer */}
         {!success && (
-          <div style={{padding:'12px 20px 16px',borderTop:'1px solid rgba(0,0,0,0.07)',background:'#fff',display:'flex',gap:10,flexShrink:0}}>
-            <button onClick={onClose} style={{flex:1,padding:'13px',borderRadius:12,border:'1.5px solid rgba(0,0,0,0.10)',background:'transparent',fontSize:13,fontWeight:700,cursor:'pointer',color:'#374151',fontFamily:typography.fontFamily}}>CANCELAR</button>
-            <button onClick={handlePay} disabled={!method||paying} style={{flex:2,padding:'13px',borderRadius:12,border:'none',background:!method||paying?'rgba(0,0,0,0.07)':'linear-gradient(135deg,#1e293b,#0f172a)',color:!method||paying?colors.gray.dimText:'#fff',fontSize:13,fontWeight:800,cursor:!method||paying?'not-allowed':'pointer',letterSpacing:'.06em',textTransform:'uppercase' as const,boxShadow:!method||paying?'none':'0 6px 20px rgba(15,23,42,0.28)',fontFamily:typography.fontFamily,display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:`all ${transitions.spring}`}}>
+          <div style={{padding:isMobile?'10px 16px 14px':'12px 20px 16px',borderTop:'1px solid rgba(0,0,0,0.07)',background:'#fff',display:'flex',gap:10,flexShrink:0}}>
+            <button onClick={onClose} style={{flex:1,padding:isMobile?'12px':'13px',borderRadius:12,border:'1.5px solid rgba(0,0,0,0.10)',background:'transparent',fontSize:13,fontWeight:700,cursor:'pointer',color:'#374151',fontFamily:typography.fontFamily}}>CANCELAR</button>
+            <button onClick={handlePay} disabled={!method||paying} style={{flex:2,padding:isMobile?'12px':'13px',borderRadius:12,border:'none',background:!method||paying?'rgba(0,0,0,0.07)':'linear-gradient(135deg,#1e293b,#0f172a)',color:!method||paying?colors.gray.dimText:'#fff',fontSize:13,fontWeight:800,cursor:!method||paying?'not-allowed':'pointer',letterSpacing:'.06em',textTransform:'uppercase' as const,boxShadow:!method||paying?'none':'0 6px 20px rgba(15,23,42,0.28)',fontFamily:typography.fontFamily,display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:`all ${transitions.spring}`}}>
               {paying?<><Loader2 size={15} style={{animation:'spin 0.8s linear infinite'}}/>Processando...</>:`CONFIRMAR · ${fmtBRL(total)}`}
             </button>
           </div>

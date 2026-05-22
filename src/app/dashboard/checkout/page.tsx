@@ -369,25 +369,24 @@ function CheckoutInner() {
             <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:12,paddingLeft:2}}>
               Método de pagamento
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:9,flex:1}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:7,flex:1}}>
               {METHODS.map(m => {
                 const isSel = method===m.id
                 return (
                   <button key={m.id} className="pm-btn" onClick={()=>setMethod(m.id)} style={{
-                    borderRadius:16, border:isSel?'2px solid #0f172a':'1.5px solid rgba(0,0,0,0.09)',
+                    borderRadius:14, border:isSel?'2px solid #0f172a':'1.5px solid rgba(0,0,0,0.09)',
                     background:isSel?'#0f172a':'#fff',
-                    cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8,
-                    boxShadow:isSel?'0 6px 20px rgba(15,23,42,0.28)':'0 2px 8px rgba(0,0,0,0.06)',
-                    position:'relative', minHeight:80,
-                    padding:'12px 6px',
+                    cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:5,
+                    boxShadow:isSel?'0 4px 14px rgba(15,23,42,0.28)':'0 1px 4px rgba(0,0,0,0.06)',
+                    position:'relative', padding:0,
                   }}>
                     {isSel&&(
-                      <div style={{position:'absolute',top:7,right:7,width:20,height:20,borderRadius:'50%',background:colors.red.DEFAULT,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 2px 6px ${colors.red.glow}`}}>
-                        <Check size={12} color="#fff" strokeWidth={3}/>
+                      <div style={{position:'absolute',top:5,right:5,width:16,height:16,borderRadius:'50%',background:colors.red.DEFAULT,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 2px 6px ${colors.red.glow}`}}>
+                        <Check size={10} color="#fff" strokeWidth={3}/>
                       </div>
                     )}
-                    <m.icon size={24} strokeWidth={1.7} color={isSel?'#fff':'#374151'}/>
-                    <span style={{fontSize:11,fontWeight:700,color:isSel?'rgba(255,255,255,0.9)':'#374151',textAlign:'center',lineHeight:1.2,letterSpacing:'.01em'}}>{m.label}</span>
+                    <m.icon size={20} strokeWidth={1.8} color={isSel?'#fff':'#374151'}/>
+                    <span style={{fontSize:10,fontWeight:700,color:isSel?'rgba(255,255,255,0.9)':'#374151',textAlign:'center',lineHeight:1.2}}>{m.label}</span>
                   </button>
                 )
               })}
