@@ -171,7 +171,9 @@ function CheckoutInner() {
         @media(max-width:768px){
           .co-root{
             position:fixed!important;
-            inset:0!important;
+            top: 104px!important;
+            left:0!important; right:0!important;
+            bottom: calc(64px + env(safe-area-inset-bottom, 0px))!important;
             max-width:100%!important;
             margin:0!important;
             padding:0!important;
@@ -305,7 +307,7 @@ function CheckoutInner() {
           <div className="co-mobile-summary" style={{
             display:'none', flexDirection:'column',
             background:'linear-gradient(180deg,#0f172a 0%,#1e293b 100%)',
-            padding:'max(56px,env(safe-area-inset-top)) 24px 20px',
+            padding:'20px 24px 20px',
             flexShrink:0,
           }}>
             {/* Nav row */}
@@ -396,7 +398,7 @@ function CheckoutInner() {
           <div className="co-mobile-footer" style={{
             display:'none', flexDirection:'column', gap:0,
             background:'#f0f0f5',
-            padding:`12px 16px max(24px,env(safe-area-inset-bottom))`,
+            padding:`12px 16px 16px`,
             flexShrink:0,
           }}>
             {error&&<div style={{padding:'10px 14px',borderRadius:12,background:'rgba(220,38,38,0.10)',border:`1px solid ${colors.red.border}`,color:colors.red.DEFAULT,fontSize:13,marginBottom:10,textAlign:'center'}}>{error}</div>}
