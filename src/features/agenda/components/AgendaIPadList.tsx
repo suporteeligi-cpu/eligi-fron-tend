@@ -135,7 +135,7 @@ interface Props {
 }
 
 export default function AgendaIPadList({ professionals, bookings, blocks, workingHours, onOpenBlockModal, onDeleteBlock, onUpdateBlock }: Props) {
-  const { openCreate, selectedDate, updateBooking, preview } = useAgendaStore()
+  const { openCreate, openView, selectedDate, updateBooking, preview } = useAgendaStore()
   const scrollRef  = useRef<HTMLDivElement>(null)
   const gridRef    = useRef<HTMLDivElement>(null)
 
@@ -149,6 +149,7 @@ export default function AgendaIPadList({ professionals, bookings, blocks, workin
   const dragRef    = useRef<ActiveDrag|null>(null)
   const longPressRef = useRef<ReturnType<typeof setTimeout>|null>(null)
   const touchStartRef= useRef<{x:number;y:number}|null>(null)
+  const tapBookingRef= useRef<AgendaBooking|null>(null) // booking do toque atual
 
   const [drag,         setDrag]         = useState<ActiveDrag|null>(null)
   const [hoverSlot,    setHoverSlot]    = useState<string|null>(null)
@@ -241,11 +242,13 @@ export default function AgendaIPadList({ professionals, bookings, blocks, workin
   function onCardTouchStart(e:React.TouchEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
     const touch = e.touches[0]
     touchStartRef.current = {x:touch.clientX, y:touch.clientY}
+    tapBookingRef.current = booking
     setLongPressId(booking.id)
 
     longPressRef.current = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate(40)
       setLongPressId(null)
+      tapBookingRef.current = null // não abre painel após drag
 
       const snapMin = snapFromTouch(touch.clientY)
       const { colIdx, colW, colLeft } = colInfoFromTouch(touch.clientX)
@@ -271,6 +274,11 @@ export default function AgendaIPadList({ professionals, bookings, blocks, workin
   function onCardTouchEnd() {
     if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current=null }
     setLongPressId(null)
+    // Se não iniciou drag — foi tap rápido → abre painel
+    if (!dragRef.current && tapBookingRef.current) {
+      openView(tapBookingRef.current)
+    }
+    tapBookingRef.current = null
   }
 
   // ─── Resize touch ──────────────────────────────────────────────────────────

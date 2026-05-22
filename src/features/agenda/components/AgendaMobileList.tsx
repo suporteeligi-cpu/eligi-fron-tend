@@ -255,7 +255,7 @@ interface Props {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function AgendaMobileList({ professionals, bookings, blocks, workingHours, onDeleteBlock, onUpdateBlock, onOpenBlockModal }: Props) {
-  const { openCreate, selectedDate, updateBooking, preview } = useAgendaStore()
+  const { openCreate, openView, selectedDate, updateBooking, preview } = useAgendaStore()
 
   const START_HOUR = workingHours?.open ? Math.max(0,  Math.floor(toMinutes(workingHours.startTime)/60) - 1) : DEFAULT_START
   const END_HOUR   = workingHours?.open ? Math.min(24, Math.floor(toMinutes(workingHours.endTime)  /60) + 1) : DEFAULT_END
@@ -271,6 +271,7 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
   const dragRef     = useRef<ActiveDrag|null>(null)
   const longPressRef= useRef<ReturnType<typeof setTimeout>|null>(null)
   const touchStartRef = useRef<{y:number;x:number;time:number}|null>(null)
+  const tapBookingRef = useRef<AgendaBooking|null>(null)
   const [hoverSlot, setHoverSlot] = useState<string|null>(null) // slot destacado
 
   const [drag,           setDrag]           = useState<ActiveDrag|null>(null)
@@ -361,12 +362,13 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
   function onCardTouchStart(e: React.TouchEvent, booking: AgendaBooking, cardTop: number, cardWidth: number, cardLeft: number, cardHeight: number) {
     const touch = e.touches[0]
     touchStartRef.current = { y: touch.clientY, x: touch.clientX, time: Date.now() }
+    tapBookingRef.current = booking
     setLongPressId(booking.id)
 
     longPressRef.current = setTimeout(() => {
-      // Vibração haptica (se disponível)
       if (navigator.vibrate) navigator.vibrate(40)
       setLongPressId(null)
+      tapBookingRef.current = null // não abre painel após drag
 
       const snapMin  = snapFromClientY(touch.clientY)
       const ghostTop = (snapMin - START_MIN) * PX_PER_MIN
@@ -384,6 +386,11 @@ export default function AgendaMobileList({ professionals, bookings, blocks, work
   function onCardTouchEnd() {
     if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null }
     setLongPressId(null)
+    // Se não iniciou drag — foi tap rápido → abre painel
+    if (!dragRef.current && tapBookingRef.current) {
+      openView(tapBookingRef.current)
+    }
+    tapBookingRef.current = null
     if (dragRef.current) return
   }
 
