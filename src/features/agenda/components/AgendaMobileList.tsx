@@ -197,15 +197,31 @@ function ProfTabs({ professionals, selected, bookings, onChange }: {
     el?.scrollIntoView({inline:'center',behavior:'smooth',block:'nearest'})
   },[selected])
   if (professionals.length <= 1) return null
+
+  function Avatar({ p, isActive }: { p: AgendaProfessional; isActive: boolean }) {
+    const isColor = p.avatarUrl?.startsWith('color:')
+    const colorBg = isColor ? p.avatarUrl!.replace('color:','') : null
+    const isPhoto = p.avatarUrl && !isColor
+    const initials = p.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
+    return (
+      <div style={{width:22,height:22,borderRadius:radius.full,background:colorBg??(isPhoto?'transparent':isActive?'rgba(255,255,255,0.25)':colors.red.subtle),display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:isActive?'#fff':colors.red.DEFAULT,flexShrink:0,overflow:'hidden'}}>
+        {isPhoto
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={p.avatarUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+          : initials
+        }
+      </div>
+    )
+  }
+
   return (
     <div ref={ref} style={{display:'flex',gap:6,padding:'8px 14px',overflowX:'auto',scrollbarWidth:'none',borderBottom:`1px solid ${colors.gray.border}`,background:'rgba(245,245,247,0.98)',backdropFilter:'blur(12px)',flexShrink:0}}>
       {professionals.map(p => {
         const isActive=p.id===selected
-        const initials=p.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
         const count=bookings.filter(b=>b.professionalId===p.id).length
         return (
           <button key={p.id} className={isActive?'ptab-active':''} onClick={()=>onChange(p.id)} style={{display:'flex',alignItems:'center',gap:7,padding:'7px 13px',borderRadius:radius.full,border:`1px solid ${isActive?'transparent':colors.gray.borderMd}`,background:isActive?colors.red.gradient:colors.background.surface,cursor:'pointer',flexShrink:0,whiteSpace:'nowrap',boxShadow:isActive?`0 3px 10px ${colors.red.glow}`:'none',transition:`all ${transitions.spring}`}}>
-            <div style={{width:22,height:22,borderRadius:radius.full,background:isActive?'rgba(255,255,255,0.25)':colors.red.subtle,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:isActive?'#fff':colors.red.DEFAULT,flexShrink:0}}>{initials}</div>
+            <Avatar p={p} isActive={isActive}/>
             <span style={{fontSize:12,fontWeight:600,color:isActive?'#fff':colors.gray[700]}}>{p.name.split(' ')[0]}</span>
             {count>0 && <span style={{fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:radius.full,background:isActive?'rgba(255,255,255,0.25)':colors.red.subtle,color:isActive?'#fff':colors.red.DEFAULT}}>{count}</span>}
           </button>

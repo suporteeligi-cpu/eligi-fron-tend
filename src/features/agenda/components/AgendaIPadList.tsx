@@ -21,6 +21,22 @@ dayjs.extend(timezone)
 
 import { WorkingHours } from './AgendaBoard'
 
+function ProfAvatar({ name, avatarUrl, size = 30 }: { name: string; avatarUrl?: string; size?: number }) {
+  const isColor  = avatarUrl?.startsWith('color:')
+  const colorBg  = isColor ? avatarUrl!.replace('color:','') : null
+  const isPhoto  = avatarUrl && !isColor
+  const initials = name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
+  return (
+    <div style={{width:size,height:size,borderRadius:'50%',flexShrink:0,background:colorBg??(isPhoto?'transparent':colors.red.gradient),display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.36,fontWeight:700,color:'#fff',boxShadow:`0 2px 8px ${colors.red.glow}`,overflow:'hidden'}}>
+      {isPhoto
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={avatarUrl} alt={name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+        : initials
+      }
+    </div>
+  )
+}
+
 const TIME_COL_W = agendaLayout.timeColWidth
 const MIN_COL_W  = agendaLayout.minColWidth
 const HEADER_H   = agendaLayout.headerHeight
@@ -407,15 +423,12 @@ export default function AgendaIPadList({ professionals, bookings, blocks, workin
           <div style={{height:HEADER_H,position:'sticky',top:0,zIndex:20,background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${colors.gray.border}`,borderRight:`1px solid ${colors.gray.border}`}}/>
 
           {/* Header profissionais */}
-          {professionals.map(p => {
-            const initials=p.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
-            return (
-              <div key={p.id} style={{height:HEADER_H,display:'flex',alignItems:'center',justifyContent:'center',gap:8,position:'sticky',top:0,zIndex:20,background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${colors.gray.border}`,borderLeft:`1px solid ${colors.gray.border}`,fontWeight:600,fontSize:13,color:colors.gray['900']}}>
-                <div style={{width:30,height:30,borderRadius:'50%',background:colors.red.gradient,color:'#fff',fontSize:11,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 2px 8px ${colors.red.glow}`}}>{initials}</div>
-                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:120}}>{p.name}</span>
-              </div>
-            )
-          })}
+          {professionals.map(p => (
+            <div key={p.id} style={{height:HEADER_H,display:'flex',alignItems:'center',justifyContent:'center',gap:8,position:'sticky',top:0,zIndex:20,background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderBottom:`1px solid ${colors.gray.border}`,borderLeft:`1px solid ${colors.gray.border}`,fontWeight:600,fontSize:13,color:colors.gray['900']}}>
+              <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={30}/>
+              <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:120}}>{p.name}</span>
+            </div>
+          ))}
 
           {/* Coluna horários */}
           <div style={{position:'relative',zIndex:2,height:TOTAL_H}}>

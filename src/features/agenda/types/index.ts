@@ -1,8 +1,9 @@
 // src/features/agenda/types/index.ts
 
 export type AgendaProfessional = {
-  id:   string
-  name: string
+  id:        string
+  name:      string
+  avatarUrl?: string   // base64, color:gradient ou url
 }
 
 export type BookingStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
