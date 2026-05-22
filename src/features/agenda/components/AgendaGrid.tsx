@@ -162,9 +162,10 @@ interface Props {
 }
 
 export default function AgendaGrid({ professionals, bookings, blocks, workingHours, onOpenBlockModal, onDeleteBlock, onUpdateBlock }: Props) {
-  const { openCreate, selectedDate, updateBooking, preview } = useAgendaStore()
+  const { openCreate, openView, selectedDate, updateBooking, preview } = useAgendaStore()
   const scrollRef = useRef<HTMLDivElement>(null)
   const gridRef   = useRef<HTMLDivElement>(null)
+  const mouseDownPos = useRef<{x:number;y:number}|null>(null)
 
   // Grade dinâmica: 1h antes do expediente, 1h depois
   const START_HOUR = workingHours?.open
@@ -260,16 +261,24 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
 
   function onCardMouseDown(e:React.MouseEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
     e.preventDefault(); e.stopPropagation()
+    mouseDownPos.current = { x: e.clientX, y: e.clientY }
     const rect       = gridRef.current?.getBoundingClientRect()
     const scrollTop  = scrollRef.current?.scrollTop ?? 0
     const colW       = rect ? (rect.width - TIME_COL_W) / professionals.length : 120
     const profIdx    = professionals.findIndex(p => p.id === profId)
     const ghostLeft  = (rect?.left ?? 0) + TIME_COL_W + profIdx * colW + 4
     const ghostWidth = colW - 8
-    // offsetY = distância do clique ao topo do card, em coordenadas de tela
     const cardTopScreen = (rect?.top ?? 0) + HEADER_H + cardTop - scrollTop
     const offsetY    = Math.max(0, e.clientY - cardTopScreen)
     setDrag({type:'move',bookingId:booking.id,booking,fromProfId:profId,ghostTop:cardTop,ghostLeft,ghostWidth,ghostHeight:cardHeight,offsetY,currentProfId:profId,currentTime:booking.start,mouseX:e.clientX,mouseY:e.clientY})
+  }
+
+  function onCardClick(e:React.MouseEvent, booking:AgendaBooking) {
+    e.stopPropagation()
+    // Só abre o painel se não houve drag (mouse não moveu mais de 4px)
+    const pos = mouseDownPos.current
+    if (pos && (Math.abs(e.clientX - pos.x) > 4 || Math.abs(e.clientY - pos.y) > 4)) return
+    openView(booking)
   }
 
   function onResizeMouseDown(e:React.MouseEvent, booking:AgendaBooking, profId:string, cardTop:number, cardHeight:number) {
@@ -306,14 +315,14 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
       if (drag.type==='move') {
         const {bookingId,currentTime,currentProfId,fromProfId,booking}=drag
         setDrag(null); setHoverSlot(null)
-        if (currentTime!==booking.start||currentProfId!==fromProfId) {
-          setPendingAction({
-            type:'move',
-            title:`Confirmar alteração de\n${booking.start} para ${currentTime}?`,
-            confirmLabel:'Salvar alteração',
-            onConfirm: () => { setPendingAction(null); doReschedule(bookingId,currentTime,currentProfId,false) },
-          })
-        }
+        // Se não moveu — foi clique, não drag → onCardClick cuida de abrir o painel
+        if (currentTime===booking.start && currentProfId===fromProfId) return
+        setPendingAction({
+          type:'move',
+          title:`Confirmar alteração de\n${booking.start} para ${currentTime}?`,
+          confirmLabel:'Salvar alteração',
+          onConfirm: () => { setPendingAction(null); doReschedule(bookingId,currentTime,currentProfId,false) },
+        })
       }
       if (drag.type==='resize') {
         const {bookingId,booking,currentEnd}=drag
@@ -462,7 +471,9 @@ export default function AgendaGrid({ professionals, bookings, blocks, workingHou
                       onMouseDown={e=>{
                         if ((e.target as HTMLElement).closest('.rh')) return
                         onCardMouseDown(e,b,p.id,top,baseH)
-                      }}>
+                      }}
+                      onClick={e=>onCardClick(e,b)}
+                    >
                       <BookingCard booking={b} totalHeight={height}/>
 
                       {/* Resize handle */}
