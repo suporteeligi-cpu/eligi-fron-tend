@@ -1,5 +1,5 @@
 'use client'
-// src/app/dashboard/produtos/components/ProductImagePicker.tsx
+// src/app/dashboard/estoque/components/ProductImagePicker.tsx
 
 import { useState, useRef } from 'react'
 import { Image as ImageIcon, X, Upload } from 'lucide-react'

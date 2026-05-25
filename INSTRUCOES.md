@@ -1,15 +1,46 @@
-# Frontend Fase 2.3 — Estoque
+# Frontend — Módulo Estoque UNIFICADO
 
-## ⚠️ Ações manuais
+Refator que une `/produtos` e `/estoque` numa página única `/estoque`.
+Modal de produto tem 2 tabs: **Dados** e **Estoque**.
 
-### 1. Adicionar "Estoque" no `navigation.config.ts`
+---
 
-Abra `src/app/components/navigation/navigation.config.ts` e adicione:
+## ⚠️ Passo 1 — DELETAR arquivos antigos
+
+Antes de aplicar o zip, **deleta esses arquivos/pastas** do projeto:
+
+```bash
+cd ~/Documentos/eligi/front-end
+
+# 1. Deletar a pasta inteira de produtos (página antiga)
+rm -rf src/app/dashboard/produtos
+
+# 2. Deletar componentes antigos do estoque que viraram parte do modal
+rm src/app/dashboard/estoque/components/StockProductRow.tsx
+rm src/app/dashboard/estoque/components/StockStatusBadge.tsx
+rm src/app/dashboard/estoque/components/MovementModal.tsx
+rm src/app/dashboard/estoque/components/HistoryDrawer.tsx
+```
+
+## ⚠️ Passo 2 — Editar `navigation.config.ts`
+
+**Remover** o item "Produtos" (ou só "Estoque" — qualquer um dos dois que esteja lá):
+
+```typescript
+// ❌ REMOVER
+{
+  label: 'Produtos',
+  href:  '/dashboard/produtos',
+  icon:  Box,
+  ...
+},
+```
+
+**Manter** só o item "Estoque":
 
 ```typescript
 import { ..., PackageOpen } from 'lucide-react'
 
-// Logo depois do item "Produtos":
 {
   label: 'Estoque',
   href:  '/dashboard/estoque',
@@ -18,92 +49,91 @@ import { ..., PackageOpen } from 'lucide-react'
 },
 ```
 
-### 2. Plugar o sino no `AppNavbar.tsx` (opcional mas recomendado)
-
-Abra `src/app/components/navigation/AppNavbar.tsx` e adicione na parte de ações do navbar (onde já tem o sino existente, se houver):
-
-```typescript
-import LowStockBellButton from '@/features/stock/components/LowStockBellButton'
-
-// No JSX, perto dos outros botões da direita:
-<LowStockBellButton />
-```
-
-Isso vai mostrar um sino com badge vermelho contando produtos em alerta + popover com lista.
-
-Se você já tem outro sino de notificações, pode substituir ou somar — o `LowStockBellButton` é totalmente standalone (faz polling de 60s no `/products/stock/alerts`).
-
-## Aplicar
+## Passo 3 — Aplicar zip
 
 ```bash
-cd ~/Documentos/eligi/front-end
+unzip -o ~/Downloads/estoque-unified.zip -d ./
 
-# 1. Aplica arquivos
-unzip -o ~/Downloads/estoque-frontend.zip -d ./
-
-# 2. Edita navigation.config.ts (manual)
-# 3. Edita AppNavbar.tsx (opcional — adicionar LowStockBellButton)
-
-# 4. Build local
+# Build
 npm run lint && npm run build
 
-# 5. Deploy
+# Deploy
 npm run deploy
 ```
 
-## O que tem nesse zip
+---
 
-### 🆕 Novos arquivos
+## Estrutura final do módulo
 
-**Stock module:**
-- `src/features/stock/types.ts`
-- `src/features/stock/utils/format.ts`
-- `src/features/stock/hooks/useLowStockAlerts.ts` — hook reutilizável
-- `src/features/stock/components/LowStockBellButton.tsx` — drop-in pro AppNavbar
+```
+src/app/dashboard/estoque/
+├── page.tsx                         ← lista unificada
+└── components/
+    ├── ProductRow.tsx               ← linha com badge condicional
+    ├── ProductModal.tsx             ← modal com tabs Dados | Estoque
+    ├── StockTab.tsx                 ← conteúdo da aba Estoque (toggle + saldo + movimentações inline)
+    ├── ProductImagePicker.tsx
+    ├── StockSummaryCards.tsx        ← 4 KPIs (sempre visíveis)
+    ├── StockFilterTabs.tsx          ← 5 filtros (Todos | Em estoque | Baixo | Esgotado | Sem controle)
+    └── Toast.tsx
+```
 
-**Página /estoque:**
-- `src/app/dashboard/estoque/page.tsx`
-- `src/app/dashboard/estoque/components/StockSummaryCards.tsx`
-- `src/app/dashboard/estoque/components/StockFilterTabs.tsx`
-- `src/app/dashboard/estoque/components/StockProductRow.tsx`
-- `src/app/dashboard/estoque/components/StockStatusBadge.tsx`
-- `src/app/dashboard/estoque/components/MovementModal.tsx`
-- `src/app/dashboard/estoque/components/HistoryDrawer.tsx`
-- `src/app/dashboard/estoque/components/Toast.tsx`
+---
 
-### ✏️ Atualizados
+## O que mudou em UX
 
-- `src/features/products/types.ts` — adiciona `trackStock`, `stock`, `stockAlert`
-- `src/app/dashboard/produtos/components/ProductModal.tsx` — seção "Controlar estoque" com toggle + campos condicionais
+### ANTES (2 páginas separadas)
+- `/produtos` → CRUD básico, sem visão de estoque
+- `/estoque` → só produtos com trackStock=true, com KPIs, movimentações, histórico
+- Movimentar = botão na linha → MovementModal → fecha → reabre p/ histórico via HistoryDrawer
+- 2 itens no menu lateral
 
-## Como testar
+### DEPOIS (1 página só)
+- `/estoque` → **TODOS** os produtos, agrupados por categoria
+- KPIs sempre visíveis no topo
+- 5 filtros (incluindo "Sem controle de estoque")
+- Cada linha mostra preço + badge de saldo (se trackStock=true)
+- Click no produto → modal com 2 tabs:
+  - **Dados** → nome, preço, custo, foto, SKU, etc + toggle ativo
+  - **Estoque** → toggle controle + alerta + form de movimentação inline + histórico embaixo
+- 1 item no menu lateral
 
-1. **Vai em `/produtos`** → edita um produto:
-   - Ativa "Controlar estoque"
-   - Define alerta = 5
-   - Salva
-2. **Vai em `/estoque`** → vê:
-   - 4 cards de resumo no topo
-   - Filtros (Todos / Estoque baixo / Esgotados)
-   - Card do produto com saldo 0 = "Esgotado"
-3. **Clica em "Movimentar"** → modal de 4 tipos:
-   - Escolhe **Entrada** → quantidade 30 → motivo "Saldo inicial"
-   - Vê preview "0 → 30"
-   - Salva → toast verde "Movimentação registrada"
-   - Saldo no card vira 30
-4. **Clica no ícone de histórico** → drawer com a movimentação
-5. **Volta em /estoque, vê 30 unidades verde** "Em estoque"
-6. **Faz uma saída de 28** → vira 2 (estoque baixo, badge laranja)
-7. **Vai num produto qualquer fora do alerta** → sino do navbar mostra "1" se você plugou
-8. **Clica no sino** → popover lista o produto → clica → vai pra /estoque
-9. **Tenta tirar mais 5** → erro "Estoque insuficiente. Disponível: 2"
-10. **No mobile**: tudo funciona com bottom sheets e drill-down igual outras telas
+---
 
-## Visual destaque
+## Roteiro de teste
 
-- **Cards de KPI** com ícones coloridos (azul/laranja/vermelho/verde)
-- **Filter tabs estilo segment control** (iOS) com contadores
-- **Status badges**: verde (em estoque), laranja (baixo), vermelho (esgotado)
-- **MovementModal**: 4 cards grandes pra escolher tipo + preview "saldo após" em tempo real + valida saldo negativo
-- **HistoryDrawer**: timeline de movimentações com badge colorido por tipo + delta com sinal
-- **Sino com badge animado** (pulse leve) quando há alertas
+1. **Vai em `/estoque`** → vê todos os produtos (anteriormente em /produtos também)
+2. **4 KPIs no topo** mostram contagem real
+3. **Filtra por "Sem controle"** → mostra só os que não controlam estoque
+4. **Filtra por "Em estoque"** → só verdes (trackStock=true + stock > alerta)
+5. **Clica em qualquer produto** → modal abre na tab **Dados**
+6. **Tab "Estoque"**:
+   - Se trackStock=false → vê só o toggle + mensagem "Não controla estoque"
+   - Ativa → aparecem campos de alerta + form de movimentação
+7. **Registra entrada de 30** → vê histórico aparecer imediatamente abaixo
+8. **Saldo atualiza no header da tab Estoque** (badge vermelho com número)
+9. **Fecha o modal, volta na lista** → linha do produto mostra novo saldo
+10. **KPIs atualizam**
+
+---
+
+## Backend
+
+**Nada muda no backend**. Os endpoints continuam:
+- `GET/POST/PATCH/DELETE /products`
+- `GET /products/stock/summary`
+- `GET /products/stock/alerts`
+- `GET /products/:id/movements`
+- `POST /products/:id/movements`
+
+---
+
+## O que NÃO foi mexido
+
+- `features/stock/types.ts` ✅ (continua igual)
+- `features/stock/utils/format.ts` ✅
+- `features/stock/hooks/useLowStockAlerts.ts` ✅
+- `features/stock/components/LowStockBellButton.tsx` ✅ (continua plugado no AppNavbar)
+- `features/products/types.ts` ✅
+- `features/products/utils/format.ts` ✅
+- `features/products/utils/imageUpload.ts` ✅

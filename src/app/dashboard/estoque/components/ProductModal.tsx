@@ -1,9 +1,13 @@
 'use client'
-// src/app/dashboard/produtos/components/ProductModal.tsx
+// src/app/dashboard/estoque/components/ProductModal.tsx
+//
+// Modal unificado com 2 tabs:
+// - Dados: nome, preço, custo, foto, SKU, categoria, etc
+// - Estoque: toggle controle + saldo + movimentações inline + histórico
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Save, Trash2, Boxes } from 'lucide-react'
+import { X, Save, Trash2, FileText, Boxes } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions, radius, shadows } from '@/shared/theme'
@@ -12,21 +16,29 @@ import { calculateMargin, formatPrice } from '@/features/products/utils/format'
 import { SERVICE_COLORS } from '@/features/services/constants/colorPalette'
 
 import ProductImagePicker from './ProductImagePicker'
+import StockTab from './StockTab'
 
 interface Props {
-  product:     Product | null
-  isMobile:    boolean
-  categories:  string[]
-  onSaved:     (p: Product) => void
-  onDeleted?:  (id: string) => void
-  onClose:     () => void
+  product:        Product | null
+  isMobile:       boolean
+  categories:     string[]
+  onSaved:        (p: Product) => void
+  onDeleted?:     (id: string) => void
+  onStockMoved?:  (p: Product) => void
+  onClose:        () => void
 }
 
+type TabId = 'data' | 'stock'
+
 export default function ProductModal({
-  product, isMobile, categories, onSaved, onDeleted, onClose,
+  product, isMobile, categories,
+  onSaved, onDeleted, onStockMoved, onClose,
 }: Props) {
   const isEditing = !!product
 
+  const [tab, setTab] = useState<TabId>('data')
+
+  // Dados gerais
   const [name,        setName]        = useState(product?.name ?? '')
   const [description, setDescription] = useState(product?.description ?? '')
   const [category,    setCategory]    = useState(product?.category    ?? '')
@@ -38,14 +50,14 @@ export default function ProductModal({
   const [barcode,     setBarcode]     = useState(product?.barcode ?? '')
   const [active,      setActive]      = useState(product?.active ?? true)
 
-  // ─── Estoque (Fase 2.3) ─────────────────────────────────────
+  // Estoque
   const [trackStock,    setTrackStock]    = useState(product?.trackStock ?? false)
-  const [initialStock,  setInitialStock]  = useState(
-    product?.stock != null ? String(product.stock) : ''
-  )
+  const [initialStock,  setInitialStock]  = useState('')
   const [stockAlertStr, setStockAlertStr] = useState(
     product?.stockAlert != null ? String(product.stockAlert) : ''
   )
+  // Saldo atual (vai sendo atualizado quando registra movimentação)
+  const [currentStock, setCurrentStock] = useState<number>(product?.stock ?? 0)
 
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState<string | null>(null)
@@ -60,16 +72,27 @@ export default function ProductModal({
     return () => clearTimeout(t)
   }, [isMobile, isEditing])
 
+  // Callback chamado pelo StockTab quando registra movimentação
+  const handleStockMoved = useCallback((updated: Product) => {
+    setCurrentStock(updated.stock ?? 0)
+    if (product && onStockMoved) {
+      onStockMoved({
+        ...product,
+        stock: updated.stock,
+      })
+    }
+  }, [product, onStockMoved])
+
   async function handleSave() {
     setError(null)
     const trimmedName = name.trim()
-    if (!trimmedName) { setError('Nome é obrigatório'); return }
+    if (!trimmedName) { setError('Nome é obrigatório'); setTab('data'); return }
 
     const price = parseFloat(priceStr.replace(',', '.'))
-    if (isNaN(price) || price < 0) { setError('Preço inválido'); return }
+    if (isNaN(price) || price < 0) { setError('Preço inválido'); setTab('data'); return }
 
     const cost = costStr ? parseFloat(costStr.replace(',', '.')) : null
-    if (cost != null && (isNaN(cost) || cost < 0)) { setError('Custo inválido'); return }
+    if (cost != null && (isNaN(cost) || cost < 0)) { setError('Custo inválido'); setTab('data'); return }
 
     // Estoque
     let stockValue: number | undefined = undefined
@@ -77,11 +100,9 @@ export default function ProductModal({
 
     if (trackStock) {
       if (!isEditing) {
-        // Saldo inicial só vai ao criar
         const parsed = parseInt(initialStock.replace(/\D/g, ''), 10)
         stockValue = isNaN(parsed) ? 0 : Math.max(0, parsed)
       }
-      // Alerta sempre pode ser editado
       if (stockAlertStr) {
         const a = parseInt(stockAlertStr.replace(/\D/g, ''), 10)
         stockAlertValue = isNaN(a) ? null : Math.max(0, a)
@@ -180,7 +201,7 @@ export default function ProductModal({
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
           zIndex: 10998,
-          animation: 'pr-mod-fade 0.18s ease',
+          animation: 'pm-fade 0.18s ease',
         }}
       />
 
@@ -193,25 +214,26 @@ export default function ProductModal({
         zIndex: 10999,
         display: 'flex', flexDirection: 'column',
         fontFamily: typography.fontFamily,
-        animation: 'pr-mod-up 0.30s cubic-bezier(0.34, 1.2, 0.64, 1)',
+        animation: 'pm-up 0.30s cubic-bezier(0.34, 1.2, 0.64, 1)',
       } : {
         position: 'fixed', top: '50%', left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: 500, maxWidth: '94vw',
-        maxHeight: '90vh',
+        width: 540, maxWidth: '94vw',
+        maxHeight: '92vh',
         background: 'rgba(255,255,255,0.99)',
         borderRadius: radius['2xl'],
         boxShadow: shadows.lg,
         zIndex: 10999,
         display: 'flex', flexDirection: 'column',
         fontFamily: typography.fontFamily,
-        animation: 'pr-mod-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        animation: 'pm-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
         overflow: 'hidden',
       }}>
         <style>{`
-          @keyframes pr-mod-fade { from { opacity:0 } to { opacity:1 } }
-          @keyframes pr-mod-in   { from { opacity:0; transform: translate(-50%,-50%) scale(0.93) } to { opacity:1; transform: translate(-50%,-50%) scale(1) } }
-          @keyframes pr-mod-up   { from { transform: translateY(100%) } to { transform: translateY(0) } }
+          @keyframes pm-fade { from { opacity:0 } to { opacity:1 } }
+          @keyframes pm-in   { from { opacity:0; transform: translate(-50%,-50%) scale(0.93) } to { opacity:1; transform: translate(-50%,-50%) scale(1) } }
+          @keyframes pm-up   { from { transform: translateY(100%) } to { transform: translateY(0) } }
+          @keyframes es-spin { to { transform: rotate(360deg) } }
         `}</style>
 
         {isMobile && (
@@ -237,7 +259,7 @@ export default function ProductModal({
             color: colors.gray[900],
             letterSpacing: '-0.02em',
           }}>
-            {isEditing ? 'Editar produto' : 'Novo produto'}
+            {isEditing ? product!.name : 'Novo produto'}
           </h3>
           <button
             onClick={onClose}
@@ -254,328 +276,269 @@ export default function ProductModal({
           </button>
         </div>
 
+        {/* Tabs */}
+        <div style={{
+          display: 'flex',
+          padding: '0 20px',
+          borderBottom: `1px solid ${colors.gray.border}`,
+          background: 'rgba(255,255,255,0.6)',
+          flexShrink: 0,
+        }}>
+          {[
+            { id: 'data'  as TabId, label: 'Dados',   icon: FileText },
+            { id: 'stock' as TabId, label: 'Estoque', icon: Boxes    },
+          ].map(t => {
+            const Icon = t.icon
+            const isActive = tab === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '12px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: isActive
+                    ? `2px solid ${colors.red.DEFAULT}`
+                    : '2px solid transparent',
+                  marginBottom: -1,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: isActive ? 700 : 600,
+                  color: isActive ? colors.red.DEFAULT : colors.gray.dimText,
+                  fontFamily: 'inherit',
+                  transition: `all ${transitions.fast}`,
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <Icon size={14} strokeWidth={2} />
+                {t.label}
+                {t.id === 'stock' && trackStock && isEditing && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: 5,
+                    background: colors.red.subtle,
+                    color: colors.red.DEFAULT,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {currentStock}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
         {/* Body */}
         <div style={{
           flex: 1, overflowY: 'auto',
           padding: '16px 20px',
-          display: 'flex', flexDirection: 'column', gap: 14,
           WebkitOverflowScrolling: 'touch',
         }}>
-          <ProductImagePicker current={imageUrl} onChange={setImageUrl} />
+          {tab === 'data' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <ProductImagePicker current={imageUrl} onChange={setImageUrl} />
 
-          <div>
-            <label style={labelStyle}>Nome *</label>
-            <input
-              ref={inputRef}
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Ex: Pomada modeladora"
-              style={inputStyle}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: 10, flexDirection: isMobile ? 'column' : 'row' }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Categoria</label>
-              <input
-                list="product-categories"
-                value={category}
-                onChange={e => setCategory(e.target.value)}
-                placeholder="Ex: Cosméticos, Bebidas"
-                style={inputStyle}
-              />
-              <datalist id="product-categories">
-                {categories.map(c => <option key={c} value={c} />)}
-              </datalist>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Cor (opcional)</label>
-              <ColorPickerCompact value={color} onChange={setColor} />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Preço de venda *</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{
-                  position: 'absolute', left: 12, top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontSize: 12, color: colors.gray.dimText, fontWeight: 600,
-                  pointerEvents: 'none',
-                }}>R$</span>
+              <div>
+                <label style={labelStyle}>Nome *</label>
                 <input
-                  type="text"
-                  inputMode="decimal"
-                  value={priceStr}
-                  onChange={e => setPriceStr(e.target.value.replace(/[^\d,.]/g, ''))}
-                  placeholder="0,00"
-                  style={{ ...inputStyle, paddingLeft: 34, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                  ref={inputRef}
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Ex: Pomada modeladora"
+                  style={inputStyle}
                 />
               </div>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Custo (opcional)</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{
-                  position: 'absolute', left: 12, top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontSize: 12, color: colors.gray.dimText, fontWeight: 600,
-                  pointerEvents: 'none',
-                }}>R$</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={costStr}
-                  onChange={e => setCostStr(e.target.value.replace(/[^\d,.]/g, ''))}
-                  placeholder="0,00"
-                  style={{ ...inputStyle, paddingLeft: 34, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
-                />
-              </div>
-            </div>
-          </div>
 
-          {margin != null && (
-            <div style={{
-              padding: '8px 12px',
-              background: margin > 0 ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.06)',
-              border: `1px solid ${margin > 0 ? 'rgba(22,163,74,0.2)' : colors.red.border}`,
-              borderRadius: 8,
-              fontSize: 12,
-              fontWeight: 600,
-              color: margin > 0 ? '#15803d' : colors.red.DEFAULT,
-              display: 'flex',
-              justifyContent: 'space-between',
-            }}>
-              <span>Margem</span>
-              <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {margin.toFixed(1)}%
-                {margin > 0 && costNum != null && !isNaN(costNum) && (
-                  <> · lucro de {formatPrice(priceNum - costNum)}</>
-                )}
-              </span>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 10, flexDirection: isMobile ? 'column' : 'row' }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>SKU (opcional)</label>
-              <input
-                value={sku}
-                onChange={e => setSku(e.target.value)}
-                placeholder="POM-001"
-                style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', textTransform: 'uppercase' }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Código de barras (opcional)</label>
-              <input
-                value={barcode}
-                onChange={e => setBarcode(e.target.value)}
-                placeholder="7890000000123"
-                inputMode="numeric"
-                style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Descrição (opcional)</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              rows={2}
-              placeholder="Descrição do produto..."
-              style={{ ...inputStyle, resize: 'none', minHeight: 56 }}
-            />
-          </div>
-
-          {/* ═══════════ SEÇÃO ESTOQUE (Fase 2.3) ═══════════ */}
-          <div style={{
-            border: `1px solid ${colors.gray.border}`,
-            borderRadius: radius.md,
-            padding: '12px 14px',
-            background: trackStock ? 'rgba(220,38,38,0.02)' : colors.background.page,
-            transition: `background ${transitions.fast}`,
-          }}>
-            <button
-              onClick={() => setTrackStock(!trackStock)}
-              type="button"
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 10,
-                background: 'none', border: 'none', cursor: 'pointer',
-                padding: 0, textAlign: 'left',
-                width: '100%',
-                fontFamily: 'inherit',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              <div style={{
-                width: 40, height: 22, borderRadius: 11,
-                background: trackStock ? colors.red.DEFAULT : colors.gray.borderMd,
-                position: 'relative',
-                transition: `background ${transitions.fast}`,
-                flexShrink: 0,
-                marginTop: 1,
-              }}>
-                <div style={{
-                  width: 18, height: 18, borderRadius: '50%',
-                  background: '#fff',
-                  position: 'absolute',
-                  top: 2,
-                  left: trackStock ? 'calc(100% - 20px)' : 2,
-                  transition: `left ${transitions.fast}`,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                }} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: 13, fontWeight: 700,
-                  color: colors.gray[900],
-                  display: 'flex', alignItems: 'center', gap: 5,
-                }}>
-                  <Boxes size={13} strokeWidth={2} color={colors.red.DEFAULT} />
-                  Controlar estoque
+              <div style={{ display: 'flex', gap: 10, flexDirection: isMobile ? 'column' : 'row' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Categoria</label>
+                  <input
+                    list="product-categories"
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    placeholder="Ex: Cosméticos"
+                    style={inputStyle}
+                  />
+                  <datalist id="product-categories">
+                    {categories.map(c => <option key={c} value={c} />)}
+                  </datalist>
                 </div>
-                <div style={{ fontSize: 11, color: colors.gray.dimText, marginTop: 2, lineHeight: 1.4 }}>
-                  Habilite para acompanhar saldo, movimentações e alertas em <strong>/estoque</strong>.
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Cor (opcional)</label>
+                  <ColorPickerCompact value={color} onChange={setColor} />
                 </div>
               </div>
-            </button>
 
-            {trackStock && (
-              <div style={{
-                marginTop: 14,
-                display: 'flex', flexDirection: 'column', gap: 10,
-                paddingTop: 12,
-                borderTop: `1px dashed ${colors.gray.border}`,
-              }}>
-                {!isEditing && (
-                  <div>
-                    <label style={labelStyle}>Estoque inicial</label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Preço *</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{
+                      position: 'absolute', left: 12, top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontSize: 12, color: colors.gray.dimText, fontWeight: 600,
+                      pointerEvents: 'none',
+                    }}>R$</span>
                     <input
                       type="text"
-                      inputMode="numeric"
-                      value={initialStock}
-                      onChange={e => setInitialStock(e.target.value.replace(/\D/g, ''))}
-                      placeholder="0"
-                      style={{ ...inputStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                      inputMode="decimal"
+                      value={priceStr}
+                      onChange={e => setPriceStr(e.target.value.replace(/[^\d,.]/g, ''))}
+                      placeholder="0,00"
+                      style={{ ...inputStyle, paddingLeft: 34, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                     />
-                    <div style={{
-                      fontSize: 10, color: colors.gray.dimText,
-                      marginTop: 4,
-                    }}>
-                      Será registrado como movimentação de entrada &ldquo;Saldo inicial&rdquo;.
-                    </div>
                   </div>
-                )}
-
-                {isEditing && (
-                  <div style={{
-                    padding: '8px 12px',
-                    background: colors.background.page,
-                    borderRadius: 8,
-                    fontSize: 12,
-                    color: colors.gray[700],
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  }}>
-                    <span>Saldo atual</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Custo (opcional)</label>
+                  <div style={{ position: 'relative' }}>
                     <span style={{
-                      fontSize: 14, fontWeight: 700,
-                      color: colors.red.DEFAULT,
-                      fontVariantNumeric: 'tabular-nums',
-                    }}>
-                      {product?.stock ?? 0} un.
-                    </span>
+                      position: 'absolute', left: 12, top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontSize: 12, color: colors.gray.dimText, fontWeight: 600,
+                      pointerEvents: 'none',
+                    }}>R$</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={costStr}
+                      onChange={e => setCostStr(e.target.value.replace(/[^\d,.]/g, ''))}
+                      placeholder="0,00"
+                      style={{ ...inputStyle, paddingLeft: 34, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                    />
                   </div>
-                )}
+                </div>
+              </div>
 
-                <div>
-                  <label style={labelStyle}>Alertar quando estoque ≤ (opcional)</label>
+              {margin != null && (
+                <div style={{
+                  padding: '8px 12px',
+                  background: margin > 0 ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.06)',
+                  border: `1px solid ${margin > 0 ? 'rgba(22,163,74,0.2)' : colors.red.border}`,
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: margin > 0 ? '#15803d' : colors.red.DEFAULT,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                }}>
+                  <span>Margem</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {margin.toFixed(1)}%
+                    {margin > 0 && costNum != null && !isNaN(costNum) && (
+                      <> · lucro de {formatPrice(priceNum - costNum)}</>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 10, flexDirection: isMobile ? 'column' : 'row' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>SKU (opcional)</label>
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    value={stockAlertStr}
-                    onChange={e => setStockAlertStr(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Ex: 5"
-                    style={{ ...inputStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                    value={sku}
+                    onChange={e => setSku(e.target.value)}
+                    placeholder="POM-001"
+                    style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', textTransform: 'uppercase' }}
                   />
                 </div>
-
-                {isEditing && (
-                  <div style={{
-                    fontSize: 11,
-                    color: colors.gray.dimText,
-                    padding: '8px 10px',
-                    background: 'rgba(59,130,246,0.06)',
-                    border: '1px solid rgba(59,130,246,0.15)',
-                    borderRadius: 7,
-                  }}>
-                    💡 Para alterar o saldo, use a página <strong>/estoque</strong> com movimentações auditáveis (entrada, saída, ajuste).
-                  </div>
-                )}
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Cód. barras (opcional)</label>
+                  <input
+                    value={barcode}
+                    onChange={e => setBarcode(e.target.value)}
+                    placeholder="7890000000123"
+                    inputMode="numeric"
+                    style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+                  />
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Ativo (só edição) */}
-          {isEditing && (
-            <button
-              onClick={() => setActive(!active)}
-              type="button"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 12px',
-                background: 'transparent',
-                border: `1px solid ${colors.gray.border}`,
-                borderRadius: 9,
-                cursor: 'pointer',
-                textAlign: 'left',
-                fontFamily: 'inherit',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              <div style={{
-                width: 40, height: 22, borderRadius: 11,
-                background: active ? colors.red.DEFAULT : colors.gray.borderMd,
-                position: 'relative',
-                transition: `background ${transitions.fast}`,
-                flexShrink: 0,
-              }}>
-                <div style={{
-                  width: 18, height: 18, borderRadius: '50%',
-                  background: '#fff',
-                  position: 'absolute',
-                  top: 2,
-                  left: active ? 'calc(100% - 20px)' : 2,
-                  transition: `left ${transitions.fast}`,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                }} />
-              </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: colors.gray[900] }}>
-                  Produto ativo
-                </div>
-                <div style={{ fontSize: 11, color: colors.gray.dimText, marginTop: 1 }}>
-                  Produtos inativos não aparecem nas vendas
-                </div>
+                <label style={labelStyle}>Descrição (opcional)</label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Descrição do produto..."
+                  style={{ ...inputStyle, resize: 'none', minHeight: 56 }}
+                />
               </div>
-            </button>
-          )}
 
-          {error && (
-            <div style={{
-              padding: '10px 12px',
-              borderRadius: 9,
-              background: 'rgba(220,38,38,0.06)',
-              border: `1px solid ${colors.red.border}`,
-              fontSize: 12,
-              color: colors.red.DEFAULT,
-            }}>
-              {error}
+              {isEditing && (
+                <button
+                  onClick={() => setActive(!active)}
+                  type="button"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px',
+                    background: 'transparent',
+                    border: `1px solid ${colors.gray.border}`,
+                    borderRadius: 9,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <div style={{
+                    width: 40, height: 22, borderRadius: 11,
+                    background: active ? colors.red.DEFAULT : colors.gray.borderMd,
+                    position: 'relative',
+                    transition: `background ${transitions.fast}`,
+                    flexShrink: 0,
+                  }}>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: '50%',
+                      background: '#fff',
+                      position: 'absolute',
+                      top: 2,
+                      left: active ? 'calc(100% - 20px)' : 2,
+                      transition: `left ${transitions.fast}`,
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                    }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: colors.gray[900] }}>
+                      Produto ativo
+                    </div>
+                    <div style={{ fontSize: 11, color: colors.gray.dimText, marginTop: 1 }}>
+                      Produtos inativos não aparecem nas vendas
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {error && (
+                <div style={{
+                  padding: '10px 12px',
+                  borderRadius: 9,
+                  background: 'rgba(220,38,38,0.06)',
+                  border: `1px solid ${colors.red.border}`,
+                  fontSize: 12,
+                  color: colors.red.DEFAULT,
+                }}>
+                  {error}
+                </div>
+              )}
             </div>
+          ) : (
+            <StockTab
+              productId={product?.id ?? null}
+              isMobile={isMobile}
+              trackStock={trackStock}
+              setTrackStock={setTrackStock}
+              initialStock={initialStock}
+              setInitialStock={setInitialStock}
+              stockAlertStr={stockAlertStr}
+              setStockAlertStr={setStockAlertStr}
+              defaultCost={costNum}
+              currentStock={currentStock}
+              onMoved={handleStockMoved}
+            />
           )}
         </div>
 

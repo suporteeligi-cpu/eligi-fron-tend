@@ -3,23 +3,27 @@
 
 import { colors, typography, transitions } from '@/shared/theme'
 
-export type StockFilter = 'all' | 'low' | 'out'
+export type StockFilter = 'all' | 'inStock' | 'low' | 'out' | 'untracked'
 
 interface Props {
   current: StockFilter
   onChange: (f: StockFilter) => void
   counts: {
-    all: number
-    low: number
-    out: number
+    all:        number
+    inStock:    number
+    low:        number
+    out:        number
+    untracked:  number
   }
 }
 
 export default function StockFilterTabs({ current, onChange, counts }: Props) {
   const tabs: Array<{ id: StockFilter; label: string; count: number; color?: string }> = [
-    { id: 'all', label: 'Todos',         count: counts.all },
-    { id: 'low', label: 'Estoque baixo', count: counts.low, color: '#b45309' },
-    { id: 'out', label: 'Esgotados',     count: counts.out, color: '#991b1b' },
+    { id: 'all',       label: 'Todos',       count: counts.all },
+    { id: 'inStock',   label: 'Em estoque',  count: counts.inStock,   color: '#15803d' },
+    { id: 'low',       label: 'Baixo',       count: counts.low,       color: '#b45309' },
+    { id: 'out',       label: 'Esgotado',    count: counts.out,       color: '#991b1b' },
+    { id: 'untracked', label: 'Sem controle', count: counts.untracked },
   ]
 
   return (
@@ -33,6 +37,7 @@ export default function StockFilterTabs({ current, onChange, counts }: Props) {
       border: `1px solid ${colors.gray.border}`,
       marginBottom: 12,
       overflowX: 'auto',
+      WebkitOverflowScrolling: 'touch',
       fontFamily: typography.fontFamily,
     }}>
       {tabs.map(t => {
@@ -44,7 +49,7 @@ export default function StockFilterTabs({ current, onChange, counts }: Props) {
             style={{
               flex: '1 0 auto',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '8px 14px',
+              padding: '8px 12px',
               borderRadius: 9,
               border: 'none',
               background: isActive ? '#fff' : 'transparent',

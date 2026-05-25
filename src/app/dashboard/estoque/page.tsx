@@ -1,8 +1,14 @@
 'use client'
 // src/app/dashboard/estoque/page.tsx
+//
+// Página unificada: lista TODOS os produtos do negócio.
+// Produtos com trackStock=true mostram badge de status + saldo.
+// Produtos sem controle de estoque aparecem normalmente, sem badge.
+//
+// Modal de produto tem 2 tabs: "Dados" e "Estoque".
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Search, X, PackageOpen } from 'lucide-react'
+import { Search, X, PackageOpen, Plus } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
@@ -10,12 +16,12 @@ import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import { Product } from '@/features/products/types'
 import { StockSummary } from '@/features/stock/types'
 import { getStockStatus } from '@/features/stock/utils/format'
+import { extractCategories, groupByCategory } from '@/features/products/utils/format'
 
 import StockSummaryCards from './components/StockSummaryCards'
 import StockFilterTabs, { StockFilter } from './components/StockFilterTabs'
-import StockProductRow   from './components/StockProductRow'
-import MovementModal     from './components/MovementModal'
-import HistoryDrawer     from './components/HistoryDrawer'
+import ProductRow from './components/ProductRow'
+import ProductModal from './components/ProductModal'
 import Toast, { ToastKind } from './components/Toast'
 
 export default function EstoquePage() {
@@ -28,15 +34,15 @@ export default function EstoquePage() {
   const [query,    setQuery]    = useState('')
   const [filter,   setFilter]   = useState<StockFilter>('all')
 
-  const [movingProduct,    setMovingProduct]    = useState<Product | null>(null)
-  const [viewingHistoryOf, setViewingHistoryOf] = useState<Product | null>(null)
+  const [modalProduct, setModalProduct] = useState<Product | null>(null)
+  const [modalOpen,    setModalOpen]    = useState(false)
   const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null)
 
   // ─── Fetch ─────────────────────────────────────────────────
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     try {
       const [prodRes, sumRes] = await Promise.all([
-        api.get('/products',              { signal }),
+        api.get('/products',               { signal }),
         api.get('/products/stock/summary', { signal }),
       ])
       if (signal?.aborted) return
@@ -60,31 +66,40 @@ export default function EstoquePage() {
     return () => ctrl.abort()
   }, [fetchData])
 
-  // ─── Filtros ───────────────────────────────────────────────
-  // Só mostra produtos com trackStock = true na página de estoque
-  const tracked = useMemo(
-    () => products.filter(p => p.trackStock),
-    [products],
-  )
+  // Refetch summary helper (chamado depois de movimentações)
+  const refetchSummary = useCallback(() => {
+    api.get('/products/stock/summary')
+      .then(res => setSummary(res.data?.data ?? res.data))
+      .catch(() => {})
+  }, [])
 
+  // ─── Filtros e counts ──────────────────────────────────────
   const counts = useMemo(() => {
-    let low = 0, out = 0
-    for (const p of tracked) {
-      const s = getStockStatus(true, p.stock ?? 0, p.stockAlert)
-      if (s === 'low') low++
-      if (s === 'out') out++
+    let inStock = 0, low = 0, out = 0, untracked = 0
+    for (const p of products) {
+      const s = getStockStatus(p.trackStock ?? false, p.stock ?? 0, p.stockAlert)
+      if (s === 'ok')        inStock++
+      else if (s === 'low')  low++
+      else if (s === 'out')  out++
+      else                   untracked++
     }
-    return { all: tracked.length, low, out }
-  }, [tracked])
+    return { all: products.length, inStock, low, out, untracked }
+  }, [products])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    let result = tracked
+    let result = products
 
     if (filter !== 'all') {
       result = result.filter(p => {
-        const s = getStockStatus(true, p.stock ?? 0, p.stockAlert)
-        return filter === 'low' ? s === 'low' : s === 'out'
+        const s = getStockStatus(p.trackStock ?? false, p.stock ?? 0, p.stockAlert)
+        switch (filter) {
+          case 'inStock':   return s === 'ok'
+          case 'low':       return s === 'low'
+          case 'out':       return s === 'out'
+          case 'untracked': return s === 'untracked'
+          default:          return true
+        }
       })
     }
 
@@ -97,16 +112,58 @@ export default function EstoquePage() {
       )
     }
     return result
-  }, [tracked, query, filter])
+  }, [products, query, filter])
+
+  const categories = useMemo(() => extractCategories(products), [products])
+
+  const grouped = useMemo(() => {
+    const map = groupByCategory(filtered)
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === 'Sem categoria') return 1
+      if (b === 'Sem categoria') return -1
+      return a.localeCompare(b)
+    })
+  }, [filtered])
 
   // ─── Handlers ──────────────────────────────────────────────
-  function handleMovementSaved(updated: Product) {
+  function handleAdd() {
+    setModalProduct(null)
+    setModalOpen(true)
+  }
+
+  function handleEdit(p: Product) {
+    setModalProduct(p)
+    setModalOpen(true)
+  }
+
+  function handleSaved(saved: Product) {
+    setProducts(prev => {
+      const exists = prev.find(p => p.id === saved.id)
+      if (exists) return prev.map(p => p.id === saved.id ? saved : p)
+      return [...prev, saved]
+    })
+    setToast({
+      message: modalProduct ? 'Produto atualizado' : 'Produto criado',
+      kind: 'success',
+    })
+    refetchSummary()
+  }
+
+  function handleDeleted(id: string) {
+    setProducts(prev => prev.filter(p => p.id !== id))
+    setToast({ message: 'Produto apagado', kind: 'success' })
+    refetchSummary()
+  }
+
+  function handleStockMoved(updated: Product) {
     setProducts(prev => prev.map(p => p.id === updated.id ? updated : p))
     setToast({ message: 'Movimentação registrada', kind: 'success' })
-    // Refetch summary pra atualizar KPIs
-    api.get('/products/stock/summary')
-      .then(res => setSummary(res.data?.data ?? res.data))
-      .catch(() => {})
+    refetchSummary()
+  }
+
+  function handleCloseModal() {
+    setModalOpen(false)
+    setTimeout(() => setModalProduct(null), 250)
   }
 
   return (
@@ -116,20 +173,15 @@ export default function EstoquePage() {
         @keyframes es-spin    { to { transform: rotate(360deg) } }
       `}</style>
 
-      {movingProduct && (
-        <MovementModal
-          product={movingProduct}
+      {modalOpen && (
+        <ProductModal
+          product={modalProduct}
           isMobile={isMobile}
-          onSaved={handleMovementSaved}
-          onClose={() => setMovingProduct(null)}
-        />
-      )}
-
-      {viewingHistoryOf && (
-        <HistoryDrawer
-          product={viewingHistoryOf}
-          isMobile={isMobile}
-          onClose={() => setViewingHistoryOf(null)}
+          categories={categories}
+          onSaved={handleSaved}
+          onDeleted={handleDeleted}
+          onStockMoved={handleStockMoved}
+          onClose={handleCloseModal}
         />
       )}
 
@@ -167,14 +219,37 @@ export default function EstoquePage() {
               <p style={{ fontSize: 14, color: typography.color.muted, margin: '4px 0 0' }}>
                 {loading
                   ? 'Carregando...'
-                  : `${tracked.length} produto${tracked.length !== 1 ? 's' : ''} com controle de estoque`
+                  : `${products.length} produto${products.length !== 1 ? 's' : ''} cadastrado${products.length !== 1 ? 's' : ''}`
                 }
               </p>
             )}
           </div>
+
+          <button
+            onClick={handleAdd}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: isMobile ? '9px 14px' : '9px 18px',
+              borderRadius: 12,
+              border: 'none',
+              background: colors.red.gradient,
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: `0 4px 14px ${colors.red.glow}`,
+              letterSpacing: '.02em',
+              flexShrink: 0,
+              WebkitTapHighlightColor: 'transparent',
+              fontFamily: 'inherit',
+            }}
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            {isMobile ? 'Novo' : 'Adicionar'}
+          </button>
         </div>
 
-        {/* Cards de resumo */}
+        {/* KPIs */}
         <StockSummaryCards
           summary={summary}
           loading={loading}
@@ -231,40 +306,79 @@ export default function EstoquePage() {
         {/* Lista */}
         {loading ? (
           <LoadingState />
-        ) : tracked.length === 0 ? (
+        ) : products.length === 0 ? (
           <EmptyState
-            title="Nenhum produto com controle de estoque"
-            subtitle="Habilite 'Controlar estoque' ao criar ou editar um produto em /produtos."
+            title="Nenhum produto cadastrado"
+            subtitle="Comece adicionando seu primeiro produto. Você pode controlar estoque ou só ter o cadastro."
+            ctaLabel="+ Adicionar produto"
+            onCta={handleAdd}
           />
         ) : filtered.length === 0 ? (
           <EmptyState
             title="Nenhum produto encontrado"
             subtitle={
-              query ? 'Tente outro termo de busca.'
-                    : filter === 'low' ? 'Nenhum produto com estoque baixo no momento.'
-                    : 'Nenhum produto esgotado no momento.'
+              query
+                ? `Não há produtos correspondendo a "${query}".`
+                : 'Tente outro filtro acima.'
             }
           />
         ) : (
           <div style={{
-            background: 'rgba(255,255,255,0.85)',
+            background: 'rgba(255,255,255,0.72)',
             backdropFilter: 'blur(20px) saturate(160%)',
             WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-            borderRadius: 14,
-            border: '1px solid rgba(255,255,255,0.6)',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            borderRadius: 16,
+            border: '1px solid rgba(255,255,255,0.60)',
+            boxShadow: '0 2px 0 rgba(255,255,255,0.85) inset, 0 8px 28px rgba(0,0,0,0.06)',
             overflow: 'hidden',
           }}>
-            {filtered.map((p, i) => (
-              <StockProductRow
-                key={p.id}
-                product={p}
-                isMobile={isMobile}
-                isLast={i === filtered.length - 1}
-                onMove={() => setMovingProduct(p)}
-                onHistory={() => setViewingHistoryOf(p)}
-              />
-            ))}
+            {isMobile ? (
+              // Mobile: lista flat
+              filtered.map((p, i) => (
+                <ProductRow
+                  key={p.id}
+                  product={p}
+                  isMobile
+                  isLast={i === filtered.length - 1}
+                  onClick={() => handleEdit(p)}
+                />
+              ))
+            ) : (
+              // Desktop: agrupado por categoria
+              grouped.map(([category, items], gi) => (
+                <div key={category} style={{
+                  borderBottom: gi === grouped.length - 1 ? 'none' : `1px solid ${colors.gray.border}`,
+                }}>
+                  <div style={{
+                    padding: '12px 16px 8px',
+                    fontSize: 10, fontWeight: 700,
+                    color: colors.gray.dimText,
+                    textTransform: 'uppercase',
+                    letterSpacing: '.08em',
+                    background: 'rgba(255,255,255,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  }}>
+                    <span>{category}</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700,
+                      padding: '2px 7px',
+                      background: colors.gray.hover,
+                      borderRadius: 6,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>{items.length}</span>
+                  </div>
+                  {items.map((p, i) => (
+                    <ProductRow
+                      key={p.id}
+                      product={p}
+                      isMobile={false}
+                      isLast={i === items.length - 1}
+                      onClick={() => handleEdit(p)}
+                    />
+                  ))}
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
@@ -285,7 +399,14 @@ function LoadingState() {
   )
 }
 
-function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
+function EmptyState({
+  title, subtitle, ctaLabel, onCta,
+}: {
+  title:     string
+  subtitle:  string
+  ctaLabel?: string
+  onCta?:    () => void
+}) {
   return (
     <div style={{
       textAlign: 'center',
@@ -298,9 +419,30 @@ function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
       <div style={{ fontSize: 15, fontWeight: 600, color: typography.color.primary, marginBottom: 4 }}>
         {title}
       </div>
-      <div style={{ fontSize: 13, color: colors.gray.dimText, maxWidth: 320, margin: '0 auto' }}>
+      <div style={{
+        fontSize: 13, color: colors.gray.dimText, maxWidth: 360, margin: '0 auto',
+        marginBottom: ctaLabel ? 20 : 0,
+      }}>
         {subtitle}
       </div>
+      {ctaLabel && onCta && (
+        <button
+          onClick={onCta}
+          style={{
+            padding: '11px 22px',
+            borderRadius: 10,
+            background: colors.red.gradient,
+            color: '#fff', border: 'none',
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontSize: 14,
+            boxShadow: `0 3px 10px ${colors.red.glow}`,
+            fontFamily: 'inherit',
+          }}
+        >
+          {ctaLabel}
+        </button>
+      )}
     </div>
   )
 }
