@@ -81,6 +81,16 @@ export const bookingStatus = {
     labelBg:    'rgba(148,163,184,0.10)',
     labelColor: '#64748b',
   },
+  NO_SHOW: {
+    gradient:   'linear-gradient(135deg, #94a3b8, #64748b)',
+    bg:         'rgba(100,116,139,0.06)',
+    border:     'rgba(100,116,139,0.20)',
+    text:       '#475569',
+    glow:       'rgba(100,116,139,0.15)',
+    label:      'Não compareceu',
+    labelBg:    'rgba(100,116,139,0.08)',
+    labelColor: '#475569',
+  },
 } as const
 
 export const glass = {
