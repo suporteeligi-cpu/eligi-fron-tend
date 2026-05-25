@@ -1,10 +1,13 @@
 'use client'
 // src/app/dashboard/equipe/components/ComissoesTab.tsx
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { DollarSign, ChevronLeft } from 'lucide-react'
+import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
-import { Professional, ServiceItem } from '@/features/professionals/types'
+import {
+  Professional, ServiceItem, ProductLite,
+} from '@/features/professionals/types'
 import {
   CommissionCategoryId,
 } from '@/features/professionals/constants/commissionCategories'
@@ -13,6 +16,7 @@ import { fmtCommission } from '@/features/professionals/utils/format'
 import ProfSidebar               from './ProfSidebar'
 import CategoryList              from './CategoryList'
 import CommissionServicesEditor  from './CommissionServicesEditor'
+import CommissionProductsEditor  from './CommissionProductsEditor'
 import Avatar                    from './Avatar'
 
 interface Props {
@@ -22,7 +26,6 @@ interface Props {
   query:         string
   loading:       boolean
   isMobile:      boolean
-  /** Mobile drill state: 'list' | 'categories' | 'editor' */
   mobileLevel:   'list' | 'categories' | 'editor'
   onQueryChange: (q: string) => void
   onSelect:      (p: Professional) => void
@@ -36,6 +39,24 @@ export default function ComissoesTab({
   onQueryChange, onSelect, onUpdated, onMobileLevel,
 }: Props) {
   const [category, setCategory] = useState<CommissionCategoryId>('services')
+
+  // Carrega produtos (uma vez)
+  const [products, setProducts] = useState<ProductLite[]>([])
+  useEffect(() => {
+    let cancelled = false
+    api.get('/products')
+      .then(res => {
+        if (cancelled) return
+        const data = res.data?.data ?? res.data
+        const list = Array.isArray(data) ? data : data.products ?? []
+        // Filtra só ativos pra commission picker
+        setProducts(list.filter((p: ProductLite & { active?: boolean }) =>
+          p.active !== false
+        ))
+      })
+      .catch(() => { if (!cancelled) setProducts([]) })
+    return () => { cancelled = true }
+  }, [])
 
   function handleSelect(p: Professional) {
     onSelect(p)
@@ -52,6 +73,10 @@ export default function ComissoesTab({
         services:
           selected.commissionType && selected.commissionValue != null
             ? `${fmtCommission(selected.commissionType, selected.commissionValue)} padrão`
+            : 'Não definido',
+        products:
+          selected.commissionProductType && selected.commissionProductValue != null
+            ? `${fmtCommission(selected.commissionProductType, selected.commissionProductValue)} padrão`
             : 'Não definido',
       }
     : {}
@@ -74,9 +99,18 @@ export default function ComissoesTab({
           <div style={{ padding: '14px 16px 20px' }}>
             {category === 'services' && (
               <CommissionServicesEditor
-                key={selected.id}
+                key={`${selected.id}-services`}
                 prof={selected}
                 allServices={allServices}
+                isMobile
+                onChanged={onUpdated}
+              />
+            )}
+            {category === 'products' && (
+              <CommissionProductsEditor
+                key={`${selected.id}-products`}
+                prof={selected}
+                allProducts={products}
                 isMobile
                 onChanged={onUpdated}
               />
@@ -177,9 +211,17 @@ export default function ComissoesTab({
           <EmptyState />
         ) : category === 'services' ? (
           <CommissionServicesEditor
-            key={selected.id}
+            key={`${selected.id}-services`}
             prof={selected}
             allServices={allServices}
+            isMobile={false}
+            onChanged={onUpdated}
+          />
+        ) : category === 'products' ? (
+          <CommissionProductsEditor
+            key={`${selected.id}-products`}
+            prof={selected}
+            allProducts={products}
             isMobile={false}
             onChanged={onUpdated}
           />
@@ -222,8 +264,7 @@ function MobileMiniHeader({
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Avatar name={prof.name} size={28} url={prof.avatarUrl} />
         <div style={{
-          fontSize: 13, fontWeight: 700,
-          color: colors.gray[900],
+          fontSize: 13, fontWeight: 700, color: colors.gray[900],
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {prof.name}
@@ -259,7 +300,7 @@ function LockedCategory({ category }: { category: CommissionCategoryId }) {
   }
   const phases: Record<CommissionCategoryId, string> = {
     services:      '',
-    products:      'Fase 2',
+    products:      '',
     packages:      'Fase 3',
     giftcards:     'Fase 4',
     subscriptions: 'Fase 5',

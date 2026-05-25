@@ -1,9 +1,8 @@
 // src/features/professionals/constants/commissionCategories.ts
 //
 // Categorias de comissão estilo Booksy.
-// Hoje só "services" está habilitado. Conforme novas features forem entrando
-// (produtos, pacotes, gift cards, assinaturas), basta mudar `locked: false`
-// e implementar o editor correspondente.
+// Habilitadas: services (Fase 1), products (Fase 2)
+// Bloqueadas: packages, giftcards, subscriptions
 
 export type CommissionCategoryId =
   | 'services'
@@ -15,9 +14,9 @@ export type CommissionCategoryId =
 export interface CommissionCategoryDef {
   id:        CommissionCategoryId
   label:     string
-  icon:      string   // nome do ícone Lucide (carregado lazy onde precisar)
+  icon:      string
   locked:    boolean
-  phaseLabel?: string  // "Fase 2", etc — só quando locked
+  phaseLabel?: string
   description: string
 }
 
@@ -33,8 +32,7 @@ export const COMMISSION_CATEGORIES: CommissionCategoryDef[] = [
     id:          'products',
     label:       'Produtos',
     icon:        'Package',
-    locked:      true,
-    phaseLabel:  'Fase 2',
+    locked:      false,
     description: 'Comissão por produto vendido',
   },
   {

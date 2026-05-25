@@ -1,4 +1,4 @@
-import { LucideIcon } from 'lucide-react'
+import { Box, LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard,
   Calendar,
@@ -29,6 +29,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Caixa',        path: '/dashboard/caixa',        icon: ShoppingBag,     section: 'financeiro' },
     { label: 'Financeiro',    path: '/dashboard/financeiro',    icon: CreditCard,      section: 'financeiro' },
     { label: 'Configurações', path: '/dashboard/configuracoes', icon: Settings,        section: 'gestao'     },
+    { label: 'Estoque',       path: '/dashboard/produtos',       icon: Box,            section: 'principal'     }
   ],
   PROFESSIONAL: [
     { label: 'Dashboard', path: '/dashboard',        icon: LayoutDashboard, section: 'principal' },

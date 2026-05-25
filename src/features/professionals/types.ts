@@ -18,6 +18,12 @@ export interface CommissionOverride {
   commissionValue:  number
 }
 
+export interface ProductCommissionOverride {
+  productId:        string
+  commissionType:   CommissionType
+  commissionValue:  number
+}
+
 export interface Professional {
   id:               string
   name:             string
@@ -30,12 +36,17 @@ export interface Professional {
   availableOnline?: boolean
   active:           boolean
 
-  // Comissão default
+  // Comissão de serviços (Fase 1)
   commissionType?:  CommissionType | null
   commissionValue?: number | null
 
-  services?:            ProfessionalService[]
-  commissionOverrides?: CommissionOverride[]
+  // Comissão de produtos (Fase 2)
+  commissionProductType?:  CommissionType | null
+  commissionProductValue?: number | null
+
+  services?:                    ProfessionalService[]
+  commissionOverrides?:         CommissionOverride[]
+  productCommissionOverrides?:  ProductCommissionOverride[]
 }
 
 export interface ServiceItem {
@@ -45,6 +56,15 @@ export interface ServiceItem {
   price?:   number | null
   color?:   string | null
   category?: string | null
+}
+
+export interface ProductLite {
+  id:        string
+  name:      string
+  category?: string | null
+  color?:    string | null
+  imageUrl?: string | null
+  price:     number
 }
 
 export interface HourSlot {
