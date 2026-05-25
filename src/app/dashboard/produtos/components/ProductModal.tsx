@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Save, Trash2 } from 'lucide-react'
+import { X, Save, Trash2, Boxes } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions, radius, shadows } from '@/shared/theme'
@@ -14,9 +14,9 @@ import { SERVICE_COLORS } from '@/features/services/constants/colorPalette'
 import ProductImagePicker from './ProductImagePicker'
 
 interface Props {
-  product:     Product | null  // null = criar; Product = editar
+  product:     Product | null
   isMobile:    boolean
-  categories:  string[]        // sugestões pra autocomplete
+  categories:  string[]
   onSaved:     (p: Product) => void
   onDeleted?:  (id: string) => void
   onClose:     () => void
@@ -38,6 +38,15 @@ export default function ProductModal({
   const [barcode,     setBarcode]     = useState(product?.barcode ?? '')
   const [active,      setActive]      = useState(product?.active ?? true)
 
+  // ─── Estoque (Fase 2.3) ─────────────────────────────────────
+  const [trackStock,    setTrackStock]    = useState(product?.trackStock ?? false)
+  const [initialStock,  setInitialStock]  = useState(
+    product?.stock != null ? String(product.stock) : ''
+  )
+  const [stockAlertStr, setStockAlertStr] = useState(
+    product?.stockAlert != null ? String(product.stockAlert) : ''
+  )
+
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState<string | null>(null)
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
@@ -45,7 +54,6 @@ export default function ProductModal({
 
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Foca o input só no desktop (mobile evita teclado pular)
   useEffect(() => {
     if (isMobile || isEditing) return
     const t = setTimeout(() => inputRef.current?.focus(), 100)
@@ -63,6 +71,27 @@ export default function ProductModal({
     const cost = costStr ? parseFloat(costStr.replace(',', '.')) : null
     if (cost != null && (isNaN(cost) || cost < 0)) { setError('Custo inválido'); return }
 
+    // Estoque
+    let stockValue: number | undefined = undefined
+    let stockAlertValue: number | null | undefined = undefined
+
+    if (trackStock) {
+      if (!isEditing) {
+        // Saldo inicial só vai ao criar
+        const parsed = parseInt(initialStock.replace(/\D/g, ''), 10)
+        stockValue = isNaN(parsed) ? 0 : Math.max(0, parsed)
+      }
+      // Alerta sempre pode ser editado
+      if (stockAlertStr) {
+        const a = parseInt(stockAlertStr.replace(/\D/g, ''), 10)
+        stockAlertValue = isNaN(a) ? null : Math.max(0, a)
+      } else {
+        stockAlertValue = null
+      }
+    } else if (isEditing) {
+      stockAlertValue = null
+    }
+
     const payload = {
       name:         trimmedName,
       description:  description.trim() || null,
@@ -73,6 +102,9 @@ export default function ProductModal({
       cost,
       sku:          sku.trim()         || null,
       barcode:      barcode.trim()     || null,
+      trackStock,
+      ...(stockValue       !== undefined ? { stock:      stockValue }      : {}),
+      ...(stockAlertValue  !== undefined ? { stockAlert: stockAlertValue } : {}),
       ...(isEditing ? { active } : {}),
     }
 
@@ -105,7 +137,6 @@ export default function ProductModal({
     }
   }
 
-  // Cálculo de margem em tempo real
   const priceNum = parseFloat(priceStr.replace(',', '.'))
   const costNum  = costStr ? parseFloat(costStr.replace(',', '.')) : null
   const margin   = !isNaN(priceNum) && costNum != null && !isNaN(costNum)
@@ -230,10 +261,8 @@ export default function ProductModal({
           display: 'flex', flexDirection: 'column', gap: 14,
           WebkitOverflowScrolling: 'touch',
         }}>
-          {/* Foto */}
           <ProductImagePicker current={imageUrl} onChange={setImageUrl} />
 
-          {/* Nome */}
           <div>
             <label style={labelStyle}>Nome *</label>
             <input
@@ -245,7 +274,6 @@ export default function ProductModal({
             />
           </div>
 
-          {/* Categoria + Cor */}
           <div style={{ display: 'flex', gap: 10, flexDirection: isMobile ? 'column' : 'row' }}>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Categoria</label>
@@ -266,7 +294,6 @@ export default function ProductModal({
             </div>
           </div>
 
-          {/* Preço + Custo */}
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Preço de venda *</label>
@@ -330,7 +357,6 @@ export default function ProductModal({
             </div>
           )}
 
-          {/* SKU + Barcode */}
           <div style={{ display: 'flex', gap: 10, flexDirection: isMobile ? 'column' : 'row' }}>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>SKU (opcional)</label>
@@ -353,7 +379,6 @@ export default function ProductModal({
             </div>
           </div>
 
-          {/* Descrição */}
           <div>
             <label style={labelStyle}>Descrição (opcional)</label>
             <textarea
@@ -365,10 +390,141 @@ export default function ProductModal({
             />
           </div>
 
+          {/* ═══════════ SEÇÃO ESTOQUE (Fase 2.3) ═══════════ */}
+          <div style={{
+            border: `1px solid ${colors.gray.border}`,
+            borderRadius: radius.md,
+            padding: '12px 14px',
+            background: trackStock ? 'rgba(220,38,38,0.02)' : colors.background.page,
+            transition: `background ${transitions.fast}`,
+          }}>
+            <button
+              onClick={() => setTrackStock(!trackStock)}
+              type="button"
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 10,
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: 0, textAlign: 'left',
+                width: '100%',
+                fontFamily: 'inherit',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <div style={{
+                width: 40, height: 22, borderRadius: 11,
+                background: trackStock ? colors.red.DEFAULT : colors.gray.borderMd,
+                position: 'relative',
+                transition: `background ${transitions.fast}`,
+                flexShrink: 0,
+                marginTop: 1,
+              }}>
+                <div style={{
+                  width: 18, height: 18, borderRadius: '50%',
+                  background: '#fff',
+                  position: 'absolute',
+                  top: 2,
+                  left: trackStock ? 'calc(100% - 20px)' : 2,
+                  transition: `left ${transitions.fast}`,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 700,
+                  color: colors.gray[900],
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                  <Boxes size={13} strokeWidth={2} color={colors.red.DEFAULT} />
+                  Controlar estoque
+                </div>
+                <div style={{ fontSize: 11, color: colors.gray.dimText, marginTop: 2, lineHeight: 1.4 }}>
+                  Habilite para acompanhar saldo, movimentações e alertas em <strong>/estoque</strong>.
+                </div>
+              </div>
+            </button>
+
+            {trackStock && (
+              <div style={{
+                marginTop: 14,
+                display: 'flex', flexDirection: 'column', gap: 10,
+                paddingTop: 12,
+                borderTop: `1px dashed ${colors.gray.border}`,
+              }}>
+                {!isEditing && (
+                  <div>
+                    <label style={labelStyle}>Estoque inicial</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={initialStock}
+                      onChange={e => setInitialStock(e.target.value.replace(/\D/g, ''))}
+                      placeholder="0"
+                      style={{ ...inputStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                    />
+                    <div style={{
+                      fontSize: 10, color: colors.gray.dimText,
+                      marginTop: 4,
+                    }}>
+                      Será registrado como movimentação de entrada &ldquo;Saldo inicial&rdquo;.
+                    </div>
+                  </div>
+                )}
+
+                {isEditing && (
+                  <div style={{
+                    padding: '8px 12px',
+                    background: colors.background.page,
+                    borderRadius: 8,
+                    fontSize: 12,
+                    color: colors.gray[700],
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  }}>
+                    <span>Saldo atual</span>
+                    <span style={{
+                      fontSize: 14, fontWeight: 700,
+                      color: colors.red.DEFAULT,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      {product?.stock ?? 0} un.
+                    </span>
+                  </div>
+                )}
+
+                <div>
+                  <label style={labelStyle}>Alertar quando estoque ≤ (opcional)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={stockAlertStr}
+                    onChange={e => setStockAlertStr(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Ex: 5"
+                    style={{ ...inputStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                  />
+                </div>
+
+                {isEditing && (
+                  <div style={{
+                    fontSize: 11,
+                    color: colors.gray.dimText,
+                    padding: '8px 10px',
+                    background: 'rgba(59,130,246,0.06)',
+                    border: '1px solid rgba(59,130,246,0.15)',
+                    borderRadius: 7,
+                  }}>
+                    💡 Para alterar o saldo, use a página <strong>/estoque</strong> com movimentações auditáveis (entrada, saída, ajuste).
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Ativo (só edição) */}
           {isEditing && (
             <button
               onClick={() => setActive(!active)}
+              type="button"
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '10px 12px',
@@ -536,7 +692,6 @@ export default function ProductModal({
   )
 }
 
-// ─── ColorPickerCompact ────────────────────────────────────────────
 function ColorPickerCompact({
   value, onChange,
 }: {

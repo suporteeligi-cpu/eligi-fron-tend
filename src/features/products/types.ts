@@ -16,6 +16,11 @@ export interface Product {
 
   active:       boolean
 
+  // Estoque (Fase 2.3)
+  trackStock?:  boolean
+  stock?:       number
+  stockAlert?:  number | null
+
   createdAt?:   string
   updatedAt?:   string
 }
@@ -30,4 +35,7 @@ export interface ProductFormData {
   cost?:        number | null
   sku?:         string
   barcode?:     string
+  trackStock?:  boolean
+  stock?:       number
+  stockAlert?:  number | null
 }
