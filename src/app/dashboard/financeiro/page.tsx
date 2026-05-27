@@ -1,89 +1,105 @@
 'use client'
+// src/app/dashboard/financeiro/page.tsx
 
-import { CreditCard } from 'lucide-react'
+import {
+  DollarSign, ShoppingCart, BarChart3, TrendingDown, ReceiptText,
+} from 'lucide-react'
+import { typography } from '@/shared/theme'
+import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
+
+import ModuleCard          from './components/ModuleCard'
+import CommissionsSummary  from './components/CommissionsSummary'
 
 export default function FinanceiroPage() {
+  const mode     = useDeviceMode()
+  const isMobile = mode === 'mobile'
+
+  const cols = isMobile ? 1 : 2
+
   return (
     <>
       <style>{`
-        @keyframes eligi-fade-up {
-          from { opacity: 0; transform: translateY(14px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes eligi-pulse-dot {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.5; transform: scale(0.85); }
-        }
+        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)}}
       `}</style>
 
       <div style={{
-        display: 'flex', flexDirection: 'column', gap: '28px',
-        animation: 'eligi-fade-up 400ms cubic-bezier(0.22,1,0.36,1) both',
+        maxWidth: 900,
+        padding: isMobile ? '0 12px' : 0,
+        animation: 'fadeUp 0.3s ease',
+        fontFamily: typography.fontFamily,
       }}>
-        <div>
-          <h2 style={{
-            fontSize: '22px', fontWeight: 700, letterSpacing: '-0.025em',
-            color: 'var(--text-primary, #0f0f14)', margin: 0, lineHeight: 1.2,
+        {/* Header */}
+        <div style={{ marginBottom: 22 }}>
+          <h1 style={{
+            fontSize: isMobile ? 24 : 28,
+            fontWeight: typography.weight.bold,
+            color: typography.color.primary,
+            margin: 0,
+            letterSpacing: '-0.02em',
           }}>
             Financeiro
-          </h2>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary, #6b7280)', marginTop: '4px' }}>
-            Visão financeira do seu negócio.
+          </h1>
+          <p style={{
+            fontSize: typography.scale.base,
+            color: typography.color.muted,
+            marginTop: 4, marginBottom: 0,
+          }}>
+            Gestão financeira completa do seu negócio
           </p>
         </div>
 
+        {/* Grid de módulos */}
         <div style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-          borderRadius: '20px',
-          border: '1px solid rgba(255,255,255,0.60)',
-          boxShadow: '0 2px 0 rgba(255,255,255,0.85) inset, 0 8px 28px rgba(0,0,0,0.06)',
-          padding: '64px 32px',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          gap: '16px', textAlign: 'center', minHeight: '340px',
+          display: 'grid',
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gap: 12,
         }}>
-          <div style={{
-            width: '56px', height: '56px', borderRadius: '16px',
-            background: 'linear-gradient(145deg,#ef4444 0%,#dc2626 60%,#b91c1c 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(220,38,38,0.28)',
-          }}>
-            <CreditCard size={26} color="#fff" />
-          </div>
+          {/* ⭐ Comissões — ATIVO */}
+          <ModuleCard
+            title="Comissões"
+            description="Pagamentos da equipe (serviços e produtos)"
+            href="/dashboard/financeiro/comissoes"
+            Icon={DollarSign}
+            gradient="linear-gradient(135deg, #dc2626, #b91c1c)"
+          >
+            <CommissionsSummary />
+          </ModuleCard>
 
-          <div>
-            <h3 style={{
-              fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em',
-              color: 'var(--text-primary, #0f0f14)', margin: '0 0 6px',
-            }}>
-              Módulo em desenvolvimento
-            </h3>
-            <p style={{
-              fontSize: '14px', color: 'var(--text-secondary, #6b7280)',
-              maxWidth: '360px', lineHeight: 1.6,
-            }}>
-              Faturamento, repasses e relatórios financeiros chegam em breve.
-            </p>
-          </div>
+          {/* Vendas — em breve */}
+          <ModuleCard
+            title="Vendas"
+            description="Histórico completo de vendas e receita"
+            Icon={ShoppingCart}
+            gradient="linear-gradient(135deg, #475569, #334155)"
+            phaseLabel="Fase 6.7"
+          />
 
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '8px 14px', borderRadius: '999px',
-            background: 'rgba(220,38,38,0.07)',
-            border: '1px solid rgba(220,38,38,0.15)',
-          }}>
-            <span style={{
-              width: '7px', height: '7px', borderRadius: '50%',
-              background: '#dc2626',
-              animation: 'eligi-pulse-dot 1.6s ease-in-out infinite',
-              display: 'inline-block',
-            }} />
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#dc2626' }}>
-              Em breve
-            </span>
-          </div>
+          {/* Relatórios — em breve */}
+          <ModuleCard
+            title="Relatórios"
+            description="Análises, gráficos e exportações"
+            Icon={BarChart3}
+            gradient="linear-gradient(135deg, #0891b2, #0e7490)"
+            phaseLabel="Fase 6.7"
+          />
+
+          {/* Despesas — em breve */}
+          <ModuleCard
+            title="Despesas"
+            description="Custos operacionais e fluxo de caixa"
+            Icon={TrendingDown}
+            gradient="linear-gradient(135deg, #d97706, #b45309)"
+            phaseLabel="Fase 7"
+          />
+
+          {/* Notas de Crédito — em breve */}
+          <ModuleCard
+            title="Notas de Crédito"
+            description="Anulações e reembolsos emitidos"
+            Icon={ReceiptText}
+            gradient="linear-gradient(135deg, #7c3aed, #6d28d9)"
+            phaseLabel="Fase 7"
+          />
         </div>
       </div>
     </>

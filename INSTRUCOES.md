@@ -1,93 +1,66 @@
-# Frontend — Integração Cliente ↔ Bookings ↔ Sales
+# Hub Financeiro · /dashboard/financeiro
 
-## 🎯 Objetivo
+Cria a página principal do módulo Financeiro como **hub de submódulos**.
 
-Fazer `SideCheckoutPanel` passar `clientId` ao criar/editar agendamento, completando a integração com o backend.
+## 🎨 Layout
 
----
+```
+┌─────────────────────────────────────┐
+│ Financeiro                          │
+│ Gestão financeira completa do seu…  │
+└─────────────────────────────────────┘
 
-## ⚠️ Pré-requisito
+┌────────────────┐  ┌────────────────┐
+│ 💰 Comissões   │  │ 🛒 Vendas      │
+│ A PAGAR: R$ X  │  │ Em breve…      │
+│ PAGO MÊS: R$ Y │  │ Fase 6.7       │
+└────────────────┘  └────────────────┘
 
-Backend (`clients-integration-backend.zip`) precisa estar deployado primeiro.
+┌────────────────┐  ┌────────────────┐
+│ 📊 Relatórios  │  │ 📉 Despesas    │
+│ Em breve…      │  │ Em breve…      │
+│ Fase 6.7       │  │ Fase 7         │
+└────────────────┘  └────────────────┘
 
----
+┌────────────────┐
+│ 📄 NCs         │
+│ Em breve…      │
+│ Fase 7         │
+└────────────────┘
+```
+
+- **Comissões**: ATIVO, mini-resumo com:
+  - "A PAGAR" (soma de comissões pendentes + nº de profissionais)
+  - "PAGO ESTE MÊS" (soma de payouts PAID do mês atual + count)
+- **Outros**: cards com ícone, descrição e placeholder "Em breve · Fase X"
+- **Hover** nos cards ativos: borda vermelha + sobe 2px
 
 ## 📦 Aplicar
 
 ```bash
 cd ~/Documentos/eligi/front-end
-
-unzip -o ~/Downloads/clients-integration-frontend.zip -d ./
-
-npm run lint && npm run build
-npm run deploy
+unzip -o ~/Downloads/financeiro-hub.zip -d ./
+npm run lint && npm run build && npm run deploy
 ```
 
----
-
-## 🗂 Arquivos modificados
+## 🗂 Arquivos
 
 ```
-src/features/booking/components/
-└── SideCheckoutPanel.tsx               ← envia clientId no POST e PATCH
-
-src/app/dashboard/caixa/components/
-└── ClientPicker.tsx                    ← remove badge "AVULSO" (agora todo cliente
-                                          está linkado de verdade)
+src/app/dashboard/financeiro/
+├── page.tsx                          ← hub principal
+└── components/
+    ├── ModuleCard.tsx                ← card reutilizável (ativo ou placeholder)
+    └── CommissionsSummary.tsx        ← mini-resumo do card de Comissões
 ```
 
----
+## ⚠️ Pré-requisito
+
+Backend payout-backend + payouts-routes-fix + frontend payouts-frontend deployados.
 
 ## 🧪 Teste
 
-1. Vai pra `/dashboard/agenda`
-2. Clica num horário vazio → abre SideCheckoutPanel
-3. Busca um cliente cadastrado (digita nome ou telefone)
-4. Seleciona, escolhe serviço, profissional, horário
-5. Clica em **CONFIRMAR**
-6. Volta pra `/dashboard/clientes`
-7. **Resultado esperado**:
-   - O cliente agora mostra **+1 agendamento** na coluna de bookings
-   - Ao clicar no cliente, o histórico mostra esse agendamento
-   - Stats bar no topo da página de clientes reflete o número correto
-
-8. Faz checkout do booking → confirma venda no `/caixa`
-9. Volta no cliente → **totalRevenue** agora mostra o valor pago
-
----
-
-## ✅ O fluxo completo agora
-
-```
-SideCheckoutPanel
-   ↓ POST /bookings/confirm { clientId, ... }
-Booking criado com clientId linkado
-   ↓ aparece em /clientes/{id}
-   
-[CHECKOUT do booking]
-   ↓
-Sale OPEN criada com clientId herdado
-   ↓
-[Confirma pagamento]
-   ↓
-Sale CONFIRMED → entra no totalRevenue do cliente
-   ↓ Booking → COMPLETED
-```
-
----
-
-## 🐛 Bonus
-
-- Removeu o badge **AVULSO** do `ClientPicker` (poluição visual, não fazia sentido — clientes vão estar sempre cadastrados agora)
-- Mostra só nome + telefone, limpo
-
----
-
-## 📊 O que vai funcionar agora
-
-- ✅ `/dashboard/clientes` mostra `totalBookings`, `completed`, `canceled` corretos
-- ✅ `totalRevenue` = soma de Sales CONFIRMED − CreditNotes (receita real paga)
-- ✅ Stats bar com números corretos
-- ✅ Tela detalhe do cliente (`/clientes/{id}`) mostra histórico completo
-- ✅ Bookings antigos foram linkados pela migration fuzzy match
-- ✅ Bookings novos serão linkados via clientId direto
+1. `/dashboard/financeiro` → vê grid com 5 cards
+2. **Comissões** mostra valores reais (pendentes + pagos do mês)
+3. Click em **Comissões** → vai pra `/dashboard/financeiro/comissoes`
+4. O botão "← Financeiro" lá agora **não dá mais 404** ✅
+5. Outros cards: hover desabilitado, ícone dessaturado, badge "Em breve"
