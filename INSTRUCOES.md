@@ -1,23 +1,23 @@
-# Fix CartPanel + ClientPicker
+# Frontend — Integração Cliente ↔ Bookings ↔ Sales
 
-## 🐛 Bugs corrigidos
+## 🎯 Objetivo
 
-### 1. Nome do cliente não aparece quando vem de booking
-**Causa**: ClientPicker só mostrava o cliente quando tinha **id E name** preenchidos. Mas booking pode ter `clientName` sem `clientId` (cliente avulso anotado direto na agenda).
-**Fix**: agora mostra se tem `name` (com ou sem id). Quando não tem id, exibe badge "AVULSO" pra indicar.
-
-### 2. Total em preto no card escuro
-**Causa**: spans do total/subtotal não tinham `color` explícito, herdavam do pai (`#fff`). Algum estilo global estava sobrescrevendo.
-**Fix**: forçado `color` explícito em todos os textos do card escuro (`#fff` para destaques, `rgba(255,255,255,0.55)` para textos secundários).
+Fazer `SideCheckoutPanel` passar `clientId` ao criar/editar agendamento, completando a integração com o backend.
 
 ---
 
-## Aplicar
+## ⚠️ Pré-requisito
+
+Backend (`clients-integration-backend.zip`) precisa estar deployado primeiro.
+
+---
+
+## 📦 Aplicar
 
 ```bash
 cd ~/Documentos/eligi/front-end
 
-unzip -o ~/Downloads/cartpanel-fix.zip -d ./
+unzip -o ~/Downloads/clients-integration-frontend.zip -d ./
 
 npm run lint && npm run build
 npm run deploy
@@ -25,10 +25,69 @@ npm run deploy
 
 ---
 
+## 🗂 Arquivos modificados
+
+```
+src/features/booking/components/
+└── SideCheckoutPanel.tsx               ← envia clientId no POST e PATCH
+
+src/app/dashboard/caixa/components/
+└── ClientPicker.tsx                    ← remove badge "AVULSO" (agora todo cliente
+                                          está linkado de verdade)
+```
+
+---
+
 ## 🧪 Teste
 
-1. Cria booking com cliente (sem precisar estar cadastrado na base)
-2. Click no booking → CHECKOUT → vai pro `/caixa?active=...`
-3. **Resultado esperado**:
-   - Campo "Cliente" no topo do carrinho mostra o nome do cliente com badge "AVULSO" se não tem id
-   - Card escuro do total: texto **branco** legível, valor R$ XX,XX bem contrastado
+1. Vai pra `/dashboard/agenda`
+2. Clica num horário vazio → abre SideCheckoutPanel
+3. Busca um cliente cadastrado (digita nome ou telefone)
+4. Seleciona, escolhe serviço, profissional, horário
+5. Clica em **CONFIRMAR**
+6. Volta pra `/dashboard/clientes`
+7. **Resultado esperado**:
+   - O cliente agora mostra **+1 agendamento** na coluna de bookings
+   - Ao clicar no cliente, o histórico mostra esse agendamento
+   - Stats bar no topo da página de clientes reflete o número correto
+
+8. Faz checkout do booking → confirma venda no `/caixa`
+9. Volta no cliente → **totalRevenue** agora mostra o valor pago
+
+---
+
+## ✅ O fluxo completo agora
+
+```
+SideCheckoutPanel
+   ↓ POST /bookings/confirm { clientId, ... }
+Booking criado com clientId linkado
+   ↓ aparece em /clientes/{id}
+   
+[CHECKOUT do booking]
+   ↓
+Sale OPEN criada com clientId herdado
+   ↓
+[Confirma pagamento]
+   ↓
+Sale CONFIRMED → entra no totalRevenue do cliente
+   ↓ Booking → COMPLETED
+```
+
+---
+
+## 🐛 Bonus
+
+- Removeu o badge **AVULSO** do `ClientPicker` (poluição visual, não fazia sentido — clientes vão estar sempre cadastrados agora)
+- Mostra só nome + telefone, limpo
+
+---
+
+## 📊 O que vai funcionar agora
+
+- ✅ `/dashboard/clientes` mostra `totalBookings`, `completed`, `canceled` corretos
+- ✅ `totalRevenue` = soma de Sales CONFIRMED − CreditNotes (receita real paga)
+- ✅ Stats bar com números corretos
+- ✅ Tela detalhe do cliente (`/clientes/{id}`) mostra histórico completo
+- ✅ Bookings antigos foram linkados pela migration fuzzy match
+- ✅ Bookings novos serão linkados via clientId direto

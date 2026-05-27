@@ -727,6 +727,7 @@ export default function SideCheckoutPanel({
           serviceId:      it.service.id,
           professionalId: it.profId || null,
           startAt,
+          clientId:       selectedClient?.id ?? null,        // ⭐ NEW: linka com Client cadastrado
           clientName:     selectedClient?.name ?? 'Chegada',
           clientPhone:    selectedClient?.phone ?? undefined,
           allowOverlap,
@@ -741,6 +742,7 @@ export default function SideCheckoutPanel({
         await Promise.all(items.map(it => {
           const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
           return api.post('/bookings/confirm', {
+            clientId:       selectedClient?.id ?? null,      // ⭐ NEW: linka com Client cadastrado
             clientName:     selectedClient?.name ?? 'Chegada',
             clientPhone:    selectedClient?.phone ?? '',
             professionalId: it.profId,

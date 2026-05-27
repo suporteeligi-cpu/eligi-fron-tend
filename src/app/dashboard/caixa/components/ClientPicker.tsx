@@ -98,23 +98,8 @@ export default function ClientPicker({ value, onChange, disabled }: Props) {
             <div style={{
               fontSize: 13, fontWeight: 700, color: colors.gray[900],
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              display: 'flex', alignItems: 'center', gap: 6,
             }}>
               {value.name}
-              {!value.id && (
-                <span style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: colors.red.DEFAULT,
-                  background: '#fff',
-                  padding: '1px 6px',
-                  borderRadius: 4,
-                  letterSpacing: '.04em',
-                  border: `1px solid ${colors.red.border}`,
-                }}>
-                  AVULSO
-                </span>
-              )}
             </div>
             {value.phone && (
               <div style={{ fontSize: 11, color: colors.gray.dimText }}>
