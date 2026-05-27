@@ -41,7 +41,6 @@ interface Props {
 }
 
 export default function AgendaBoard({ professionals, businessId, externalDate, onDateChange }: Props) {
-  // Selectors granulares no Zustand — evita re-render por mudança em campo não usado
   const selectedDate       = useAgendaStore(s => s.selectedDate)
   const setSelectedDate    = useAgendaStore(s => s.setSelectedDate)
   const getBookingsForDate = useAgendaStore(s => s.getBookingsForDate)
@@ -66,25 +65,21 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   const bookings = getBookingsForDate(dateStr)
   const blocks   = getBlocksForDate(dateStr)
 
-  // Working hours do dia selecionado (default 08:00-20:00 se não houver dado)
   const weekday   = dayjs(selectedDate).day()
   const todaySlot = allHours.find(s => s.weekday === weekday)
   const workingHours: WorkingHours = todaySlot
     ? { open: todaySlot.open, startTime: todaySlot.startTime, endTime: todaySlot.endTime }
     : { open: true, startTime: '08:00', endTime: '20:00' }
 
-  // Sync com externalDate (vindo do pai, ex: query param ?date=)
   useEffect(() => {
     if (externalDate) setSelectedDate(externalDate)
   }, [externalDate, setSelectedDate])
 
-  // Notifica pai quando a data interna muda
   useEffect(() => {
     onDateChange?.(selectedDate)
   }, [selectedDate, onDateChange])
 
-  // ─── Busca dados ───────────────────────────────────────────────────────────
-  // Working hours: fetch único no mount
+  // ─── Working hours: fetch único no mount ───────────────────────────────────
   useEffect(() => {
     let cancelled = false
     api.get('/business-hours')
@@ -97,7 +92,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     return () => { cancelled = true }
   }, [])
 
-  // Blocks: fetch por data — com cleanup pra evitar race ao trocar data rápido
+  // ─── Blocks: fetch por data ────────────────────────────────────────────────
   const fetchBlocks = useCallback(async (date: string, signal: AbortSignal) => {
     try {
       const res  = await api.get('/blocks', { params: { date }, signal })
@@ -116,13 +111,11 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   }, [dateStr, fetchBlocks])
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
-  // Atualiza bloco existente (remove + add — mais simples que find/replace)
   const updateBlock = useCallback((ds: string, updated: AgendaBlock) => {
     removeBlock(ds, updated.id)
     addBlock(ds, updated)
   }, [addBlock, removeBlock])
 
-  // Socket handlers — refs estáveis (passa direto p/ Socket.IO)
   useAgendaSocket({
     businessId,
     onCreate:      b  => addBooking(dateStr, b),
@@ -134,10 +127,9 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   })
 
   // ─── Block handlers ────────────────────────────────────────────────────────
-  // Abre modal de criar bloco
   const openBlockModal = useCallback((time?: string, profId?: string) => {
     const resolvedProfId = profId ?? professionals[0]?.id
-    if (!resolvedProfId) return  // sem profissionais, não faz sentido
+    if (!resolvedProfId) return
     setBlockInitTime(time)
     setBlockInitProf(resolvedProfId)
     setBlockModal(true)
@@ -147,7 +139,6 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     if (block.date === dateStr) addBlock(dateStr, block)
   }, [dateStr, addBlock])
 
-  // Delete: AgendaBoard faz a chamada API + o store update — modal só notifica
   const handleDeleteBlock = useCallback(async (blockId: string) => {
     try {
       await api.delete(`/blocks/${blockId}`)
@@ -164,7 +155,6 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   // ─── Painéis (view vs create/edit) ─────────────────────────────────────────
   const isView   = checkout.open && checkout.mode === 'view'
   const isCreate = checkout.open && (checkout.mode === 'create' || checkout.mode === 'edit')
-  // Type narrowing pra SideCheckoutPanel sem cast forçado
   const editMode: 'create' | 'edit' | null =
     checkout.mode === 'create' ? 'create'
     : checkout.mode === 'edit' ? 'edit'
@@ -232,6 +222,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           professionalId={checkout.professionalId}
           professionals={professionals}
           selectedDate={selectedDate}
+          existingBooking={checkout.booking}
           onClose={closeCheckout}
           onDateChange={date => setSelectedDate(date)}
         />

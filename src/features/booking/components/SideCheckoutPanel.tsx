@@ -1,15 +1,21 @@
 'use client'
 // src/features/booking/components/SideCheckoutPanel.tsx
+//
+// Fase 6.3 refator: agora suporta modo 'edit' de verdade.
+// - Recebe checkout.booking do store quando mode==='edit'
+// - Busca detalhe via GET /bookings/:id pra preencher form
+// - Save em edit faz PATCH /bookings/:id (cancela Sale OPEN linkada automaticamente)
+// - Em edit, "adicionar outro serviço" é bloqueado (1 booking = 1 serviço)
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ChevronRight, Clock, Check, Search, Plus, Star, Trash2, Calendar, ChevronDown, User } from 'lucide-react'
+import { X, ChevronRight, Clock, Check, Search, Plus, Star, Trash2, Calendar, ChevronDown, User, Loader2 } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc      from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import api from '@/shared/lib/apiClient'
-import { AgendaProfessional } from '@/features/agenda/types'
+import { AgendaProfessional, AgendaBooking } from '@/features/agenda/types'
 import { colors, glass, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
@@ -66,14 +72,15 @@ interface ServiceItem {
 }
 
 interface Props {
-  open:           boolean
-  mode:           'create' | 'edit'
-  time:           string | null
-  professionalId: string | null
-  professionals:  AgendaProfessional[]
-  selectedDate:   Date
-  onClose:        () => void
-  onDateChange?:  (date: Date) => void
+  open:            boolean
+  mode:            'create' | 'edit'
+  time:            string | null
+  professionalId:  string | null
+  professionals:   AgendaProfessional[]
+  selectedDate:    Date
+  existingBooking?: AgendaBooking | null   // ← novo: passado pelo AgendaBoard em modo edit
+  onClose:         () => void
+  onDateChange?:   (date: Date) => void
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -181,7 +188,6 @@ function DatePickerModal({ date, onSelect, onClose, isMobile }: {
       <div style={isMobile ? {position:'fixed',bottom:0,left:0,right:0,background:'rgba(255,255,255,0.99)',borderRadius:'24px 24px 0 0',boxShadow:'0 -8px 40px rgba(0,0,0,0.15)',zIndex:10999,fontFamily:typography.fontFamily,animation:'dpUp 0.28s cubic-bezier(0.34,1.2,0.64,1)',paddingBottom:'max(20px,env(safe-area-inset-bottom))'} : {position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:320,background:'rgba(255,255,255,0.99)',borderRadius:radius['2xl'],boxShadow:shadows.lg,zIndex:10999,fontFamily:typography.fontFamily,animation:'dpIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',overflow:'hidden'}}>
         <style>{`@keyframes dpIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes dpUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
         {isMobile && <div style={{display:'flex',justifyContent:'center',padding:'12px 0 4px'}}><div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)'}}/></div>}
-        {/* Nav mes */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 20px 10px'}}>
           <button onClick={()=>setView(v=>v.subtract(1,'month'))} style={{width:32,height:32,borderRadius:'50%',border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
             <ChevronRight size={16} color={colors.gray[700]} style={{transform:'rotate(180deg)'}} strokeWidth={2.5}/>
@@ -191,11 +197,9 @@ function DatePickerModal({ date, onSelect, onClose, isMobile }: {
             <ChevronRight size={16} color={colors.gray[700]} strokeWidth={2.5}/>
           </button>
         </div>
-        {/* Header dias */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',padding:'0 16px 4px'}}>
           {DAYS_H.map(d=><div key={d} style={{textAlign:'center',fontSize:10,fontWeight:700,color:colors.gray.dimText,letterSpacing:'.06em',padding:'4px 0'}}>{d}</div>)}
         </div>
-        {/* Grid */}
         <div style={{padding:'0 16px 16px'}}>
           {Array.from({length:grid.length/7},(_,row)=>(
             <div key={row} style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:2,marginBottom:2}}>
@@ -260,7 +264,6 @@ function ServiceSheet({ services, selected, loading, onSelect, onClose }: {
             <X size={14} color={colors.gray.dimText}/>
           </button>
         </div>
-        {/* Busca */}
         <div style={{padding:'10px 16px',borderBottom:`1px solid ${colors.gray.border}`,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderRadius:10,background:colors.background.page,border:`1px solid ${colors.gray.borderMd}`}}>
             <Search size={14} color={colors.gray.dimText}/>
@@ -335,7 +338,6 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
     animation:'sheetIn 0.2s cubic-bezier(0.25,0.46,0.45,0.94)',
   }
 
-  // Agrupa por letra inicial
   const grouped = clients.reduce((acc, c) => {
     const letter = c.name[0]?.toUpperCase() ?? '#'
     if (!acc[letter]) acc[letter] = []
@@ -349,23 +351,19 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
       <div style={style}>
         <style>{`@keyframes sheetIn{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
         {isMobile && <div style={{display:'flex',justifyContent:'center',padding:'12px 0 4px',flexShrink:0}}><div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)'}}/></div>}
-        {/* Header */}
         <div style={{padding:'14px 20px 10px',flexShrink:0,display:'flex',alignItems:'center',gap:12}}>
           <button onClick={onClose} style={{width:32,height:32,borderRadius:'50%',border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
             <ChevronRight size={16} color={colors.gray[700]} style={{transform:'rotate(180deg)'}} strokeWidth={2.5}/>
           </button>
           <h3 style={{margin:0,fontSize:17,fontWeight:700,color:colors.gray[900]}}>Busca de clientes</h3>
         </div>
-        {/* Search */}
         <div style={{padding:'0 16px 10px',flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',borderRadius:12,border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page}}>
             <Search size={16} color={colors.gray.dimText}/>
             <input ref={inputRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Digite o nome, número de telefone..." style={{flex:1,border:'none',outline:'none',fontSize:14,background:'transparent',color:colors.gray[900],fontFamily:typography.fontFamily}}/>
           </div>
         </div>
-        {/* Lista */}
         <div style={{flex:1,overflowY:'auto'}}>
-          {/* Adicionar novo cliente */}
           <button onClick={()=>{onClose();onCreateNew()}} style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'14px 20px',border:'none',borderBottom:`1px solid ${colors.gray.border}`,background:'transparent',cursor:'pointer',textAlign:'left'}}
             onMouseEnter={e=>(e.currentTarget.style.background=colors.gray.hover)}
             onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
@@ -481,7 +479,10 @@ function CreateClientSheet({ onCreated, onClose }: {
 }
 
 // ─── SideCheckoutPanel ────────────────────────────────────────────────────────
-export default function SideCheckoutPanel({ open, mode, time, professionalId, professionals, selectedDate, onClose, onDateChange }: Props) {
+export default function SideCheckoutPanel({
+  open, mode, time, professionalId, professionals, selectedDate,
+  existingBooking, onClose, onDateChange,
+}: Props) {
   const isMobile = useIsMobile()
   const { setPreview, setSelectedDate } = useAgendaStore()
 
@@ -500,7 +501,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
   const [showDatePicker,setShowDatePicker] = useState(false)
 
   const [showSvcSheet,  setShowSvcSheet]   = useState(false)
-  const [addingSvcIdx,  setAddingSvcIdx]   = useState<number>(-1) // -1 = novo, >= 0 = editar índice
+  const [addingSvcIdx,  setAddingSvcIdx]   = useState<number>(-1)
   const [showClientSheet,setShowClientSheet]= useState(false)
   const [showCreateClient,setShowCreateClient]= useState(false)
 
@@ -513,7 +514,12 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
   const [error,   setError]   = useState<string|null>(null)
   const [pendingOverlap, setPendingOverlap] = useState(false)
 
-  // Reset ao abrir
+  // Loading do detalhe do booking (apenas em mode === 'edit')
+  const [loadingBooking, setLoadingBooking] = useState(false)
+
+  const isEdit = mode === 'edit'
+
+  // ── Reset ao abrir ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return
     setTab('booking')
@@ -530,10 +536,13 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
 
     if (mode === 'create') {
       setItems([{ service: null as unknown as Service, startTime: initTime, endTime: '', profId: initProf }])
+    } else {
+      // mode === 'edit': aguardando fetch do detalhe (logo abaixo)
+      setItems([])
     }
   }, [open, mode, time, professionalId, professionals, selectedDate])
 
-  // Busca serviços ao abrir
+  // ── Busca serviços ao abrir ───────────────────────────────────────────────
   useEffect(() => {
     if (!open) return
     setServicesLoad(true)
@@ -543,10 +552,81 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
     }).catch(()=>{}).finally(()=>setServicesLoad(false))
   }, [open])
 
-  // Sincroniza data com agenda
+  // ── Busca detalhe do booking (modo edit) ──────────────────────────────────
   useEffect(() => {
-    if (open) setDate(dayjs(selectedDate))
-  }, [selectedDate, open])
+    if (!open || mode !== 'edit' || !existingBooking) return
+
+    let cancelled = false
+
+    const tLoad = setTimeout(async () => {
+      if (cancelled) return
+      setLoadingBooking(true)
+      try {
+        const res  = await api.get(`/bookings/${existingBooking.id}`)
+        if (cancelled) return
+        const data = res.data?.data ?? res.data
+
+        // Popula cliente (se houver)
+        if (data.client) {
+          setSelectedClient({
+            id:    data.client.id,
+            name:  data.client.name,
+            phone: data.client.phone ?? '',
+          })
+        } else if (data.clientName) {
+          // Cliente "Avulso" (sem id, só nome no booking)
+          setSelectedClient(null)
+        }
+
+        // Popula data
+        const dt = dayjs(data.startAt).tz('America/Sao_Paulo')
+        setDate(dt)
+
+        // Popula item (1 serviço por booking)
+        const startTime = dt.format('HH:mm')
+        const endTime   = dayjs(data.endAt).tz('America/Sao_Paulo').format('HH:mm')
+
+        setItems([{
+          service: {
+            id:       data.service.id,
+            name:     data.service.name,
+            duration: data.service.duration,
+            price:    data.service.price ?? undefined,
+          },
+          startTime,
+          endTime,
+          profId: data.professional?.id ?? data.professionalId ?? '',
+        }])
+      } catch {
+        if (!cancelled) {
+          // Fallback: usa dados básicos do AgendaBooking
+          setItems([{
+            service: {
+              id:       '',
+              name:     existingBooking.serviceName,
+              duration: 30,  // estimativa — será corrigida ao selecionar
+            },
+            startTime: existingBooking.start,
+            endTime:   existingBooking.end,
+            profId:    existingBooking.professionalId,
+          }])
+          setError('Não foi possível carregar todos os detalhes — dados básicos preenchidos.')
+        }
+      } finally {
+        if (!cancelled) setLoadingBooking(false)
+      }
+    }, 0)
+
+    return () => {
+      cancelled = true
+      clearTimeout(tLoad)
+    }
+  }, [open, mode, existingBooking])
+
+  // Sincroniza data com agenda (só em create — em edit a data vem do booking)
+  useEffect(() => {
+    if (open && mode === 'create') setDate(dayjs(selectedDate))
+  }, [selectedDate, open, mode])
 
   // ── Preview em tempo real na grade ──────────────────────────────────────────
   const dateStr2    = date.format('YYYY-MM-DD')
@@ -580,7 +660,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
 
   function handleDateSelect(d: dayjs.Dayjs) {
     setDate(d)
-    setSelectedDate(d.toDate())   // muda a grade imediatamente
+    setSelectedDate(d.toDate())
     onDateChange?.(d.toDate())
   }
 
@@ -589,7 +669,6 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
       const next = [...prev]
 
       if (addingSvcIdx === -1) {
-        // ── Novo serviço no final ─────────────────────────────────────────
         const last   = next[next.length - 1]
         const startT = (last?.endTime && last.endTime !== '')
           ? last.endTime
@@ -602,7 +681,6 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
           profId:    next[0]?.profId ?? professionals[0]?.id ?? '',
         })
       } else {
-        // ── Editar serviço existente ──────────────────────────────────────
         const idx    = addingSvcIdx
         const startT = idx === 0
           ? (next[0]?.startTime || time || '09:00')
@@ -630,6 +708,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
     setItems(prev => prev.filter((_,i) => i !== idx))
   }
 
+  // ── SAVE ──────────────────────────────────────────────────────────────────
   async function handleSave(allowOverlap = false) {
     if (!firstItem?.service) { setError('Selecione pelo menos um serviço'); return }
     const invalidExtra = items.slice(1).find(it => !it.service)
@@ -639,38 +718,58 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
       setSaving(true); setError(null)
       const dateStr = date.format('YYYY-MM-DD')
 
-      await Promise.all(items.map(it => {
+      if (isEdit && existingBooking) {
+        // ── MODO EDIT: PATCH /bookings/:id (1 serviço por booking) ──────────
+        const it = items[0]
         const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
-        return api.post('/bookings/confirm', {
-          clientName:     selectedClient?.name ?? 'Chegada',
-          clientPhone:    selectedClient?.phone ?? '',
-          professionalId: it.profId,
-          serviceId:      it.service.id,
-          startAt,
-          allowOverlap,
-          internalNote:   internalNote || undefined,
-          clientMessage:  clientMessage || undefined,
-        })
-      }))
 
-      setPreview(null)
-      setSuccess(true)
-      setPendingOverlap(false)
-      setTimeout(() => onClose(), 1400)
+        await api.patch(`/bookings/${existingBooking.id}`, {
+          serviceId:      it.service.id,
+          professionalId: it.profId || null,
+          startAt,
+          clientName:     selectedClient?.name ?? 'Chegada',
+          clientPhone:    selectedClient?.phone ?? undefined,
+          allowOverlap,
+        })
+
+        setPreview(null)
+        setSuccess(true)
+        setPendingOverlap(false)
+        setTimeout(() => onClose(), 1400)
+      } else {
+        // ── MODO CREATE: POST /bookings/confirm (múltiplos serviços) ────────
+        await Promise.all(items.map(it => {
+          const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
+          return api.post('/bookings/confirm', {
+            clientName:     selectedClient?.name ?? 'Chegada',
+            clientPhone:    selectedClient?.phone ?? '',
+            professionalId: it.profId,
+            serviceId:      it.service.id,
+            startAt,
+            allowOverlap,
+            internalNote:   internalNote || undefined,
+            clientMessage:  clientMessage || undefined,
+          })
+        }))
+
+        setPreview(null)
+        setSuccess(true)
+        setPendingOverlap(false)
+        setTimeout(() => onClose(), 1400)
+      }
     } catch (e: unknown) {
       const status = (e as {response?:{status?:number}})?.response?.status
       const code   = (e as {response?:{data?:{code?:string}}})?.response?.data?.code
       if (status === 409 || code === 'BOOKING_CONFLICT') {
-        // Mostra modal de sobreposição em vez de erro
         setPendingOverlap(true)
       } else {
         const msg = (e as {response?:{data?:{error?:string}}})?.response?.data?.error
-        setError(msg ?? 'Erro ao salvar agendamento')
+        setError(msg ?? (isEdit ? 'Erro ao atualizar agendamento' : 'Erro ao salvar agendamento'))
       }
     } finally { setSaving(false) }
   }
 
-  const isDisabled = !firstItem?.service || saving || success
+  const isDisabled = !firstItem?.service || saving || success || loadingBooking
   const dateLabel  = date.format('ddd, DD [de] MMM').replace(/^\w/,c=>c.toUpperCase())
 
   if (!open || typeof document === 'undefined') return null
@@ -698,6 +797,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
       <style>{`
         @keyframes sheetIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
         @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @keyframes scp-spin{to{transform:rotate(360deg)}}
         .cp-tab{flex:1;padding:12px 8px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${colors.gray.dimText};border-bottom:2px solid transparent;transition:all ${transitions.fast};font-family:${typography.fontFamily};letter-spacing:.04em}
         .cp-tab.active{color:${colors.red.DEFAULT};border-bottom-color:${colors.red.DEFAULT}}
         .cp-lbl{display:block;font-size:11px;font-weight:700;color:${colors.gray.dimText};text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
@@ -770,7 +870,7 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
               <X size={16} color={colors.gray[700]} strokeWidth={2.5}/>
             </button>
             <h2 style={{margin:0,fontSize:17,fontWeight:700,color:colors.gray[900],letterSpacing:'-0.02em'}}>
-              {mode==='create'?'Novo agendamento':'Editar agendamento'}
+              {isEdit ? 'Editar agendamento' : 'Novo agendamento'}
             </h2>
           </div>
 
@@ -803,100 +903,121 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
 
         {/* Body */}
         <div style={{flex:1,overflowY:'auto',padding:'16px 20px'}}>
-          {error && <div style={{marginBottom:12,padding:'9px 12px',borderRadius:radius.sm,background:'rgba(220,38,38,0.06)',border:`1px solid ${colors.red.border}`,color:colors.red.dark,fontSize:13}}>{error}</div>}
-          {success && <div style={{marginBottom:12,padding:'9px 12px',borderRadius:radius.sm,background:'rgba(22,163,74,0.06)',border:'1px solid rgba(22,163,74,0.2)',color:'#15803d',fontSize:13,display:'flex',alignItems:'center',gap:6}}><Check size={13}/> Agendamento confirmado!</div>}
-
-          {tab === 'booking' ? (
-            <div style={{display:'flex',flexDirection:'column',gap:16}}>
-
-              {/* Data — clicável */}
-              <div>
-                <span className="cp-lbl">Data</span>
-                <button className="cp-field" onClick={()=>setShowDatePicker(true)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page,borderRadius:radius.sm,padding:'11px 14px'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <Calendar size={15} color={colors.red.DEFAULT} strokeWidth={2}/>
-                    <span style={{fontSize:14,fontWeight:600,color:colors.gray[900]}}>{dateLabel}</span>
-                  </div>
-                  <ChevronDown size={14} color={colors.gray.dimText}/>
-                </button>
-              </div>
-
-              {/* Serviços */}
-              {items.map((item, idx) => (
-                <div key={idx} style={{borderRadius:radius.sm,border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page,overflow:'hidden'}}>
-                  {/* Header do serviço */}
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderBottom:`1px solid ${colors.gray.border}`}}>
-                    <span className="cp-lbl" style={{margin:0}}>Serviço {items.length>1?`${idx+1}`:'*'}</span>
-                    {idx>0&&<button onClick={()=>removeItem(idx)} style={{background:'none',border:'none',cursor:'pointer',padding:2,display:'flex'}}><Trash2 size={14} color={colors.gray.dimText}/></button>}
-                  </div>
-
-                  {/* Botão de serviço */}
-                  <button className={`cp-svc${item.service?' has-value':''}`} style={{borderRadius:0,border:'none',borderBottom:`1px solid ${colors.gray.border}`}} onClick={()=>{setAddingSvcIdx(idx);setShowSvcSheet(true)}}>
-                    <div>
-                      <div style={{fontSize:14,fontWeight:item.service?600:400,color:item.service?colors.gray[900]:colors.gray.dimTextLight}}>
-                        {item.service?item.service.name:'Selecione o serviço'}
-                      </div>
-                      {item.service&&<div style={{fontSize:11,color:colors.gray.dimText,marginTop:2,display:'flex',alignItems:'center',gap:3}}>
-                        <Clock size={10} strokeWidth={2} color={colors.gray.dimText}/>{item.service.duration}min
-                        {item.service.price!=null&&<> · R$ {item.service.price.toFixed(2).replace('.',',')}</>}
-                      </div>}
-                    </div>
-                    <ChevronRight size={15} color={item.service?colors.red.DEFAULT:colors.gray.dimText}/>
-                  </button>
-
-                  {/* Horários */}
-                  <div style={{display:'flex',gap:0}}>
-                    <div style={{flex:1,padding:'8px 12px',borderRight:`1px solid ${colors.gray.border}`}}>
-                      <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Início</div>
-                      <div style={{border:`1px solid ${colors.gray.borderMd}`,borderRadius:8,overflow:'hidden',background:'#fff',display:'flex'}}>
-                        <TimeWheel value={item.startTime||'09:00'} onChange={v=>updateItemTime(idx,'startTime',v)}/>
-                      </div>
-                    </div>
-                    <div style={{flex:1,padding:'8px 12px'}}>
-                      <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Fim</div>
-                      <div style={{height:ITEM_H*VISIBLE,border:`1px solid ${colors.gray.borderMd}`,borderRadius:8,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                        <span style={{fontSize:17,fontWeight:700,color:item.endTime?colors.gray[900]:colors.gray.dimTextLight,fontVariantNumeric:'tabular-nums'}}>
-                          {item.endTime||'--:--'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Funcionário */}
-                  {professionals.length > 1 && (
-                    <div style={{padding:'10px 12px',borderTop:`1px solid ${colors.gray.border}`}}>
-                      <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Funcionário</div>
-                      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                        {professionals.map(p=>(
-                          <button key={p.id} className={`cp-prof${item.profId===p.id?' sel':''}`} onClick={()=>setItems(prev=>{const n=[...prev];n[idx]={...n[idx],profId:p.id};return n})}>{p.name.split(' ')[0]}</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {/* Adicionar outro serviço */}
-              <button className="add-svc-btn" onClick={()=>{setAddingSvcIdx(-1);setShowSvcSheet(true)}}>
-                <Plus size={15} strokeWidth={2}/> Adicionar outro serviço
-              </button>
-
+          {loadingBooking ? (
+            <div style={{display:'flex',justifyContent:'center',alignItems:'center',padding:60}}>
+              <Loader2 size={28} color={colors.red.DEFAULT} style={{animation:'scp-spin 0.8s linear infinite'}}/>
             </div>
           ) : (
-            /* Aba Informações */
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
-              <div>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-                  <span className="cp-lbl" style={{margin:0}}>Nota interna</span>
-                  <Star size={14} color={colors.gray.dimText} strokeWidth={1.8}/>
+            <>
+              {error && <div style={{marginBottom:12,padding:'9px 12px',borderRadius:radius.sm,background:'rgba(220,38,38,0.06)',border:`1px solid ${colors.red.border}`,color:colors.red.dark,fontSize:13}}>{error}</div>}
+              {success && <div style={{marginBottom:12,padding:'9px 12px',borderRadius:radius.sm,background:'rgba(22,163,74,0.06)',border:'1px solid rgba(22,163,74,0.2)',color:'#15803d',fontSize:13,display:'flex',alignItems:'center',gap:6}}><Check size={13}/> {isEdit ? 'Agendamento atualizado!' : 'Agendamento confirmado!'}</div>}
+
+              {tab === 'booking' ? (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+
+                  {/* Data — clicável */}
+                  <div>
+                    <span className="cp-lbl">Data</span>
+                    <button className="cp-field" onClick={()=>setShowDatePicker(true)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page,borderRadius:radius.sm,padding:'11px 14px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <Calendar size={15} color={colors.red.DEFAULT} strokeWidth={2}/>
+                        <span style={{fontSize:14,fontWeight:600,color:colors.gray[900]}}>{dateLabel}</span>
+                      </div>
+                      <ChevronDown size={14} color={colors.gray.dimText}/>
+                    </button>
+                  </div>
+
+                  {/* Serviços */}
+                  {items.map((item, idx) => (
+                    <div key={idx} style={{borderRadius:radius.sm,border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page,overflow:'hidden'}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderBottom:`1px solid ${colors.gray.border}`}}>
+                        <span className="cp-lbl" style={{margin:0}}>Serviço {items.length>1?`${idx+1}`:'*'}</span>
+                        {idx>0&&<button onClick={()=>removeItem(idx)} style={{background:'none',border:'none',cursor:'pointer',padding:2,display:'flex'}}><Trash2 size={14} color={colors.gray.dimText}/></button>}
+                      </div>
+
+                      <button className={`cp-svc${item.service?' has-value':''}`} style={{borderRadius:0,border:'none',borderBottom:`1px solid ${colors.gray.border}`}} onClick={()=>{setAddingSvcIdx(idx);setShowSvcSheet(true)}}>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:item.service?600:400,color:item.service?colors.gray[900]:colors.gray.dimTextLight}}>
+                            {item.service?item.service.name:'Selecione o serviço'}
+                          </div>
+                          {item.service&&<div style={{fontSize:11,color:colors.gray.dimText,marginTop:2,display:'flex',alignItems:'center',gap:3}}>
+                            <Clock size={10} strokeWidth={2} color={colors.gray.dimText}/>{item.service.duration}min
+                            {item.service.price!=null&&<> · R$ {item.service.price.toFixed(2).replace('.',',')}</>}
+                          </div>}
+                        </div>
+                        <ChevronRight size={15} color={item.service?colors.red.DEFAULT:colors.gray.dimText}/>
+                      </button>
+
+                      <div style={{display:'flex',gap:0}}>
+                        <div style={{flex:1,padding:'8px 12px',borderRight:`1px solid ${colors.gray.border}`}}>
+                          <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Início</div>
+                          <div style={{border:`1px solid ${colors.gray.borderMd}`,borderRadius:8,overflow:'hidden',background:'#fff',display:'flex'}}>
+                            <TimeWheel value={item.startTime||'09:00'} onChange={v=>updateItemTime(idx,'startTime',v)}/>
+                          </div>
+                        </div>
+                        <div style={{flex:1,padding:'8px 12px'}}>
+                          <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Fim</div>
+                          <div style={{height:ITEM_H*VISIBLE,border:`1px solid ${colors.gray.borderMd}`,borderRadius:8,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            <span style={{fontSize:17,fontWeight:700,color:item.endTime?colors.gray[900]:colors.gray.dimTextLight,fontVariantNumeric:'tabular-nums'}}>
+                              {item.endTime||'--:--'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {professionals.length > 1 && (
+                        <div style={{padding:'10px 12px',borderTop:`1px solid ${colors.gray.border}`}}>
+                          <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Funcionário</div>
+                          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                            {professionals.map(p=>(
+                              <button key={p.id} className={`cp-prof${item.profId===p.id?' sel':''}`} onClick={()=>setItems(prev=>{const n=[...prev];n[idx]={...n[idx],profId:p.id};return n})}>{p.name.split(' ')[0]}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Adicionar outro serviço — só em modo create */}
+                  {!isEdit && (
+                    <button className="add-svc-btn" onClick={()=>{setAddingSvcIdx(-1);setShowSvcSheet(true)}}>
+                      <Plus size={15} strokeWidth={2}/> Adicionar outro serviço
+                    </button>
+                  )}
+
+                  {isEdit && (
+                    <div style={{
+                      padding: '10px 12px',
+                      background: 'rgba(0,0,0,0.03)',
+                      border: `1px dashed ${colors.gray.borderMd}`,
+                      borderRadius: radius.sm,
+                      fontSize: 11,
+                      color: colors.gray.dimText,
+                      textAlign: 'center',
+                      lineHeight: 1.5,
+                    }}>
+                      ✏️ Modo edição: 1 serviço por agendamento.<br/>
+                      Para múltiplos serviços, crie agendamentos separados.
+                    </div>
+                  )}
+
                 </div>
-                <textarea className="cp-note" value={internalNote} onChange={e=>setInternalNote(e.target.value)} placeholder="Nota interna (visível apenas para funcionários)"/>
-              </div>
-              <div>
-                <span className="cp-lbl">Mensagem para o cliente</span>
-                <textarea className="cp-note" value={clientMessage} onChange={e=>setClientMessage(e.target.value)} placeholder="Mensagem para o cliente"/>
-              </div>
-            </div>
+              ) : (
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  <div>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                      <span className="cp-lbl" style={{margin:0}}>Nota interna</span>
+                      <Star size={14} color={colors.gray.dimText} strokeWidth={1.8}/>
+                    </div>
+                    <textarea className="cp-note" value={internalNote} onChange={e=>setInternalNote(e.target.value)} placeholder="Nota interna (visível apenas para funcionários)"/>
+                  </div>
+                  <div>
+                    <span className="cp-lbl">Mensagem para o cliente</span>
+                    <textarea className="cp-note" value={clientMessage} onChange={e=>setClientMessage(e.target.value)} placeholder="Mensagem para o cliente"/>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -915,7 +1036,9 @@ export default function SideCheckoutPanel({ open, mode, time, professionalId, pr
           <div style={{display:'flex',gap:8}}>
             <button className="cp-discard" onClick={onClose}>DESCARTAR</button>
             <button className="cp-save" disabled={isDisabled} onClick={()=>handleSave(false)} style={{background:success?'linear-gradient(135deg,#16a34a,#15803d)':isDisabled?undefined:colors.red.gradient,boxShadow:success?'0 4px 14px rgba(22,163,74,0.28)':isDisabled?'none':shadows.redMd}}>
-              {success?'✓ CONFIRMADO':saving?'SALVANDO...':'SALVAR'}
+              {success ? (isEdit ? '✓ ATUALIZADO' : '✓ CONFIRMADO')
+              : saving ? 'SALVANDO...'
+              : (isEdit ? 'ATUALIZAR' : 'SALVAR')}
             </button>
           </div>
         </div>
