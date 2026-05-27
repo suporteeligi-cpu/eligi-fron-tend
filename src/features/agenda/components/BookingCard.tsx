@@ -15,6 +15,7 @@ const STATUS_LABEL: Record<BookingStatus, string> = {
   CONFIRMED: 'Confirmado',
   COMPLETED: 'Concluído',
   CANCELED:  'Cancelado',
+  NO_SHOW:   'Não compareceu',
 }
 
 // Desktop: PX_PER_MIN = 2

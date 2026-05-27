@@ -6,7 +6,7 @@ export type AgendaProfessional = {
   avatarUrl?: string   // base64, color:gradient ou url
 }
 
-export type BookingStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED'
+export type BookingStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW'
 
 export type AgendaBooking = {
   id:             string
