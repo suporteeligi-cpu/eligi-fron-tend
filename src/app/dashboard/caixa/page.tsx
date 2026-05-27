@@ -1,7 +1,8 @@
 'use client'
 // src/app/dashboard/caixa/page.tsx
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { ShoppingCart, Receipt, TrendingUp, Loader2 } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
@@ -10,11 +11,11 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { Sale, CatalogService, CatalogProduct, ProfLite, SaleItemType } from '@/features/sales/types'
 import { useSalesSummary } from '@/features/sales/hooks/useSalesSummary'
 
-import OpenSalesSwitcher from './components/OpenSalesSwitcher'
 import CatalogPanel       from './components/CatalogPanel'
 import CartPanel          from './components/CartPanel'
 import ConfirmedSalesList from './components/ConfirmedSalesList'
 import SalesSummaryCards  from './components/SalesSummaryCards'
+import OpenSalesCleanupModal from './components/OpenSalesCleanupModal'
 import Toast, { ToastKind } from './components/Toast'
 
 type Tab = 'open' | 'confirmed' | 'summary'
@@ -27,6 +28,7 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingCart }[] = [
 
 export default function CaixaPage() {
   const isMobile = useIsMobile(768)
+  const router   = useRouter()
 
   const [tab,             setTab]             = useState<Tab>('open')
   const [openSales,       setOpenSales]       = useState<Sale[]>([])
@@ -35,6 +37,11 @@ export default function CaixaPage() {
   const [openLoading,     setOpenLoading]     = useState(true)
   const [creating,        setCreating]        = useState(false)
   const [confirmedRefresh, setConfirmedRefresh] = useState(0)
+
+  // Modal de limpeza (múltiplas OPEN antigas)
+  const [showCleanupModal, setShowCleanupModal] = useState(false)
+  const [cleanupSales,     setCleanupSales]     = useState<Sale[]>([])
+  const cleanupShownRef = useRef(false)   // Evita reabrir o modal toda vez que recarregar
 
   // Catálogo
   const [services,        setServices]        = useState<CatalogService[]>([])
@@ -54,6 +61,14 @@ export default function CaixaPage() {
   const { summary, loading: summaryLoading, refetch: refetchSummary }
     = useSalesSummary({ dateFrom: todayDate })
 
+  // Captura o ?active= apenas na primeira montagem (evita loops com router.replace)
+  const [initialActive] = useState<string>(() => {
+    if (typeof window === 'undefined') return ''
+    const sp = new URLSearchParams(window.location.search)
+    return sp.get('active') ?? ''
+  })
+  const initialActiveConsumedRef = useRef(false)
+
   // ─── Carrega vendas OPEN ──────────────────────────────────────
   const fetchOpenSales = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -65,17 +80,43 @@ export default function CaixaPage() {
       const data = res.data?.data ?? res.data
       const list: Sale[] = Array.isArray(data) ? data : []
       setOpenSales(list)
-      // Se não tem activeId mas tem vendas, seleciona primeira
+
+      // Pega ?active= salvo na primeira montagem (apenas 1x)
+      const activeFromQuery = !initialActiveConsumedRef.current ? initialActive : ''
+
+      // Seleciona Sale ativa:
+      // 1. Se ?active= presente e existe na lista → seleciona ela
+      // 2. Se já tem activeId selecionado e ainda existe → mantém
+      // 3. Senão, pega a primeira
       setActiveSaleId(prev => {
+        if (activeFromQuery && list.find(s => s.id === activeFromQuery)) {
+          return activeFromQuery
+        }
         if (prev && list.find(s => s.id === prev)) return prev
         return list[0]?.id ?? null
       })
+
+      // Se há múltiplas OPEN E ainda não mostrou modal de cleanup
+      // → abre modal pra limpar (regra: 1 venda OPEN por vez)
+      if (list.length > 1 && !cleanupShownRef.current) {
+        cleanupShownRef.current = true
+        setCleanupSales(list)
+        setShowCleanupModal(true)
+      }
+
+      // Limpa o query param do URL pra não ficar travado se voltar
+      if (activeFromQuery) {
+        initialActiveConsumedRef.current = true
+        setTimeout(() => {
+          router.replace('/dashboard/caixa', { scroll: false })
+        }, 100)
+      }
     } catch {
       if (!signal?.aborted) setOpenSales([])
     } finally {
       if (!signal?.aborted) setOpenLoading(false)
     }
-  }, [])
+  }, [router, initialActive])
 
   // ─── Carrega catálogo ─────────────────────────────────────────
   const fetchCatalog = useCallback(async (signal?: AbortSignal) => {
@@ -126,7 +167,8 @@ export default function CaixaPage() {
       setCreating(true)
       const res = await api.post('/sales', {})
       const newSale: Sale = res.data?.data ?? res.data
-      setOpenSales(prev => [newSale, ...prev])
+      // Backend cancela OPENs anteriores → frontend só mantém a nova
+      setOpenSales([newSale])
       setActiveSaleId(newSale.id)
       setGlobalProfId(null)
     } catch {
@@ -155,7 +197,8 @@ export default function CaixaPage() {
       try {
         const res = await api.post('/sales', {})
         const newSale: Sale = res.data?.data ?? res.data
-        setOpenSales(prev => [newSale, ...prev])
+        // Backend cancela OPENs anteriores → frontend mantém só a nova
+        setOpenSales([newSale])
         setActiveSaleId(newSale.id)
         await addItemToSale(newSale.id, {
           type: 'SERVICE',
@@ -179,7 +222,8 @@ export default function CaixaPage() {
       try {
         const res = await api.post('/sales', {})
         const newSale: Sale = res.data?.data ?? res.data
-        setOpenSales(prev => [newSale, ...prev])
+        // Backend cancela OPENs anteriores → frontend mantém só a nova
+        setOpenSales([newSale])
         setActiveSaleId(newSale.id)
         await addItemToSale(newSale.id, {
           type: 'PRODUCT',
@@ -256,6 +300,41 @@ export default function CaixaPage() {
     refetchSummary()
   }
 
+  // ─── Cleanup de múltiplas OPEN ────────────────────────────────
+  async function handleCancelAllOpen() {
+    try {
+      await api.post('/sales/cancel-all-open')
+      setOpenSales([])
+      setActiveSaleId(null)
+      setShowCleanupModal(false)
+      setToast({ message: 'Vendas canceladas com sucesso', kind: 'success' })
+    } catch {
+      setToast({ message: 'Erro ao cancelar vendas', kind: 'error' })
+    }
+  }
+
+  // Cancela todas EXCETO a escolhida (mantém uma e cancela as outras)
+  async function handleKeepOneCancelOthers(saleIdToKeep: string) {
+    try {
+      const toCancel = cleanupSales.filter(s => s.id !== saleIdToKeep)
+      await Promise.all(
+        toCancel.map(s => api.post(`/sales/${s.id}/cancel`)),
+      )
+      const kept = cleanupSales.find(s => s.id === saleIdToKeep)
+      if (kept) {
+        setOpenSales([kept])
+        setActiveSaleId(saleIdToKeep)
+      }
+      setShowCleanupModal(false)
+      setToast({
+        message: `${toCancel.length} venda(s) cancelada(s), 1 mantida`,
+        kind: 'success',
+      })
+    } catch {
+      setToast({ message: 'Erro ao cancelar vendas', kind: 'error' })
+    }
+  }
+
   // ─── Render ───────────────────────────────────────────────────
   return (
     <>
@@ -269,6 +348,16 @@ export default function CaixaPage() {
           message={toast.message}
           kind={toast.kind}
           onClose={() => setToast(null)}
+        />
+      )}
+
+      {showCleanupModal && (
+        <OpenSalesCleanupModal
+          sales={cleanupSales}
+          isMobile={isMobile}
+          onCancelAll={handleCancelAllOpen}
+          onKeepOne={handleKeepOneCancelOthers}
+          onClose={() => setShowCleanupModal(false)}
         />
       )}
 
@@ -356,7 +445,6 @@ export default function CaixaPage() {
           <OpenTab
             openSales={openSales}
             activeSale={activeSale}
-            activeSaleId={activeSaleId}
             services={services}
             products={products}
             professionals={professionals}
@@ -365,7 +453,6 @@ export default function CaixaPage() {
             catalogLoading={catalogLoading}
             creating={creating}
             isMobile={isMobile}
-            onSelectSale={setActiveSaleId}
             onCreateNew={createNewSale}
             onAddService={addService}
             onAddProduct={addProduct}
@@ -396,7 +483,6 @@ export default function CaixaPage() {
 interface OpenTabProps {
   openSales:       Sale[]
   activeSale:      Sale | null
-  activeSaleId:    string | null
   services:        CatalogService[]
   products:        CatalogProduct[]
   professionals:   ProfLite[]
@@ -405,7 +491,6 @@ interface OpenTabProps {
   catalogLoading:  boolean
   creating:        boolean
   isMobile:        boolean
-  onSelectSale:    (id: string) => void
   onCreateNew:     () => void
   onAddService:    (s: CatalogService) => void
   onAddProduct:    (p: CatalogProduct) => void
@@ -439,17 +524,6 @@ function OpenTab(props: OpenTabProps) {
       flex: 1,
       minHeight: 0,
     }}>
-      {/* Switcher de carrinhos */}
-      {(props.openSales.length > 0 || props.creating) && (
-        <OpenSalesSwitcher
-          openSales={props.openSales}
-          activeId={props.activeSaleId}
-          onSelect={props.onSelectSale}
-          onAdd={props.onCreateNew}
-          loading={props.creating}
-        />
-      )}
-
       {props.openSales.length === 0 && !props.creating ? (
         <div style={{
           background: '#fff',

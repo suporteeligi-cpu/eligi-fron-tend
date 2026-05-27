@@ -277,27 +277,27 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
     if (!detail) return
     setError(null)
 
-    // Se já tem Sale OPEN linkada, vai direto pra /caixa
+    // Se já tem Sale OPEN linkada, vai pro POS ativo (carrinho editável)
     if (detail.sale?.status === 'OPEN') {
       onClose()
-      router.push(`/dashboard/caixa/${detail.sale.id}`)
+      router.push(`/dashboard/caixa?active=${detail.sale.id}`)
       return
     }
 
-    // Se Sale já está CONFIRMED, vai pra detalhe
+    // Se Sale já está CONFIRMED, vai pra detalhe da venda paga (read-only)
     if (detail.sale?.status === 'CONFIRMED') {
       onClose()
       router.push(`/dashboard/caixa/${detail.sale.id}`)
       return
     }
 
-    // Senão, cria Sale OPEN a partir do booking
+    // Senão, cria Sale OPEN a partir do booking e vai pro POS ativo
     try {
       setCreatingSale(true)
       const res = await api.post('/sales/from-booking', { bookingId })
       const newSale = res.data?.data ?? res.data
       onClose()
-      router.push(`/dashboard/caixa/${newSale.id}`)
+      router.push(`/dashboard/caixa?active=${newSale.id}`)
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
       setError(e.response?.data?.error ?? 'Erro ao iniciar checkout')
@@ -308,6 +308,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
   function handleViewSale() {
     if (!detail?.sale) return
     onClose()
+    // VER VENDA → sempre vai pra detalhe da venda (que se for OPEN auto-redireciona pro POS)
     router.push(`/dashboard/caixa/${detail.sale.id}`)
   }
 

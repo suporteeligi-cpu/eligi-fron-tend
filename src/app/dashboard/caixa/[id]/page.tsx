@@ -38,6 +38,13 @@ export default function SaleDetailPage() {
       .then(res => {
         if (cancelled) return
         const data = res.data?.data ?? res.data
+
+        // GUARDA: Se Sale é OPEN, esta tela não é o lugar — redireciona pro POS principal
+        if (data?.status === 'OPEN') {
+          router.replace(`/dashboard/caixa?active=${saleId}`)
+          return
+        }
+
         setSale(data)
       })
       .catch(() => {
@@ -47,7 +54,7 @@ export default function SaleDetailPage() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [saleId])
+  }, [saleId, router])
 
   async function refetch() {
     try {

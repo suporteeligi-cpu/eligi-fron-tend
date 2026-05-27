@@ -1,18 +1,12 @@
-# Frontend Fase 6.3 — BookingViewPanel + SideCheckoutPanel integrados ao /caixa
+# Frontend Fase 6.4 — 1 Sale OPEN por vez no /caixa
 
-Refator dos painéis da agenda pra usar a API nova de Sales.
+Refator do POS pra implementar a regra "1 venda OPEN por vez" e corrigir o redirect do botão CHECKOUT do BookingViewPanel.
 
 ---
 
 ## ⚠️ Pré-requisito
 
-O **Backend Fase 6.3** (`bookings-sales-integration.zip`) PRECISA estar deployado e funcionando.
-
-Endpoints obrigatórios:
-- `GET /bookings/:id`
-- `PATCH /bookings/:id`
-- `PATCH /bookings/:id/no-show`
-- `POST /sales/from-booking`
+O **Pacote 1 (Backend single-open-sale)** PRECISA estar deployado primeiro.
 
 ---
 
@@ -21,7 +15,7 @@ Endpoints obrigatórios:
 ```bash
 cd ~/Documentos/eligi/front-end
 
-unzip -o ~/Downloads/booking-checkout-frontend.zip -d ./
+unzip -o ~/Downloads/single-open-sale-frontend.zip -d ./
 
 npm run lint && npm run build
 npm run deploy
@@ -32,142 +26,162 @@ npm run deploy
 ## 🗂 Arquivos modificados
 
 ```
-src/features/booking/components/
-├── BookingViewPanel.tsx       ← REFATOR COMPLETO (remove /payments/*, adiciona CHECKOUT real)
-└── SideCheckoutPanel.tsx      ← Suporte a modo 'edit' (busca booking + PATCH ao salvar)
+src/app/dashboard/caixa/
+├── page.tsx                                  ← lê ?active=, detecta múltiplas OPEN, remove switcher
+├── [id]/page.tsx                             ← guarda: redireciona se Sale é OPEN
+└── components/
+    └── OpenSalesCleanupModal.tsx             ← NOVO: modal de limpeza
 
-src/features/agenda/components/
-└── AgendaBoard.tsx            ← Passa existingBooking pro SideCheckoutPanel
+src/features/booking/components/
+└── BookingViewPanel.tsx                      ← muda URL pra /caixa?active=X
 ```
 
-Nenhum outro arquivo é mexido.
+⚠️ **Não esquece**: o componente `OpenSalesSwitcher.tsx` continua no projeto (não é deletado), mas não é mais importado. Você pode deletar manualmente se quiser, ou deixar como código morto.
 
 ---
 
-## 🎯 Fluxo completo agora
+## 🎯 Mudanças no fluxo
 
-### 1. Click num booking na agenda
+### Botão CHECKOUT do BookingViewPanel
+
+**Antes**:
+- Click CHECKOUT → cria Sale → `router.push('/caixa/<saleId>')` → tela detalhe (read-only) 😞
+
+**Agora**:
+- Click CHECKOUT → cria Sale OPEN → `router.push('/caixa?active=<saleId>')` → POS ativo com carrinho editável 🎯
+
+### Tela /caixa principal
+
+**Antes**:
+- Múltiplas vendas OPEN exibidas no `OpenSalesSwitcher` (barra horizontal)
+- Trocava entre carrinhos
+
+**Agora**:
+- 1 venda OPEN por vez (regra de negócio)
+- Sem switcher
+- Estado vazio → botão "+ Nova Venda"
+- Estado com venda → catálogo + carrinho ativo
+
+### Tela /caixa/[id]
+
+**Antes**:
+- Mostrava qualquer Sale (mas o conteúdo era de venda CONFIRMED)
+- Se Sale era OPEN → tela vazia/quebrada
+
+**Agora**:
+- Se Sale é OPEN → auto-redireciona pra `/caixa?active=<id>` (POS)
+- Se Sale é CONFIRMED → mostra detalhe da venda paga + emissão de NC (como antes)
+
+---
+
+## 🪟 Modal de limpeza (NOVO)
+
+Quando entrar no `/caixa` e o backend retornar **mais de 1 Sale OPEN**, abre automaticamente um modal:
+
 ```
-BookingCard.click → store.openView(booking)
-                  → BookingViewPanel abre
+⚠️ 3 vendas em aberto
+
+Você só pode ter 1 venda em aberto por vez.
+Escolha qual manter ou cancele todas.
+
+#A1B2 João Silva
+2 item(s) • R$ 50,00            [Manter esta]
+
+#C3D4 Maria Santos
+1 item(s) • R$ 30,00            [Manter esta]
+
+#E5F6 Pedro Costa
+0 item(s) • R$ 0,00             [Manter esta]
+
+──────────────────────────────────────
+[ Cancelar TODAS ]
 ```
 
-### 2. BookingViewPanel busca detalhe
-```
-GET /bookings/:id
-  → { service, professional, client, sale (se houver), status }
-```
+Ações:
+- **Manter esta** → cancela todas as outras, mantém só essa
+- **Cancelar TODAS** → cancela todas (chama `POST /sales/cancel-all-open`)
 
-### 3. Ações disponíveis no painel
-
-| Status | Botões disponíveis |
-|---|---|
-| `CONFIRMED` (sem Sale OPEN) | **FECHAR** • **CHECKOUT** + dropdown ALTERAR (Editar / Não compareceu / Cancelar) |
-| `CONFIRMED` (com Sale OPEN) | **FECHAR** • **CONTINUAR CHECKOUT** + ALTERAR limitado |
-| `COMPLETED` | **FECHAR** • **VER VENDA →** (vai pra `/caixa/[saleId]`) |
-| `CANCELED` / `NO_SHOW` | **FECHAR** apenas |
-
-### 4. Clicar **EDITAR** (no dropdown ALTERAR)
-```
-BookingViewPanel fecha
-   ↓ (200ms delay pra animação)
-store.openEdit(booking)
-   ↓
-SideCheckoutPanel abre em modo 'edit'
-   ↓
-GET /bookings/:id → popula form com dados atuais
-   ↓
-Usuário muda algo → ATUALIZAR
-   ↓
-PATCH /bookings/:id (backend cancela Sale OPEN automática)
-```
-
-### 5. Clicar **CHECKOUT** (com agendamento ainda CONFIRMED)
-```
-POST /sales/from-booking { bookingId }
-   ↓
-Backend cria Sale OPEN linkada + adiciona serviço
-   ↓
-Front redireciona pra /dashboard/caixa/[saleId]
-   ↓
-Usuário adiciona produtos extras, desconto, etc
-   ↓
-Confirma pagamento no PaymentModal
-   ↓
-Backend: Sale CONFIRMED + Booking → COMPLETED (automaticamente!)
-```
-
-### 6. Cobrança antecipada
-Se o booking é pra **amanhã 14h** mas você quer cobrar **hoje**:
-- Botão CHECKOUT aparece normalmente
-- Badge **"ANTECIPADO"** no header do painel (indicador visual)
-- Fluxo é idêntico — cria Sale, cobra, booking vira COMPLETED
-
-### 7. Não compareceu (Não tem botão CHECKOUT já)
-- Botão "Cliente não compareceu" só aparece se horário já passou (validação visual)
-- `PATCH /bookings/:id/no-show`
-- Cancela Sale OPEN linkada automaticamente
+O modal só aparece **uma vez por sessão** (controlado por `cleanupShownRef`).
 
 ---
 
 ## 🧪 Roteiro de teste
 
-1. **Login** → vai pra `/agenda`
-2. **Cria booking** novo (fluxo já funciona) — anota o cliente, horário e profissional
-3. **Click no booking** → BookingViewPanel abre
-   - Header verde "CONFIRMADO"
-   - Botão "CHECKOUT" no rodapé
-   - Click em "ALTERAR" → vê dropdown com Editar / Cancelar / (Não compareceu se passado)
-4. **Click "Editar"** → SideCheckoutPanel abre em modo edit
-   - Loader 1-2s buscando detalhe
-   - Form pré-preenchido com cliente, serviço, horário, profissional
-   - Mensagem "✏️ Modo edição: 1 serviço por agendamento" no final
-   - Botão "ADICIONAR OUTRO SERVIÇO" sumiu (correto pra edit)
-   - Botão final é "ATUALIZAR" (não "SALVAR")
-5. **Muda horário** → ATUALIZAR
-   - Booking atualizado na grade via socket
-6. **Click no booking de novo** → CHECKOUT
-   - Loading 1s
-   - Redireciona pra `/caixa/[saleId]`
-   - Vê carrinho com o serviço já adicionado
-   - Adiciona um produto, confirma com pagamento PIX R$ X
-7. **Volta na agenda** → click no mesmo booking
-   - Agora aparece "FINALIZADO" em preto
-   - Botão "VER VENDA →" leva pra detalhe
-   - "Pago em DD/MM HH:mm" no canto
+### Fluxo 1: Booking → Checkout direto
+1. Cria booking na agenda
+2. Click no booking → vê BookingViewPanel
+3. Click **CHECKOUT**
+4. Backend cria Sale OPEN
+5. **Resultado**: redireciona pra `/caixa?active=<saleId>` → vê POS ativo com:
+   - Sidebar de categorias
+   - Catálogo de serviços/produtos
+   - **Carrinho à direita já com o serviço do booking adicionado**
+   - Botão "Confirmar pagamento"
 
----
+### Fluxo 2: Cleanup de vendas antigas
+1. Entra direto em `/dashboard/caixa`
+2. Se você tem várias OPEN de testes anteriores → **modal de limpeza aparece automaticamente**
+3. Click "Cancelar TODAS" → todas viram CANCELED, modal fecha
+4. Cria nova venda do zero pra continuar
 
-## ⚠️ Detalhes importantes
+### Fluxo 3: Nova venda quando já tem 1 ativa
+1. Tem Sale OPEN do booking A no /caixa
+2. Volta na agenda, click em outro booking B
+3. Click CHECKOUT no B
+4. Backend **automaticamente cancela** a Sale de A
+5. Cria nova Sale de B
+6. `/caixa?active=` mostra Sale de B com seu serviço
 
-### Em modo edit, **só 1 serviço**
-Backend `PATCH /bookings/:id` aceita só 1 serviço por chamada. Se o cliente precisa de múltiplos serviços, **criar outro booking** (que é o fluxo padrão da agenda).
+### Fluxo 4: Acesso direto via URL
+1. Cola na URL `/dashboard/caixa/<saleId>` de uma Sale OPEN
+2. **Auto-redireciona** pra `/dashboard/caixa?active=<saleId>` (sem flash da tela errada)
 
-### Backend cancela Sale OPEN automaticamente
-Se você criou um checkout (Sale OPEN), voltou e editou o booking, **a Sale OPEN é cancelada pelo backend** (decisão arquitetural). Você terá que clicar CHECKOUT de novo pra abrir uma nova Sale com os dados atualizados.
-
-### Edição bloqueada se já tem Sale OPEN
-O dropdown "Editar" fica desabilitado quando há Sale OPEN linkada. Mensagem: "Cancele o checkout primeiro".
-Pra cancelar: ir no `/caixa/[saleId]` e clicar no botão de cancelar (X) do CartPanel.
+### Fluxo 5: Acesso ao histórico
+1. Booking COMPLETED → click "VER VENDA →"
+2. Redireciona pra `/dashboard/caixa/<saleId>` (Sale CONFIRMED)
+3. Vê detalhe da venda paga, histórico de NC, etc
 
 ---
 
 ## 🐛 Pontos de atenção
 
-### Endpoints obsoletos REMOVIDOS
-- `GET /payments/booking/:id` → substituído por `GET /bookings/:id`
-- `PATCH /payments/booking/:id/action` → substituído por `PATCH /bookings/:id/cancel` e `PATCH /bookings/:id/no-show`
-- `/dashboard/checkout?bookingId=X` (rota inexistente) → substituído por `/dashboard/caixa/[saleId]`
+### O `OpenSalesSwitcher.tsx` virou código morto
+Não é mais importado nem usado. Você pode:
+- Deletar manualmente: `rm src/app/dashboard/caixa/components/OpenSalesSwitcher.tsx`
+- OU deixar lá (next.js não inclui arquivos não importados no bundle)
 
-### Tipo `AgendaBooking` ainda está minimalista
-Não inclui `serviceId`, `clientId`, etc — por isso o SideCheckoutPanel busca o booking completo via `GET /bookings/:id` quando entra em modo edit. Funciona, mas se ficar lento podemos passar dados pré-carregados pelo store no futuro.
+### Modal de limpeza aparece **só na primeira carga** da sessão
+Se você recarregar a página, ele aparece de novo se ainda houver múltiplas OPEN. Se for um caso de erro real (impossível com backend novo), use o modal pra limpar.
+
+### Botão "+ Nova venda" só aparece quando NÃO há venda ativa
+Pra criar nova venda quando já tem uma, **cancela a atual** primeiro (botão X no carrinho).
+Ou simplesmente vai em outro booking → CHECKOUT (backend cancela auto).
 
 ---
 
-## 🗺️ Próximas sub-fases
+## ✅ Validação rápida pós-deploy
 
-| Sub-fase | Escopo |
+```bash
+# Console do browser na /caixa
+# 1. Verifica que API foi atualizada
+fetch('/sales/cancel-all-open', { method: 'POST', credentials: 'include' })
+  .then(r => r.json()).then(console.log)
+# → { data: { canceledCount: 0, sales: [] } } (se não tinha nenhuma)
+
+# 2. Cria 3 vendas — só a última deve ficar OPEN
+await fetch('/sales', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: '{}' })
+await fetch('/sales', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: '{}' })
+await fetch('/sales', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: '{}' })
+fetch('/sales?status=OPEN', { credentials: 'include' }).then(r => r.json()).then(d => console.log(d.length))
+# → 1
+```
+
+---
+
+## 🗺️ Próximas fases
+
+| Fase | Escopo |
 |---|---|
-| **6.4** | Refator do SideCheckoutPanel pra aceitar **produtos** (ALTO RISCO) |
-| **6.5** | Relatórios visuais de comissões + dashboard visão geral atualizado |
+| **6.5** | Refator SideCheckoutPanel pra aceitar **produtos** (ALTO RISCO) |
+| 6.6 | Relatórios visuais de comissões + dashboard atualizado |
 | 7+ | Pacotes, Cartões Presente, Assinaturas |
