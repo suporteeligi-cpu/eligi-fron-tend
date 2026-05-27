@@ -1,5 +1,8 @@
 'use client'
 // src/app/dashboard/caixa/components/CartPanel.tsx
+//
+// FIX: forçando color #fff explícito em todos os textos do card escuro do total
+// (sem isso, algum estilo global estava fazendo o texto sair preto)
 
 import { useState } from 'react'
 import { ShoppingCart, CreditCard, Loader2, XCircle } from 'lucide-react'
@@ -18,9 +21,9 @@ interface Props {
   globalProfId:   string | null
   isMobile:       boolean
   onSaleUpdated:  (sale: Sale) => void
-  onSaleClosed:   () => void  // depois de confirmar ou cancelar
-  onProfChange:   (id: string | null) => void  // muda prof global do carrinho
-  onApplyProfToAll: () => void                 // copia global pra todos itens
+  onSaleClosed:   () => void
+  onProfChange:   (id: string | null) => void
+  onApplyProfToAll: () => void
 }
 
 export default function CartPanel({
@@ -136,7 +139,6 @@ export default function CartPanel({
 
   const canCheckout = sale.items.length > 0
 
-  // Conta itens com prof override
   const overrideCount = sale.items.filter(it =>
     it.professionalId != null &&
     globalProfId != null &&
@@ -341,7 +343,7 @@ export default function CartPanel({
           </div>
         )}
 
-        {/* Subtotal + Total */}
+        {/* Subtotal + Total ─ FIX: color #fff explícito em todos os spans */}
         {sale.items.length > 0 && (
           <div style={{
             background: 'linear-gradient(135deg, #1e293b, #0f172a)',
@@ -353,11 +355,13 @@ export default function CartPanel({
             <div style={{
               display: 'flex', justifyContent: 'space-between',
               fontSize: 11,
-              color: 'rgba(255,255,255,0.55)',
               marginBottom: 4,
             }}>
-              <span>Subtotal</span>
-              <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <span style={{ color: 'rgba(255,255,255,0.55)' }}>Subtotal</span>
+              <span style={{
+                color: 'rgba(255,255,255,0.55)',
+                fontVariantNumeric: 'tabular-nums',
+              }}>
                 {formatBRL(sale.subtotal)}
               </span>
             </div>
@@ -365,11 +369,13 @@ export default function CartPanel({
               <div style={{
                 display: 'flex', justifyContent: 'space-between',
                 fontSize: 11,
-                color: 'rgba(255,255,255,0.55)',
                 marginBottom: 4,
               }}>
-                <span>Desconto</span>
-                <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>Desconto</span>
+                <span style={{
+                  color: 'rgba(255,255,255,0.55)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
                   −{formatBRL(sale.discount)}
                 </span>
               </div>
@@ -381,11 +387,13 @@ export default function CartPanel({
               borderTop: '1px solid rgba(255,255,255,0.15)',
             }}>
               <span style={{
+                color: '#fff',
                 fontSize: 12, fontWeight: 700,
                 letterSpacing: '.04em',
                 textTransform: 'uppercase',
               }}>Total</span>
               <span style={{
+                color: '#fff',
                 fontSize: 22,
                 fontWeight: 800,
                 fontVariantNumeric: 'tabular-nums',

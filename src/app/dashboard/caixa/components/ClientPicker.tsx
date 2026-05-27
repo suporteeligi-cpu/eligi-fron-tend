@@ -1,5 +1,9 @@
 'use client'
 // src/app/dashboard/caixa/components/ClientPicker.tsx
+//
+// FIX: mostra cliente quando tem name (mesmo sem id linkado).
+// Caso de uso: Sale criada via /sales/from-booking com cliente avulso
+// (booking só tinha clientName, sem clientId).
 
 import { useState, useEffect, useRef } from 'react'
 import { User, X } from 'lucide-react'
@@ -35,7 +39,6 @@ export default function ClientPicker({ value, onChange, disabled }: Props) {
   // Busca debounced
   useEffect(() => {
     if (!open || !query.trim()) {
-      // Defer setState pra escapar do React Compiler
       const tClear = setTimeout(() => setResults([]), 0)
       return () => clearTimeout(tClear)
     }
@@ -65,9 +68,13 @@ export default function ClientPicker({ value, onChange, disabled }: Props) {
     setQuery('')
   }
 
+  // FIX: mostra cliente se tem name (com OU sem id)
+  // Caso sem id = cliente avulso anotado (vindo de booking, p.ex.)
+  const hasClient = !!value.name
+
   return (
     <div ref={wrapRef} style={{ position: 'relative', fontFamily: typography.fontFamily }}>
-      {value.id && value.name ? (
+      {hasClient && value.name ? (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -85,13 +92,30 @@ export default function ClientPicker({ value, onChange, disabled }: Props) {
             fontSize: 11, fontWeight: 700,
             flexShrink: 0,
           }}>
-            {value.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+            {value.name.split(' ').slice(0, 2).map(w => w[0] ?? '').join('').toUpperCase() || '?'}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
               fontSize: 13, fontWeight: 700, color: colors.gray[900],
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>{value.name}</div>
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              {value.name}
+              {!value.id && (
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: colors.red.DEFAULT,
+                  background: '#fff',
+                  padding: '1px 6px',
+                  borderRadius: 4,
+                  letterSpacing: '.04em',
+                  border: `1px solid ${colors.red.border}`,
+                }}>
+                  AVULSO
+                </span>
+              )}
+            </div>
             {value.phone && (
               <div style={{ fontSize: 11, color: colors.gray.dimText }}>
                 {value.phone}
@@ -206,7 +230,7 @@ export default function ClientPicker({ value, onChange, disabled }: Props) {
                     fontSize: 11, fontWeight: 700,
                     flexShrink: 0,
                   }}>
-                    {c.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+                    {c.name.split(' ').slice(0, 2).map(w => w[0] ?? '').join('').toUpperCase() || '?'}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: colors.gray[900] }}>
