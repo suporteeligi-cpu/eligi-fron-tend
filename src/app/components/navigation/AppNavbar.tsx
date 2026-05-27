@@ -3,12 +3,19 @@
 import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Sun, Moon, Search, X, Calendar, Users, ChevronRight } from 'lucide-react'
+import { Bell, Sun, Moon, Search, X, Calendar, Users, ChevronRight, Clock } from 'lucide-react'
 import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import api from '@/shared/lib/apiClient'
+import dayjs from 'dayjs'
+import 'dayjs/locale/pt-br'
+import relativeTime from 'dayjs/plugin/relativeTime'
 import { useRouter } from 'next/navigation'
 import LowStockBellButton from '@/features/stock/components/LowStockBellButton'
+
+
+dayjs.extend(relativeTime)
+dayjs.locale('pt-br')
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SearchResult {
@@ -18,6 +25,22 @@ interface SearchResult {
   sub:      string
   meta?:    string
 }
+
+interface Notification {
+  id:      string
+  title:   string
+  body:    string
+  time:    string
+  read:    boolean
+  type:    'booking' | 'system'
+}
+
+// ─── Mock notifications (base para futuro real-time) ─────────────────────────
+const MOCK_NOTIFS: Notification[] = [
+  { id:'1', title:'Novo agendamento', body:'Lucas Mendes agendou Corte às 14:00', time: dayjs().subtract(5,'minute').toISOString(), read:false, type:'booking' },
+  { id:'2', title:'Agendamento cancelado', body:'Rafael Costa cancelou Barba às 10:30', time: dayjs().subtract(1,'hour').toISOString(), read:false, type:'booking' },
+  { id:'3', title:'Lembrete', body:'Você tem 3 agendamentos amanhã', time: dayjs().subtract(2,'hour').toISOString(), read:true, type:'system' },
+]
 
 // ─── SearchModal ──────────────────────────────────────────────────────────────
 function SearchModal({ onClose }: { onClose: () => void }) {
@@ -186,17 +209,145 @@ function SearchModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ─── NotifPanel ───────────────────────────────────────────────────────────────
+function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: boolean }) {
+  const [notifs, setNotifs] = useState<Notification[]>(MOCK_NOTIFS)
+
+  function markAllRead() { setNotifs(n => n.map(x => ({ ...x, read:true }))) }
+  function markRead(id: string) { setNotifs(n => n.map(x => x.id===id ? { ...x, read:true } : x)) }
+
+  const unread = notifs.filter(n => !n.read).length
+
+  const panel = (
+    <>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:9990, background:'rgba(0,0,0,0.12)' }} />
+      <div style={isMobile ? {
+        position:'fixed', bottom:0, left:0, right:0,
+        maxHeight:'80dvh',
+        background:'rgba(255,255,255,0.98)',
+        borderRadius:'24px 24px 0 0',
+        boxShadow:'0 -8px 40px rgba(0,0,0,0.15)',
+        zIndex:9991, display:'flex', flexDirection:'column',
+        fontFamily:typography.fontFamily,
+        animation:'npUp 0.28s cubic-bezier(0.34,1.2,0.64,1)',
+        paddingBottom:'max(16px,env(safe-area-inset-bottom))',
+      } : {
+        position:'fixed', top:80, right:20,
+        width:360,
+        background:'rgba(255,255,255,0.98)',
+        borderRadius:radius['2xl'],
+        boxShadow:shadows.lg,
+        border:`1px solid ${colors.gray.borderMd}`,
+        zIndex:9991, display:'flex', flexDirection:'column',
+        fontFamily:typography.fontFamily,
+        animation:'npIn 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+        maxHeight:'70vh',
+      }}>
+        <style>{`
+          @keyframes npIn{from{opacity:0;transform:translateY(-8px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+          @keyframes npUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        `}</style>
+
+        {/* Handle mobile */}
+        {isMobile && (
+          <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 4px' }}>
+            <div style={{ width:40, height:4, borderRadius:2, background:'rgba(0,0,0,0.12)' }} />
+          </div>
+        )}
+
+        {/* Header */}
+        <div style={{ padding:'14px 18px', borderBottom:`1px solid ${colors.gray.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:15, fontWeight:700, color:colors.gray[900] }}>Notificações</span>
+            {unread > 0 && (
+              <span style={{ padding:'1px 8px', borderRadius:radius.full, background:colors.red.gradient, color:'#fff', fontSize:11, fontWeight:700, boxShadow:`0 2px 6px ${colors.red.glow}` }}>{unread}</span>
+            )}
+          </div>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            {unread > 0 && (
+              <button onClick={markAllRead} style={{ fontSize:11, fontWeight:600, color:colors.red.DEFAULT, background:'none', border:'none', cursor:'pointer', padding:'4px 8px', borderRadius:radius.sm, transition:transitions.fast }}
+                onMouseEnter={e => (e.currentTarget.style.background = colors.red.subtle)}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              >
+                Marcar todas como lidas
+              </button>
+            )}
+            <button onClick={onClose} style={{ width:26, height:26, borderRadius:radius.full, border:`1px solid ${colors.gray.borderMd}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <X size={13} color={colors.gray.dimText} />
+            </button>
+          </div>
+        </div>
+
+        {/* Lista */}
+        <div style={{ flex:1, overflowY:'auto' }}>
+          {notifs.length === 0 ? (
+            <div style={{ padding:'48px 20px', textAlign:'center', color:colors.gray.dimText }}>
+              <Bell size={28} style={{ opacity:0.2, marginBottom:8 }} />
+              <div style={{ fontSize:14, fontWeight:500 }}>Sem notificações</div>
+            </div>
+          ) : notifs.map(n => (
+            <button
+              key={n.id}
+              onClick={() => markRead(n.id)}
+              style={{
+                width:'100%', display:'flex', alignItems:'flex-start', gap:12,
+                padding:'14px 18px', border:'none',
+                borderBottom:`1px solid ${colors.gray.border}`,
+                background: n.read ? 'transparent' : colors.red.subtle,
+                cursor:'pointer', textAlign:'left',
+                transition:`background ${transitions.fast}`,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = n.read ? colors.gray.hover : 'rgba(220,38,38,0.09)')}
+              onMouseLeave={e => (e.currentTarget.style.background = n.read ? 'transparent' : colors.red.subtle)}
+            >
+              {/* Ícone */}
+              <div style={{ width:36, height:36, borderRadius:radius.sm, background: n.read ? colors.background.page : 'rgba(220,38,38,0.1)', border:`1px solid ${n.read ? colors.gray.border : colors.red.border}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                {n.type === 'booking'
+                  ? <Calendar size={16} color={n.read ? colors.gray.dimText : colors.red.DEFAULT} strokeWidth={2} />
+                  : <Bell     size={16} color={n.read ? colors.gray.dimText : colors.red.DEFAULT} strokeWidth={2} />
+                }
+              </div>
+
+              {/* Texto */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight: n.read ? 500 : 700, color:colors.gray[900], marginBottom:2 }}>{n.title}</div>
+                <div style={{ fontSize:12, color:colors.gray.dimText, lineHeight:1.4 }}>{n.body}</div>
+                <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:4 }}>
+                  <Clock size={10} color={colors.gray.dimText} />
+                  <span style={{ fontSize:11, color:colors.gray.dimText }}>
+                    {dayjs(n.time).fromNow()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Dot não lido */}
+              {!n.read && (
+                <div style={{ width:8, height:8, borderRadius:'50%', background:colors.red.DEFAULT, flexShrink:0, marginTop:4, boxShadow:`0 0 6px ${colors.red.glow}` }} />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+
+  if (typeof document === 'undefined') return null
+  return createPortal(panel, document.body)
+}
+
 // ─── AppNavbar ────────────────────────────────────────────────────────────────
 export default function AppNavbar() {
   const auth     = useAuth()
   const isMobile = useIsMobile(768)
 
-  const [scrolled,    setScrolled]    = useState(false)
-  const [darkMode,    setDarkMode]    = useState<boolean>(() =>
+  const [scrolled,      setScrolled]      = useState(false)
+  const [darkMode,      setDarkMode]      = useState<boolean>(() =>
     typeof window !== 'undefined' ? localStorage.getItem('eligi-theme') === 'dark' : false
   )
-  const [showSearch,  setShowSearch]  = useState(false)
-  const [avatarHover, setAvatarHover] = useState(false)
+  const [showSearch,    setShowSearch]    = useState(false)
+  const [showNotifs,    setShowNotifs]    = useState(false)
+  const [unreadCount,   setUnreadCount]   = useState(MOCK_NOTIFS.filter(n => !n.read).length)
+  const [avatarHover,   setAvatarHover]   = useState(false)
 
   // Dark mode
   useEffect(() => {
@@ -233,6 +384,11 @@ export default function AppNavbar() {
   return (
     <>
       <style>{`
+        @keyframes eligi-pulse {
+          0%   { transform:scale(1);   opacity:0.85; }
+          65%  { transform:scale(2.6); opacity:0; }
+          100% { transform:scale(2.6); opacity:0; }
+        }
         @keyframes eligi-navbar-in {
           from { opacity:0; transform:translateY(-10px) scale(0.98); }
           to   { opacity:1; transform:translateY(0) scale(1); }
@@ -258,6 +414,7 @@ export default function AppNavbar() {
       `}</style>
 
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
+      {showNotifs && <NotifPanel onClose={() => { setShowNotifs(false); setUnreadCount(0) }} isMobile={isMobile} />}
 
       <div style={{ position:'fixed', top:16, left:0, right:0, display:'flex', justifyContent:'center', zIndex:1000, pointerEvents:'none', animation:'eligi-navbar-in 380ms cubic-bezier(.22,1,.36,1) both' }}>
         <header style={{
@@ -310,8 +467,20 @@ export default function AppNavbar() {
           {/* RIGHT */}
           <div style={{ display:'flex', alignItems:'center', gap:4, zIndex:1 }}>
 
-            {/* Sino de ESTOQUE (Fase 2.3) — alertas de produtos */}
-            <LowStockBellButton />
+            {/* Bell */}
+            <button
+              className="eligi-icon-btn"
+              onClick={() => setShowNotifs(v => !v)}
+              title="Notificações"
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <>
+                  <span style={{ position:'absolute', top:8, right:8, width:7, height:7, borderRadius:'50%', background:'var(--eligi-red)', border:'1.5px solid transparent', zIndex:2 }} />
+                  <span style={{ position:'absolute', top:8, right:8, width:7, height:7, borderRadius:'50%', background:'var(--eligi-red)', animation:'eligi-pulse 1.8s ease-out infinite', zIndex:1 }} />
+                </>
+              )}
+            </button>
 
             {/* Dark mode */}
             <button className="eligi-icon-btn" onClick={toggleTheme} title={darkMode ? 'Modo claro' : 'Modo escuro'}>
