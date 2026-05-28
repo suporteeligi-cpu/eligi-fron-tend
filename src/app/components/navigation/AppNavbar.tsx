@@ -11,7 +11,6 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useRouter } from 'next/navigation'
-import LowStockBellButton from '@/features/stock/components/LowStockBellButton'
 
 
 dayjs.extend(relativeTime)

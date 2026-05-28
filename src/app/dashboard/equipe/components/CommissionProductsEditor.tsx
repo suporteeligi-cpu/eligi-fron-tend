@@ -24,7 +24,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 const SAVE_DEBOUNCE_MS = 600
 
 export default function CommissionProductsEditor({
-  prof, allProducts, isMobile, onChanged,
+  prof, allProducts, onChanged,
 }: Props) {
   const [defaultType,  setDefaultType]  = useState<CommissionType | null>(() => prof.commissionProductType  ?? null)
   const [defaultValue, setDefaultValue] = useState<number | null>(() => prof.commissionProductValue ?? null)

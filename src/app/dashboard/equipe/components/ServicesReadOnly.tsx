@@ -76,7 +76,7 @@ export default function ServicesReadOnly({ services, isMobile }: Props) {
         Serviços vinculados ({services.length})
       </div>
 
-      {filtered.map((s, idx) => (
+      {filtered.map((s) => (
         <div key={s.id} style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: isMobile ? '12px 0' : '11px 12px',

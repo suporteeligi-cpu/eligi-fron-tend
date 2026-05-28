@@ -1,124 +1,56 @@
-# Fase 6.7 — Aba Vendas (Relatório)
+# Polish Caixa/POS — 2 telas no mobile
 
-Histórico completo de vendas com filtros e export CSV/Excel.
+## 🎯 O que muda
 
-## 🎯 Funcionalidades
+### Mobile (< 768px)
+- Caixa agora tem **2 telas separadas**: Catálogo ⇄ Carrinho
+- **Tela Catálogo**: cards grandes, fáceis de tocar + barra inferior fixa "N itens · R$ X · Ver carrinho →"
+- **Tela Carrinho**: botão "← Voltar ao catálogo" + CartPanel completo (cliente, itens, total, confirmar)
+- **Produtos vêm primeiro**, Serviços ao lado (nas tabs do catálogo)
+- Áreas de toque maiores (tabs, busca, cards)
 
-- 📊 **4 cards de resumo**: Receita Líquida, Ticket Médio, Notas de Crédito, Bruto
-- 🔍 **Filtros**: período (de/até), status, profissional, método de pagamento, busca por cliente
-- 📋 **Lista expansível**: cada venda mostra itens, profissionais, métodos ao clicar
-- 📥 **Export CSV + Excel (.xlsx)** com todos os dados filtrados
-- 📄 **Paginação** (30 por página)
-
----
+### Desktop/Tablet (≥ 768px)
+- **Nada muda** — continua catálogo + carrinho lado a lado
 
 ## 📦 Aplicar
 
-### Backend
-
-```bash
-cd ~/Documentos/eligi/back-end
-unzip -o ~/Downloads/vendas-backend.zip -d ./
-
-# Edita sales.routes.ts adicionando as rotas do report (veja ROUTES_PATCH.md)
-
-npm run lint && npm run build && npm run deploy
-```
-
-### Frontend
-
 ```bash
 cd ~/Documentos/eligi/front-end
-unzip -o ~/Downloads/vendas-frontend.zip -d ./
-
-# Instala SheetJS pra export Excel (se ainda não tiver)
-npm install xlsx
-
+unzip -o ~/Downloads/caixa-mobile.zip -d ./
 npm run lint && npm run build && npm run deploy
 ```
 
----
+## 🗂 Arquivos alterados
 
-## ⚠️ Passo manual: rotas (ROUTES_PATCH.md)
-
-No `sales.routes.ts`, adicione **ANTES das rotas com :id**:
-
-```typescript
-import { report, reportExport } from './sales-report.controller'
-
-router.get('/report',        asyncHandler(report))
-router.get('/report/export', asyncHandler(reportExport))
+```
+src/app/dashboard/caixa/
+├── page.tsx                       ← OpenTab com 2 telas no mobile
+└── components/
+    └── CatalogPanel.tsx           ← Produtos primeiro + tabs maiores
 ```
 
-⚠️ Tem que vir antes de `router.get('/:id', ...)` senão o Express acha que "report" é um id.
-
----
-
-## 🗂 Arquivos
-
-### Backend
-```
-src/modules/sales/
-├── sales-report.service.ts      ← lógica de relatório (NOVO, não mexe no existente)
-└── sales-report.controller.ts   ← handlers (NOVO)
-
-ROUTES_PATCH.md                   ← instruções pra adicionar 2 rotas
-```
-
-### Frontend
-```
-src/features/sales-report/
-├── types.ts
-└── utils/index.ts                ← format + export CSV/Excel
-
-src/app/dashboard/financeiro/
-├── page.tsx                      ← card "Vendas" agora ATIVO
-└── vendas/
-    ├── page.tsx                  ← página principal
-    └── components/
-        ├── SummaryBar.tsx        ← 4 cards de resumo
-        ├── FiltersBar.tsx        ← filtros
-        ├── SaleRow.tsx           ← linha expansível
-        └── ExportButton.tsx      ← dropdown CSV/Excel
-```
-
----
-
-## 📥 Dependência: xlsx (SheetJS)
-
-O export Excel usa SheetJS via import dinâmico (`await import('xlsx')`).
-Instala antes do build:
-
-```bash
-npm install xlsx
-```
-
-Se não quiser Excel, o CSV funciona sem nenhuma dependência (é nativo).
-
----
+⚠️ **CartPanel.tsx NÃO foi alterado** — continua funcionando igual. As 2 telas são orquestradas só no page.tsx.
 
 ## 🧪 Teste
 
-1. `/dashboard/financeiro` → card "Vendas" agora clicável
-2. Click → `/dashboard/financeiro/vendas`
-3. Vê 4 cards de resumo no topo
-4. Testa filtros:
-   - Período: escolhe de/até
-   - Status: Confirmadas / Canceladas
-   - Profissional: dropdown
-   - Método: PIX, Dinheiro, etc
-   - Cliente: digita nome (busca com debounce)
-5. Click numa venda → expande mostrando itens + resumo financeiro
-6. Click "Exportar" → escolhe Excel ou CSV → baixa arquivo
-7. Abre o arquivo: tem todas as colunas (data, cliente, itens, métodos, valores)
+### Mobile (abre no celular ou DevTools modo mobile)
+1. `/dashboard/caixa` → aba Vendas Abertas
+2. Vê o **Catálogo** ocupando a tela inteira (não mais espremido)
+3. Tabs: **Produtos** primeiro (selecionado), Serviços ao lado
+4. Toca num produto → adiciona ao carrinho → barra inferior atualiza "1 item · R$ X"
+5. Toca em **"Ver carrinho →"** → vai pra tela do carrinho
+6. Tela carrinho: cliente, itens com [− N +], total, confirmar
+7. Toca em **"← Voltar ao catálogo"** → volta pro catálogo
+8. Confirma venda → volta automaticamente pro catálogo
 
----
+### Desktop
+1. Continua igual: catálogo à esquerda, carrinho à direita (380px)
 
-## 🔢 Cálculo de valores
+## ✅ Resolve
 
-- **Receita Líquida** = Sales CONFIRMED − Notas de Crédito
-- **Ticket Médio** = Líquido / nº de vendas confirmadas
-- **Bruto** = soma de Sale.total (sem descontar NC)
-- **Líquido por venda** = sale.total − créditos daquela venda
-
-Tudo respeitando o **timezone do negócio** (usa o helper `getBusinessTimezone`).
+- ❌ Catálogo espremido (maxHeight 400) → ✅ tela inteira
+- ❌ Carrinho embaixo com scroll gigante → ✅ tela dedicada
+- ❌ Botões pequenos → ✅ áreas de toque maiores
+- ✅ Total sempre visível (barra inferior)
+- ✅ Fluxo direto: produto → carrinho → confirma
+- ✅ Premium fullscreen mantido

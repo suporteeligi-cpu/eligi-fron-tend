@@ -18,7 +18,7 @@ interface Props {
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 const SAVE_DEBOUNCE_MS = 700
 
-export default function HoursPanel({ profId, profName, isMobile }: Props) {
+export default function HoursPanel({ profId, profName }: Props) {
   const [slots,     setSlots]     = useState<HourSlot[]>([])
   const [loading,   setLoading]   = useState(true)
   const [saveState, setSaveState] = useState<SaveState>('idle')

@@ -7,7 +7,7 @@ import { colors, typography, transitions } from '@/shared/theme'
 import { formatBRL } from '@/features/sales/utils/format'
 import { CatalogService, CatalogProduct } from '@/features/sales/types'
 
-type Tab = 'service' | 'product'
+type Tab = 'product' | 'service'
 
 interface Props {
   services: CatalogService[]
@@ -21,7 +21,8 @@ interface Props {
 export default function CatalogPanel({
   services, products, loading, isMobile, onAddService, onAddProduct,
 }: Props) {
-  const [tab,   setTab]   = useState<Tab>('service')
+  // ⭐ Produtos primeiro (default)
+  const [tab,   setTab]   = useState<Tab>('product')
   const [query, setQuery] = useState('')
 
   // Filtra ativos + busca
@@ -53,19 +54,19 @@ export default function CatalogPanel({
       height: '100%',
       minHeight: 0,
     }}>
-      {/* Toggle servico/produto */}
+      {/* Toggle produto/serviço — ⭐ Produtos primeiro, maior no mobile */}
       <div style={{
         display: 'flex',
         gap: 4,
         padding: 4,
         background: colors.background.page,
-        borderRadius: 11,
+        borderRadius: 12,
         border: `1px solid ${colors.gray.border}`,
         flexShrink: 0,
       }}>
         {([
-          { id: 'service' as Tab, label: 'Serviços', count: activeServices.length, icon: Scissors },
           { id: 'product' as Tab, label: 'Produtos', count: activeProducts.length, icon: Package },
+          { id: 'service' as Tab, label: 'Serviços', count: activeServices.length, icon: Scissors },
         ]).map(t => {
           const Icon = t.icon
           const isActive = tab === t.id
@@ -76,13 +77,13 @@ export default function CatalogPanel({
               style={{
                 flex: 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '8px 12px',
-                borderRadius: 8,
+                padding: isMobile ? '12px 12px' : '8px 12px',
+                borderRadius: 9,
                 border: 'none',
                 background: isActive ? '#fff' : 'transparent',
                 color: isActive ? colors.gray[900] : colors.gray.dimText,
                 fontWeight: isActive ? 700 : 600,
-                fontSize: 12,
+                fontSize: isMobile ? 13 : 12,
                 cursor: 'pointer',
                 transition: `all ${transitions.fast}`,
                 boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
@@ -90,7 +91,7 @@ export default function CatalogPanel({
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <Icon size={13} strokeWidth={2} />
+              <Icon size={isMobile ? 15 : 13} strokeWidth={2} />
               {t.label}
               <span style={{
                 fontSize: 10, fontWeight: 700,
@@ -108,13 +109,13 @@ export default function CatalogPanel({
       {/* Busca */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        padding: '9px 12px',
+        padding: isMobile ? '11px 12px' : '9px 12px',
         background: '#fff',
         border: `1px solid ${colors.gray.borderMd}`,
         borderRadius: 10,
         flexShrink: 0,
       }}>
-        <Search size={13} color={colors.gray.dimText} strokeWidth={2} />
+        <Search size={14} color={colors.gray.dimText} strokeWidth={2} />
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
@@ -122,7 +123,7 @@ export default function CatalogPanel({
           inputMode="search"
           style={{
             flex: 1, border: 'none', outline: 'none',
-            fontSize: 13, background: 'transparent',
+            fontSize: isMobile ? 14 : 13, background: 'transparent',
             color: colors.gray[900],
             fontFamily: 'inherit',
             minWidth: 0,
@@ -138,7 +139,7 @@ export default function CatalogPanel({
               WebkitTapHighlightColor: 'transparent',
             }}
           >
-            <X size={12} color={colors.gray.dimText} />
+            <X size={13} color={colors.gray.dimText} />
           </button>
         )}
       </div>
@@ -170,12 +171,13 @@ export default function CatalogPanel({
           <div style={{
             display: 'grid',
             gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(140px, 1fr))',
-            gap: 8,
+            gap: isMobile ? 10 : 8,
           }}>
             {tab === 'service' && filtered.map(item => (
               <ServiceCard
                 key={item.id}
                 service={item as CatalogService}
+                isMobile={isMobile}
                 onClick={() => onAddService(item as CatalogService)}
               />
             ))}
@@ -183,6 +185,7 @@ export default function CatalogPanel({
               <ProductCard
                 key={item.id}
                 product={item as CatalogProduct}
+                isMobile={isMobile}
                 onClick={() => onAddProduct(item as CatalogProduct)}
               />
             ))}
@@ -193,7 +196,7 @@ export default function CatalogPanel({
   )
 }
 
-function ServiceCard({ service, onClick }: { service: CatalogService; onClick: () => void }) {
+function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; isMobile: boolean; onClick: () => void }) {
   const dot = service.color ?? colors.red.DEFAULT
   return (
     <button
@@ -202,7 +205,7 @@ function ServiceCard({ service, onClick }: { service: CatalogService; onClick: (
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
-        padding: '10px',
+        padding: isMobile ? '12px' : '10px',
         background: '#fff',
         border: `1px solid ${colors.gray.border}`,
         borderRadius: 11,
@@ -213,6 +216,7 @@ function ServiceCard({ service, onClick }: { service: CatalogService; onClick: (
         WebkitTapHighlightColor: 'transparent',
         position: 'relative',
         overflow: 'hidden',
+        minHeight: isMobile ? 84 : 'auto',
       }}
       onMouseEnter={e => {
         e.currentTarget.style.borderColor = dot
@@ -232,7 +236,7 @@ function ServiceCard({ service, onClick }: { service: CatalogService; onClick: (
       }} />
 
       <div style={{
-        fontSize: 12, fontWeight: 700,
+        fontSize: isMobile ? 13 : 12, fontWeight: 700,
         color: colors.gray[900],
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         paddingLeft: 6,
@@ -248,7 +252,7 @@ function ServiceCard({ service, onClick }: { service: CatalogService; onClick: (
         <span>{service.duration}min</span>
       </div>
       <div style={{
-        fontSize: 13,
+        fontSize: isMobile ? 14 : 13,
         fontWeight: 700,
         color: dot,
         fontVariantNumeric: 'tabular-nums',
@@ -261,7 +265,7 @@ function ServiceCard({ service, onClick }: { service: CatalogService; onClick: (
   )
 }
 
-function ProductCard({ product, onClick }: { product: CatalogProduct; onClick: () => void }) {
+function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; isMobile: boolean; onClick: () => void }) {
   const hasImage = !!product.imageUrl
   const dot = product.color ?? colors.red.DEFAULT
   const tracking = product.trackStock ?? false
@@ -349,9 +353,9 @@ function ProductCard({ product, onClick }: { product: CatalogProduct; onClick: (
       </div>
 
       {/* Info */}
-      <div style={{ padding: '8px 10px 10px', flex: 1 }}>
+      <div style={{ padding: isMobile ? '9px 10px 11px' : '8px 10px 10px', flex: 1 }}>
         <div style={{
-          fontSize: 11, fontWeight: 700,
+          fontSize: isMobile ? 12 : 11, fontWeight: 700,
           color: colors.gray[900],
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           marginBottom: 2,
@@ -369,7 +373,7 @@ function ProductCard({ product, onClick }: { product: CatalogProduct; onClick: (
           </div>
         )}
         <div style={{
-          fontSize: 13,
+          fontSize: isMobile ? 14 : 13,
           fontWeight: 700,
           color: colors.red.DEFAULT,
           fontVariantNumeric: 'tabular-nums',

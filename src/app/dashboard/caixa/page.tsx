@@ -3,13 +3,14 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Receipt, TrendingUp, Loader2 } from 'lucide-react'
+import { ShoppingCart, Receipt, TrendingUp, Loader2, ArrowLeft, ArrowRight } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { Sale, CatalogService, CatalogProduct, ProfLite, SaleItemType } from '@/features/sales/types'
 import { useSalesSummary } from '@/features/sales/hooks/useSalesSummary'
+import { formatBRL } from '@/features/sales/utils/format'
 
 import CatalogPanel       from './components/CatalogPanel'
 import CartPanel          from './components/CartPanel'
@@ -41,7 +42,7 @@ export default function CaixaPage() {
   // Modal de limpeza (múltiplas OPEN antigas)
   const [showCleanupModal, setShowCleanupModal] = useState(false)
   const [cleanupSales,     setCleanupSales]     = useState<Sale[]>([])
-  const cleanupShownRef = useRef(false)   // Evita reabrir o modal toda vez que recarregar
+  const cleanupShownRef = useRef(false)
 
   // Catálogo
   const [services,        setServices]        = useState<CatalogService[]>([])
@@ -61,7 +62,6 @@ export default function CaixaPage() {
   const { summary, loading: summaryLoading, refetch: refetchSummary }
     = useSalesSummary({ dateFrom: todayDate })
 
-  // Captura o ?active= apenas na primeira montagem (evita loops com router.replace)
   const [initialActive] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
     const sp = new URLSearchParams(window.location.search)
@@ -81,13 +81,8 @@ export default function CaixaPage() {
       const list: Sale[] = Array.isArray(data) ? data : []
       setOpenSales(list)
 
-      // Pega ?active= salvo na primeira montagem (apenas 1x)
       const activeFromQuery = !initialActiveConsumedRef.current ? initialActive : ''
 
-      // Seleciona Sale ativa:
-      // 1. Se ?active= presente e existe na lista → seleciona ela
-      // 2. Se já tem activeId selecionado e ainda existe → mantém
-      // 3. Senão, pega a primeira
       setActiveSaleId(prev => {
         if (activeFromQuery && list.find(s => s.id === activeFromQuery)) {
           return activeFromQuery
@@ -96,15 +91,12 @@ export default function CaixaPage() {
         return list[0]?.id ?? null
       })
 
-      // Se há múltiplas OPEN E ainda não mostrou modal de cleanup
-      // → abre modal pra limpar (regra: 1 venda OPEN por vez)
       if (list.length > 1 && !cleanupShownRef.current) {
         cleanupShownRef.current = true
         setCleanupSales(list)
         setShowCleanupModal(true)
       }
 
-      // Limpa o query param do URL pra não ficar travado se voltar
       if (activeFromQuery) {
         initialActiveConsumedRef.current = true
         setTimeout(() => {
@@ -167,7 +159,6 @@ export default function CaixaPage() {
       setCreating(true)
       const res = await api.post('/sales', {})
       const newSale: Sale = res.data?.data ?? res.data
-      // Backend cancela OPENs anteriores → frontend só mantém a nova
       setOpenSales([newSale])
       setActiveSaleId(newSale.id)
       setGlobalProfId(null)
@@ -193,11 +184,9 @@ export default function CaixaPage() {
 
   async function addService(service: CatalogService) {
     if (!activeSaleId) {
-      // Cria carrinho se não tiver
       try {
         const res = await api.post('/sales', {})
         const newSale: Sale = res.data?.data ?? res.data
-        // Backend cancela OPENs anteriores → frontend mantém só a nova
         setOpenSales([newSale])
         setActiveSaleId(newSale.id)
         await addItemToSale(newSale.id, {
@@ -222,7 +211,6 @@ export default function CaixaPage() {
       try {
         const res = await api.post('/sales', {})
         const newSale: Sale = res.data?.data ?? res.data
-        // Backend cancela OPENs anteriores → frontend mantém só a nova
         setOpenSales([newSale])
         setActiveSaleId(newSale.id)
         await addItemToSale(newSale.id, {
@@ -250,7 +238,6 @@ export default function CaixaPage() {
   }) {
     try {
       await api.post(`/sales/${saleId}/items`, item)
-      // Refetch a venda específica
       const res = await api.get(`/sales/${saleId}`)
       const data = res.data?.data ?? res.data
       setOpenSales(prev => prev.map(s => s.id === saleId ? data : s))
@@ -267,7 +254,6 @@ export default function CaixaPage() {
   async function applyGlobalProfToAllItems() {
     if (!activeSale || !globalProfId) return
     try {
-      // Atualiza todos os itens em paralelo
       await Promise.all(
         activeSale.items.map(item =>
           api.patch(`/sales/${activeSale.id}/items/${item.id}`, {
@@ -283,7 +269,6 @@ export default function CaixaPage() {
   }
 
   function handleSaleClosed() {
-    // Tira do array de OPEN, seleciona próxima
     if (!activeSaleId) return
     const idx = openSales.findIndex(s => s.id === activeSaleId)
     const remaining = openSales.filter(s => s.id !== activeSaleId)
@@ -295,7 +280,6 @@ export default function CaixaPage() {
       setActiveSaleId(null)
     }
     setGlobalProfId(null)
-    // Refresca confirmadas e summary
     setConfirmedRefresh(k => k + 1)
     refetchSummary()
   }
@@ -313,7 +297,6 @@ export default function CaixaPage() {
     }
   }
 
-  // Cancela todas EXCETO a escolhida (mantém uma e cancela as outras)
   async function handleKeepOneCancelOthers(saleIdToKeep: string) {
     try {
       const toCancel = cleanupSales.filter(s => s.id !== saleIdToKeep)
@@ -341,6 +324,7 @@ export default function CaixaPage() {
       <style>{`
         @keyframes pos-fade-up { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
         @keyframes pos-spin    { to { transform: rotate(360deg) } }
+        @keyframes pos-slide-in { from { opacity:0; transform:translateX(12px) } to { opacity:1; transform:translateX(0) } }
       `}</style>
 
       {toast && (
@@ -479,7 +463,7 @@ export default function CaixaPage() {
   )
 }
 
-// ─── Aba "Vendas Abertas" (extraída pra organizar) ────────────────────
+// ─── Aba "Vendas Abertas" ─────────────────────────────────────────────
 interface OpenTabProps {
   openSales:       Sale[]
   activeSale:      Sale | null
@@ -501,6 +485,9 @@ interface OpenTabProps {
 }
 
 function OpenTab(props: OpenTabProps) {
+  // ⭐ Mobile: alterna entre catálogo e carrinho
+  const [mobileView, setMobileView] = useState<'catalog' | 'cart'>('catalog')
+
   if (props.openLoading) {
     return (
       <div style={{
@@ -516,15 +503,12 @@ function OpenTab(props: OpenTabProps) {
     )
   }
 
-  return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 12,
-      flex: 1,
-      minHeight: 0,
-    }}>
-      {props.openSales.length === 0 && !props.creating ? (
+  // Empty state
+  if (props.openSales.length === 0 && !props.creating) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0,
+      }}>
         <div style={{
           background: '#fff',
           borderRadius: 14,
@@ -561,71 +545,234 @@ function OpenTab(props: OpenTabProps) {
             + Nova venda
           </button>
         </div>
-      ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: props.isMobile ? '1fr' : 'minmax(0, 1fr) 380px',
-          gap: 14,
-          flex: 1,
-          minHeight: 0,
-          alignItems: 'stretch',
-        }}>
-          {/* Catálogo */}
-          <div style={{
-            background: '#fff',
-            borderRadius: 14,
-            border: `1px solid ${colors.gray.border}`,
-            padding: 14,
-            minHeight: props.isMobile ? 300 : 0,
-            maxHeight: props.isMobile ? 400 : 'none',
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            <CatalogPanel
-              services={props.services}
-              products={props.products}
-              loading={props.catalogLoading}
-              isMobile={props.isMobile}
-              onAddService={props.onAddService}
-              onAddProduct={props.onAddProduct}
-            />
-          </div>
+      </div>
+    )
+  }
 
-          {/* Carrinho ativo */}
-          <div style={{
-            background: '#fff',
-            borderRadius: 14,
-            border: `1px solid ${colors.gray.border}`,
-            padding: 14,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: props.isMobile ? 500 : 0,
-          }}>
-            {props.activeSale ? (
-              <CartPanel
-                sale={props.activeSale}
-                professionals={props.professionals}
-                globalProfId={props.globalProfId}
+  const cartItemCount = props.activeSale?.items.reduce((sum, it) => sum + (it.quantity ?? 1), 0) ?? 0
+  const cartTotal     = props.activeSale?.total ?? 0
+
+  // ═══════════════════════════════════════════════════════════════
+  // MOBILE: 2 telas (catálogo ⇄ carrinho)
+  // ═══════════════════════════════════════════════════════════════
+  if (props.isMobile) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        flex: 1, minHeight: 0,
+        position: 'relative',
+      }}>
+        {mobileView === 'catalog' ? (
+          <div
+            key="catalog"
+            style={{
+              display: 'flex', flexDirection: 'column',
+              flex: 1, minHeight: 0,
+              animation: 'pos-slide-in 0.25s ease',
+            }}
+          >
+            {/* Catálogo */}
+            <div style={{
+              background: '#fff',
+              borderRadius: 14,
+              border: `1px solid ${colors.gray.border}`,
+              padding: 14,
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              marginBottom: 12,
+            }}>
+              <CatalogPanel
+                services={props.services}
+                products={props.products}
+                loading={props.catalogLoading}
                 isMobile={props.isMobile}
-                onSaleUpdated={props.onSaleUpdated}
-                onSaleClosed={props.onSaleClosed}
-                onProfChange={props.onProfChange}
-                onApplyProfToAll={props.onApplyProfToAll}
+                onAddService={props.onAddService}
+                onAddProduct={props.onAddProduct}
               />
-            ) : (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flex: 1,
-                color: colors.gray.dimText,
-                fontSize: 12,
-                fontFamily: typography.fontFamily,
-              }}>
-                Selecione uma venda na barra acima
+            </div>
+
+            {/* Barra inferior: ver carrinho */}
+            <button
+              onClick={() => setMobileView('cart')}
+              style={{
+                flexShrink: 0,
+                width: '100%',
+                background: cartItemCount > 0 ? colors.red.gradient : 'rgba(0,0,0,0.06)',
+                color: cartItemCount > 0 ? '#fff' : colors.gray.dimText,
+                border: 'none',
+                borderRadius: 14,
+                padding: '15px 18px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: cartItemCount > 0 ? `0 6px 20px ${colors.red.glow}` : 'none',
+                transition: `all ${transitions.spring}`,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <ShoppingCart size={18} strokeWidth={2.2} />
+                <span style={{ fontSize: 14, fontWeight: 700 }}>
+                  {cartItemCount > 0
+                    ? `${cartItemCount} ${cartItemCount === 1 ? 'item' : 'itens'} · ${formatBRL(cartTotal)}`
+                    : 'Carrinho vazio'}
+                </span>
               </div>
-            )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700 }}>
+                Ver carrinho
+                <ArrowRight size={16} strokeWidth={2.4} />
+              </div>
+            </button>
           </div>
+        ) : (
+          <div
+            key="cart"
+            style={{
+              display: 'flex', flexDirection: 'column',
+              flex: 1, minHeight: 0,
+              animation: 'pos-slide-in 0.25s ease',
+            }}
+          >
+            {/* Botão voltar ao catálogo */}
+            <button
+              onClick={() => setMobileView('catalog')}
+              style={{
+                flexShrink: 0,
+                display: 'flex', alignItems: 'center', gap: 7,
+                background: '#fff',
+                border: `1px solid ${colors.gray.border}`,
+                borderRadius: 12,
+                padding: '12px 16px',
+                marginBottom: 12,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontSize: 13,
+                fontWeight: 700,
+                color: colors.gray[900],
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <ArrowLeft size={16} strokeWidth={2.4} />
+              Voltar ao catálogo
+            </button>
+
+            {/* Carrinho */}
+            <div style={{
+              background: '#fff',
+              borderRadius: 14,
+              border: `1px solid ${colors.gray.border}`,
+              padding: 14,
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+            }}>
+              {props.activeSale ? (
+                <CartPanel
+                  sale={props.activeSale}
+                  professionals={props.professionals}
+                  globalProfId={props.globalProfId}
+                  isMobile={props.isMobile}
+                  onSaleUpdated={props.onSaleUpdated}
+                  onSaleClosed={() => {
+                    props.onSaleClosed()
+                    setMobileView('catalog')
+                  }}
+                  onProfChange={props.onProfChange}
+                  onApplyProfToAll={props.onApplyProfToAll}
+                />
+              ) : (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flex: 1,
+                  color: colors.gray.dimText,
+                  fontSize: 12,
+                }}>
+                  Nenhuma venda ativa
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DESKTOP / TABLET: lado a lado (inalterado)
+  // ═══════════════════════════════════════════════════════════════
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 12,
+      flex: 1,
+      minHeight: 0,
+    }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) 380px',
+        gap: 14,
+        flex: 1,
+        minHeight: 0,
+        alignItems: 'stretch',
+      }}>
+        {/* Catálogo */}
+        <div style={{
+          background: '#fff',
+          borderRadius: 14,
+          border: `1px solid ${colors.gray.border}`,
+          padding: 14,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          <CatalogPanel
+            services={props.services}
+            products={props.products}
+            loading={props.catalogLoading}
+            isMobile={props.isMobile}
+            onAddService={props.onAddService}
+            onAddProduct={props.onAddProduct}
+          />
         </div>
-      )}
+
+        {/* Carrinho ativo */}
+        <div style={{
+          background: '#fff',
+          borderRadius: 14,
+          border: `1px solid ${colors.gray.border}`,
+          padding: 14,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+        }}>
+          {props.activeSale ? (
+            <CartPanel
+              sale={props.activeSale}
+              professionals={props.professionals}
+              globalProfId={props.globalProfId}
+              isMobile={props.isMobile}
+              onSaleUpdated={props.onSaleUpdated}
+              onSaleClosed={props.onSaleClosed}
+              onProfChange={props.onProfChange}
+              onApplyProfToAll={props.onApplyProfToAll}
+            />
+          ) : (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flex: 1,
+              color: colors.gray.dimText,
+              fontSize: 12,
+              fontFamily: typography.fontFamily,
+            }}>
+              Selecione uma venda na barra acima
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
