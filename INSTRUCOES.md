@@ -1,61 +1,76 @@
-# Polish Estoque — KPIs compactos + atalho rápido de movimentação
+# Frontend Pacotes — Aplicação
 
-## 🎯 O que muda
+## 🎯 O que entrega
 
-### 1. KPIs em chips (mobile)
-- **Mobile**: os 4 KPIs viram chips coloridos numa faixa scrollável horizontal (~50px vs ~180px antes)
-- **Desktop**: mantém os 4 cards grandes (inalterado)
-- Libera muito espaço pra lista
-
-### 2. Atalho rápido de movimentação ⭐ NOVO
-- Cada produto **com controle de estoque** ganha um botão de atalho (ícone ↕) na lista
-- Toca → abre `QuickStockSheet` (bottom-sheet no mobile, modal no desktop)
-- **SEM precisar abrir o ProductModal completo + trocar de aba**
-- Tem:
-  - Cards de tipo grandes (Entrada/Saída/Ajuste/Perda)
-  - **Teclado numérico touch** no mobile (input gigante estilo calculadora)
-  - Preview "saldo após" destacado (card escuro)
-  - Botão "Registrar" fixo no rodapé
-
-### 3. ProductRow ajustado
-- Área de toque dividida: corpo abre edição, botão ↕ abre movimentação rápida
+- ⭐ Nova rota **`/dashboard/pacotes`** no sidebar (ícone Package)
+- 📋 Aba **"Gerenciar pacotes"** — CRUD de templates (criar/editar/listar)
+- 💳 Aba **"Adquiridos"** — lista de cartões com busca e status
+- 🎴 Modal de criar/editar template (estilo Booksy: nome, descrição, preço, validade, taxa, profissional, serviços com qty + preço com desconto)
+- 🔄 Modal de detalhe do cartão com **flip frente/verso**:
+  - **Frente**: QR code escaneável + número + botão "copiar"
+  - **Verso**: cartão estilo Booksy (saldo, validade, proprietário)
+- 🧾 Cancelamento configurável (com/sem Nota de Crédito)
+- 📱 Mobile responsivo (bottom-sheets, scroll otimizado, touch-friendly)
 
 ## 📦 Aplicar
 
 ```bash
 cd ~/Documentos/eligi/front-end
-unzip -o ~/Downloads/estoque-polish.zip -d ./
+unzip -o ~/Downloads/packages-frontend.zip -d ./
 npm run lint && npm run build && npm run deploy
 ```
 
 ## 🗂 Arquivos
 
 ```
-src/app/dashboard/estoque/
-├── page.tsx                          ← integra QuickStockSheet
-└── components/
-    ├── StockSummaryCards.tsx         ← chips no mobile
-    ├── ProductRow.tsx                ← botão de atalho ↕
-    └── QuickStockSheet.tsx           ← NOVO: movimentação rápida touch
+src/
+├── app/
+│   ├── components/navigation/
+│   │   └── navigation.config.ts        ← SUBSTITUIU (adiciona "Pacotes" entre Serviços e Equipe)
+│   └── dashboard/pacotes/
+│       ├── page.tsx                    ← 2 abas: Gerenciar + Adquiridos
+│       └── components/
+│           ├── PackageEditorModal.tsx  ← Criar/editar template
+│           ├── CardDetailModal.tsx     ← Detalhe cartão (flip QR/info)
+│           └── Toast.tsx
+└── features/packages/
+    ├── types.ts
+    └── utils/format.ts
 ```
 
-⚠️ **StockTab.tsx e ProductModal.tsx NÃO foram alterados** — continuam funcionando. O QuickStockSheet é um caminho alternativo (mais rápido), não substitui o modal completo.
+## 🧪 Como testar
 
-## 🧪 Teste
+1. Abre `/dashboard/pacotes` — vê o item "Pacotes" no sidebar
+2. **Aba Gerenciar**:
+   - Toca "+ Novo pacote"
+   - Preenche: nome "Pacote Premium", preço 300, validade 30 dias
+   - Adiciona 2 serviços com quantidade e preço com desconto
+   - Salva → aparece na lista
+3. **Aba Adquiridos**: vazia até vender pacote no Caixa (próxima etapa)
+4. Pode editar um template clicando nele
 
-### Mobile
-1. `/dashboard/estoque` → KPIs agora são chips compactos no topo (rola horizontal)
-2. Lista de produtos respira mais (menos espaço gasto em cima)
-3. Num produto com estoque, toca no botão **↕** (à direita)
-4. Abre o sheet: escolhe Entrada/Saída, digita no teclado numérico, vê preview "12 → 17"
-5. "Registrar movimentação" → fecha e atualiza o saldo na lista
+## ⚠️ Dependências
 
-### Desktop
-1. KPIs continuam 4 cards grandes
-2. Botão ↕ abre modal centrado com o mesmo fluxo
+- Endpoints já existentes (deployados):
+  - `GET/POST/PATCH/DELETE /packages`
+  - `GET /package-cards`
+  - `GET /package-cards/:id`
+  - `POST /package-cards/:id/cancel`
+- Endpoints que o modal já consome:
+  - `GET /services` (listagem de serviços do business)
+  - `GET /equipe` (listagem de profissionais)
 
-## ✅ Resolve
+⚠️ Se `/services` ou `/equipe` retornarem em estrutura diferente do esperado, o picker de serviço/profissional fica vazio — me avisa que ajusto.
 
-- ❌ Filtros/KPIs ocupavam muito espaço → ✅ chips compactos
-- ❌ Lista pouco intuitiva → ✅ atalho de movimentação direto na linha
-- ❌ Adicionar/editar estoque confuso → ✅ QuickStockSheet touch-first
+## 🎨 QR Code
+
+Usa `api.qrserver.com` (público, gratuito, sem chave). Se quiser self-host depois, troca a função `qrUrl()` em `CardDetailModal.tsx`.
+
+## 🔮 Próximo passo
+
+**Etapa C — Integração no Caixa**:
+- Catálogo do Caixa ganha aba "Pacotes" junto com Produtos/Serviços
+- Botão "Usar Pacote" no carrinho → modal busca cartão por número ou cliente → mostra saldos → consome crédito
+- Itens viram R$ 0 (já pago via pacote)
+
+Aplica esse frontend, testa criar um pacote, e me chama pra fazer a integração!
