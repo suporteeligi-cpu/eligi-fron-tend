@@ -54,16 +54,14 @@ export default function FinanceiroPage() {
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gap: 12,
         }}>
-          {/* ⭐ Comissões — ATIVO */}
+          {/* Relatórios — em breve */}
           <ModuleCard
-            title="Comissões"
-            description="Pagamentos da equipe (serviços e produtos)"
-            href="/dashboard/financeiro/comissoes"
-            Icon={DollarSign}
-            gradient="linear-gradient(135deg, #dc2626, #b91c1c)"
-          >
-            <CommissionsSummary />
-          </ModuleCard>
+            title="Relatórios"
+            description="Análises, gráficos e exportações"
+            Icon={BarChart3}
+            gradient="linear-gradient(135deg, #0891b2, #0e7490)"
+            phaseLabel="Fase 7"
+          />
 
           {/* Vendas — ATIVO */}
           <ModuleCard
@@ -74,15 +72,6 @@ export default function FinanceiroPage() {
             gradient="linear-gradient(135deg, #475569, #334155)"
           />
 
-          {/* Relatórios — em breve */}
-          <ModuleCard
-            title="Relatórios"
-            description="Análises, gráficos e exportações"
-            Icon={BarChart3}
-            gradient="linear-gradient(135deg, #0891b2, #0e7490)"
-            phaseLabel="Fase 6.7"
-          />
-
           {/* Despesas — em breve */}
           <ModuleCard
             title="Despesas"
@@ -91,6 +80,17 @@ export default function FinanceiroPage() {
             gradient="linear-gradient(135deg, #d97706, #b45309)"
             phaseLabel="Fase 7"
           />
+
+          {/* ⭐ Comissões — ATIVO */}
+          <ModuleCard
+            title="Comissões"
+            description="Pagamentos da equipe (serviços e produtos)"
+            href="/dashboard/financeiro/comissoes"
+            Icon={DollarSign}
+            gradient="linear-gradient(135deg, #dc2626, #b91c1c)"
+          >
+            <CommissionsSummary />
+          </ModuleCard>
 
           {/* Notas de Crédito — em breve */}
           <ModuleCard
