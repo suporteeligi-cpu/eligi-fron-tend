@@ -47,7 +47,7 @@ const MODULES = [
         icon:        Building2,
         label:       'Detalhes da empresa',
         description: 'Nome, endereço, fuso horário e informações do seu estabelecimento.',
-        available:   false,
+        available:   true,   // ⭐ HABILITADO
       },
       {
         href:        '/dashboard/configuracoes/equipe',

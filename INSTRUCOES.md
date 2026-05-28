@@ -1,17 +1,35 @@
-# Dashboard v2 — Fase 6.6
+# Fase 6.6.1 — Sistema universal de Timezone
 
-Reescrita completa do dashboard executivo com:
+Resolve o bug de receita zerando após 21h SP de uma forma **escalável** pra atender o Brasil inteiro (4 fusos) e até clientes internacionais no futuro.
 
-- 💰 **Receita REAL** via Sale CONFIRMED − CreditNotes (não mais Payment)
-- 🏆 **Top profissionais por RECEITA** (não mais por count)
-- 📈 Mini-gráfico SVG dos últimos 7 dias (sem Recharts, leve)
-- 📋 Agenda de hoje (próximos primeiro)
-- ⚠️ **Alertas tocáveis** que redirecionam pros módulos
-  - Comissões pendentes → `/financeiro/comissoes`
-  - Estoque baixo → `/estoque`
-  - Agendamentos sem profissional → `/agenda`
-- 🎯 4 KPIs no topo (Receita, Agendamentos, Ticket Médio, Ocupação)
-- 📅 Seletor de período (Hoje / 7d / 30d) com comparação anterior
+## 🎯 O que muda
+
+### Backend
+- ✅ Novo campo `timezone` no `BusinessProfile` (default `America/Sao_Paulo`)
+- ✅ Helper compartilhado `getBusinessTimezone(businessId)` com **cache em memória** de 5 min
+- ✅ Módulo `business-settings` com endpoints `GET /` e `PATCH /timezone`
+- ✅ `dashboard.service.ts` agora **lê o timezone do business** ao invés de chumbar SP
+- ✅ Migration adicionando o campo
+
+### Frontend
+- ✅ Card "Detalhes da empresa" em `/configuracoes` agora ATIVO
+- ✅ Nova página `/dashboard/configuracoes/empresa`
+- ✅ Card "Fuso horário" com:
+  - **Auto-detect** do navegador (mostra banner amarelo "detectamos que você está em X" se diferente do atual)
+  - **Live clock** que mostra a hora atual no fuso selecionado (atualiza a cada 30s)
+  - **Dropdown** com fusos do Brasil + internacionais
+  - Botão "Salvar" só ativa se mudou
+
+---
+
+## ⚠️ Pré-requisitos
+
+1. **Patch manual no schema.prisma**: adicionar `timezone String @default("America/Sao_Paulo")` no `model BusinessProfile` (veja `SCHEMA_PATCH.md`)
+2. **Registrar rotas no `server.ts`**:
+   ```typescript
+   import businessSettingsRoutes from './modules/business-settings/business-settings.routes'
+   app.use('/business-settings', businessSettingsRoutes)
+   ```
 
 ---
 
@@ -21,7 +39,17 @@ Reescrita completa do dashboard executivo com:
 
 ```bash
 cd ~/Documentos/eligi/back-end
-unzip -o ~/Downloads/dashboard-v2-backend.zip -d ./
+
+# 1. Aplica zip
+unzip -o ~/Downloads/timezone-backend.zip -d ./
+
+# 2. Edita schema.prisma adicionando o campo timezone (veja SCHEMA_PATCH.md)
+# 3. Edita server.ts adicionando o import e app.use
+
+# 4. Gera Prisma Client
+npx prisma generate
+
+# 5. Build + deploy (migration roda automaticamente no Railway)
 npm run lint && npm run build && npm run deploy
 ```
 
@@ -29,7 +57,7 @@ npm run lint && npm run build && npm run deploy
 
 ```bash
 cd ~/Documentos/eligi/front-end
-unzip -o ~/Downloads/dashboard-v2-frontend.zip -d ./
+unzip -o ~/Downloads/timezone-frontend.zip -d ./
 npm run lint && npm run build && npm run deploy
 ```
 
@@ -39,70 +67,69 @@ npm run lint && npm run build && npm run deploy
 
 ### Backend
 ```
-src/modules/dashboard/
-├── dashboard.service.ts    ← REESCRITO usando Sale
-└── dashboard.controller.ts ← ajustado pra validar period
+prisma/migrations/20260528_business_timezone/migration.sql
+
+src/shared/utils/businessTime.ts           ← helper compartilhado (cache 5min)
+
+src/modules/business-settings/
+├── business-settings.service.ts
+├── business-settings.controller.ts
+└── business-settings.routes.ts
+
+src/modules/dashboard/dashboard.service.ts ← REFATORADO usando helper
+
+SCHEMA_PATCH.md                            ← instruções de schema
 ```
 
 ### Frontend
 ```
-src/features/dashboard/
-├── types.ts
-└── utils/format.ts
+src/shared/lib/timezones.ts                ← lista + auto-detect helpers
 
-src/app/dashboard/
-├── page.tsx                          ← REESCRITO
-└── components/
-    ├── KpiCard.tsx                   ← card de KPI com growth
-    ├── RevenueSparkline.tsx          ← mini-gráfico SVG
-    ├── TopProfessionalsCard.tsx      ← ranking por receita
-    ├── TodayScheduleCard.tsx         ← agenda do dia
-    ├── AlertsCard.tsx                ← alertas tocáveis
-    └── PeriodSelector.tsx            ← dropdown Hoje/7d/30d
-```
-
-⚠️ **Os componentes antigos** (`DashboardHeader`, `DashboardKPIs`, `RevenueLineChart`, `WeeklyDemandChart`, `TopBarbers`) **não são mais usados**. Você pode deletá-los depois:
-```bash
-rm src/app/components/dashboard/{DashboardHeader,DashboardKPIs,RevenueLineChart,WeeklyDemandChart,TopBarbers}.tsx
+src/app/dashboard/configuracoes/
+├── page.tsx                               ← card "Empresa" agora ativo
+└── empresa/
+    ├── page.tsx
+    └── components/
+        └── TimezoneCard.tsx
 ```
 
 ---
 
-## 🎯 O que mudou conceitualmente
+## 🧪 Teste
 
-| Antes | Agora |
-|---|---|
-| Receita via `Payment.status=PAID` | Receita via `Sale.status=CONFIRMED` − `CreditNote.amount` |
-| Top profs por **count de bookings** | Top profs por **R$ de receita** (proporcional, descontando NCs) |
-| Sem alertas | 3 alertas tocáveis (comissões, estoque, sem prof) |
-| Sem comparação histórica clara | KPI mostra +X% ↑ / -Y% ↓ / "novo" |
-| Period query sem validação | Validado: `today`/`7d`/`30d` |
-| Layout com gráficos pesados | Visual limpo, mini SVG, sem dependência Recharts |
-
----
-
-## 🧪 Roteiro de teste
-
-1. Login no `/dashboard`
-2. Veja os 4 KPIs no topo com valores reais
-3. Mude o período no dropdown (canto superior direito):
-   - **Hoje**: vê comparação vs ontem
-   - **7d**: vê comparação vs 7d anteriores
-   - **30d**: vê comparação vs 30d anteriores
-4. Receita líquida = vendas CONFIRMED do período menos NCs emitidas
-5. Top profissionais ordenados por R$ gerado
-6. **Click nos cards de alerta** → vai pro módulo correspondente:
-   - "R$ X em comissões" → `/financeiro/comissoes`
-   - "X produtos com estoque baixo" → `/estoque`
-   - "X agendamentos sem profissional" → `/agenda`
-7. Próximos agendamentos hoje (já passados ficam dim e riscados se COMPLETED)
-8. Mobile: layout vira coluna única, KPIs em grid 2x2
+1. Vai pra `/dashboard/configuracoes`
+2. Card "Detalhes da empresa" agora está clicável
+3. Click → vai pra `/dashboard/configuracoes/empresa`
+4. Vê o card "Fuso horário" com:
+   - Hora atual no fuso selecionado (live)
+   - Banner amarelo se teu browser tem fuso diferente
+   - Dropdown com fusos
+5. Muda pra outro fuso → click "Salvar" → vê "✓ Salvo"
+6. Volta no `/dashboard` → KPIs agora calculam baseado no NOVO fuso
+7. **Testa o bug original**: após 21h SP, confirma uma venda → receita aparece (porque dashboard agora lê o timezone correto)
 
 ---
 
-## 💡 Observações
+## 🔮 Próximos passos (futuro)
 
-- **Sem dependência Recharts**: o gráfico é SVG puro (mais leve, sem peso de lib)
-- **Sem scroll forçado**: alguma rolagem natural pode acontecer em mobile, mas o conteúdo crítico (KPIs + alertas) cabe no fold
-- **Performance**: 1 chamada única (`/dashboard/overview`) traz tudo
-- O endpoint `dashboard.routes.ts` continua igual (rota `/dashboard/overview` já estava no `server.ts`)
+Quando precisar refatorar outros módulos pra usar o helper (agenda, sales, payouts), basta:
+
+```typescript
+import { getBusinessTimezone } from '@/shared/utils/businessTime'
+
+// Onde tem dayjs chumbado:
+const tz = await getBusinessTimezone(businessId)
+const now = dayjs().tz(tz)
+```
+
+O cache de 5min garante que isso não impacta performance.
+
+---
+
+## ✅ Princípios da implementação
+
+- **Cache de 5 min**: a query do timezone só roda no máximo a cada 5 min por business
+- **Cache invalidation**: ao salvar novo timezone, cache do business é limpo
+- **Fallback automático**: se algo falhar, usa `America/Sao_Paulo` (não quebra nada)
+- **Validação via Intl**: aceita qualquer timezone IANA válido (`Intl.DateTimeFormat`)
+- **Tipos compartilhados frontend/backend**: lista `COMMON_TIMEZONES` igual nos dois lados
