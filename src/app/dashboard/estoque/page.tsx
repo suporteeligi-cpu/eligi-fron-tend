@@ -2,10 +2,7 @@
 // src/app/dashboard/estoque/page.tsx
 //
 // Página unificada: lista TODOS os produtos do negócio.
-// Produtos com trackStock=true mostram badge de status + saldo.
-// Produtos sem controle de estoque aparecem normalmente, sem badge.
-//
-// Modal de produto tem 2 tabs: "Dados" e "Estoque".
+// Produtos com trackStock=true mostram badge de status + saldo + atalho rápido.
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Search, X, PackageOpen, Plus } from 'lucide-react'
@@ -22,6 +19,7 @@ import StockSummaryCards from './components/StockSummaryCards'
 import StockFilterTabs, { StockFilter } from './components/StockFilterTabs'
 import ProductRow from './components/ProductRow'
 import ProductModal from './components/ProductModal'
+import QuickStockSheet from './components/QuickStockSheet'
 import Toast, { ToastKind } from './components/Toast'
 
 export default function EstoquePage() {
@@ -36,6 +34,10 @@ export default function EstoquePage() {
 
   const [modalProduct, setModalProduct] = useState<Product | null>(null)
   const [modalOpen,    setModalOpen]    = useState(false)
+
+  // Atalho rápido de movimentação
+  const [quickMoveProduct, setQuickMoveProduct] = useState<Product | null>(null)
+
   const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null)
 
   // ─── Fetch ─────────────────────────────────────────────────
@@ -66,7 +68,6 @@ export default function EstoquePage() {
     return () => ctrl.abort()
   }, [fetchData])
 
-  // Refetch summary helper (chamado depois de movimentações)
   const refetchSummary = useCallback(() => {
     api.get('/products/stock/summary')
       .then(res => setSummary(res.data?.data ?? res.data))
@@ -156,7 +157,9 @@ export default function EstoquePage() {
   }
 
   function handleStockMoved(updated: Product) {
-    setProducts(prev => prev.map(p => p.id === updated.id ? updated : p))
+    setProducts(prev => prev.map(p =>
+      p.id === updated.id ? { ...p, ...updated } : p,
+    ))
     setToast({ message: 'Movimentação registrada', kind: 'success' })
     refetchSummary()
   }
@@ -185,6 +188,15 @@ export default function EstoquePage() {
         />
       )}
 
+      {quickMoveProduct && (
+        <QuickStockSheet
+          product={quickMoveProduct}
+          isMobile={isMobile}
+          onMoved={handleStockMoved}
+          onClose={() => setQuickMoveProduct(null)}
+        />
+      )}
+
       {toast && (
         <Toast
           message={toast.message}
@@ -201,7 +213,7 @@ export default function EstoquePage() {
         {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
-          marginBottom: isMobile ? 14 : 18,
+          marginBottom: isMobile ? 12 : 18,
           gap: 12,
         }}>
           <div style={{ minWidth: 0 }}>
@@ -333,7 +345,6 @@ export default function EstoquePage() {
             overflow: 'hidden',
           }}>
             {isMobile ? (
-              // Mobile: lista flat
               filtered.map((p, i) => (
                 <ProductRow
                   key={p.id}
@@ -341,10 +352,10 @@ export default function EstoquePage() {
                   isMobile
                   isLast={i === filtered.length - 1}
                   onClick={() => handleEdit(p)}
+                  onQuickMove={setQuickMoveProduct}
                 />
               ))
             ) : (
-              // Desktop: agrupado por categoria
               grouped.map(([category, items], gi) => (
                 <div key={category} style={{
                   borderBottom: gi === grouped.length - 1 ? 'none' : `1px solid ${colors.gray.border}`,
@@ -374,6 +385,7 @@ export default function EstoquePage() {
                       isMobile={false}
                       isLast={i === items.length - 1}
                       onClick={() => handleEdit(p)}
+                      onQuickMove={setQuickMoveProduct}
                     />
                   ))}
                 </div>

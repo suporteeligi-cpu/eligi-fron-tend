@@ -1,56 +1,61 @@
-# Polish Caixa/POS — 2 telas no mobile
+# Polish Estoque — KPIs compactos + atalho rápido de movimentação
 
 ## 🎯 O que muda
 
-### Mobile (< 768px)
-- Caixa agora tem **2 telas separadas**: Catálogo ⇄ Carrinho
-- **Tela Catálogo**: cards grandes, fáceis de tocar + barra inferior fixa "N itens · R$ X · Ver carrinho →"
-- **Tela Carrinho**: botão "← Voltar ao catálogo" + CartPanel completo (cliente, itens, total, confirmar)
-- **Produtos vêm primeiro**, Serviços ao lado (nas tabs do catálogo)
-- Áreas de toque maiores (tabs, busca, cards)
+### 1. KPIs em chips (mobile)
+- **Mobile**: os 4 KPIs viram chips coloridos numa faixa scrollável horizontal (~50px vs ~180px antes)
+- **Desktop**: mantém os 4 cards grandes (inalterado)
+- Libera muito espaço pra lista
 
-### Desktop/Tablet (≥ 768px)
-- **Nada muda** — continua catálogo + carrinho lado a lado
+### 2. Atalho rápido de movimentação ⭐ NOVO
+- Cada produto **com controle de estoque** ganha um botão de atalho (ícone ↕) na lista
+- Toca → abre `QuickStockSheet` (bottom-sheet no mobile, modal no desktop)
+- **SEM precisar abrir o ProductModal completo + trocar de aba**
+- Tem:
+  - Cards de tipo grandes (Entrada/Saída/Ajuste/Perda)
+  - **Teclado numérico touch** no mobile (input gigante estilo calculadora)
+  - Preview "saldo após" destacado (card escuro)
+  - Botão "Registrar" fixo no rodapé
+
+### 3. ProductRow ajustado
+- Área de toque dividida: corpo abre edição, botão ↕ abre movimentação rápida
 
 ## 📦 Aplicar
 
 ```bash
 cd ~/Documentos/eligi/front-end
-unzip -o ~/Downloads/caixa-mobile.zip -d ./
+unzip -o ~/Downloads/estoque-polish.zip -d ./
 npm run lint && npm run build && npm run deploy
 ```
 
-## 🗂 Arquivos alterados
+## 🗂 Arquivos
 
 ```
-src/app/dashboard/caixa/
-├── page.tsx                       ← OpenTab com 2 telas no mobile
+src/app/dashboard/estoque/
+├── page.tsx                          ← integra QuickStockSheet
 └── components/
-    └── CatalogPanel.tsx           ← Produtos primeiro + tabs maiores
+    ├── StockSummaryCards.tsx         ← chips no mobile
+    ├── ProductRow.tsx                ← botão de atalho ↕
+    └── QuickStockSheet.tsx           ← NOVO: movimentação rápida touch
 ```
 
-⚠️ **CartPanel.tsx NÃO foi alterado** — continua funcionando igual. As 2 telas são orquestradas só no page.tsx.
+⚠️ **StockTab.tsx e ProductModal.tsx NÃO foram alterados** — continuam funcionando. O QuickStockSheet é um caminho alternativo (mais rápido), não substitui o modal completo.
 
 ## 🧪 Teste
 
-### Mobile (abre no celular ou DevTools modo mobile)
-1. `/dashboard/caixa` → aba Vendas Abertas
-2. Vê o **Catálogo** ocupando a tela inteira (não mais espremido)
-3. Tabs: **Produtos** primeiro (selecionado), Serviços ao lado
-4. Toca num produto → adiciona ao carrinho → barra inferior atualiza "1 item · R$ X"
-5. Toca em **"Ver carrinho →"** → vai pra tela do carrinho
-6. Tela carrinho: cliente, itens com [− N +], total, confirmar
-7. Toca em **"← Voltar ao catálogo"** → volta pro catálogo
-8. Confirma venda → volta automaticamente pro catálogo
+### Mobile
+1. `/dashboard/estoque` → KPIs agora são chips compactos no topo (rola horizontal)
+2. Lista de produtos respira mais (menos espaço gasto em cima)
+3. Num produto com estoque, toca no botão **↕** (à direita)
+4. Abre o sheet: escolhe Entrada/Saída, digita no teclado numérico, vê preview "12 → 17"
+5. "Registrar movimentação" → fecha e atualiza o saldo na lista
 
 ### Desktop
-1. Continua igual: catálogo à esquerda, carrinho à direita (380px)
+1. KPIs continuam 4 cards grandes
+2. Botão ↕ abre modal centrado com o mesmo fluxo
 
 ## ✅ Resolve
 
-- ❌ Catálogo espremido (maxHeight 400) → ✅ tela inteira
-- ❌ Carrinho embaixo com scroll gigante → ✅ tela dedicada
-- ❌ Botões pequenos → ✅ áreas de toque maiores
-- ✅ Total sempre visível (barra inferior)
-- ✅ Fluxo direto: produto → carrinho → confirma
-- ✅ Premium fullscreen mantido
+- ❌ Filtros/KPIs ocupavam muito espaço → ✅ chips compactos
+- ❌ Lista pouco intuitiva → ✅ atalho de movimentação direto na linha
+- ❌ Adicionar/editar estoque confuso → ✅ QuickStockSheet touch-first
