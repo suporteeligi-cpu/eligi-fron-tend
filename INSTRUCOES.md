@@ -1,35 +1,14 @@
-# Fase 6.6.1 — Sistema universal de Timezone
+# Fase 6.7 — Aba Vendas (Relatório)
 
-Resolve o bug de receita zerando após 21h SP de uma forma **escalável** pra atender o Brasil inteiro (4 fusos) e até clientes internacionais no futuro.
+Histórico completo de vendas com filtros e export CSV/Excel.
 
-## 🎯 O que muda
+## 🎯 Funcionalidades
 
-### Backend
-- ✅ Novo campo `timezone` no `BusinessProfile` (default `America/Sao_Paulo`)
-- ✅ Helper compartilhado `getBusinessTimezone(businessId)` com **cache em memória** de 5 min
-- ✅ Módulo `business-settings` com endpoints `GET /` e `PATCH /timezone`
-- ✅ `dashboard.service.ts` agora **lê o timezone do business** ao invés de chumbar SP
-- ✅ Migration adicionando o campo
-
-### Frontend
-- ✅ Card "Detalhes da empresa" em `/configuracoes` agora ATIVO
-- ✅ Nova página `/dashboard/configuracoes/empresa`
-- ✅ Card "Fuso horário" com:
-  - **Auto-detect** do navegador (mostra banner amarelo "detectamos que você está em X" se diferente do atual)
-  - **Live clock** que mostra a hora atual no fuso selecionado (atualiza a cada 30s)
-  - **Dropdown** com fusos do Brasil + internacionais
-  - Botão "Salvar" só ativa se mudou
-
----
-
-## ⚠️ Pré-requisitos
-
-1. **Patch manual no schema.prisma**: adicionar `timezone String @default("America/Sao_Paulo")` no `model BusinessProfile` (veja `SCHEMA_PATCH.md`)
-2. **Registrar rotas no `server.ts`**:
-   ```typescript
-   import businessSettingsRoutes from './modules/business-settings/business-settings.routes'
-   app.use('/business-settings', businessSettingsRoutes)
-   ```
+- 📊 **4 cards de resumo**: Receita Líquida, Ticket Médio, Notas de Crédito, Bruto
+- 🔍 **Filtros**: período (de/até), status, profissional, método de pagamento, busca por cliente
+- 📋 **Lista expansível**: cada venda mostra itens, profissionais, métodos ao clicar
+- 📥 **Export CSV + Excel (.xlsx)** com todos os dados filtrados
+- 📄 **Paginação** (30 por página)
 
 ---
 
@@ -39,17 +18,10 @@ Resolve o bug de receita zerando após 21h SP de uma forma **escalável** pra at
 
 ```bash
 cd ~/Documentos/eligi/back-end
+unzip -o ~/Downloads/vendas-backend.zip -d ./
 
-# 1. Aplica zip
-unzip -o ~/Downloads/timezone-backend.zip -d ./
+# Edita sales.routes.ts adicionando as rotas do report (veja ROUTES_PATCH.md)
 
-# 2. Edita schema.prisma adicionando o campo timezone (veja SCHEMA_PATCH.md)
-# 3. Edita server.ts adicionando o import e app.use
-
-# 4. Gera Prisma Client
-npx prisma generate
-
-# 5. Build + deploy (migration roda automaticamente no Railway)
 npm run lint && npm run build && npm run deploy
 ```
 
@@ -57,9 +29,28 @@ npm run lint && npm run build && npm run deploy
 
 ```bash
 cd ~/Documentos/eligi/front-end
-unzip -o ~/Downloads/timezone-frontend.zip -d ./
+unzip -o ~/Downloads/vendas-frontend.zip -d ./
+
+# Instala SheetJS pra export Excel (se ainda não tiver)
+npm install xlsx
+
 npm run lint && npm run build && npm run deploy
 ```
+
+---
+
+## ⚠️ Passo manual: rotas (ROUTES_PATCH.md)
+
+No `sales.routes.ts`, adicione **ANTES das rotas com :id**:
+
+```typescript
+import { report, reportExport } from './sales-report.controller'
+
+router.get('/report',        asyncHandler(report))
+router.get('/report/export', asyncHandler(reportExport))
+```
+
+⚠️ Tem que vir antes de `router.get('/:id', ...)` senão o Express acha que "report" é um id.
 
 ---
 
@@ -67,69 +58,67 @@ npm run lint && npm run build && npm run deploy
 
 ### Backend
 ```
-prisma/migrations/20260528_business_timezone/migration.sql
+src/modules/sales/
+├── sales-report.service.ts      ← lógica de relatório (NOVO, não mexe no existente)
+└── sales-report.controller.ts   ← handlers (NOVO)
 
-src/shared/utils/businessTime.ts           ← helper compartilhado (cache 5min)
-
-src/modules/business-settings/
-├── business-settings.service.ts
-├── business-settings.controller.ts
-└── business-settings.routes.ts
-
-src/modules/dashboard/dashboard.service.ts ← REFATORADO usando helper
-
-SCHEMA_PATCH.md                            ← instruções de schema
+ROUTES_PATCH.md                   ← instruções pra adicionar 2 rotas
 ```
 
 ### Frontend
 ```
-src/shared/lib/timezones.ts                ← lista + auto-detect helpers
+src/features/sales-report/
+├── types.ts
+└── utils/index.ts                ← format + export CSV/Excel
 
-src/app/dashboard/configuracoes/
-├── page.tsx                               ← card "Empresa" agora ativo
-└── empresa/
-    ├── page.tsx
+src/app/dashboard/financeiro/
+├── page.tsx                      ← card "Vendas" agora ATIVO
+└── vendas/
+    ├── page.tsx                  ← página principal
     └── components/
-        └── TimezoneCard.tsx
+        ├── SummaryBar.tsx        ← 4 cards de resumo
+        ├── FiltersBar.tsx        ← filtros
+        ├── SaleRow.tsx           ← linha expansível
+        └── ExportButton.tsx      ← dropdown CSV/Excel
 ```
+
+---
+
+## 📥 Dependência: xlsx (SheetJS)
+
+O export Excel usa SheetJS via import dinâmico (`await import('xlsx')`).
+Instala antes do build:
+
+```bash
+npm install xlsx
+```
+
+Se não quiser Excel, o CSV funciona sem nenhuma dependência (é nativo).
 
 ---
 
 ## 🧪 Teste
 
-1. Vai pra `/dashboard/configuracoes`
-2. Card "Detalhes da empresa" agora está clicável
-3. Click → vai pra `/dashboard/configuracoes/empresa`
-4. Vê o card "Fuso horário" com:
-   - Hora atual no fuso selecionado (live)
-   - Banner amarelo se teu browser tem fuso diferente
-   - Dropdown com fusos
-5. Muda pra outro fuso → click "Salvar" → vê "✓ Salvo"
-6. Volta no `/dashboard` → KPIs agora calculam baseado no NOVO fuso
-7. **Testa o bug original**: após 21h SP, confirma uma venda → receita aparece (porque dashboard agora lê o timezone correto)
+1. `/dashboard/financeiro` → card "Vendas" agora clicável
+2. Click → `/dashboard/financeiro/vendas`
+3. Vê 4 cards de resumo no topo
+4. Testa filtros:
+   - Período: escolhe de/até
+   - Status: Confirmadas / Canceladas
+   - Profissional: dropdown
+   - Método: PIX, Dinheiro, etc
+   - Cliente: digita nome (busca com debounce)
+5. Click numa venda → expande mostrando itens + resumo financeiro
+6. Click "Exportar" → escolhe Excel ou CSV → baixa arquivo
+7. Abre o arquivo: tem todas as colunas (data, cliente, itens, métodos, valores)
 
 ---
 
-## 🔮 Próximos passos (futuro)
+## 🔢 Cálculo de valores
 
-Quando precisar refatorar outros módulos pra usar o helper (agenda, sales, payouts), basta:
+- **Receita Líquida** = Sales CONFIRMED − Notas de Crédito
+- **Ticket Médio** = Líquido / nº de vendas confirmadas
+- **Bruto** = soma de Sale.total (sem descontar NC)
+- **Líquido por venda** = sale.total − créditos daquela venda
 
-```typescript
-import { getBusinessTimezone } from '@/shared/utils/businessTime'
-
-// Onde tem dayjs chumbado:
-const tz = await getBusinessTimezone(businessId)
-const now = dayjs().tz(tz)
-```
-
-O cache de 5min garante que isso não impacta performance.
-
----
-
-## ✅ Princípios da implementação
-
-- **Cache de 5 min**: a query do timezone só roda no máximo a cada 5 min por business
-- **Cache invalidation**: ao salvar novo timezone, cache do business é limpo
-- **Fallback automático**: se algo falhar, usa `America/Sao_Paulo` (não quebra nada)
-- **Validação via Intl**: aceita qualquer timezone IANA válido (`Intl.DateTimeFormat`)
-- **Tipos compartilhados frontend/backend**: lista `COMMON_TIMEZONES` igual nos dois lados
+Tudo respeitando o **timezone do negócio** (usa o helper `getBusinessTimezone`).

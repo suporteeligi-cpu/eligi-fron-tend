@@ -65,13 +65,13 @@ export default function FinanceiroPage() {
             <CommissionsSummary />
           </ModuleCard>
 
-          {/* Vendas — em breve */}
+          {/* Vendas — ATIVO */}
           <ModuleCard
             title="Vendas"
             description="Histórico completo de vendas e receita"
+            href="/dashboard/financeiro/vendas"
             Icon={ShoppingCart}
             gradient="linear-gradient(135deg, #475569, #334155)"
-            phaseLabel="Fase 6.7"
           />
 
           {/* Relatórios — em breve */}
