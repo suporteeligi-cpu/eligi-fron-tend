@@ -739,6 +739,13 @@ export default function SideCheckoutPanel({
         setTimeout(() => onClose(), 1400)
       } else {
         // ── MODO CREATE: POST /bookings/confirm (múltiplos serviços) ────────
+        // Se há mais de 1 serviço, gera um groupId comum pra vinculá-los
+        // (cada serviço continua um booking/card independente na grade,
+        //  mas o BookingViewPanel os exibe juntos estilo Booksy).
+        const groupId = items.length > 1
+          ? (crypto.randomUUID?.() ?? `grp_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+          : undefined
+
         await Promise.all(items.map(it => {
           const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
           return api.post('/bookings/confirm', {
@@ -749,6 +756,7 @@ export default function SideCheckoutPanel({
             serviceId:      it.service.id,
             startAt,
             allowOverlap,
+            groupId,                                          // ⭐ NEW: agrupa serviços
             internalNote:   internalNote || undefined,
             clientMessage:  clientMessage || undefined,
           })
