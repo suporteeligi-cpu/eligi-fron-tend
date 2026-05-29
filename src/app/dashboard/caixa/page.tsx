@@ -8,7 +8,9 @@ import { ShoppingCart, Receipt, TrendingUp, Loader2, ArrowLeft, ArrowRight } fro
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
-import { Sale, CatalogService, CatalogProduct, ProfLite, SaleItemType } from '@/features/sales/types'
+import {
+  Sale, CatalogService, CatalogProduct, CatalogPackage, ProfLite, SaleItemType,
+} from '@/features/sales/types'
 import { useSalesSummary } from '@/features/sales/hooks/useSalesSummary'
 import { formatBRL } from '@/features/sales/utils/format'
 
@@ -39,7 +41,7 @@ export default function CaixaPage() {
   const [creating,        setCreating]        = useState(false)
   const [confirmedRefresh, setConfirmedRefresh] = useState(0)
 
-  // Modal de limpeza (múltiplas OPEN antigas)
+  // Modal de limpeza
   const [showCleanupModal, setShowCleanupModal] = useState(false)
   const [cleanupSales,     setCleanupSales]     = useState<Sale[]>([])
   const cleanupShownRef = useRef(false)
@@ -47,13 +49,12 @@ export default function CaixaPage() {
   // Catálogo
   const [services,        setServices]        = useState<CatalogService[]>([])
   const [products,        setProducts]        = useState<CatalogProduct[]>([])
+  const [packages,        setPackages]        = useState<CatalogPackage[]>([])  // ⭐ NOVO
   const [professionals,   setProfessionals]   = useState<ProfLite[]>([])
   const [catalogLoading,  setCatalogLoading]  = useState(true)
 
-  // Toast
   const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null)
 
-  // Summary
   const todayDate = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -69,7 +70,6 @@ export default function CaixaPage() {
   })
   const initialActiveConsumedRef = useRef(false)
 
-  // ─── Carrega vendas OPEN ──────────────────────────────────────
   const fetchOpenSales = useCallback(async (signal?: AbortSignal) => {
     try {
       const res = await api.get('/sales', {
@@ -110,22 +110,25 @@ export default function CaixaPage() {
     }
   }, [router, initialActive])
 
-  // ─── Carrega catálogo ─────────────────────────────────────────
+  // ⭐ Carrega catálogo: services + products + packages + professionals
   const fetchCatalog = useCallback(async (signal?: AbortSignal) => {
     try {
-      const [svcRes, prdRes, profRes] = await Promise.all([
-        api.get('/services',  { signal }),
-        api.get('/products',  { signal }),
-        api.get('/equipe',    { signal }),
+      const [svcRes, prdRes, pkgRes, profRes] = await Promise.all([
+        api.get('/services',         { signal }),
+        api.get('/products',         { signal }),
+        api.get('/packages',         { params: { active: true }, signal }),  // ⭐ NOVO
+        api.get('/equipe',           { signal }),
       ])
       if (signal?.aborted) return
 
-      const svcData = svcRes.data?.data ?? svcRes.data
-      const prdData = prdRes.data?.data ?? prdRes.data
+      const svcData  = svcRes.data?.data  ?? svcRes.data
+      const prdData  = prdRes.data?.data  ?? prdRes.data
+      const pkgData  = pkgRes.data?.data  ?? pkgRes.data
       const profData = profRes.data?.data ?? profRes.data
 
       setServices(Array.isArray(svcData) ? svcData : svcData.services ?? [])
       setProducts(Array.isArray(prdData) ? prdData : prdData.products ?? [])
+      setPackages(Array.isArray(pkgData) ? pkgData : [])  // ⭐ NOVO
       setProfessionals(
         (Array.isArray(profData) ? profData : [])
           .filter((p: { id?: string; active?: boolean }) => p.id != null && p.active !== false)
@@ -137,6 +140,7 @@ export default function CaixaPage() {
       if (!signal?.aborted) {
         setServices([])
         setProducts([])
+        setPackages([])
         setProfessionals([])
       }
     } finally {
@@ -151,7 +155,6 @@ export default function CaixaPage() {
     return () => ctrl.abort()
   }, [fetchOpenSales, fetchCatalog])
 
-  // ─── Handlers de venda ────────────────────────────────────────
   const activeSale = openSales.find(s => s.id === activeSaleId) ?? null
 
   async function createNewSale() {
@@ -230,10 +233,36 @@ export default function CaixaPage() {
     })
   }
 
+  // ⭐ NOVO: adicionar pacote ao carrinho
+  async function addPackage(pkg: CatalogPackage) {
+    if (!activeSaleId) {
+      try {
+        const res = await api.post('/sales', {})
+        const newSale: Sale = res.data?.data ?? res.data
+        setOpenSales([newSale])
+        setActiveSaleId(newSale.id)
+        await addItemToSale(newSale.id, {
+          type: 'PACKAGE',
+          packageId: pkg.id,
+          professionalId: globalProfId,
+        })
+      } catch {
+        setToast({ message: 'Erro ao criar venda', kind: 'error' })
+      }
+      return
+    }
+    await addItemToSale(activeSaleId, {
+      type: 'PACKAGE',
+      packageId: pkg.id,
+      professionalId: globalProfId,
+    })
+  }
+
   async function addItemToSale(saleId: string, item: {
     type: SaleItemType
     serviceId?: string
     productId?: string
+    packageId?: string             // ⭐ NOVO
     professionalId: string | null
   }) {
     try {
@@ -284,7 +313,6 @@ export default function CaixaPage() {
     refetchSummary()
   }
 
-  // ─── Cleanup de múltiplas OPEN ────────────────────────────────
   async function handleCancelAllOpen() {
     try {
       await api.post('/sales/cancel-all-open')
@@ -318,7 +346,6 @@ export default function CaixaPage() {
     }
   }
 
-  // ─── Render ───────────────────────────────────────────────────
   return (
     <>
       <style>{`
@@ -353,10 +380,7 @@ export default function CaixaPage() {
         flexDirection: 'column',
         minHeight: '100%',
       }}>
-        {/* Header */}
-        <div style={{
-          marginBottom: isMobile ? 14 : 18,
-        }}>
+        <div style={{ marginBottom: isMobile ? 14 : 18 }}>
           <h2 style={{
             fontSize: isMobile ? 22 : typography.scale['2xl'],
             fontWeight: 700,
@@ -368,11 +392,10 @@ export default function CaixaPage() {
             Caixa
           </h2>
           <p style={{ fontSize: 13, color: typography.color.muted, margin: '4px 0 0' }}>
-            POS com vendas, pagamento misto e nota de crédito.
+            POS com vendas, pagamento misto, pacotes e nota de crédito.
           </p>
         </div>
 
-        {/* Tabs */}
         <div style={{
           display: 'flex',
           gap: 4,
@@ -424,13 +447,13 @@ export default function CaixaPage() {
           })}
         </div>
 
-        {/* Conteúdo das abas */}
         {tab === 'open' && (
           <OpenTab
             openSales={openSales}
             activeSale={activeSale}
             services={services}
             products={products}
+            packages={packages}            /* ⭐ NOVO */
             professionals={professionals}
             globalProfId={globalProfId}
             openLoading={openLoading}
@@ -440,6 +463,7 @@ export default function CaixaPage() {
             onCreateNew={createNewSale}
             onAddService={addService}
             onAddProduct={addProduct}
+            onAddPackage={addPackage}      /* ⭐ NOVO */
             onSaleUpdated={updateSaleInList}
             onSaleClosed={handleSaleClosed}
             onProfChange={setGlobalProfId}
@@ -463,12 +487,12 @@ export default function CaixaPage() {
   )
 }
 
-// ─── Aba "Vendas Abertas" ─────────────────────────────────────────────
 interface OpenTabProps {
   openSales:       Sale[]
   activeSale:      Sale | null
   services:        CatalogService[]
   products:        CatalogProduct[]
+  packages:        CatalogPackage[]      // ⭐ NOVO
   professionals:   ProfLite[]
   globalProfId:    string | null
   openLoading:     boolean
@@ -478,6 +502,7 @@ interface OpenTabProps {
   onCreateNew:     () => void
   onAddService:    (s: CatalogService) => void
   onAddProduct:    (p: CatalogProduct) => void
+  onAddPackage:    (p: CatalogPackage) => void   // ⭐ NOVO
   onSaleUpdated:   (s: Sale) => void
   onSaleClosed:    () => void
   onProfChange:    (id: string | null) => void
@@ -485,15 +510,11 @@ interface OpenTabProps {
 }
 
 function OpenTab(props: OpenTabProps) {
-  // ⭐ Mobile: alterna entre catálogo e carrinho
   const [mobileView, setMobileView] = useState<'catalog' | 'cart'>('catalog')
 
   if (props.openLoading) {
     return (
-      <div style={{
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        padding: 60,
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 60 }}>
         <Loader2
           size={26}
           color={colors.red.DEFAULT}
@@ -503,12 +524,9 @@ function OpenTab(props: OpenTabProps) {
     )
   }
 
-  // Empty state
   if (props.openSales.length === 0 && !props.creating) {
     return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0,
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
         <div style={{
           background: '#fff',
           borderRadius: 14,
@@ -522,7 +540,7 @@ function OpenTab(props: OpenTabProps) {
             Nenhuma venda aberta
           </div>
           <div style={{ fontSize: 12, color: colors.gray.dimText, marginBottom: 20 }}>
-            Comece uma nova venda pra adicionar serviços e produtos.
+            Comece uma nova venda pra adicionar serviços, produtos ou pacotes.
           </div>
           <button
             onClick={props.onCreateNew}
@@ -552,16 +570,9 @@ function OpenTab(props: OpenTabProps) {
   const cartItemCount = props.activeSale?.items.reduce((sum, it) => sum + (it.quantity ?? 1), 0) ?? 0
   const cartTotal     = props.activeSale?.total ?? 0
 
-  // ═══════════════════════════════════════════════════════════════
-  // MOBILE: 2 telas (catálogo ⇄ carrinho)
-  // ═══════════════════════════════════════════════════════════════
   if (props.isMobile) {
     return (
-      <div style={{
-        display: 'flex', flexDirection: 'column',
-        flex: 1, minHeight: 0,
-        position: 'relative',
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative' }}>
         {mobileView === 'catalog' ? (
           <div
             key="catalog"
@@ -571,29 +582,27 @@ function OpenTab(props: OpenTabProps) {
               animation: 'pos-slide-in 0.25s ease',
             }}
           >
-            {/* Catálogo */}
             <div style={{
               background: '#fff',
               borderRadius: 14,
               border: `1px solid ${colors.gray.border}`,
               padding: 14,
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
+              flex: 1, minHeight: 0,
+              display: 'flex', flexDirection: 'column',
               marginBottom: 12,
             }}>
               <CatalogPanel
                 services={props.services}
                 products={props.products}
+                packages={props.packages}             /* ⭐ NOVO */
                 loading={props.catalogLoading}
                 isMobile={props.isMobile}
                 onAddService={props.onAddService}
                 onAddProduct={props.onAddProduct}
+                onAddPackage={props.onAddPackage}     /* ⭐ NOVO */
               />
             </div>
 
-            {/* Barra inferior: ver carrinho */}
             <button
               onClick={() => setMobileView('cart')}
               style={{
@@ -635,7 +644,6 @@ function OpenTab(props: OpenTabProps) {
               animation: 'pos-slide-in 0.25s ease',
             }}
           >
-            {/* Botão voltar ao catálogo */}
             <button
               onClick={() => setMobileView('catalog')}
               style={{
@@ -658,16 +666,13 @@ function OpenTab(props: OpenTabProps) {
               Voltar ao catálogo
             </button>
 
-            {/* Carrinho */}
             <div style={{
               background: '#fff',
               borderRadius: 14,
               border: `1px solid ${colors.gray.border}`,
               padding: 14,
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
+              flex: 1, minHeight: 0,
+              display: 'flex', flexDirection: 'column',
             }}>
               {props.activeSale ? (
                 <CartPanel
@@ -686,9 +691,7 @@ function OpenTab(props: OpenTabProps) {
               ) : (
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flex: 1,
-                  color: colors.gray.dimText,
-                  fontSize: 12,
+                  flex: 1, color: colors.gray.dimText, fontSize: 12,
                 }}>
                   Nenhuma venda ativa
                 </div>
@@ -700,53 +703,45 @@ function OpenTab(props: OpenTabProps) {
     )
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // DESKTOP / TABLET: lado a lado (inalterado)
-  // ═══════════════════════════════════════════════════════════════
+  // DESKTOP
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 12,
-      flex: 1,
-      minHeight: 0,
+      display: 'flex', flexDirection: 'column',
+      gap: 12, flex: 1, minHeight: 0,
     }}>
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr) 380px',
         gap: 14,
-        flex: 1,
-        minHeight: 0,
+        flex: 1, minHeight: 0,
         alignItems: 'stretch',
       }}>
-        {/* Catálogo */}
         <div style={{
           background: '#fff',
           borderRadius: 14,
           border: `1px solid ${colors.gray.border}`,
           padding: 14,
           minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'flex', flexDirection: 'column',
         }}>
           <CatalogPanel
             services={props.services}
             products={props.products}
+            packages={props.packages}             /* ⭐ NOVO */
             loading={props.catalogLoading}
             isMobile={props.isMobile}
             onAddService={props.onAddService}
             onAddProduct={props.onAddProduct}
+            onAddPackage={props.onAddPackage}     /* ⭐ NOVO */
           />
         </div>
 
-        {/* Carrinho ativo */}
         <div style={{
           background: '#fff',
           borderRadius: 14,
           border: `1px solid ${colors.gray.border}`,
           padding: 14,
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'flex', flexDirection: 'column',
           minHeight: 0,
         }}>
           {props.activeSale ? (

@@ -1,19 +1,21 @@
 'use client'
 // src/app/dashboard/caixa/components/CartPanel.tsx
 //
-// FIX: forçando color #fff explícito em todos os textos do card escuro do total
-// (sem isso, algum estilo global estava fazendo o texto sair preto)
+// ⭐ NOVO: botão "Usar pacote" aparece quando:
+//   - tem cliente vinculado
+//   - cliente tem cartões ativos
 
-import { useState } from 'react'
-import { ShoppingCart, CreditCard, Loader2, XCircle } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ShoppingCart, CreditCard, Loader2, XCircle, Layers } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions, radius } from '@/shared/theme'
-import { Sale, ProfLite } from '@/features/sales/types'
+import { Sale, ProfLite, PackageCardLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
 import ClientPicker from './ClientPicker'
 import ProfPicker from './ProfPicker'
 import CartItemRow from './CartItemRow'
 import PaymentModal from './PaymentModal'
+import UsePackageModal from './UsePackageModal'
 
 interface Props {
   sale:           Sale
@@ -34,8 +36,35 @@ export default function CartPanel({
   const [discount, setDiscount] = useState(sale.discount.toString())
   const [notes, setNotes] = useState(sale.notes ?? '')
   const [showPayment, setShowPayment] = useState(false)
+  const [showUsePackage, setShowUsePackage] = useState(false)
   const [cancelling,  setCancelling]  = useState(false)
   const [error,       setError]       = useState<string | null>(null)
+
+  // ⭐ Cartões ativos do cliente atual (pra decidir se mostra botão "Usar pacote")
+  const [activeCards, setActiveCards] = useState<PackageCardLite[]>([])
+  const [loadingCards, setLoadingCards] = useState(false)
+
+  const refreshActiveCards = useCallback(() => {
+    if (!sale.clientId) {
+      setActiveCards([])
+      return
+    }
+    const tLoad = setTimeout(() => setLoadingCards(true), 0)
+    api.get(`/package-cards/client/${sale.clientId}/active`)
+      .then(res => {
+        const data = res.data?.data ?? res.data
+        setActiveCards(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setActiveCards([]))
+      .finally(() => {
+        setLoadingCards(false)
+        clearTimeout(tLoad)
+      })
+  }, [sale.clientId])
+
+  useEffect(() => {
+    refreshActiveCards()
+  }, [refreshActiveCards])
 
   async function refetchSale() {
     try {
@@ -115,9 +144,26 @@ export default function CartPanel({
     try {
       await api.delete(`/sales/${sale.id}/items/${itemId}`)
       await refetchSale()
+      refreshActiveCards()  // estorno pode ter restaurado saldos
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
       setError(e.response?.data?.error ?? 'Erro ao remover item')
+    } finally {
+      setUpdatingItemId(null)
+    }
+  }
+
+  // ⭐ Remove pacote aplicado a um item específico
+  async function removePackageFromItem(itemId: string) {
+    setUpdatingItemId(itemId)
+    setError(null)
+    try {
+      await api.delete(`/sales/${sale.id}/items/${itemId}/apply-package`)
+      await refetchSale()
+      refreshActiveCards()
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } }
+      setError(e.response?.data?.error ?? 'Erro ao remover pacote do item')
     } finally {
       setUpdatingItemId(null)
     }
@@ -145,6 +191,9 @@ export default function CartPanel({
     it.professionalId !== globalProfId
   ).length
 
+  // ⭐ Mostra botão "Usar pacote" só se cliente vinculado E tem cards ativos
+  const canUsePackage = sale.clientId != null && activeCards.length > 0
+
   return (
     <>
       {showPayment && (
@@ -157,6 +206,18 @@ export default function CartPanel({
             setShowPayment(false)
             onSaleClosed()
           }}
+        />
+      )}
+
+      {showUsePackage && (
+        <UsePackageModal
+          sale={sale}
+          isMobile={isMobile}
+          onApplied={(updated) => {
+            onSaleUpdated(updated)
+            refreshActiveCards()
+          }}
+          onClose={() => setShowUsePackage(false)}
         />
       )}
 
@@ -210,6 +271,64 @@ export default function CartPanel({
           )}
         </div>
 
+        {/* ⭐ Botão Usar Pacote */}
+        {canUsePackage && (
+          <button
+            onClick={() => setShowUsePackage(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              padding: '11px 14px',
+              borderRadius: 11,
+              border: `1px solid ${colors.red.border}`,
+              background: 'linear-gradient(135deg, rgba(220,38,38,0.05), rgba(220,38,38,0.10))',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              textAlign: 'left',
+              WebkitTapHighlightColor: 'transparent',
+              transition: `all ${transitions.fast}`,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(220,38,38,0.08), rgba(220,38,38,0.15))'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(220,38,38,0.05), rgba(220,38,38,0.10))'
+            }}
+          >
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: colors.red.gradient,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Layers size={16} color="#fff" strokeWidth={2} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 12, fontWeight: 800,
+                color: colors.red.DEFAULT,
+                letterSpacing: '.04em', textTransform: 'uppercase',
+              }}>
+                Usar pacote
+              </div>
+              <div style={{
+                fontSize: 10, color: colors.gray[700],
+                marginTop: 1,
+              }}>
+                {activeCards.length} cartão(ões) ativo(s) do cliente
+              </div>
+            </div>
+          </button>
+        )}
+
+        {loadingCards && sale.clientId && (
+          <div style={{
+            fontSize: 10, color: colors.gray.dimText,
+            textAlign: 'center', padding: '2px 0',
+          }}>
+            Verificando pacotes do cliente...
+          </div>
+        )}
+
         {/* Itens */}
         <div style={{
           flex: 1,
@@ -230,7 +349,7 @@ export default function CartPanel({
               <ShoppingCart size={28} style={{ opacity: 0.3, marginBottom: 8 }} />
               <div style={{ fontWeight: 600 }}>Carrinho vazio</div>
               <div style={{ fontSize: 11, marginTop: 4 }}>
-                Adicione serviços ou produtos do catálogo
+                Adicione serviços, produtos ou pacotes do catálogo
               </div>
             </div>
           ) : (
@@ -253,6 +372,7 @@ export default function CartPanel({
                     onChangeQty={qty => changeItemQty(item.id, qty)}
                     onChangeProf={pid => changeItemProf(item.id, pid)}
                     onRemove={() => removeItem(item.id)}
+                    onRemovePackage={() => removePackageFromItem(item.id)}
                     disabled={updatingItemId === item.id}
                   />
                 </div>
@@ -273,7 +393,7 @@ export default function CartPanel({
           )}
         </div>
 
-        {/* Desconto + notas (compactos) */}
+        {/* Desconto + notas */}
         {sale.items.length > 0 && (
           <div style={{
             background: '#fff',
@@ -343,7 +463,7 @@ export default function CartPanel({
           </div>
         )}
 
-        {/* Subtotal + Total ─ FIX: color #fff explícito em todos os spans */}
+        {/* Total */}
         {sale.items.length > 0 && (
           <div style={{
             background: 'linear-gradient(135deg, #1e293b, #0f172a)',
@@ -354,54 +474,42 @@ export default function CartPanel({
           }}>
             <div style={{
               display: 'flex', justifyContent: 'space-between',
-              fontSize: 11,
-              marginBottom: 4,
+              fontSize: 11, marginBottom: 4,
             }}>
               <span style={{ color: 'rgba(255,255,255,0.55)' }}>Subtotal</span>
               <span style={{
                 color: 'rgba(255,255,255,0.55)',
                 fontVariantNumeric: 'tabular-nums',
-              }}>
-                {formatBRL(sale.subtotal)}
-              </span>
+              }}>{formatBRL(sale.subtotal)}</span>
             </div>
             {sale.discount > 0 && (
               <div style={{
                 display: 'flex', justifyContent: 'space-between',
-                fontSize: 11,
-                marginBottom: 4,
+                fontSize: 11, marginBottom: 4,
               }}>
                 <span style={{ color: 'rgba(255,255,255,0.55)' }}>Desconto</span>
                 <span style={{
                   color: 'rgba(255,255,255,0.55)',
                   fontVariantNumeric: 'tabular-nums',
-                }}>
-                  −{formatBRL(sale.discount)}
-                </span>
+                }}>−{formatBRL(sale.discount)}</span>
               </div>
             )}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
-              marginTop: 6,
-              paddingTop: 8,
+              marginTop: 6, paddingTop: 8,
               borderTop: '1px solid rgba(255,255,255,0.15)',
             }}>
               <span style={{
                 color: '#fff',
                 fontSize: 12, fontWeight: 700,
-                letterSpacing: '.04em',
-                textTransform: 'uppercase',
+                letterSpacing: '.04em', textTransform: 'uppercase',
               }}>Total</span>
               <span style={{
                 color: '#fff',
-                fontSize: 22,
-                fontWeight: 800,
+                fontSize: 22, fontWeight: 800,
                 fontVariantNumeric: 'tabular-nums',
-                letterSpacing: '-0.02em',
-                lineHeight: 1,
-              }}>
-                {formatBRL(sale.total)}
-              </span>
+                letterSpacing: '-0.02em', lineHeight: 1,
+              }}>{formatBRL(sale.total)}</span>
             </div>
           </div>
         )}
@@ -421,10 +529,7 @@ export default function CartPanel({
         )}
 
         {/* Ações */}
-        <div style={{
-          display: 'flex', gap: 8,
-          flexShrink: 0,
-        }}>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button
             onClick={cancelSale}
             disabled={cancelling}
@@ -458,13 +563,11 @@ export default function CartPanel({
                 ? 'rgba(0,0,0,0.07)'
                 : 'linear-gradient(135deg, #1e293b, #0f172a)',
               color: !canCheckout ? colors.gray.dimText : '#fff',
-              fontSize: 13,
-              fontWeight: 800,
+              fontSize: 13, fontWeight: 800,
               cursor: !canCheckout ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
               fontFamily: 'inherit',
-              letterSpacing: '.05em',
-              textTransform: 'uppercase',
+              letterSpacing: '.05em', textTransform: 'uppercase',
               boxShadow: !canCheckout ? 'none' : '0 6px 20px rgba(15,23,42,0.28)',
               transition: `all ${transitions.spring}`,
               WebkitTapHighlightColor: 'transparent',

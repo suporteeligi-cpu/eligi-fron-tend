@@ -1,7 +1,11 @@
 'use client'
 // src/app/dashboard/caixa/components/CartItemRow.tsx
+//
+// ⭐ NOVO: se item tem appliedPackageCardId, mostra badge "Pago via pacote"
+// + botão pra remover só o pacote (não o item).
+// Também trata item.type === 'PACKAGE' (venda de pacote) com ícone diferente.
 
-import { Minus, Plus, Trash2, Scissors, Package, Users } from 'lucide-react'
+import { Minus, Plus, Trash2, Scissors, Package, Users, Layers, XCircle } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { SaleItem, ProfLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -10,32 +14,45 @@ import ProfPicker from './ProfPicker'
 interface Props {
   item:           SaleItem
   professionals:  ProfLite[]
-  globalProfId:   string | null  // o prof global do carrinho
+  globalProfId:   string | null
   isMobile:       boolean
   onChangeQty:    (newQty: number) => void
   onChangeProf:   (profId: string | null) => void
   onRemove:       () => void
+  onRemovePackage?: () => void        // ⭐ NOVO: remove só o pacote aplicado
   disabled?:      boolean
 }
 
 export default function CartItemRow({
   item, professionals, globalProfId, isMobile,
-  onChangeQty, onChangeProf, onRemove, disabled,
+  onChangeQty, onChangeProf, onRemove, onRemovePackage, disabled,
 }: Props) {
-  const Icon = item.type === 'PRODUCT' ? Package : Scissors
-  const color = item.product?.color ?? item.service?.color ?? colors.red.DEFAULT
+  // Detecta tipo de ícone
+  const Icon =
+    item.type === 'PRODUCT' ? Package :
+    item.type === 'PACKAGE' ? Layers  :
+                              Scissors
 
-  // Detecta override (prof do item != global do carrinho)
+  const color = item.product?.color
+             ?? item.service?.color
+             ?? item.package?.color
+             ?? (item.type === 'PACKAGE' ? colors.red.DEFAULT : colors.red.DEFAULT)
+
   const isOverride = item.professionalId != null &&
                      globalProfId != null &&
                      item.professionalId !== globalProfId
 
+  // ⭐ Item tem pacote aplicado?
+  const hasPackageApplied = item.appliedPackageCardId != null
+
   return (
     <div style={{
       padding: '12px 14px',
-      background: '#fff',
+      background: hasPackageApplied
+        ? 'linear-gradient(135deg, rgba(22,163,74,0.05), rgba(22,163,74,0.10))'
+        : '#fff',
       borderRadius: 11,
-      border: `1px solid ${colors.gray.border}`,
+      border: `1px solid ${hasPackageApplied ? 'rgba(22,163,74,0.30)' : colors.gray.border}`,
       fontFamily: typography.fontFamily,
       display: 'flex',
       flexDirection: 'column',
@@ -68,8 +85,20 @@ export default function CartItemRow({
             fontSize: 13, fontWeight: 700,
             color: colors.gray[900],
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            display: 'flex', alignItems: 'center', gap: 5,
           }}>
             {item.name}
+            {item.type === 'PACKAGE' && (
+              <span style={{
+                fontSize: 8, fontWeight: 800,
+                color: '#fff',
+                background: colors.red.DEFAULT,
+                padding: '1px 5px',
+                borderRadius: 4,
+                letterSpacing: '.04em',
+                flexShrink: 0,
+              }}>PACOTE</span>
+            )}
           </div>
           <div style={{
             fontSize: 11,
@@ -77,25 +106,28 @@ export default function CartItemRow({
             marginTop: 1,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <span>{formatBRL(item.unitPrice)} {item.quantity > 1 && `× ${item.quantity}`}</span>
+            <span>
+              {hasPackageApplied
+                ? <span style={{ textDecoration: 'line-through' }}>{formatBRL(item.unitPrice || 0)}</span>
+                : formatBRL(item.unitPrice)
+              }
+              {item.quantity > 1 && ` × ${item.quantity}`}
+            </span>
           </div>
         </div>
 
         {/* Total + remove */}
         <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-end',
-          gap: 4,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'flex-end', gap: 4,
           flexShrink: 0,
         }}>
           <div style={{
-            fontSize: 14,
-            fontWeight: 700,
-            color: colors.gray[900],
+            fontSize: 14, fontWeight: 700,
+            color: hasPackageApplied ? '#15803d' : colors.gray[900],
             fontVariantNumeric: 'tabular-nums',
           }}>
-            {formatBRL(item.total)}
+            {hasPackageApplied ? 'R$ 0,00' : formatBRL(item.total)}
           </div>
           <button
             onClick={onRemove}
@@ -127,7 +159,54 @@ export default function CartItemRow({
         </div>
       </div>
 
-      {/* Linha inferior: qty + prof */}
+      {/* ⭐ Badge "pago via pacote" + botão remover só o pacote */}
+      {hasPackageApplied && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '7px 10px',
+          background: 'rgba(22,163,74,0.10)',
+          border: '1px solid rgba(22,163,74,0.25)',
+          borderRadius: 8,
+        }}>
+          <Layers size={12} color="#15803d" strokeWidth={2.4} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 800,
+              color: '#15803d',
+              letterSpacing: '.04em', textTransform: 'uppercase',
+            }}>
+              Pago via pacote
+            </div>
+            {item.appliedPackageCard && (
+              <div style={{
+                fontSize: 10, color: colors.gray[700],
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                #{item.appliedPackageCard.cardNumber} · {item.appliedPackageCard.packageName}
+              </div>
+            )}
+          </div>
+          {onRemovePackage && (
+            <button
+              onClick={onRemovePackage}
+              disabled={disabled}
+              aria-label="Remover pacote"
+              title="Remover aplicação do pacote (item volta ao preço normal)"
+              style={{
+                background: 'none', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+                padding: 3, display: 'flex',
+                color: '#15803d',
+                opacity: disabled ? 0.4 : 1,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <XCircle size={14} strokeWidth={2.2} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Linha inferior: qty + prof (oculta se item PACKAGE com qty=1 sem prof flex) */}
       <div style={{
         display: 'flex',
         gap: 8,
@@ -151,15 +230,14 @@ export default function CartItemRow({
         }}>
           <button
             onClick={() => item.quantity > 1 && onChangeQty(item.quantity - 1)}
-            disabled={disabled || item.quantity <= 1}
+            disabled={disabled || item.quantity <= 1 || hasPackageApplied}
             aria-label="Diminuir"
             style={{
               width: 26, height: 26, borderRadius: 6,
-              border: 'none',
-              background: 'transparent',
-              cursor: (disabled || item.quantity <= 1) ? 'not-allowed' : 'pointer',
+              border: 'none', background: 'transparent',
+              cursor: (disabled || item.quantity <= 1 || hasPackageApplied) ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: (disabled || item.quantity <= 1) ? 0.3 : 1,
+              opacity: (disabled || item.quantity <= 1 || hasPackageApplied) ? 0.3 : 1,
               color: colors.gray[700],
               WebkitTapHighlightColor: 'transparent',
             }}
@@ -167,25 +245,21 @@ export default function CartItemRow({
             <Minus size={11} strokeWidth={2.5} />
           </button>
           <span style={{
-            minWidth: 28,
-            textAlign: 'center',
-            fontSize: 13,
-            fontWeight: 700,
+            minWidth: 28, textAlign: 'center',
+            fontSize: 13, fontWeight: 700,
             color: colors.gray[900],
             fontVariantNumeric: 'tabular-nums',
-          }}>
-            {item.quantity}
-          </span>
+          }}>{item.quantity}</span>
           <button
             onClick={() => onChangeQty(item.quantity + 1)}
-            disabled={disabled}
+            disabled={disabled || hasPackageApplied}
             aria-label="Aumentar"
             style={{
               width: 26, height: 26, borderRadius: 6,
-              border: 'none',
-              background: 'transparent',
-              cursor: disabled ? 'not-allowed' : 'pointer',
+              border: 'none', background: 'transparent',
+              cursor: (disabled || hasPackageApplied) ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: (disabled || hasPackageApplied) ? 0.3 : 1,
               color: colors.gray[700],
               WebkitTapHighlightColor: 'transparent',
             }}
@@ -201,7 +275,7 @@ export default function CartItemRow({
             value={item.professionalId ?? null}
             onChange={onChangeProf}
             label="Profissional do item"
-            disabled={disabled}
+            disabled={disabled || hasPackageApplied}
             compact
           />
         </div>
@@ -213,11 +287,9 @@ export default function CartItemRow({
             background: 'rgba(245,158,11,0.10)',
             border: '1px solid rgba(245,158,11,0.25)',
             borderRadius: 6,
-            fontSize: 9,
-            fontWeight: 700,
+            fontSize: 9, fontWeight: 700,
             color: '#b45309',
-            letterSpacing: '.04em',
-            textTransform: 'uppercase',
+            letterSpacing: '.04em', textTransform: 'uppercase',
             flexShrink: 0,
             whiteSpace: 'nowrap',
           }}>

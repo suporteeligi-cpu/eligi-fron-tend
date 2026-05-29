@@ -2,32 +2,36 @@
 // src/app/dashboard/caixa/components/CatalogPanel.tsx
 
 import { useState, useMemo } from 'react'
-import { Search, X, Package, Scissors, Clock, AlertTriangle } from 'lucide-react'
+import {
+  Search, X, Package, Scissors, Clock, AlertTriangle, Layers,
+} from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { formatBRL } from '@/features/sales/utils/format'
-import { CatalogService, CatalogProduct } from '@/features/sales/types'
+import { CatalogService, CatalogProduct, CatalogPackage } from '@/features/sales/types'
 
-type Tab = 'product' | 'service'
+type Tab = 'product' | 'service' | 'package'
 
 interface Props {
   services: CatalogService[]
   products: CatalogProduct[]
+  packages: CatalogPackage[]
   loading:  boolean
   isMobile: boolean
   onAddService: (service: CatalogService) => void
   onAddProduct: (product: CatalogProduct) => void
+  onAddPackage: (pkg: CatalogPackage) => void
 }
 
 export default function CatalogPanel({
-  services, products, loading, isMobile, onAddService, onAddProduct,
+  services, products, packages, loading, isMobile,
+  onAddService, onAddProduct, onAddPackage,
 }: Props) {
-  // ⭐ Produtos primeiro (default)
   const [tab,   setTab]   = useState<Tab>('product')
   const [query, setQuery] = useState('')
 
-  // Filtra ativos + busca
   const activeServices = useMemo(() => services.filter(s => s.active !== false), [services])
   const activeProducts = useMemo(() => products.filter(p => p.active !== false), [products])
+  const activePackages = useMemo(() => packages.filter(p => p.active !== false), [packages])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -38,13 +42,26 @@ export default function CatalogPanel({
         (s.category ?? '').toLowerCase().includes(q),
       )
     }
+    if (tab === 'package') {
+      if (!q) return activePackages
+      return activePackages.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.description ?? '').toLowerCase().includes(q),
+      )
+    }
     if (!q) return activeProducts
     return activeProducts.filter(p =>
       p.name.toLowerCase().includes(q) ||
       (p.category ?? '').toLowerCase().includes(q) ||
       (p.sku ?? '').toLowerCase().includes(q),
     )
-  }, [tab, query, activeServices, activeProducts])
+  }, [tab, query, activeServices, activeProducts, activePackages])
+
+  const tabs: Array<{ id: Tab; label: string; count: number; icon: typeof Package }> = [
+    { id: 'product', label: 'Produtos', count: activeProducts.length, icon: Package   },
+    { id: 'service', label: 'Serviços', count: activeServices.length, icon: Scissors  },
+    { id: 'package', label: 'Pacotes',  count: activePackages.length, icon: Layers    },
+  ]
 
   return (
     <div style={{
@@ -54,7 +71,7 @@ export default function CatalogPanel({
       height: '100%',
       minHeight: 0,
     }}>
-      {/* Toggle produto/serviço — ⭐ Produtos primeiro, maior no mobile */}
+      {/* Toggle Produtos/Serviços/Pacotes */}
       <div style={{
         display: 'flex',
         gap: 4,
@@ -64,10 +81,7 @@ export default function CatalogPanel({
         border: `1px solid ${colors.gray.border}`,
         flexShrink: 0,
       }}>
-        {([
-          { id: 'product' as Tab, label: 'Produtos', count: activeProducts.length, icon: Package },
-          { id: 'service' as Tab, label: 'Serviços', count: activeServices.length, icon: Scissors },
-        ]).map(t => {
+        {tabs.map(t => {
           const Icon = t.icon
           const isActive = tab === t.id
           return (
@@ -77,13 +91,13 @@ export default function CatalogPanel({
               style={{
                 flex: 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: isMobile ? '12px 12px' : '8px 12px',
+                padding: isMobile ? '12px 8px' : '8px 10px',
                 borderRadius: 9,
                 border: 'none',
                 background: isActive ? '#fff' : 'transparent',
                 color: isActive ? colors.gray[900] : colors.gray.dimText,
                 fontWeight: isActive ? 700 : 600,
-                fontSize: isMobile ? 13 : 12,
+                fontSize: isMobile ? 12 : 12,
                 cursor: 'pointer',
                 transition: `all ${transitions.fast}`,
                 boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
@@ -91,7 +105,7 @@ export default function CatalogPanel({
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <Icon size={isMobile ? 15 : 13} strokeWidth={2} />
+              <Icon size={isMobile ? 14 : 13} strokeWidth={2} />
               {t.label}
               <span style={{
                 fontSize: 10, fontWeight: 700,
@@ -119,7 +133,11 @@ export default function CatalogPanel({
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder={tab === 'service' ? 'Buscar serviço...' : 'Buscar produto, SKU...'}
+          placeholder={
+            tab === 'service' ? 'Buscar serviço...' :
+            tab === 'package' ? 'Buscar pacote...'  :
+                                'Buscar produto, SKU...'
+          }
           inputMode="search"
           style={{
             flex: 1, border: 'none', outline: 'none',
@@ -160,11 +178,14 @@ export default function CatalogPanel({
             textAlign: 'center', padding: '40px 20px',
             color: colors.gray.dimText, fontSize: 12,
           }}>
-            {tab === 'service' ? <Scissors size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
-                               : <Package size={32} style={{ opacity: 0.3, marginBottom: 8 }} />}
+            {tab === 'service' ? <Scissors size={32} style={{ opacity: 0.3, marginBottom: 8 }} /> :
+             tab === 'package' ? <Layers   size={32} style={{ opacity: 0.3, marginBottom: 8 }} /> :
+                                 <Package  size={32} style={{ opacity: 0.3, marginBottom: 8 }} />}
             <div>
-              {query ? `Nenhum ${tab === 'service' ? 'serviço' : 'produto'} encontrado` :
-                       `Nenhum ${tab === 'service' ? 'serviço' : 'produto'} cadastrado`}
+              {query
+                ? `Nenhum ${tab === 'service' ? 'serviço' : tab === 'package' ? 'pacote' : 'produto'} encontrado`
+                : `Nenhum ${tab === 'service' ? 'serviço' : tab === 'package' ? 'pacote' : 'produto'} cadastrado`
+              }
             </div>
           </div>
         ) : (
@@ -189,6 +210,14 @@ export default function CatalogPanel({
                 onClick={() => onAddProduct(item as CatalogProduct)}
               />
             ))}
+            {tab === 'package' && filtered.map(item => (
+              <PackageCardCatalog
+                key={item.id}
+                pkg={item as CatalogPackage}
+                isMobile={isMobile}
+                onClick={() => onAddPackage(item as CatalogPackage)}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -202,9 +231,7 @@ function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; 
     <button
       onClick={onClick}
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6,
+        display: 'flex', flexDirection: 'column', gap: 6,
         padding: isMobile ? '12px' : '10px',
         background: '#fff',
         border: `1px solid ${colors.gray.border}`,
@@ -229,20 +256,16 @@ function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; 
         e.currentTarget.style.boxShadow = 'none'
       }}
     >
-      {/* Barra de cor lateral */}
       <div style={{
         position: 'absolute', top: 0, left: 0, bottom: 0,
         width: 3, background: dot,
       }} />
-
       <div style={{
         fontSize: isMobile ? 13 : 12, fontWeight: 700,
         color: colors.gray[900],
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         paddingLeft: 6,
-      }}>
-        {service.name}
-      </div>
+      }}>{service.name}</div>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
         fontSize: 10, color: colors.gray.dimText,
@@ -252,15 +275,10 @@ function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; 
         <span>{service.duration}min</span>
       </div>
       <div style={{
-        fontSize: isMobile ? 14 : 13,
-        fontWeight: 700,
-        color: dot,
-        fontVariantNumeric: 'tabular-nums',
-        paddingLeft: 6,
-        marginTop: 'auto',
-      }}>
-        {service.price != null ? formatBRL(service.price) : '—'}
-      </div>
+        fontSize: isMobile ? 14 : 13, fontWeight: 700,
+        color: dot, fontVariantNumeric: 'tabular-nums',
+        paddingLeft: 6, marginTop: 'auto',
+      }}>{service.price != null ? formatBRL(service.price) : '—'}</div>
     </button>
   )
 }
@@ -273,22 +291,17 @@ function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; 
   const lowStock = tracking && stock <= 5 && stock > 0
   const outOfStock = tracking && stock <= 0
   const disabled = outOfStock
-
   return (
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6,
-        padding: 0,
+        display: 'flex', flexDirection: 'column', gap: 6, padding: 0,
         background: '#fff',
         border: `1px solid ${colors.gray.border}`,
         borderRadius: 11,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        textAlign: 'left',
-        fontFamily: 'inherit',
+        textAlign: 'left', fontFamily: 'inherit',
         transition: `all 0.15s ease`,
         WebkitTapHighlightColor: 'transparent',
         opacity: disabled ? 0.55 : 1,
@@ -307,21 +320,15 @@ function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; 
         e.currentTarget.style.boxShadow = 'none'
       }}
     >
-      {/* Foto ou cor */}
       <div style={{
-        width: '100%',
-        aspectRatio: '1.2',
+        width: '100%', aspectRatio: '1.2',
         background: hasImage ? '#fff' : dot,
-        position: 'relative',
-        overflow: 'hidden',
+        position: 'relative', overflow: 'hidden',
       }}>
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={product.imageUrl!}
-            alt={product.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+          <img src={product.imageUrl!} alt={product.name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{
             position: 'absolute', inset: 0,
@@ -330,19 +337,14 @@ function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; 
             <Package size={26} color="#fff" strokeWidth={1.6} />
           </div>
         )}
-
-        {/* Badge de stock */}
         {tracking && (
           <div style={{
             position: 'absolute', top: 6, right: 6,
-            padding: '2px 6px',
-            borderRadius: 5,
+            padding: '2px 6px', borderRadius: 5,
             background: outOfStock ? 'rgba(220,38,38,0.95)'
                       : lowStock   ? 'rgba(245,158,11,0.95)'
                                    : 'rgba(22,163,74,0.9)',
-            color: '#fff',
-            fontSize: 9,
-            fontWeight: 700,
+            color: '#fff', fontSize: 9, fontWeight: 700,
             display: 'flex', alignItems: 'center', gap: 3,
             backdropFilter: 'blur(4px)',
           }}>
@@ -351,6 +353,81 @@ function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; 
           </div>
         )}
       </div>
+      <div style={{ padding: isMobile ? '9px 10px 11px' : '8px 10px 10px', flex: 1 }}>
+        <div style={{
+          fontSize: isMobile ? 12 : 11, fontWeight: 700,
+          color: colors.gray[900],
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          marginBottom: 2,
+        }}>{product.name}</div>
+        {product.sku && (
+          <div style={{
+            fontSize: 9, color: colors.gray.dimText,
+            fontVariantNumeric: 'tabular-nums', marginBottom: 3,
+          }}>{product.sku}</div>
+        )}
+        <div style={{
+          fontSize: isMobile ? 14 : 13, fontWeight: 700,
+          color: colors.red.DEFAULT, fontVariantNumeric: 'tabular-nums',
+        }}>{formatBRL(product.price)}</div>
+      </div>
+    </button>
+  )
+}
+
+function PackageCardCatalog({ pkg, isMobile, onClick }: { pkg: CatalogPackage; isMobile: boolean; onClick: () => void }) {
+  const dot = pkg.color ?? colors.red.DEFAULT
+  const totalQty = pkg.items.reduce((s, it) => s + it.quantity, 0)
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: 0,
+        background: `linear-gradient(135deg, ${dot}15, ${dot}05)`,
+        border: `1px solid ${dot}40`,
+        borderRadius: 11,
+        cursor: 'pointer',
+        textAlign: 'left', fontFamily: 'inherit',
+        transition: `all 0.15s ease`,
+        WebkitTapHighlightColor: 'transparent',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = dot
+        e.currentTarget.style.transform = 'translateY(-1px)'
+        e.currentTarget.style.boxShadow = `0 4px 14px ${dot}30`
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = `${dot}40`
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = 'none'
+      }}
+    >
+      {/* Header ícone */}
+      <div style={{
+        width: '100%',
+        padding: '14px 12px 12px',
+        background: dot,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative',
+      }}>
+        <Layers size={26} color="#fff" strokeWidth={1.8} />
+        <div style={{
+          position: 'absolute', top: 6, right: 6,
+          padding: '2px 6px',
+          borderRadius: 5,
+          background: 'rgba(255,255,255,0.25)',
+          color: '#fff',
+          fontSize: 9,
+          fontWeight: 700,
+          fontVariantNumeric: 'tabular-nums',
+          letterSpacing: '.04em',
+        }}>
+          PACOTE
+        </div>
+      </div>
 
       {/* Info */}
       <div style={{ padding: isMobile ? '9px 10px 11px' : '8px 10px 10px', flex: 1 }}>
@@ -358,27 +435,23 @@ function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; 
           fontSize: isMobile ? 12 : 11, fontWeight: 700,
           color: colors.gray[900],
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          marginBottom: 2,
+          marginBottom: 3,
         }}>
-          {product.name}
+          {pkg.name}
         </div>
-        {product.sku && (
-          <div style={{
-            fontSize: 9,
-            color: colors.gray.dimText,
-            fontVariantNumeric: 'tabular-nums',
-            marginBottom: 3,
-          }}>
-            {product.sku}
-          </div>
-        )}
         <div style={{
-          fontSize: isMobile ? 14 : 13,
-          fontWeight: 700,
-          color: colors.red.DEFAULT,
-          fontVariantNumeric: 'tabular-nums',
+          fontSize: 9,
+          color: colors.gray.dimText,
+          marginBottom: 4,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          {formatBRL(product.price)}
+          {totalQty} crédito{totalQty !== 1 && 's'} · {pkg.items.length} serviço{pkg.items.length !== 1 && 's'}
+        </div>
+        <div style={{
+          fontSize: isMobile ? 14 : 13, fontWeight: 700,
+          color: dot, fontVariantNumeric: 'tabular-nums',
+        }}>
+          {formatBRL(pkg.price)}
         </div>
       </div>
     </button>
