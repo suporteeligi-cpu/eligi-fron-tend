@@ -38,6 +38,7 @@ export default function CartPanel({
   const [showPayment, setShowPayment] = useState(false)
   const [showUsePackage, setShowUsePackage] = useState(false)
   const [cancelling,  setCancelling]  = useState(false)
+  const [confirmingFree, setConfirmingFree] = useState(false)
   const [error,       setError]       = useState<string | null>(null)
 
   // ⭐ Cartões ativos do cliente atual (pra decidir se mostra botão "Usar pacote")
@@ -183,7 +184,26 @@ export default function CartPanel({
     }
   }
 
+  // ⭐ Confirma direto sem modal quando total = R$ 0 (ex: tudo pago via pacote)
+  async function confirmFree() {
+    setConfirmingFree(true)
+    setError(null)
+    try {
+      const res = await api.post(`/sales/${sale.id}/confirm`, {})
+      const confirmed = res.data?.data ?? res.data
+      onSaleUpdated(confirmed)
+      onSaleClosed()
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } }
+      setError(e.response?.data?.error ?? 'Erro ao confirmar venda')
+      setConfirmingFree(false)
+    }
+  }
+
   const canCheckout = sale.items.length > 0
+
+  // ⭐ Venda 100% paga via pacote (ou desconto) — sem modal de pagamento
+  const isFreeCheckout = canCheckout && sale.total === 0
 
   const overrideCount = sale.items.filter(it =>
     it.professionalId != null &&
@@ -552,8 +572,8 @@ export default function CartPanel({
               : <XCircle size={14} strokeWidth={2} />}
           </button>
           <button
-            onClick={() => setShowPayment(true)}
-            disabled={!canCheckout}
+            onClick={isFreeCheckout ? confirmFree : () => setShowPayment(true)}
+            disabled={!canCheckout || confirmingFree}
             style={{
               flex: 1,
               padding: '12px',
@@ -561,20 +581,30 @@ export default function CartPanel({
               border: 'none',
               background: !canCheckout
                 ? 'rgba(0,0,0,0.07)'
-                : 'linear-gradient(135deg, #1e293b, #0f172a)',
+                : isFreeCheckout
+                  ? 'linear-gradient(135deg, #15803d, #166534)'
+                  : 'linear-gradient(135deg, #1e293b, #0f172a)',
               color: !canCheckout ? colors.gray.dimText : '#fff',
               fontSize: 13, fontWeight: 800,
-              cursor: !canCheckout ? 'not-allowed' : 'pointer',
+              cursor: (!canCheckout || confirmingFree) ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
               fontFamily: 'inherit',
               letterSpacing: '.05em', textTransform: 'uppercase',
-              boxShadow: !canCheckout ? 'none' : '0 6px 20px rgba(15,23,42,0.28)',
+              boxShadow: !canCheckout
+                ? 'none'
+                : isFreeCheckout
+                  ? '0 6px 20px rgba(22,101,52,0.30)'
+                  : '0 6px 20px rgba(15,23,42,0.28)',
               transition: `all ${transitions.spring}`,
               WebkitTapHighlightColor: 'transparent',
             }}
           >
-            <CreditCard size={14} strokeWidth={2.5} />
-            Confirmar · {formatBRL(sale.total)}
+            {confirmingFree
+              ? <Loader2 size={14} style={{ animation: 'pos-spin 0.8s linear infinite' }} />
+              : <CreditCard size={14} strokeWidth={2.5} />}
+            {isFreeCheckout
+              ? `Confirmar venda · ${formatBRL(sale.total)}`
+              : `Confirmar · ${formatBRL(sale.total)}`}
           </button>
         </div>
         <style>{`@keyframes pos-spin { to { transform: rotate(360deg) } }`}</style>

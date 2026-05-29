@@ -8,8 +8,8 @@ import {
   Settings,
   ShoppingBag,
   PackageOpen,
-  Package,
   DollarSign,
+  CreditCard
 } from 'lucide-react'
 
 export type Role = 'BUSINESS_OWNER' | 'PROFESSIONAL' | 'AFFILIATE'
@@ -27,7 +27,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Agenda',        path: '/dashboard/agenda',        icon: Calendar,        section: 'principal'  },
     { label: 'Clientes',      path: '/dashboard/clientes',      icon: Users,           section: 'principal'  },
     { label: 'Serviços',      path: '/dashboard/servicos',      icon: Scissors,        section: 'principal'  },
-    { label: 'Pacotes',       path: '/dashboard/pacotes',       icon: Package,         section: 'principal'  },
+    { label: 'Pacotes',       path: '/dashboard/pacotes',       icon: CreditCard,      section: 'principal'  },
     { label: 'Equipe',        path: '/dashboard/equipe',        icon: UserCog,         section: 'principal'  },
     { label: 'Estoque',       path: '/dashboard/estoque',       icon: PackageOpen,     section: 'principal'  },
     { label: 'Caixa',         path: '/dashboard/caixa',         icon: ShoppingBag,     section: 'financeiro' },
