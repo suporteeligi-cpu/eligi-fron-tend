@@ -116,6 +116,15 @@ export interface Sale {
     status:      PackageCardStatus
     totalPrice:  number
   }>
+  // ⭐ Sugestões de pacote por item (badge "pacote disponível" no POS)
+  packageSuggestions?: Array<{
+    saleItemId:  string
+    cardId:      string
+    cardNumber:  string
+    packageName: string
+    serviceId:   string
+    remaining:   number
+  }>
 }
 
 export interface SalesSummary {

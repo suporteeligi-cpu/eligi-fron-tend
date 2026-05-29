@@ -393,6 +393,11 @@ export default function CartPanel({
                     onChangeProf={pid => changeItemProf(item.id, pid)}
                     onRemove={() => removeItem(item.id)}
                     onRemovePackage={() => removePackageFromItem(item.id)}
+                    suggestion={(() => {
+                      const s = sale.packageSuggestions?.find(ps => ps.saleItemId === item.id)
+                      return s ? { cardNumber: s.cardNumber, packageName: s.packageName, remaining: s.remaining } : null
+                    })()}
+                    onUsePackage={() => setShowUsePackage(true)}
                     disabled={updatingItemId === item.id}
                   />
                 </div>

@@ -20,12 +20,15 @@ interface Props {
   onChangeProf:   (profId: string | null) => void
   onRemove:       () => void
   onRemovePackage?: () => void        // ⭐ NOVO: remove só o pacote aplicado
+  suggestion?:    { cardNumber: string; packageName: string; remaining: number } | null  // ⭐ pacote disponível
+  onUsePackage?:  () => void           // ⭐ abre modal de usar pacote
   disabled?:      boolean
 }
 
 export default function CartItemRow({
   item, professionals, globalProfId, isMobile,
-  onChangeQty, onChangeProf, onRemove, onRemovePackage, disabled,
+  onChangeQty, onChangeProf, onRemove, onRemovePackage,
+  suggestion, onUsePackage, disabled,
 }: Props) {
   // Detecta tipo de ícone
   const Icon =
@@ -204,6 +207,44 @@ export default function CartItemRow({
             </button>
           )}
         </div>
+      )}
+
+      {/* ⭐ Badge "pacote disponível" — clica pra aplicar via modal */}
+      {!hasPackageApplied && suggestion && onUsePackage && (
+        <button
+          onClick={onUsePackage}
+          disabled={disabled}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '7px 10px',
+            background: 'rgba(220,38,38,0.05)',
+            border: '1px dashed rgba(220,38,38,0.35)',
+            borderRadius: 8,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            textAlign: 'left',
+            width: '100%',
+            fontFamily: typography.fontFamily,
+            opacity: disabled ? 0.5 : 1,
+            transition: `all ${transitions.fast}`,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'rgba(220,38,38,0.10)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.05)' }}
+        >
+          <Layers size={12} color={colors.red.DEFAULT} strokeWidth={2.4} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 800,
+              color: colors.red.DEFAULT,
+              letterSpacing: '.04em', textTransform: 'uppercase',
+            }}>
+              Pacote disponível
+            </div>
+            <div style={{ fontSize: 10, color: colors.gray[700] }}>
+              #{suggestion.cardNumber} · {suggestion.remaining} restante(s) — toque para aplicar
+            </div>
+          </div>
+        </button>
       )}
 
       {/* Linha inferior: qty + prof (oculta se item PACKAGE com qty=1 sem prof flex) */}
