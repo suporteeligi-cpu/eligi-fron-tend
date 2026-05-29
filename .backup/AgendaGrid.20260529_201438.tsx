@@ -1,7 +1,6 @@
 'use client'
 // src/features/agenda/components/AgendaGrid.tsx
 // Grade desktop — mouse + drag/resize, com click vs drag bem distinto.
-// Geometria de coluna unificada via gridRef (corrige drag entre colunas com scroll horizontal).
 
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import dayjs from 'dayjs'
@@ -42,15 +41,13 @@ interface MoveDrag {
   fromTime:       string
   ghostHeight:    number
   ghostWidth:     number
-  ghostLeft:      number  // posição X no viewport (px) — já considera scroll
-  ghostTop:       number  // posição Y no viewport (px) — segue o mouse
+  ghostLeft:      number  // posição X no viewport (px)
   offsetY:        number  // distância do mouse ao topo do card
   currentProfId:  string
   currentTime:    string
   mouseX:         number
   mouseY:         number
-  startX:         number  // posição inicial do mouse (pra threshold)
-  startY:         number
+  /** True quando o mouse já se moveu além do threshold (passou de candidato a drag real) */
   isActive:       boolean
 }
 interface ResizeDrag {
@@ -84,6 +81,7 @@ export default function AgendaGrid({
   const selectedDate  = useAgendaStore(s => s.selectedDate)
   const preview       = useAgendaStore(s => s.preview)
 
+  // Ações centralizadas (reschedule/resize/conflict)
   const { savingId, pendingAction, setPendingAction, doReschedule, doResize } = useBookingActions(selectedDate)
 
   // Refs DOM
@@ -99,8 +97,10 @@ export default function AgendaGrid({
   const TOTAL_H  = SLOTS.length * SLOT_H
   const currentY = useCurrentTimeY(START_MIN, PX_PER_MIN, END_HOUR)
 
+  // ─── Bookings deduplicados ─────────────────────────────────────────────────
   const unique = useMemo(() => uniqueBookings(bookings), [bookings])
 
+  // ─── Estados de UI ─────────────────────────────────────────────────────────
   // dragRef é a fonte da verdade; setDrag só pra forçar re-render visual.
   const dragRef = useRef<ActiveDrag | null>(null)
   const [drag, setDragState] = useState<ActiveDrag | null>(null)
@@ -109,43 +109,9 @@ export default function AgendaGrid({
     setDragState(next)
   }
 
-  const [hoverSlot,    setHoverSlot]    = useState<string | null>(null)
-  const [hoverProfId,  setHoverProfId]  = useState<string | null>(null)
-  const [ctxMenu,      setCtxMenu]      = useState<ContextMenu | null>(null)
-  const [editBlock,    setEditBlock]    = useState<AgendaBlock | null>(null)
-
-  // ─── GEOMETRIA UNIFICADA ────────────────────────────────────────────────────
-  // Fonte única de verdade: gridRef (largura REAL renderizada, inclui scroll).
-  // Retorna a largura de cada coluna de profissional e a origem X (left do grid no viewport).
-  const getColumnGeometry = useCallback(() => {
-    const grid = gridRef.current
-    if (!grid || professionals.length === 0) {
-      return { colW: MIN_COL_W, gridLeft: 0, gridTop: 0 }
-    }
-    const rect = grid.getBoundingClientRect()
-    // Largura total das colunas de profissional (descontando a coluna de tempo)
-    const profAreaW = rect.width - TIME_COL_W
-    const colW = profAreaW / professionals.length
-    return { colW, gridLeft: rect.left, gridTop: rect.top }
-  }, [professionals.length])
-
-  // Converte clientY do mouse → minuto snapped na grade
-  const yToSnappedMin = useCallback((clientY: number): number => {
-    const grid = gridRef.current
-    if (!grid) return START_MIN
-    const rect = grid.getBoundingClientRect()
-    // relY relativo ao topo da área de slots (abaixo do header)
-    const relY = clientY - rect.top - HEADER_H
-    const absMin = START_MIN + relY / PX_PER_MIN
-    return Math.max(START_MIN, Math.min(snapToSlot(absMin), END_HOUR * 60 - SLOT_STEP))
-  }, [START_MIN, END_HOUR])
-
-  // Converte clientX do mouse → índice da coluna de profissional
-  const xToColIdx = useCallback((clientX: number): number => {
-    const { colW, gridLeft } = getColumnGeometry()
-    const relX = clientX - gridLeft - TIME_COL_W
-    return Math.max(0, Math.min(Math.floor(relX / colW), professionals.length - 1))
-  }, [getColumnGeometry, professionals.length])
+  const [hoverSlot, setHoverSlot] = useState<string | null>(null)
+  const [ctxMenu,   setCtxMenu]   = useState<ContextMenu | null>(null)
+  const [editBlock, setEditBlock] = useState<AgendaBlock | null>(null)
 
   // ─── Scroll inicial / scroll para preview ──────────────────────────────────
   useEffect(() => {
@@ -154,11 +120,12 @@ export default function AgendaGrid({
     scrollRef.current.scrollTo({ top: targetY, behavior: 'smooth' })
   }, [preview?.time, preview?.active, START_MIN])
 
+  // Scroll inicial: 1h antes da hora atual (ou expediente)
   const didInitialScroll = useRef(false)
   useEffect(() => {
     if (didInitialScroll.current) return
     if (!scrollRef.current) return
-    if (currentY < 0 && !workingHours) return
+    if (currentY < 0 && !workingHours) return // espera dados
 
     didInitialScroll.current = true
     const target = currentY > 0
@@ -169,25 +136,23 @@ export default function AgendaGrid({
     scrollRef.current.scrollTop = target
   }, [currentY, workingHours, START_MIN])
 
-  // ─── Mousedown no card → inicia candidato a drag ────────────────────────────
+  // ─── Handlers de drag (move) ───────────────────────────────────────────────
   const onCardMouseDown = useCallback((
     e: React.MouseEvent, booking: AgendaBooking, profId: string, cardTop: number, cardHeight: number,
   ) => {
     e.preventDefault()
     e.stopPropagation()
 
-    const { colW, gridLeft } = getColumnGeometry()
-    const profIdx   = professionals.findIndex(p => p.id === profId)
-    const ghostLeft = gridLeft + TIME_COL_W + profIdx * colW + 4
-
-    // Top do card na tela = top do grid + header + posição do card - scroll
-    const grid = gridRef.current
+    const rect      = gridRef.current?.getBoundingClientRect()
     const scrollTop = scrollRef.current?.scrollTop ?? 0
-    const cardTopScreen = (grid?.getBoundingClientRect().top ?? 0) + HEADER_H + cardTop - scrollTop
-    const offsetY = Math.max(0, e.clientY - cardTopScreen)
+    const colW      = rect ? (rect.width - TIME_COL_W) / professionals.length : 120
+    const profIdx   = professionals.findIndex(p => p.id === profId)
+    const ghostLeft = (rect?.left ?? 0) + TIME_COL_W + profIdx * colW + 4
+    const cardTopScreen = (rect?.top ?? 0) + HEADER_H + cardTop - scrollTop
+    const offsetY   = Math.max(0, e.clientY - cardTopScreen)
 
     setDrag({
-      type: 'move',
+      type:'move',
       bookingId: booking.id,
       booking,
       fromProfId: profId,
@@ -195,20 +160,20 @@ export default function AgendaGrid({
       ghostHeight: cardHeight,
       ghostWidth:  colW - 8,
       ghostLeft,
-      ghostTop:   e.clientY - offsetY,
       offsetY,
       currentProfId: profId,
       currentTime:   booking.start,
       mouseX: e.clientX,
       mouseY: e.clientY,
-      startX: e.clientX,
-      startY: e.clientY,
-      isActive: false,
+      isActive: false,  // ainda não é drag, só candidato
     })
-  }, [professionals, getColumnGeometry])
+  }, [professionals])
 
+  // Click puro (sem drag) abre o painel de visualização.
+  // Verifica o dragRef pra saber se foi click ou drag-cancelled.
   const onCardClick = useCallback((e: React.MouseEvent, booking: AgendaBooking) => {
     e.stopPropagation()
+    // Se houve drag real (passou do threshold), não abre
     if (dragRef.current?.type === 'move' && dragRef.current.isActive) return
     openView(booking)
   }, [openView])
@@ -220,7 +185,7 @@ export default function AgendaGrid({
     e.preventDefault()
     e.stopPropagation()
     setDrag({
-      type: 'resize',
+      type:'resize',
       bookingId: booking.id,
       booking,
       profId,
@@ -229,27 +194,36 @@ export default function AgendaGrid({
     })
   }, [])
 
-  // ─── Listeners globais de mouse ─────────────────────────────────────────────
+  // ─── Listeners globais de mouse — refs estáveis, NÃO dependem de drag ──────
+  // Esses listeners ficam sempre montados e lêem dragRef. Sem recriação a cada
+  // setState. Isso elimina perda de eventos durante drag rápido.
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       const d = dragRef.current
-      if (!d || !gridRef.current) return
+      if (!d || !gridRef.current || !scrollRef.current) return
 
       if (d.type === 'move') {
-        // threshold a partir da posição INICIAL (startX/startY), não da última
-        const dx = Math.abs(e.clientX - d.startX)
-        const dy = Math.abs(e.clientY - d.startY)
+        // Detecta se cruzou o threshold (vira drag de fato)
+        const dx = Math.abs(e.clientX - d.mouseX)
+        const dy = Math.abs(e.clientY - d.mouseY)
         const isActive = d.isActive || dx > DRAG_THRESHOLD_PX || dy > DRAG_THRESHOLD_PX
 
-        const snapMin = yToSnappedMin(e.clientY)
-        const colIdx  = xToColIdx(e.clientX)
+        const rect    = scrollRef.current.getBoundingClientRect()
+        const scrollT = scrollRef.current.scrollTop
+        const scrollL = scrollRef.current.scrollLeft
+
+        const relY    = e.clientY - rect.top + scrollT - HEADER_H
+        const absMin  = START_MIN + relY / PX_PER_MIN
+        const snapMin = Math.max(START_MIN, Math.min(snapToSlot(absMin), END_HOUR * 60 - SLOT_STEP))
+
+        const relX    = e.clientX - rect.left + scrollL - TIME_COL_W
+        const colW    = (rect.width - TIME_COL_W) / professionals.length
+        const colIdx  = Math.max(0, Math.min(Math.floor(relX / colW), professionals.length - 1))
         const prof    = professionals[colIdx]
-        const { colW, gridLeft } = getColumnGeometry()
 
         const next: MoveDrag = {
           ...d,
-          ghostLeft:     gridLeft + TIME_COL_W + colIdx * colW + 4,
-          ghostTop:      e.clientY - d.offsetY,
+          ghostLeft:     rect.left + TIME_COL_W + colIdx * colW + 4,
           ghostWidth:    colW - 8,
           currentProfId: prof?.id ?? d.currentProfId,
           currentTime:   minutesToTime(snapMin),
@@ -259,20 +233,17 @@ export default function AgendaGrid({
         }
         dragRef.current = next
         setDragState(next)
-        if (isActive) {
-          setHoverSlot(minutesToTime(snapMin))
-          setHoverProfId(prof?.id ?? null)
-        } else {
-          setHoverSlot(null)
-          setHoverProfId(null)
-        }
+        setHoverSlot(isActive ? minutesToTime(snapMin) : null)
         return
       }
 
       if (d.type === 'resize') {
-        const endMin = Math.max(
+        const rect    = scrollRef.current.getBoundingClientRect()
+        const scrollT = scrollRef.current.scrollTop
+        const relY    = e.clientY - rect.top + scrollT - HEADER_H
+        const endMin  = Math.max(
           toMinutes(d.booking.start) + MIN_DUR,
-          Math.min(yToSnappedMin(e.clientY), END_HOUR * 60),
+          Math.min(snapToSlot(START_MIN + relY / PX_PER_MIN), END_HOUR * 60),
         )
         const h = Math.max((endMin - toMinutes(d.booking.start)) * PX_PER_MIN - 2, MIN_CARD_H_DESKTOP)
         const next: ResizeDrag = { ...d, ghostHeight: h, currentEnd: minutesToTime(endMin) }
@@ -286,23 +257,16 @@ export default function AgendaGrid({
       dragRef.current = null
       setDragState(null)
       setHoverSlot(null)
-      setHoverProfId(null)
       if (!d) return
 
       if (d.type === 'move') {
-        if (!d.isActive) return  // foi click, não drag
-        // Nada mudou → não faz nada
+        // Sem drag real → foi click (onClick cuida de abrir). Não pede confirmação.
+        if (!d.isActive) return
         if (d.currentTime === d.fromTime && d.currentProfId === d.fromProfId) return
 
-        const sameProf = d.currentProfId === d.fromProfId
-        const profName = professionals.find(p => p.id === d.currentProfId)?.name
-        const title = sameProf
-          ? `Mover de ${d.fromTime} para ${d.currentTime}?`
-          : `Mover para ${profName ?? 'outro profissional'}\nàs ${d.currentTime}?`
-
         setPendingAction({
-          type: 'move',
-          title,
+          type:'move',
+          title: `Confirmar alteração de\n${d.fromTime} para ${d.currentTime}?`,
           confirmLabel: 'Salvar alteração',
           onConfirm: () => {
             setPendingAction(null)
@@ -314,8 +278,8 @@ export default function AgendaGrid({
 
       if (d.type === 'resize' && d.currentEnd !== d.booking.end) {
         setPendingAction({
-          type: 'resize',
-          title: `Alterar duração para\n${d.booking.start}–${d.currentEnd}?`,
+          type:'resize',
+          title: `Confirmar alteração de\n${d.booking.start}–${d.booking.end} para ${d.booking.start}–${d.currentEnd}?`,
           confirmLabel: 'Salvar alteração',
           onConfirm: () => {
             setPendingAction(null)
@@ -331,11 +295,11 @@ export default function AgendaGrid({
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup',   onMouseUp)
     }
-  }, [professionals, END_HOUR, doReschedule, doResize, setPendingAction, yToSnappedMin, xToColIdx, getColumnGeometry])
+  }, [professionals, START_MIN, END_HOUR, doReschedule, doResize, setPendingAction])
 
   const isMove        = drag?.type === 'move'
-  const isResize      = drag?.type === 'resize'
-  const isMovingReal  = isMove && drag?.type === 'move' && drag.isActive
+  const isResize     = drag?.type === 'resize'
+  const isMovingReal  = isMove && drag?.type === 'move' && drag.isActive    // só passa true após threshold
   const dateStr       = dayjs(selectedDate).format('YYYY-MM-DD')
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -372,6 +336,7 @@ export default function AgendaGrid({
           flex:1, minHeight:0, overflowY:'auto', overflowX:'auto',
           background: colors.background.page,
           fontFamily: '-apple-system,system-ui,sans-serif',
+          // Cursor só muda durante drag real, não em hover
           cursor: isMovingReal ? 'grabbing' : isResize ? 'ns-resize' : 'default',
           userSelect: drag ? 'none' : 'auto',
         }}
@@ -388,7 +353,6 @@ export default function AgendaGrid({
           .ag-rh:hover::after{background:rgba(255,255,255,0.95);width:24px;height:5px;box-shadow:0 0 4px rgba(0,0,0,0.2)}
           .ag-card-hover{cursor:grab}
           .ag-card-hover:active{cursor:grabbing}
-          .ag-col-target{background:rgba(220,38,38,0.04)!important}
         `}</style>
 
         <div
@@ -407,26 +371,20 @@ export default function AgendaGrid({
           }} />
 
           {/* Header profissionais */}
-          {professionals.map(p => {
-            const isTarget = isMovingReal && hoverProfId === p.id
-            return (
-              <div key={p.id} style={{
-                height: HEADER_H, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                position:'sticky', top:0, zIndex: Z.headerSticky,
-                background: isTarget ? 'rgba(220,38,38,0.08)' : 'rgba(255,255,255,0.95)',
-                backdropFilter:'blur(20px)',
-                borderBottom: isTarget ? `2px solid ${colors.red.DEFAULT}` : `1px solid ${colors.gray.border}`,
-                borderLeft:`1px solid ${colors.gray.border}`,
-                fontWeight:600, fontSize:13, color:colors.gray['900'],
-                transition:'background 0.12s ease',
-              }}>
-                <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={30} />
-                <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:100 }}>
-                  {p.name}
-                </span>
-              </div>
-            )
-          })}
+          {professionals.map(p => (
+            <div key={p.id} style={{
+              height: HEADER_H, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              position:'sticky', top:0, zIndex: Z.headerSticky,
+              background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)',
+              borderBottom:`1px solid ${colors.gray.border}`, borderLeft:`1px solid ${colors.gray.border}`,
+              fontWeight:600, fontSize:13, color:colors.gray['900'],
+            }}>
+              <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={30} />
+              <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:100 }}>
+                {p.name}
+              </span>
+            </div>
+          ))}
 
           {/* Coluna horários */}
           <div style={{ position:'relative', zIndex:2, height: TOTAL_H }}>
@@ -461,8 +419,8 @@ export default function AgendaGrid({
             const profBlocks   = blocks.filter(bl => bl.professionalId === p.id)
             const layout       = computeOverlapLayout(profBookings)
             const offHours     = computeOffHoursOverlay({ workingHours, startMin: START_MIN, endHour: END_HOUR, totalH: TOTAL_H, pxPerMin: PX_PER_MIN })
-            const isColTarget  = isMovingReal && hoverProfId === p.id && hoverProfId !== drag?.fromProfId
 
+            // Preview items deste profissional (mesma data)
             const previewItems: PreviewItem[] = preview?.active && preview.date === dateStr
               ? (preview.allItems?.length
                 ? preview.allItems.filter(it => it.profId === p.id)
@@ -476,15 +434,13 @@ export default function AgendaGrid({
                 position:'relative',
                 borderLeft:`1px solid ${colors.gray.border}`,
                 zIndex: Z.gridBase, height: TOTAL_H,
-                background: isColTarget ? 'rgba(220,38,38,0.035)' : 'transparent',
-                transition:'background 0.12s ease',
               }}>
                 {/* Slots de fundo */}
                 {SLOTS.map((time, i) => {
                   const min = i * SLOT_STEP
                   const isHour = min % 60 === 0
                   const isHalf = min % 30 === 0 && !isHour
-                  const isHover = isMovingReal && hoverSlot === time && hoverProfId === p.id
+                  const isHover = isMovingReal && hoverSlot === time
                   return (
                     <div
                       key={time}
@@ -498,6 +454,7 @@ export default function AgendaGrid({
                   )
                 })}
 
+                {/* Zonas fora do expediente */}
                 <OffHoursOverlay
                   preH={offHours.preH}
                   postTop={offHours.postTop}
@@ -580,7 +537,7 @@ export default function AgendaGrid({
                   )
                 })}
 
-                {/* Preview ghost */}
+                {/* Preview ghost (do checkout) */}
                 {previewItems.map((it, gi) => {
                   const sMin = toMinutes(it.startTime)
                   if (sMin < START_MIN || sMin >= END_HOUR * 60) return null
@@ -589,17 +546,18 @@ export default function AgendaGrid({
                   return <PreviewGhost key={`pv-${gi}`} item={it} top={top} height={h} inset={3} radius={7} />
                 })}
 
+                {/* Linha de hora atual */}
                 <CurrentTimeLine y={currentY} />
               </div>
             )
           })}
         </div>
 
-        {/* Ghost flutuante durante move */}
+        {/* Ghost flutuante durante move — só aparece após threshold */}
         {isMovingReal && drag.type === 'move' && drag.ghostWidth > 0 && (
           <div style={{
             position:'fixed',
-            top:    drag.ghostTop,
+            top:    drag.mouseY - drag.offsetY,
             left:   drag.ghostLeft,
             width:  drag.ghostWidth,
             height: drag.ghostHeight,
