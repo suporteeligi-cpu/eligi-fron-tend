@@ -242,13 +242,19 @@ export default function AgendaGrid({
         const isActive = d.isActive || dx > DRAG_THRESHOLD_PX || dy > DRAG_THRESHOLD_PX
 
         const snapMin = yToSnappedMin(e.clientY)
-        const colIdx  = xToColIdx(e.clientX)
-        const prof    = professionals[colIdx]
+        // Booking finalizado (COMPLETED/NO_SHOW) NÃO troca de coluna —
+        // trava no profissional de origem pra proteger venda/comissão atreladas.
+        const lockColumn = d.booking.status !== 'CONFIRMED'
+        const colIdx  = lockColumn
+          ? professionals.findIndex(p => p.id === d.fromProfId)
+          : xToColIdx(e.clientX)
+        const safeColIdx = colIdx < 0 ? 0 : colIdx
+        const prof    = professionals[safeColIdx]
         const { colW, gridLeft } = getColumnGeometry()
 
         const next: MoveDrag = {
           ...d,
-          ghostLeft:     gridLeft + TIME_COL_W + colIdx * colW + 4,
+          ghostLeft:     gridLeft + TIME_COL_W + safeColIdx * colW + 4,
           ghostTop:      e.clientY - d.offsetY,
           ghostWidth:    colW - 8,
           currentProfId: prof?.id ?? d.currentProfId,
