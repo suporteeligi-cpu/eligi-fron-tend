@@ -136,6 +136,12 @@ export interface SalesSummary {
   serviceTotal:    number
   productTotal:    number
   byMethod:        Partial<Record<PaymentMethod, number>>
+  byProfessional?: Array<{
+    professionalId: string
+    name:           string
+    total:          number
+    commission:     number
+  }>
 }
 
 export interface CatalogService {

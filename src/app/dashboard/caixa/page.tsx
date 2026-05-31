@@ -55,13 +55,22 @@ export default function CaixaPage() {
 
   const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null)
 
-  const todayDate = useMemo(() => {
+  // Data do fechamento (default: hoje). Formato YYYY-MM-DD pra input date.
+  const [summaryDate, setSummaryDate] = useState<string>(() => {
     const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d.toISOString()
-  }, [])
+    const off = d.getTimezoneOffset() * 60000
+    return new Date(d.getTime() - off).toISOString().slice(0, 10)
+  })
+
+  // Range do dia inteiro (00:00 → 23:59:59 local) em ISO
+  const { summaryFrom, summaryTo } = useMemo(() => {
+    const from = new Date(`${summaryDate}T00:00:00`)
+    const to   = new Date(`${summaryDate}T23:59:59.999`)
+    return { summaryFrom: from.toISOString(), summaryTo: to.toISOString() }
+  }, [summaryDate])
+
   const { summary, loading: summaryLoading, refetch: refetchSummary }
-    = useSalesSummary({ dateFrom: todayDate })
+    = useSalesSummary({ dateFrom: summaryFrom, dateTo: summaryTo })
 
   const [initialActive] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
@@ -480,6 +489,8 @@ export default function CaixaPage() {
             summary={summary}
             loading={summaryLoading}
             isMobile={isMobile}
+            date={summaryDate}
+            onDateChange={setSummaryDate}
           />
         )}
       </div>
