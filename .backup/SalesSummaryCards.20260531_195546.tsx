@@ -2,13 +2,10 @@
 // src/app/dashboard/caixa/components/SalesSummaryCards.tsx
 // Fechamento do dia: seletor de data + KPIs + por método + por profissional + serviços×produtos
 
-import { useState } from 'react'
 import { ShoppingBag, TrendingUp, Percent, Scissors, Package, Calendar, ChevronLeft, ChevronRight, User } from 'lucide-react'
-import dayjs from 'dayjs'
 import { colors, typography } from '@/shared/theme'
 import { SalesSummary } from '@/features/sales/types'
 import { formatBRL, PAYMENT_METHOD_LABEL, PAYMENT_METHOD_ORDER } from '@/features/sales/utils/format'
-import DatePickerModal from '@/shared/components/DatePickerModal'
 
 interface Props {
   summary:       SalesSummary | null
@@ -35,7 +32,6 @@ function shiftDate(ymd: string, days: number): string {
 }
 
 export default function SalesSummaryCards({ summary, loading, isMobile, date, onDateChange }: Props) {
-  const [showPicker, setShowPicker] = useState(false)
   const today = (() => {
     const d = new Date()
     const off = d.getTimezoneOffset() * 60000
@@ -97,16 +93,6 @@ export default function SalesSummaryCards({ summary, loading, isMobile, date, on
       display: 'flex', flexDirection: 'column', gap: isMobile ? 10 : 14,
       fontFamily: typography.fontFamily,
     }}>
-      {showPicker && (
-        <DatePickerModal
-          date={dayjs(date)}
-          isMobile={isMobile}
-          maxDate={dayjs(today)}
-          onSelect={d => onDateChange(d.format('YYYY-MM-DD'))}
-          onClose={() => setShowPicker(false)}
-        />
-      )}
-
       {/* ── Seletor de data ── */}
       <div style={{
         ...cardSurface,
@@ -127,19 +113,25 @@ export default function SalesSummaryCards({ summary, loading, isMobile, date, on
           <ChevronLeft size={16} strokeWidth={2.4} />
         </button>
 
-        <button
-          onClick={() => setShowPicker(true)}
-          style={{
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            cursor: 'pointer', background: 'transparent', border: 'none',
-            fontFamily: typography.fontFamily, padding: '6px 4px',
-          }}
-        >
+        <label style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          cursor: 'pointer', position: 'relative',
+        }}>
           <Calendar size={15} color={colors.red.DEFAULT} strokeWidth={2} />
           <span style={{ fontSize: 14, fontWeight: 700, color: colors.gray[900] }}>
             {formatDateLabel(date)}{isToday ? ' · hoje' : ''}
           </span>
-        </button>
+          <input
+            type="date"
+            value={date}
+            max={today}
+            onChange={e => e.target.value && onDateChange(e.target.value)}
+            style={{
+              position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer',
+              width: '100%', height: '100%',
+            }}
+          />
+        </label>
 
         <button
           onClick={() => onDateChange(shiftDate(date, 1))}
