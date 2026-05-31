@@ -8,7 +8,7 @@ import dayjs from 'dayjs'
 import { colors, typography } from '@/shared/theme'
 import { SalesSummary } from '@/features/sales/types'
 import { formatBRL, PAYMENT_METHOD_LABEL, PAYMENT_METHOD_ORDER } from '@/features/sales/utils/format'
-import DatePickerModal from '@/shared/components/DatePickerModal'
+import CalendarPicker from '@/shared/components/CalendarPicker'
 
 interface Props {
   summary:       SalesSummary | null
@@ -98,10 +98,11 @@ export default function SalesSummaryCards({ summary, loading, isMobile, date, on
       fontFamily: typography.fontFamily,
     }}>
       {showPicker && (
-        <DatePickerModal
+        <CalendarPicker
           date={dayjs(date)}
           isMobile={isMobile}
           maxDate={dayjs(today)}
+          showWeekJump={false}
           onSelect={d => onDateChange(d.format('YYYY-MM-DD'))}
           onClose={() => setShowPicker(false)}
         />
