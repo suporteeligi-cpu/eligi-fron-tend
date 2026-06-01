@@ -3,7 +3,7 @@
 // Fechamento do dia: seletor de data + KPIs + por método + por profissional + serviços×produtos
 
 import { useState } from 'react'
-import { ShoppingBag, TrendingUp, Percent, Scissors, Package, Calendar, ChevronLeft, ChevronRight, User } from 'lucide-react'
+import { ShoppingBag, TrendingUp, Percent, Scissors, Package, Layers, Calendar, ChevronLeft, ChevronRight, User } from 'lucide-react'
 import dayjs from 'dayjs'
 import { colors, typography } from '@/shared/theme'
 import { SalesSummary, SaleItemType } from '@/features/sales/types'
@@ -285,7 +285,7 @@ export default function SalesSummaryCards({ summary, loading, isMobile, date, on
           </div>
 
           {/* Serviços vs produtos */}
-          {(summary.serviceTotal > 0 || summary.productTotal > 0) && (
+          {(summary.serviceTotal > 0 || summary.productTotal > 0 || (summary.packageTotal ?? 0) > 0) && (
             <div style={{
               marginTop: 12, paddingTop: 12,
               borderTop: `1px dashed ${colors.gray.border}`,
@@ -305,6 +305,15 @@ export default function SalesSummaryCards({ summary, loading, isMobile, date, on
                   {formatBRL(summary.productTotal)}
                 </span>
               </div>
+              {(summary.packageTotal ?? 0) > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Layers size={12} color={colors.gray.dimText} />
+                  <span style={{ fontSize: 11, color: colors.gray.dimText }}>Pacotes:</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: colors.gray[900], fontVariantNumeric: 'tabular-nums' }}>
+                    {formatBRL(summary.packageTotal ?? 0)}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
