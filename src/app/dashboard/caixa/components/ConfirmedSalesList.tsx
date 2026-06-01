@@ -7,7 +7,7 @@ import { Receipt, ChevronRight, CheckCircle, FileX } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
-import { Sale } from '@/features/sales/types'
+import { Sale, SaleItemType } from '@/features/sales/types'
 import { formatBRL, formatTimeOnly, shortId } from '@/features/sales/utils/format'
 import Avatar from './Avatar'
 
@@ -19,6 +19,7 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
   const router = useRouter()
   const [sales,   setSales]   = useState<Sale[]>([])
   const [loading, setLoading] = useState(true)
+  const [category, setCategory] = useState<SaleItemType | null>(null)
 
   const fetchSales = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -30,6 +31,7 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
           status:   'CONFIRMED',
           dateFrom: today.toISOString(),
           limit:    100,
+          ...(category ? { itemType: category } : {}),
         },
       })
       if (signal?.aborted) return
@@ -40,7 +42,7 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [])
+  }, [category])
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -48,8 +50,46 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
     return () => ctrl.abort()
   }, [fetchSales, refreshKey])
 
+  const CATEGORIES: Array<{ key: SaleItemType | null; label: string }> = [
+    { key: null,      label: 'Todos'    },
+    { key: 'SERVICE', label: 'Serviços' },
+    { key: 'PRODUCT', label: 'Produtos' },
+    { key: 'PACKAGE', label: 'Pacotes'  },
+  ]
+
+  const filterBar = (
+    <div style={{
+      display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap',
+      fontFamily: typography.fontFamily,
+    }}>
+      {CATEGORIES.map(cat => {
+        const active = category === cat.key
+        return (
+          <button
+            key={cat.label}
+            onClick={() => setCategory(cat.key)}
+            style={{
+              padding: '6px 14px', borderRadius: 18, cursor: 'pointer',
+              fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+              border: active ? '1px solid transparent' : `1px solid ${colors.gray.borderMd}`,
+              background: active ? colors.red.gradient : colors.background.surface,
+              color: active ? '#fff' : colors.gray[700],
+              boxShadow: active ? `0 3px 10px ${colors.red.glow}` : 'none',
+              transition: `all ${transitions.fast}`,
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            {cat.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+
   if (loading) {
     return (
+      <div style={{ fontFamily: typography.fontFamily }}>
+        {filterBar}
       <div style={{
         display: 'flex', justifyContent: 'center',
         padding: 60,
@@ -62,35 +102,39 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
         }} />
         <style>{`@keyframes pos-spin { to { transform: rotate(360deg) } }`}</style>
       </div>
+      </div>
     )
   }
 
   if (sales.length === 0) {
     return (
+      <div style={{ fontFamily: typography.fontFamily }}>
+        {filterBar}
       <div style={{
         background: '#fff',
         borderRadius: 14,
         border: `1px solid ${colors.gray.border}`,
         padding: '48px 24px',
         textAlign: 'center',
-        fontFamily: typography.fontFamily,
       }}>
         <Receipt size={36} color={colors.gray.dimText} style={{ opacity: 0.3, marginBottom: 12 }} />
         <div style={{ fontSize: 15, fontWeight: 700, color: colors.gray[900], marginBottom: 4 }}>
           Nenhuma venda confirmada hoje
         </div>
         <div style={{ fontSize: 12, color: colors.gray.dimText }}>
-          Vendas que você fechar hoje aparecerão aqui.
+          {category ? 'Nenhuma venda dessa categoria hoje.' : 'Vendas que você fechar hoje aparecerão aqui.'}
         </div>
+      </div>
       </div>
     )
   }
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', gap: 8,
-      fontFamily: typography.fontFamily,
-    }}>
+    <div style={{ fontFamily: typography.fontFamily }}>
+      {filterBar}
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 8,
+      }}>
       {sales.map(sale => {
         const hasCreditNote = sale.creditNotes.length > 0
         const totalCredit   = sale.creditNotes.reduce((s, n) => s + n.amount, 0)
@@ -217,6 +261,7 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
           </button>
         )
       })}
+      </div>
     </div>
   )
 }
