@@ -6,16 +6,18 @@ import { useState } from 'react'
 import { ShoppingBag, TrendingUp, Percent, Scissors, Package, Calendar, ChevronLeft, ChevronRight, User } from 'lucide-react'
 import dayjs from 'dayjs'
 import { colors, typography } from '@/shared/theme'
-import { SalesSummary } from '@/features/sales/types'
+import { SalesSummary, SaleItemType } from '@/features/sales/types'
 import { formatBRL, PAYMENT_METHOD_LABEL, PAYMENT_METHOD_ORDER } from '@/features/sales/utils/format'
 import CalendarPicker from '@/shared/components/CalendarPicker'
 
 interface Props {
-  summary:       SalesSummary | null
-  loading:       boolean
-  isMobile:      boolean
-  date:          string                    // YYYY-MM-DD
-  onDateChange:  (date: string) => void
+  summary:           SalesSummary | null
+  loading:           boolean
+  isMobile:          boolean
+  date:              string                    // YYYY-MM-DD
+  onDateChange:      (date: string) => void
+  category:          SaleItemType | null
+  onCategoryChange:  (cat: SaleItemType | null) => void
 }
 
 // Formata YYYY-MM-DD → "Seg, 26 de mai" (sem libs externas)
@@ -34,7 +36,7 @@ function shiftDate(ymd: string, days: number): string {
   return new Date(dt.getTime() - off).toISOString().slice(0, 10)
 }
 
-export default function SalesSummaryCards({ summary, loading, isMobile, date, onDateChange }: Props) {
+export default function SalesSummaryCards({ summary, loading, isMobile, date, onDateChange, category, onCategoryChange }: Props) {
   const [showPicker, setShowPicker] = useState(false)
   const today = (() => {
     const d = new Date()
@@ -157,6 +159,36 @@ export default function SalesSummaryCards({ summary, loading, isMobile, date, on
         >
           <ChevronRight size={16} strokeWidth={2.4} />
         </button>
+      </div>
+
+      {/* ── Filtro por categoria ── */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {([
+          { key: null,      label: 'Todos'    },
+          { key: 'SERVICE', label: 'Serviços' },
+          { key: 'PRODUCT', label: 'Produtos' },
+          { key: 'PACKAGE', label: 'Pacotes'  },
+        ] as Array<{ key: SaleItemType | null; label: string }>).map(cat => {
+          const active = category === cat.key
+          return (
+            <button
+              key={cat.label}
+              onClick={() => onCategoryChange(cat.key)}
+              style={{
+                padding: '6px 14px', borderRadius: 18, cursor: 'pointer',
+                fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                border: active ? '1px solid transparent' : `1px solid ${colors.gray.borderMd}`,
+                background: active ? colors.red.gradient : 'rgba(255,255,255,0.85)',
+                color: active ? '#fff' : colors.gray[700],
+                boxShadow: active ? `0 3px 10px ${colors.red.glow}` : 'none',
+                transition: 'all 0.15s ease',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {cat.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── KPIs principais ── */}

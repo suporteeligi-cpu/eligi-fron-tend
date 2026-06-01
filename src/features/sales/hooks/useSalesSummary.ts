@@ -3,11 +3,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import api from '@/shared/lib/apiClient'
-import { SalesSummary } from '../types'
+import { SalesSummary, SaleItemType } from '../types'
 
 interface Filters {
   dateFrom?: string
   dateTo?:   string
+  itemType?: SaleItemType
 }
 
 export function useSalesSummary(filters: Filters = {}) {
@@ -28,7 +29,7 @@ export function useSalesSummary(filters: Filters = {}) {
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [filters.dateFrom, filters.dateTo]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filters.dateFrom, filters.dateTo, filters.itemType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const ctrl = new AbortController()

@@ -69,8 +69,10 @@ export default function CaixaPage() {
     return { summaryFrom: from.toISOString(), summaryTo: to.toISOString() }
   }, [summaryDate])
 
+  const [summaryCategory, setSummaryCategory] = useState<SaleItemType | null>(null)
+
   const { summary, loading: summaryLoading, refetch: refetchSummary }
-    = useSalesSummary({ dateFrom: summaryFrom, dateTo: summaryTo })
+    = useSalesSummary({ dateFrom: summaryFrom, dateTo: summaryTo, itemType: summaryCategory ?? undefined })
 
   const [initialActive] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
@@ -491,6 +493,8 @@ export default function CaixaPage() {
             isMobile={isMobile}
             date={summaryDate}
             onDateChange={setSummaryDate}
+            category={summaryCategory}
+            onCategoryChange={setSummaryCategory}
           />
         )}
       </div>
