@@ -4,6 +4,8 @@ export interface ClientListItem {
   id:            string
   name:          string
   phone:         string
+  email:         string | null
+  cpf:           string | null
   createdAt:     string
   totalBookings: number
   completed:     number

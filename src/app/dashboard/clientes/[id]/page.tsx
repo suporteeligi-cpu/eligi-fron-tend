@@ -36,6 +36,8 @@ interface ClientProfile {
   id:        string
   name:      string
   phone:     string
+  email:     string | null
+  cpf:       string | null
   createdAt: string
   metrics:   Metrics
   bookings:  BookingItem[]
@@ -75,10 +77,12 @@ export default function ClientProfilePage() {
   }, [id])
 
   // ─── Handlers ───────────────────────────────────────────────────────────
-  async function handleUpdate(field: 'name' | 'phone', value: string) {
-    const payload = field === 'phone'
-      ? { phone: value.replace(/\D/g, '') }
-      : { name: value }
+  async function handleUpdate(field: 'name' | 'phone' | 'email' | 'cpf', value: string) {
+    const payload =
+      field === 'phone' ? { phone: value.replace(/\D/g, '') } :
+      field === 'cpf'   ? { cpf:   value.replace(/\D/g, '') || null } :
+      field === 'email' ? { email: value.trim() || null } :
+                          { name:  value }
     const res = await api.put(`/clients/${id}`, payload)
     const updated = res.data?.data ?? res.data
     setClient(prev => prev ? { ...prev, [field]: updated[field] } : prev)
@@ -592,6 +596,20 @@ export default function ClientProfilePage() {
                 mask={maskPhone}
                 isMobile={isMobile}
                 inputMode="tel"
+              />
+              <EditableField
+                label="Email"
+                value={client.email ?? ''}
+                onSave={v => handleUpdate('email', v)}
+                isMobile={isMobile}
+                inputMode="email"
+              />
+              <EditableField
+                label="CPF"
+                value={client.cpf ?? ''}
+                onSave={v => handleUpdate('cpf', v)}
+                isMobile={isMobile}
+                inputMode="numeric"
               />
 
               {/* Campos readonly — futuros */}

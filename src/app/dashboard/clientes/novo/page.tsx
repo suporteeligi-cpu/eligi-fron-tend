@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, User, Phone, Check } from 'lucide-react'
+import { ChevronLeft, User, Phone, Check, Mail, FileText } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, radius, shadows, transitions, glass } from '@/shared/theme'
 
@@ -15,11 +15,21 @@ function formatPhone(value: string): string {
   return value
 }
 
+function formatCPF(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 3)  return d
+  if (d.length <= 6)  return `${d.slice(0,3)}.${d.slice(3)}`
+  if (d.length <= 9)  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`
+  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`
+}
+
 export default function NovoClientePage() {
   const router = useRouter()
 
   const [name,    setName]    = useState('')
   const [phone,   setPhone]   = useState('')
+  const [email,   setEmail]   = useState('')
+  const [cpf,     setCpf]     = useState('')
   const [saving,  setSaving]  = useState(false)
   const [success, setSuccess] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
@@ -37,6 +47,8 @@ export default function NovoClientePage() {
       const res = await api.post('/clients', {
         name:  name.trim(),
         phone: phone.replace(/\D/g,''),
+        email: email.trim() || null,
+        cpf:   cpf.replace(/\D/g,'') || null,
       })
       const client = res.data?.data ?? res.data
       setSuccess(true)
@@ -139,6 +151,37 @@ export default function NovoClientePage() {
                   onChange={e => handlePhone(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSave()}
                   inputMode="tel"
+                />
+              </div>
+            </div>
+            {/* Email (opcional) */}
+            <div>
+              <label className="nc-label">Email <span style={{ textTransform:'none', fontWeight:500, color:colors.gray.dimTextLight }}>(opcional)</span></label>
+              <div style={{ position:'relative' }}>
+                <Mail size={15} color={colors.gray.dimText} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} />
+                <input
+                  className="nc-input"
+                  placeholder="cliente@email.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSave()}
+                  inputMode="email"
+                  type="email"
+                />
+              </div>
+            </div>
+            {/* CPF (opcional) */}
+            <div>
+              <label className="nc-label">CPF <span style={{ textTransform:'none', fontWeight:500, color:colors.gray.dimTextLight }}>(opcional)</span></label>
+              <div style={{ position:'relative' }}>
+                <FileText size={15} color={colors.gray.dimText} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} />
+                <input
+                  className="nc-input"
+                  placeholder="000.000.000-00"
+                  value={cpf}
+                  onChange={e => setCpf(formatCPF(e.target.value))}
+                  onKeyDown={e => e.key === 'Enter' && handleSave()}
+                  inputMode="numeric"
                 />
               </div>
             </div>
