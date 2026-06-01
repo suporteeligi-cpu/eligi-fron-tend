@@ -14,6 +14,7 @@ import ClientsStatsBar      from './components/ClientsStatsBar'
 import ClientsSearchBar     from './components/ClientsSearchBar'
 import ClientsTableDesktop  from './components/ClientsTableDesktop'
 import ClientsListMobile    from './components/ClientsListMobile'
+import ImportClientsModal   from './components/ImportClientsModal'
 
 export default function ClientesPage() {
   const router = useRouter()
@@ -28,6 +29,7 @@ export default function ClientesPage() {
   const [search,   setSearch]   = useState('')
   const [sort,     setSort]     = useState('createdAt:desc')
   const [loading,  setLoading]  = useState(true)
+  const [showImport, setShowImport] = useState(false)
 
   const fetchClients = useCallback(async (q: string, p: number, s: string, signal?: AbortSignal) => {
     try {
@@ -116,7 +118,14 @@ export default function ClientesPage() {
         fontFamily: typography.fontFamily,
       }}>
 
-        <ClientsHeader totalClients={totalAll} isMobile={isMobile} />
+        {showImport && (
+          <ImportClientsModal
+            isMobile={isMobile}
+            onClose={() => setShowImport(false)}
+            onDone={() => fetchClients(search, 1, sort)}
+          />
+        )}
+        <ClientsHeader totalClients={totalAll} isMobile={isMobile} onImport={() => setShowImport(true)} />
 
         <ClientsStatsBar
           totalClients={totalAll}

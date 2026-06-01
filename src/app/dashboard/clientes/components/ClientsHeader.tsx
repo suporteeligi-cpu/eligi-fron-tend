@@ -2,15 +2,16 @@
 // src/app/dashboard/clientes/components/ClientsHeader.tsx
 
 import { useRouter } from 'next/navigation'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, Upload } from 'lucide-react'
 import { colors, typography, radius, shadows } from '@/shared/theme'
 
 interface Props {
   totalClients: number
   isMobile:     boolean
+  onImport:     () => void
 }
 
-export default function ClientsHeader({ totalClients, isMobile }: Props) {
+export default function ClientsHeader({ totalClients, isMobile, onImport }: Props) {
   const router = useRouter()
 
   return (
@@ -40,6 +41,25 @@ export default function ClientsHeader({ totalClients, isMobile }: Props) {
         )}
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      <button
+        onClick={onImport}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: isMobile ? '9px 12px' : '9px 14px',
+          borderRadius: radius.md,
+          border: `1px solid ${colors.gray.borderMd}`,
+          background: '#fff',
+          color: colors.gray[700],
+          fontSize: isMobile ? typography.scale.sm : typography.scale.base,
+          fontWeight: typography.weight.semibold,
+          cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <Upload size={isMobile ? 14 : 15} strokeWidth={2.5} />
+        {isMobile ? '' : 'Importar'}
+      </button>
       <button
         onClick={() => router.push('/dashboard/clientes/novo')}
         style={{
@@ -63,6 +83,7 @@ export default function ClientsHeader({ totalClients, isMobile }: Props) {
         <UserPlus size={isMobile ? 14 : 15} strokeWidth={2.5} />
         {isMobile ? 'Novo' : 'Novo cliente'}
       </button>
+      </div>
     </div>
   )
 }
