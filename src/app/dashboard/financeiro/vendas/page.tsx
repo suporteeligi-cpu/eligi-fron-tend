@@ -34,6 +34,7 @@ export default function VendasPage() {
       if (f.status)         params.status = f.status
       if (f.professionalId) params.professionalId = f.professionalId
       if (f.method)         params.method = f.method
+      if (f.itemType)       params.itemType = f.itemType
       if (f.clientSearch)   params.clientSearch = f.clientSearch
       params.page = f.page ?? 1
 

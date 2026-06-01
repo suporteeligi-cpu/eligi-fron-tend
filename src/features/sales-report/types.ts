@@ -48,12 +48,15 @@ export interface SalesReportResponse {
   summary: SalesReportSummary
 }
 
+export type SaleItemType = 'SERVICE' | 'PRODUCT' | 'PACKAGE'
+
 export interface SalesReportFilters {
   dateFrom?:       string
   dateTo?:         string
   status?:         SaleReportStatus
   professionalId?: string
   method?:         PaymentMethod
+  itemType?:       SaleItemType
   clientSearch?:   string
   page?:           number
 }

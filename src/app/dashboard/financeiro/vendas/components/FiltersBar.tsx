@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { Search, X } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, radius } from '@/shared/theme'
-import { SalesReportFilters, SaleReportStatus, PaymentMethod } from '@/features/sales-report/types'
+import { SalesReportFilters, SaleReportStatus, PaymentMethod, SaleItemType } from '@/features/sales-report/types'
 
 interface ProfLite { id: string; name: string }
 
@@ -29,6 +29,12 @@ const METHOD_OPTS: Array<{ value: PaymentMethod | ''; label: string }> = [
   { value: 'DEBIT',    label: 'Débito' },
   { value: 'TRANSFER', label: 'Transferência' },
   { value: 'OTHER',    label: 'Outros' },
+]
+const ITEM_TYPE_OPTS: Array<{ value: SaleItemType | ''; label: string }> = [
+  { value: '',        label: 'Todas categorias' },
+  { value: 'SERVICE', label: 'Serviços' },
+  { value: 'PRODUCT', label: 'Produtos' },
+  { value: 'PACKAGE', label: 'Pacotes' },
 ]
 
 export default function FiltersBar({ filters, onChange, isMobile }: Props) {
@@ -116,7 +122,7 @@ export default function FiltersBar({ filters, onChange, isMobile }: Props) {
       {/* Linha 2: selects + busca cliente */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr 1fr' : 'auto auto auto 1fr',
+        gridTemplateColumns: isMobile ? '1fr 1fr' : 'auto auto auto auto 1fr',
         gap: 8,
         alignItems: 'center',
       }}>
@@ -134,6 +140,13 @@ export default function FiltersBar({ filters, onChange, isMobile }: Props) {
           style={selectStyle}
         >
           {METHOD_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select
+          value={filters.itemType ?? ''}
+          onChange={e => onChange({ itemType: (e.target.value || undefined) as SaleItemType | undefined, page: 1 })}
+          style={selectStyle}
+        >
+          {ITEM_TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
 
         <select
