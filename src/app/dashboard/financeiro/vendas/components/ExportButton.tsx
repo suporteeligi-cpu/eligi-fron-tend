@@ -34,6 +34,7 @@ export default function ExportButton({ filters, disabled }: Props) {
     if (filters.status)         params.status = filters.status
     if (filters.professionalId) params.professionalId = filters.professionalId
     if (filters.method)         params.method = filters.method
+    if (filters.itemType)       params.itemType = filters.itemType
     if (filters.clientSearch)   params.clientSearch = filters.clientSearch
 
     const res = await api.get('/sales/report/export', { params })
