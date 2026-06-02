@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react'
 import {
-  Search, X, Package, AlertTriangle, Layers,
+  Search, X, Package, Clock, AlertTriangle, Layers,
 } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -12,17 +12,19 @@ import { CatalogProduct, CatalogPackage } from '@/features/sales/types'
 type Tab = 'product' | 'package'
 
 interface Props {
+  services: CatalogService[]
   products: CatalogProduct[]
   packages: CatalogPackage[]
   loading:  boolean
   isMobile: boolean
+  onAddService: (service: CatalogService) => void
   onAddProduct: (product: CatalogProduct) => void
   onAddPackage: (pkg: CatalogPackage) => void
 }
 
 export default function CatalogPanel({
-  products, packages, loading, isMobile,
-  onAddProduct, onAddPackage,
+  services, products, packages, loading, isMobile,
+  onAddService, onAddProduct, onAddPackage,
 }: Props) {
   const [tab,   setTab]   = useState<Tab>('product')
   const [query, setQuery] = useState('')
@@ -202,6 +204,64 @@ export default function CatalogPanel({
         )}
       </div>
     </div>
+  )
+}
+
+function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; isMobile: boolean; onClick: () => void }) {
+  const dot = service.color ?? colors.red.DEFAULT
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: isMobile ? '12px' : '10px',
+        background: '#fff',
+        border: `1px solid ${colors.gray.border}`,
+        borderRadius: 11,
+        cursor: 'pointer',
+        textAlign: 'left',
+        fontFamily: 'inherit',
+        transition: `all 0.15s ease`,
+        WebkitTapHighlightColor: 'transparent',
+        position: 'relative',
+        overflow: 'hidden',
+        minHeight: isMobile ? 84 : 'auto',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = dot
+        e.currentTarget.style.transform = 'translateY(-1px)'
+        e.currentTarget.style.boxShadow = `0 4px 14px ${dot}30`
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = colors.gray.border
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = 'none'
+      }}
+    >
+      <div style={{
+        position: 'absolute', top: 0, left: 0, bottom: 0,
+        width: 3, background: dot,
+      }} />
+      <div style={{
+        fontSize: isMobile ? 13 : 12, fontWeight: 700,
+        color: colors.gray[900],
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        paddingLeft: 6,
+      }}>{service.name}</div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        fontSize: 10, color: colors.gray.dimText,
+        paddingLeft: 6,
+      }}>
+        <Clock size={9} />
+        <span>{service.duration}min</span>
+      </div>
+      <div style={{
+        fontSize: isMobile ? 14 : 13, fontWeight: 700,
+        color: dot, fontVariantNumeric: 'tabular-nums',
+        paddingLeft: 6, marginTop: 'auto',
+      }}>{service.price != null ? formatBRL(service.price) : '—'}</div>
+    </button>
   )
 }
 

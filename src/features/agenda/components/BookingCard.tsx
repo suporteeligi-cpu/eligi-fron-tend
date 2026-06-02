@@ -2,7 +2,6 @@
 // src/features/agenda/components/BookingCard.tsx
 // Card de agendamento desktop. Layout adaptativo por altura.
 
-import { Receipt } from 'lucide-react'
 import { AgendaBooking, BookingStatus } from '../types'
 import { bookingStatus } from '@/shared/theme'
 import { colorToGradient, colorToGlow } from '@/features/agenda/constants/serviceColors'

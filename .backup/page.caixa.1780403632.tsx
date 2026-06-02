@@ -9,7 +9,7 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  Sale, CatalogProduct, CatalogPackage, ProfLite, SaleItemType,
+  Sale, CatalogService, CatalogProduct, CatalogPackage, ProfLite, SaleItemType,
 } from '@/features/sales/types'
 import { useSalesSummary } from '@/features/sales/hooks/useSalesSummary'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -47,6 +47,7 @@ export default function CaixaPage() {
   const cleanupShownRef = useRef(false)
 
   // Catálogo
+  const [services,        setServices]        = useState<CatalogService[]>([])
   const [products,        setProducts]        = useState<CatalogProduct[]>([])
   const [packages,        setPackages]        = useState<CatalogPackage[]>([])  // ⭐ NOVO
   const [professionals,   setProfessionals]   = useState<ProfLite[]>([])
@@ -123,17 +124,20 @@ export default function CaixaPage() {
   // ⭐ Carrega catálogo: services + products + packages + professionals
   const fetchCatalog = useCallback(async (signal?: AbortSignal) => {
     try {
-      const [prdRes, pkgRes, profRes] = await Promise.all([
+      const [svcRes, prdRes, pkgRes, profRes] = await Promise.all([
+        api.get('/services',         { signal }),
         api.get('/products',         { signal }),
         api.get('/packages',         { params: { active: true }, signal }),  // ⭐ NOVO
         api.get('/equipe',           { signal }),
       ])
       if (signal?.aborted) return
 
+      const svcData  = svcRes.data?.data  ?? svcRes.data
       const prdData  = prdRes.data?.data  ?? prdRes.data
       const pkgData  = pkgRes.data?.data  ?? pkgRes.data
       const profData = profRes.data?.data ?? profRes.data
 
+      setServices(Array.isArray(svcData) ? svcData : svcData.services ?? [])
       setProducts(Array.isArray(prdData) ? prdData : prdData.products ?? [])
       setPackages(Array.isArray(pkgData) ? pkgData : [])  // ⭐ NOVO
       setProfessionals(
@@ -145,6 +149,7 @@ export default function CaixaPage() {
       )
     } catch {
       if (!signal?.aborted) {
+        setServices([])
         setProducts([])
         setPackages([])
         setProfessionals([])
@@ -189,6 +194,30 @@ export default function CaixaPage() {
       const data = res.data?.data ?? res.data
       updateSaleInList(data)
     } catch { /* silencioso */ }
+  }
+
+  async function addService(service: CatalogService) {
+    if (!activeSaleId) {
+      try {
+        const res = await api.post('/sales', {})
+        const newSale: Sale = res.data?.data ?? res.data
+        setOpenSales([newSale])
+        setActiveSaleId(newSale.id)
+        await addItemToSale(newSale.id, {
+          type: 'SERVICE',
+          serviceId: service.id,
+          professionalId: globalProfId,
+        })
+      } catch {
+        setToast({ message: 'Erro ao criar venda', kind: 'error' })
+      }
+      return
+    }
+    await addItemToSale(activeSaleId, {
+      type: 'SERVICE',
+      serviceId: service.id,
+      professionalId: globalProfId,
+    })
   }
 
   async function addProduct(product: CatalogProduct) {
@@ -433,6 +462,7 @@ export default function CaixaPage() {
           <OpenTab
             openSales={openSales}
             activeSale={activeSale}
+            services={services}
             products={products}
             packages={packages}            /* ⭐ NOVO */
             professionals={professionals}
@@ -442,6 +472,7 @@ export default function CaixaPage() {
             creating={creating}
             isMobile={isMobile}
             onCreateNew={createNewSale}
+            onAddService={addService}
             onAddProduct={addProduct}
             onAddPackage={addPackage}      /* ⭐ NOVO */
             onSaleUpdated={updateSaleInList}
@@ -474,6 +505,7 @@ export default function CaixaPage() {
 interface OpenTabProps {
   openSales:       Sale[]
   activeSale:      Sale | null
+  services:        CatalogService[]
   products:        CatalogProduct[]
   packages:        CatalogPackage[]      // ⭐ NOVO
   professionals:   ProfLite[]
@@ -483,6 +515,7 @@ interface OpenTabProps {
   creating:        boolean
   isMobile:        boolean
   onCreateNew:     () => void
+  onAddService:    (s: CatalogService) => void
   onAddProduct:    (p: CatalogProduct) => void
   onAddPackage:    (p: CatalogPackage) => void   // ⭐ NOVO
   onSaleUpdated:   (s: Sale) => void
@@ -574,10 +607,12 @@ function OpenTab(props: OpenTabProps) {
               marginBottom: 12,
             }}>
               <CatalogPanel
+                services={props.services}
                 products={props.products}
                 packages={props.packages}             /* ⭐ NOVO */
                 loading={props.catalogLoading}
                 isMobile={props.isMobile}
+                onAddService={props.onAddService}
                 onAddProduct={props.onAddProduct}
                 onAddPackage={props.onAddPackage}     /* ⭐ NOVO */
               />
@@ -705,10 +740,12 @@ function OpenTab(props: OpenTabProps) {
           display: 'flex', flexDirection: 'column',
         }}>
           <CatalogPanel
+            services={props.services}
             products={props.products}
             packages={props.packages}             /* ⭐ NOVO */
             loading={props.catalogLoading}
             isMobile={props.isMobile}
+            onAddService={props.onAddService}
             onAddProduct={props.onAddProduct}
             onAddPackage={props.onAddPackage}     /* ⭐ NOVO */
           />
