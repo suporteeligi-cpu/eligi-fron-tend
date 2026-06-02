@@ -1,6 +1,7 @@
 'use client'
 // src/features/agenda/components/shared/MobileBookingCard.tsx
 
+import { Receipt } from 'lucide-react'
 import { AgendaBooking } from '../../types'
 import { bookingStatus } from '@/shared/theme'
 import { colorToGradient, colorToGlow } from '@/features/agenda/constants/serviceColors'
@@ -52,6 +53,19 @@ export default function MobileBookingCard({ booking, height, isDragging = false 
         background:'linear-gradient(180deg,rgba(255,255,255,0.16) 0%,transparent 100%)',
         borderRadius:'10px 10px 0 0', pointerEvents:'none',
       }} />
+      {/* Selo "pago / checkout completo" */}
+      {booking.isPaid && !isMicro && (
+        <div aria-hidden style={{
+          position:'absolute', top:4, right:4,
+          width:18, height:18, borderRadius:'50%',
+          background:'#fff',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow:'0 1px 4px rgba(0,0,0,0.25)',
+          pointerEvents:'none', zIndex:2,
+        }}>
+          <Receipt size={11} color="#15803d" strokeWidth={2.4} />
+        </div>
+      )}
       {/* Barra lateral */}
       {!isMicro && (
         <div aria-hidden style={{
