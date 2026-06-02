@@ -69,7 +69,6 @@ interface ServiceItem {
   startTime: string
   endTime:   string
   profId:    string
-  mode?:     'after' | 'parallel'   // só relevante para idx >= 1 (1º item não tem âncora)
 }
 
 interface Props {
@@ -108,55 +107,6 @@ function fmtPhone(p: string) {
 }
 function getInitials(name: string) {
   return name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
-}
-
-// ─── Helpers de cadeia (Frente 2: paralelo/sequencial) ─────────────────────────
-function toMin(t: string): number {
-  const [h, m] = t.split(':').map(Number)
-  return (h || 0) * 60 + (m || 0)
-}
-
-// Re-deriva startTime/endTime a partir de `fromIdx`.
-// Itens [0..fromIdx) ficam intactos (valores manuais preservados);
-// itens [fromIdx..] têm o start derivado da cadeia conforme o `mode`:
-//   'parallel' → mesmo início do item anterior · 'after' → começa no fim do anterior.
-// O 1º item (idx 0) nunca é derivado: mantém o start, só recalcula o fim.
-function recomputeFrom(items: ServiceItem[], fromIdx: number): ServiceItem[] {
-  const out: ServiceItem[] = items.slice(0, Math.max(0, fromIdx)).map(x => ({ ...x }))
-  for (let i = Math.max(0, fromIdx); i < items.length; i++) {
-    const it = items[i]
-    if (i === 0) {
-      const endTime = it.service ? addMinutes(it.startTime, it.service.duration) : it.endTime
-      out.push({ ...it, endTime })
-      continue
-    }
-    const prev      = out[i - 1]
-    const startTime = it.mode === 'parallel'
-      ? prev.startTime
-      : (prev.endTime || prev.startTime)
-    const endTime   = it.service ? addMinutes(startTime, it.service.duration) : startTime
-    out.push({ ...it, startTime, endTime })
-  }
-  return out
-}
-
-// Escolhe o 1º profissional que NÃO está ocupado por outro item do painel
-// no intervalo [start, end). Usado ao virar um item para 'parallel'.
-// Fallback: null (mantém o prof atual) quando todos estão ocupados.
-function pickFreeProf(
-  items: ServiceItem[], idx: number, start: string, end: string,
-  professionals: AgendaProfessional[],
-): string | null {
-  const s = toMin(start)
-  const e = toMin(end || start)
-  const used = new Set<string>()
-  items.forEach((it, i) => {
-    if (i === idx || !it.profId) return
-    const is = toMin(it.startTime)
-    const ie = toMin(it.endTime || it.startTime)
-    if (is < e && ie > s) used.add(it.profId)
-  })
-  return professionals.find(p => !used.has(p.id))?.id ?? null
 }
 
 // ─── TimeWheel ────────────────────────────────────────────────────────────────
@@ -716,66 +666,46 @@ export default function SideCheckoutPanel({
 
   function handleServiceSelect(svc: Service) {
     setItems(prev => {
-      const next = prev.map(x => ({ ...x }))
-      let changedIdx: number
+      const next = [...prev]
 
       if (addingSvcIdx === -1) {
-        // Novo item: nasce sequencial ('after') e herda o prof do 1º item.
-        // start/fim são derivados logo abaixo pela cadeia (recomputeFrom).
+        const last   = next[next.length - 1]
+        const startT = (last?.endTime && last.endTime !== '')
+          ? last.endTime
+          : (last?.startTime || time || '09:00')
+        const endT   = addMinutes(startT, svc.duration)
         next.push({
           service:   svc,
-          startTime: next[next.length - 1]?.startTime || time || '09:00',
-          endTime:   '',
+          startTime: startT,
+          endTime:   endT,
           profId:    next[0]?.profId ?? professionals[0]?.id ?? '',
-          mode:      'after',
         })
-        changedIdx = next.length - 1
       } else {
-        // Edição do serviço de um item existente: troca o serviço e deixa
-        // a cadeia recalcular os tempos (a duração pode ter mudado).
-        changedIdx = addingSvcIdx
-        next[changedIdx] = { ...next[changedIdx], service: svc }
+        const idx    = addingSvcIdx
+        const startT = idx === 0
+          ? (next[0]?.startTime || time || '09:00')
+          : (next[idx-1]?.endTime || next[idx-1]?.startTime || '09:00')
+        const endT   = addMinutes(startT, svc.duration)
+        next[idx] = { ...next[idx], service: svc, startTime: startT, endTime: endT }
       }
-
-      return recomputeFrom(next, changedIdx)
+      return next
     })
     setAddingSvcIdx(-1)
   }
 
   function updateItemTime(idx: number, field: 'startTime'|'endTime', val: string) {
     setItems(prev => {
-      const next = prev.map(x => ({ ...x }))
+      const next = [...prev]
       next[idx]  = { ...next[idx], [field]: val }
       if (field === 'startTime' && next[idx].service) {
         next[idx].endTime = addMinutes(val, next[idx].service.duration)
       }
-      // Ajuste manual é "rei" para ESTE item; os itens seguintes (após idx)
-      // re-snapeiam conforme seus modos.
-      return recomputeFrom(next, idx + 1)
+      return next
     })
   }
 
   function removeItem(idx: number) {
-    setItems(prev => recomputeFrom(prev.filter((_,i) => i !== idx), idx))
-  }
-
-  // ── Alterna modo do item (Frente 2): sequencial ⇄ paralelo ────────────────
-  function setItemMode(idx: number, mode: 'after' | 'parallel') {
-    if (idx < 1) return  // 1º item não tem âncora
-    setItems(prev => {
-      const next = prev.map(x => ({ ...x }))
-      next[idx]  = { ...next[idx], mode }
-      // Re-deriva o start deste item (e cascateia para os seguintes).
-      const recomputed = recomputeFrom(next, idx)
-      // Ao virar paralelo, puxa o próximo profissional livre nesse horário —
-      // senão o paralelo com o mesmo prof nasceria em conflito.
-      if (mode === 'parallel') {
-        const it   = recomputed[idx]
-        const free = pickFreeProf(recomputed, idx, it.startTime, it.endTime, professionals)
-        if (free) recomputed[idx] = { ...recomputed[idx], profId: free }
-      }
-      return recomputed
-    })
+    setItems(prev => prev.filter((_,i) => i !== idx))
   }
 
   // ── SAVE ──────────────────────────────────────────────────────────────────
@@ -895,8 +825,6 @@ export default function SideCheckoutPanel({
         .cp-note:focus{border-color:${colors.red.borderHover}}
         .add-svc-btn{width:100%;display:flex;align-items:center;gap:8;padding:11px 14px;border-radius:${radius.sm}px;border:1.5px dashed ${colors.red.border};background:transparent;cursor:pointer;color:${colors.red.DEFAULT};font-size:13px;font-weight:600;transition:all ${transitions.fast};font-family:${typography.fontFamily}}
         .add-svc-btn:hover{background:${colors.red.subtle};border-color:${colors.red.DEFAULT}}
-        .cp-seg-btn{flex:1;padding:8px 6px;border-radius:9px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-size:12px;font-weight:600;cursor:pointer;color:${colors.gray[700]};transition:all ${transitions.fast};font-family:${typography.fontFamily};white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:4px}
-        .cp-seg-btn.sel{background:${colors.red.gradient};color:#fff;border-color:transparent;box-shadow:0 2px 8px ${colors.red.glow}}
       `}</style>
 
       {showSvcSheet && (
@@ -1016,14 +944,6 @@ export default function SideCheckoutPanel({
                         <span className="cp-lbl" style={{margin:0}}>Serviço {items.length>1?`${idx+1}`:'*'}</span>
                         {idx>0&&<button onClick={()=>removeItem(idx)} style={{background:'none',border:'none',cursor:'pointer',padding:2,display:'flex'}}><Trash2 size={14} color={colors.gray.dimText}/></button>}
                       </div>
-
-                      {/* Frente 2: relação temporal com o item anterior (só do 2º item em diante) */}
-                      {idx > 0 && (
-                        <div style={{display:'flex',gap:6,padding:'10px 14px',borderBottom:`1px solid ${colors.gray.border}`}}>
-                          <button className={`cp-seg-btn${(item.mode ?? 'after')==='after'?' sel':''}`} onClick={()=>setItemMode(idx,'after')}>↳ Após anterior</button>
-                          <button className={`cp-seg-btn${item.mode==='parallel'?' sel':''}`} onClick={()=>setItemMode(idx,'parallel')}>∥ Em paralelo</button>
-                        </div>
-                      )}
 
                       <button className={`cp-svc${item.service?' has-value':''}`} style={{borderRadius:0,border:'none',borderBottom:`1px solid ${colors.gray.border}`}} onClick={()=>{setAddingSvcIdx(idx);setShowSvcSheet(true)}}>
                         <div>
