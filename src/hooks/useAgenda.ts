@@ -19,6 +19,7 @@ interface ApiBooking {
   start:     string   // "HH:mm"
   end:       string   // "HH:mm"
   status?:   string
+  isPaid?:   boolean
   // legado
   time?:     string
   duration?: number
@@ -60,6 +61,7 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
     start,
     end,
     status,
+    isPaid:         b.isPaid ?? false,
   }
 }
 

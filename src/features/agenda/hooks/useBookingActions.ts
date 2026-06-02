@@ -27,6 +27,7 @@ interface ApiBookingResponse {
   startAt:         string
   endAt:           string
   status:          AgendaBooking['status']
+  isPaid?:         boolean
 }
 
 function mapBookingResponse(b: ApiBookingResponse, bookingId: string, fallbackProfId: string): AgendaBooking {
@@ -39,6 +40,7 @@ function mapBookingResponse(b: ApiBookingResponse, bookingId: string, fallbackPr
     start:          dayjs(b.startAt).tz('America/Sao_Paulo').format('HH:mm'),
     end:            dayjs(b.endAt).tz('America/Sao_Paulo').format('HH:mm'),
     status:         b.status,
+    isPaid:         b.isPaid,
   }
 }
 
