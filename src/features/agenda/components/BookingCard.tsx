@@ -96,9 +96,9 @@ export default function BookingCard({ booking, totalHeight }: Props) {
           width:16, height:16, pointerEvents:'none', zIndex:2,
           filter:'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
         }}>
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <path d="M4 2h16v20l-2.7-1.6L14.7 22 12 20.4 9.3 22 6.7 20.4 4 22V2z" fill="#fff"/>
-            <text x="12" y="15.5" textAnchor="middle" fontSize="12" fontWeight="800" fill="#15803d" fontFamily="system-ui, sans-serif">$</text>
+          <svg viewBox="0 0 24 24" width="19" height="19">
+            <path d="M4 2h16v20l-2.7-1.6L14.7 22 12 20.4 9.3 22 6.7 20.4 4 22V2z" fill="#00b80c"/>
+            <text x="12" y="16.5" textAnchor="middle" fontSize="15" fontWeight="900" fill="#ffffff" fontFamily="system-ui, sans-serif">$</text>
           </svg>
         </div>
       )}
