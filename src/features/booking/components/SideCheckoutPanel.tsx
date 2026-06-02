@@ -728,7 +728,7 @@ export default function SideCheckoutPanel({
           professionalId: it.profId || null,
           startAt,
           clientId:       selectedClient?.id ?? null,        // ⭐ NEW: linka com Client cadastrado
-          clientName:     selectedClient?.name ?? 'Chegada',
+          clientName:     selectedClient?.name ?? 'Avulso', // ⭐ NEW: mantém nome mesmo com cliente linkado (pode ser editável futuramente)
           clientPhone:    selectedClient?.phone ?? undefined,
           allowOverlap,
         })
@@ -750,7 +750,7 @@ export default function SideCheckoutPanel({
           const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
           return api.post('/bookings/confirm', {
             clientId:       selectedClient?.id ?? null,      // ⭐ NEW: linka com Client cadastrado
-            clientName:     selectedClient?.name ?? 'Chegada',
+            clientName:     selectedClient?.name ?? 'Avulso', // ⭐ NEW: mantém nome mesmo com cliente linkado (pode ser editável futuramente)
             clientPhone:    selectedClient?.phone ?? '',
             professionalId: it.profId,
             serviceId:      it.service.id,
