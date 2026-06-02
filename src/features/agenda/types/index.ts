@@ -17,6 +17,7 @@ export type AgendaBooking = {
   start:          string   // "HH:mm"
   end:            string   // "HH:mm"
   status:         BookingStatus
+  isPaid?:        boolean  // tem venda CONFIRMED ligada (checkout completo)
 }
 
 export type AgendaBlock = {

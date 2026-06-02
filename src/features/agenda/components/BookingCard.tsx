@@ -2,6 +2,7 @@
 // src/features/agenda/components/BookingCard.tsx
 // Card de agendamento desktop. Layout adaptativo por altura.
 
+import { Receipt } from 'lucide-react'
 import { AgendaBooking, BookingStatus } from '../types'
 import { bookingStatus } from '@/shared/theme'
 import { colorToGradient, colorToGlow } from '@/features/agenda/constants/serviceColors'
@@ -88,6 +89,19 @@ export default function BookingCard({ booking, totalHeight }: Props) {
         borderRadius:'7px 7px 0 0',
         pointerEvents:'none',
       }} />
+      {/* Selo "pago / checkout completo" — círculo branco com Receipt */}
+      {booking.isPaid && !isMicro && (
+        <div aria-hidden style={{
+          position:'absolute', top:4, right:4,
+          width:18, height:18, borderRadius:'50%',
+          background:'#fff',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow:'0 1px 4px rgba(0,0,0,0.25)',
+          pointerEvents:'none', zIndex:2,
+        }}>
+          <Receipt size={11} color="#15803d" strokeWidth={2.4} />
+        </div>
+      )}
 
       {/* Barra lateral esquerda */}
       {!isMicro && (
