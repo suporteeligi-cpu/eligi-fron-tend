@@ -415,7 +415,7 @@ export default function AppNavbar() {
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
       {showNotifs && <NotifPanel onClose={() => { setShowNotifs(false); setUnreadCount(0) }} isMobile={isMobile} />}
 
-      <div style={{ position:'fixed', top:16, left:0, right:0, display:'flex', justifyContent:'center', zIndex:1000, pointerEvents:'none' }}>
+      <div style={{ position:'fixed', top:16, left:0, right:0, display:'flex', justifyContent:'center', zIndex:1000, pointerEvents:'none', animation:'eligi-navbar-in 380ms cubic-bezier(.22,1,.36,1) both' }}>
         <header style={{
           pointerEvents:'auto',
           position:'relative',
@@ -433,7 +433,6 @@ export default function AppNavbar() {
             ? `0 8px 32px var(--glass-shadow), 0 2px 8px var(--glass-shadow), 0 1px 0 var(--glass-shine) inset`
             : `0 4px 20px var(--glass-shadow), 0 1px 0 var(--glass-shine) inset`,
           transition:'all 280ms cubic-bezier(.4,0,.2,1)',
-          animation:'eligi-navbar-in 380ms cubic-bezier(.22,1,.36,1) both',
           overflow:'hidden',
         }}>
           {/* Specular shine */}
