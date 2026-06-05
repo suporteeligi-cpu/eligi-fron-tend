@@ -5,13 +5,16 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
+import { type BusinessTheme } from '@/shared/profileTheme'
 
 import TimezoneCard from './components/TimezoneCard'
+import ProfileThemeEditor from '@/features/settings/components/ProfileThemeEditor'
 
 interface BusinessSettings {
   id:       string
   name:     string
   timezone: string
+  theme:    BusinessTheme
 }
 
 export default function EmpresaPage() {
@@ -43,7 +46,7 @@ export default function EmpresaPage() {
       `}</style>
 
       <div style={{
-        maxWidth: 720,
+        maxWidth: 980,
         animation: 'fadeUp 0.3s ease',
         fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
       }}>
@@ -101,23 +104,50 @@ export default function EmpresaPage() {
             {error ?? 'Erro ao carregar configurações'}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <TimezoneCard
-              initialTimezone={data.timezone}
-              onSaved={(tz) => setData(d => d ? { ...d, timezone: tz } : d)}
-            />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720 }}>
+              <TimezoneCard
+                initialTimezone={data.timezone}
+                onSaved={(tz) => setData(d => d ? { ...d, timezone: tz } : d)}
+              />
 
-            {/* Placeholder pra futuras seções */}
-            <div style={{
-              padding: '16px 20px',
-              background: 'rgba(255,255,255,0.6)',
-              borderRadius: 14,
-              border: '1px dashed rgba(0,0,0,0.10)',
-              fontSize: 12,
-              color: 'rgba(0,0,0,0.45)',
-              textAlign: 'center',
-            }}>
-              Outras configurações (nome, endereço, logo) em breve.
+              {/* Placeholder pra futuras seções */}
+              <div style={{
+                padding: '16px 20px',
+                background: 'rgba(255,255,255,0.6)',
+                borderRadius: 14,
+                border: '1px dashed rgba(0,0,0,0.10)',
+                fontSize: 12,
+                color: 'rgba(0,0,0,0.45)',
+                textAlign: 'center',
+              }}>
+                Outras configurações (nome, endereço, logo) em breve.
+              </div>
+            </div>
+
+            {/* Aparência do perfil público */}
+            <div>
+              <h3 style={{
+                margin: '0 0 4px',
+                fontSize: 16,
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                color: '#0f0f14',
+              }}>
+                Aparência do perfil público
+              </h3>
+              <p style={{
+                margin: '0 0 16px',
+                fontSize: 13,
+                color: 'rgba(0,0,0,0.45)',
+              }}>
+                Personalize as cores que seus clientes veem na página de agendamento.
+              </p>
+
+              <ProfileThemeEditor
+                initialTheme={data.theme}
+                onSaved={(theme) => setData(d => d ? { ...d, theme } : d)}
+              />
             </div>
           </div>
         )}
