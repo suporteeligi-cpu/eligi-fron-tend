@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Palette, ChevronDown } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { type BusinessTheme } from '@/shared/profileTheme'
 
@@ -22,6 +22,7 @@ export default function EmpresaPage() {
   const [data, setData]       = useState<BusinessSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
+  const [showTheme, setShowTheme] = useState(false)
 
   const fetch = useCallback(async () => {
     try {
@@ -46,7 +47,8 @@ export default function EmpresaPage() {
       `}</style>
 
       <div style={{
-        maxWidth: 980,
+        maxWidth: showTheme ? 980 : 720,
+        transition: 'max-width 0.3s ease',
         animation: 'fadeUp 0.3s ease',
         fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
       }}>
@@ -104,12 +106,61 @@ export default function EmpresaPage() {
             {error ?? 'Erro ao carregar configurações'}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720 }}>
               <TimezoneCard
                 initialTimezone={data.timezone}
                 onSaved={(tz) => setData(d => d ? { ...d, timezone: tz } : d)}
               />
+
+              {/* Botão Aparência — abre/fecha o editor de cores */}
+              <button
+                onClick={() => setShowTheme(v => !v)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '16px 18px',
+                  background: showTheme ? 'rgba(220,38,38,0.04)' : 'rgba(255,255,255,0.7)',
+                  border: `1px solid ${showTheme ? 'rgba(220,38,38,0.20)' : 'rgba(0,0,0,0.08)'}`,
+                  borderRadius: 14,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'background 0.2s ease, border-color 0.2s ease',
+                }}
+              >
+                <span style={{
+                  display: 'grid',
+                  placeItems: 'center',
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: 'linear-gradient(135deg,#dc2626,#b91c1c)',
+                  color: '#fff',
+                  flex: 'none',
+                }}>
+                  <Palette size={18} />
+                </span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#0f0f14' }}>
+                    Aparência do perfil público
+                  </span>
+                  <span style={{ display: 'block', fontSize: 12.5, color: 'rgba(0,0,0,0.45)', marginTop: 2 }}>
+                    Cores da página de agendamento — botão, fundo, selects
+                  </span>
+                </span>
+                <ChevronDown
+                  size={18}
+                  style={{
+                    color: 'rgba(0,0,0,0.4)',
+                    flex: 'none',
+                    transition: 'transform 0.2s ease',
+                    transform: showTheme ? 'rotate(180deg)' : 'none',
+                  }}
+                />
+              </button>
 
               {/* Placeholder pra futuras seções */}
               <div style={{
@@ -125,30 +176,15 @@ export default function EmpresaPage() {
               </div>
             </div>
 
-            {/* Aparência do perfil público */}
-            <div>
-              <h3 style={{
-                margin: '0 0 4px',
-                fontSize: 16,
-                fontWeight: 700,
-                letterSpacing: '-0.02em',
-                color: '#0f0f14',
-              }}>
-                Aparência do perfil público
-              </h3>
-              <p style={{
-                margin: '0 0 16px',
-                fontSize: 13,
-                color: 'rgba(0,0,0,0.45)',
-              }}>
-                Personalize as cores que seus clientes veem na página de agendamento.
-              </p>
-
-              <ProfileThemeEditor
-                initialTheme={data.theme}
-                onSaved={(theme) => setData(d => d ? { ...d, theme } : d)}
-              />
-            </div>
+            {/* Editor expandível */}
+            {showTheme && (
+              <div style={{ animation: 'fadeUp 0.25s ease', marginTop: 14 }}>
+                <ProfileThemeEditor
+                  initialTheme={data.theme}
+                  onSaved={(theme) => setData(d => d ? { ...d, theme } : d)}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
