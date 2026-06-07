@@ -23,7 +23,6 @@ import {
   bestTextOn,
   checkReadability,
   coverBackground,
-  isMonogramCover,
 } from '@/shared/profileTheme';
 
 const SETTINGS_BASE = '/business-settings';
@@ -417,34 +416,17 @@ export function ProfileThemeEditor({ initialTheme, initialLogo, initialCover, on
           <Palette size={15} /> Preview ao vivo
         </div>
         <div style={{ ...(vars as React.CSSProperties), borderRadius: 20, overflow: 'hidden', border: '1px solid #dfdfe4', boxShadow: '0 1px 2px rgba(12,12,18,.04),0 24px 60px -30px rgba(12,12,18,.3)' }}>
-          <Preview logoUrl={logoUrl} coverUrl={coverUrl} primary={theme.primary} />
+          <Preview />
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------- preview que consome as CSS vars (--p-*) + capa/logo ao vivo ---------- */
-function Preview({ logoUrl, coverUrl, primary }: { logoUrl: string | null; coverUrl: string | null; primary: string }) {
-  const cover = coverBackground(coverUrl, primary);
-  const watermark = isMonogramCover(coverUrl);
+/* ---------- preview que consome as CSS vars (--p-*) ---------- */
+function Preview() {
   return (
     <div style={{ background: 'var(--p-bg)', backgroundImage: 'var(--p-bg-img)', backgroundSize: '18px 18px', padding: 22 }}>
-      {/* Painel de identidade (Modelo B) — capa + logo ao vivo */}
-      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, padding: 20, marginBottom: 14, color: '#fff', background: cover.background }}>
-        {watermark && (
-          <div aria-hidden style={{ position: 'absolute', right: -16, bottom: -40, fontSize: 150, lineHeight: 0.7, fontWeight: 800, color: primary, opacity: 0.16, userSelect: 'none' }}>N</div>
-        )}
-        <div style={{ position: 'relative', zIndex: 1, width: 46, height: 46, borderRadius: 13, overflow: 'hidden', background: '#fff', color: primary, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 20 }}>
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : 'N'}
-        </div>
-        <div style={{ position: 'relative', zIndex: 1, marginTop: 14, fontWeight: 800, fontSize: 18, letterSpacing: '-0.01em' }}>Barbearia Navalha de Ouro</div>
-        <div style={{ position: 'relative', zIndex: 1, marginTop: 3, fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>Tatuapé · São Paulo</div>
-      </div>
-
       <div style={{ background: 'var(--p-surface)', border: '1px solid var(--p-line)', borderRadius: 16, padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '6px 11px', borderRadius: 99, background: 'var(--p-pill)', color: 'var(--p-primary)' }}>★ 4,9 (212)</span>
@@ -478,6 +460,12 @@ function Preview({ logoUrl, coverUrl, primary }: { logoUrl: string | null; cover
         >
           Agendar horário
         </button>
+      </div>
+
+      {/* amostra do painel escuro do Modelo B (token --p-panel) */}
+      <div style={{ marginTop: 14, background: 'var(--p-panel)', borderRadius: 14, padding: 16, color: '#fff' }}>
+        <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.55, fontWeight: 700 }}>Painel (Modelo B)</div>
+        <div style={{ fontWeight: 700, fontSize: 16, marginTop: 4 }}>Navalha de Ouro</div>
       </div>
     </div>
   );
