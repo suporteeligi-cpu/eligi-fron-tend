@@ -264,3 +264,70 @@ export function sanitizeTheme(input: Partial<BusinessTheme> | null | undefined):
     panel,
   };
 }
+
+/* ============================================================
+ * Capa do painel (Modelo B) — presets CSS + foto enviada
+ * coverUrl salvo pode ser:
+ *   - 'preset:gradient' | 'preset:glow' | 'preset:monogram'
+ *   - data URL (foto base64 enviada pelo dono)
+ *   - null/undefined → cai no gradient (default)
+ * ========================================================== */
+
+export type CoverPreset = 'gradient' | 'glow' | 'monogram';
+export const COVER_PRESETS: CoverPreset[] = ['gradient', 'glow', 'monogram'];
+
+const COVER_INK = '#0c0c12';
+
+/** Resolve o `background` CSS da capa a partir do valor salvo + cor da marca. */
+export function coverBackground(
+  coverUrl: string | null | undefined,
+  primary: string,
+): { background: string; isPhoto: boolean } {
+  // foto enviada → imagem com overlay escuro (texto branco legível)
+  if (coverUrl && coverUrl.startsWith('data:')) {
+    return {
+      background: `linear-gradient(180deg, rgba(12,12,18,.25), rgba(12,12,18,.80)), url("${coverUrl}") center/cover no-repeat`,
+      isPhoto: true,
+    };
+  }
+
+  const id =
+    coverUrl && coverUrl.startsWith('preset:') ? coverUrl.slice(7) : 'gradient';
+
+  if (id === 'glow') {
+    return {
+      background: `radial-gradient(120% 95% at 78% 12%, ${primary}77, transparent 60%), ${mix(COVER_INK, primary, 0.1)}`,
+      isPhoto: false,
+    };
+  }
+  if (id === 'monogram') {
+    return { background: mix(COVER_INK, primary, 0.13), isPhoto: false };
+  }
+  // gradient (default)
+  return {
+    background: `linear-gradient(150deg, ${mix(primary, COVER_INK, 0.12)} 0%, ${mix(primary, COVER_INK, 0.78)} 100%)`,
+    isPhoto: false,
+  };
+}
+
+/** true quando a capa é o preset "monograma" (pra desenhar a inicial em marca-d'água). */
+export function isMonogramCover(coverUrl: string | null | undefined): boolean {
+  return coverUrl === 'preset:monogram';
+}
+
+/** Normaliza o valor de capa recebido (preset válido, data URL, ou null). */
+export function sanitizeCover(input: unknown): string | null {
+  if (typeof input !== 'string') return null;
+  if (input.startsWith('data:image/')) return input;
+  if (input.startsWith('preset:')) {
+    const id = input.slice(7);
+    return (COVER_PRESETS as string[]).includes(id) ? input : null;
+  }
+  return null;
+}
+
+/** Normaliza o logo (data URL de imagem, ou null). */
+export function sanitizeLogo(input: unknown): string | null {
+  if (typeof input === 'string' && input.startsWith('data:image/')) return input;
+  return null;
+}

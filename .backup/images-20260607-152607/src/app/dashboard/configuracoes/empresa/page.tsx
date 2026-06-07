@@ -15,8 +15,6 @@ interface BusinessSettings {
   name:     string
   timezone: string
   theme:    BusinessTheme
-  logoUrl:  string | null
-  coverUrl: string | null
 }
 
 export default function EmpresaPage() {
@@ -115,7 +113,7 @@ export default function EmpresaPage() {
                 onSaved={(tz) => setData(d => d ? { ...d, timezone: tz } : d)}
               />
 
-              {/* Botão Aparência — abre/fecha o editor de cores + logo/capa */}
+              {/* Botão Aparência — abre/fecha o editor de cores */}
               <button
                 onClick={() => setShowTheme(v => !v)}
                 style={{
@@ -150,7 +148,7 @@ export default function EmpresaPage() {
                     Aparência do perfil público
                   </span>
                   <span style={{ display: 'block', fontSize: 12.5, color: 'rgba(0,0,0,0.45)', marginTop: 2 }}>
-                    Cores, logo e capa da página de agendamento
+                    Cores da página de agendamento — botão, fundo, selects
                   </span>
                 </span>
                 <ChevronDown
@@ -174,7 +172,7 @@ export default function EmpresaPage() {
                 color: 'rgba(0,0,0,0.45)',
                 textAlign: 'center',
               }}>
-                Outras configurações (nome, endereço) em breve.
+                Outras configurações (nome, endereço, logo) em breve.
               </div>
             </div>
 
@@ -183,8 +181,6 @@ export default function EmpresaPage() {
               <div style={{ animation: 'fadeUp 0.25s ease', marginTop: 14 }}>
                 <ProfileThemeEditor
                   initialTheme={data.theme}
-                  initialLogo={data.logoUrl}
-                  initialCover={data.coverUrl}
                   onSaved={(theme) => setData(d => d ? { ...d, theme } : d)}
                 />
               </div>

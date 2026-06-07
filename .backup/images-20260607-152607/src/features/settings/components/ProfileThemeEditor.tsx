@@ -11,18 +11,16 @@
 // estiver montado em outro caminho.
 
 import { useEffect, useMemo, useState } from 'react';
-import { UploadCloud, Check, AlertTriangle, Loader2, Palette, Save, Image as ImageIcon } from 'lucide-react';
+import { UploadCloud, Check, AlertTriangle, Loader2, Palette, Save } from 'lucide-react';
 import api from '@/shared/lib/apiClient';
 import {
   type BusinessTheme,
   type WallPattern,
   THEME_PRESETS,
-  COVER_PRESETS,
   sanitizeTheme,
   deriveTheme,
   bestTextOn,
   checkReadability,
-  coverBackground,
 } from '@/shared/profileTheme';
 
 const SETTINGS_BASE = '/business-settings';
@@ -84,18 +82,12 @@ const WALLS: Array<{ id: WallPattern; label: string }> = [
 interface Props {
   /** Tema já carregado pelo parent (evita um GET extra). Se ausente, o editor busca sozinho. */
   initialTheme?: Partial<BusinessTheme> | null;
-  /** Logo salvo (data URL) ou null. */
-  initialLogo?: string | null;
-  /** Capa salva ('preset:<id>' | data URL) ou null. */
-  initialCover?: string | null;
   onSaved?: (theme: BusinessTheme) => void;
 }
 
-export function ProfileThemeEditor({ initialTheme, initialLogo, initialCover, onSaved }: Props) {
+export function ProfileThemeEditor({ initialTheme, onSaved }: Props) {
   const hasInitial = initialTheme != null;
   const [theme, setTheme] = useState<BusinessTheme>(() => sanitizeTheme(initialTheme ?? undefined));
-  const [logoUrl, setLogoUrl] = useState<string | null>(initialLogo ?? null);
-  const [coverUrl, setCoverUrl] = useState<string | null>(initialCover ?? null);
   const [extracted, setExtracted] = useState<string[]>([]);
   const [loading, setLoading] = useState(!hasInitial);
   const [saving, setSaving] = useState(false);
@@ -149,50 +141,10 @@ export function ProfileThemeEditor({ initialTheme, initialLogo, initialCover, on
     img.src = URL.createObjectURL(file);
   }
 
-  // Redimensiona no navegador antes de virar base64 (mantém o payload leve).
-  async function fileToDataUrl(
-    file: File,
-    maxDim: number,
-    type: 'image/png' | 'image/jpeg',
-    quality?: number,
-  ): Promise<string> {
-    const url = URL.createObjectURL(file);
-    try {
-      const img = await new Promise<HTMLImageElement>((res, rej) => {
-        const i = new Image();
-        i.onload = () => res(i);
-        i.onerror = () => rej(new Error('load'));
-        i.src = url;
-      });
-      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-      const w = Math.max(1, Math.round(img.width * scale));
-      const h = Math.max(1, Math.round(img.height * scale));
-      const cv = document.createElement('canvas');
-      cv.width = w;
-      cv.height = h;
-      const ctx = cv.getContext('2d');
-      if (!ctx) return url;
-      ctx.drawImage(img, 0, 0, w, h);
-      return cv.toDataURL(type, quality);
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  }
-
-  async function pickLogo(file: File) {
-    setSaved(false);
-    setLogoUrl(await fileToDataUrl(file, 512, 'image/png'));
-  }
-  async function pickCover(file: File) {
-    setSaved(false);
-    setCoverUrl(await fileToDataUrl(file, 1200, 'image/jpeg', 0.82));
-  }
-
   async function save() {
     setSaving(true);
     try {
       await api.patch(`${SETTINGS_BASE}/theme`, theme);
-      await api.patch(`${SETTINGS_BASE}/images`, { logoUrl, coverUrl });
       setSaved(true);
       onSaved?.(theme);
     } finally {
@@ -312,71 +264,6 @@ export function ProfileThemeEditor({ initialTheme, initialLogo, initialCover, on
                 {w.label}
               </button>
             ))}
-          </div>
-        </Section>
-
-        {/* 5 · Logo e capa */}
-        <Section title="5 · Logo e capa">
-          <Field label="Logo" sub="Substitui o monograma no painel">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <label style={{ width: 40, height: 40, borderRadius: 10, border: '1px solid #e7e7ec', overflow: 'hidden', cursor: 'pointer', display: 'grid', placeItems: 'center', background: '#fafafa' }}>
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <ImageIcon size={16} color="#a1a1aa" />
-                )}
-                <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) pickLogo(f); }} />
-              </label>
-              {logoUrl && (
-                <button
-                  onClick={() => { setSaved(false); setLogoUrl(null); }}
-                  style={{ fontSize: 12, fontWeight: 600, color: '#71717a', border: '1px solid #e7e7ec', borderRadius: 9, padding: '7px 11px', background: '#fff', cursor: 'pointer' }}
-                >
-                  Remover
-                </button>
-              )}
-            </div>
-          </Field>
-
-          <div style={{ marginTop: 4 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0c0c12', marginBottom: 8 }}>Capa do painel</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-              {COVER_PRESETS.map(id => {
-                const sel = coverUrl === `preset:${id}` || (!coverUrl && id === 'gradient');
-                const label = id === 'monogram' ? 'Monograma' : id === 'glow' ? 'Brilho' : 'Gradiente';
-                return (
-                  <button
-                    key={id}
-                    onClick={() => { setSaved(false); setCoverUrl(`preset:${id}`); }}
-                    style={{
-                      height: 52, borderRadius: 10,
-                      background: coverBackground(`preset:${id}`, theme.primary).background,
-                      border: sel ? '2px solid #0c0c12' : '2px solid transparent',
-                      boxShadow: '0 0 0 1px #e7e7ec', cursor: 'pointer',
-                      color: '#fff', fontSize: 11.5, fontWeight: 700, textShadow: '0 1px 4px rgba(0,0,0,.5)',
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-              <label
-                style={{
-                  height: 52, borderRadius: 10, cursor: 'pointer', display: 'grid', placeItems: 'center',
-                  fontSize: 11.5, fontWeight: 600,
-                  color: coverUrl?.startsWith('data:') ? '#fff' : '#71717a',
-                  border: coverUrl?.startsWith('data:') ? '2px solid #0c0c12' : '1.5px dashed #e7e7ec',
-                  background: coverUrl?.startsWith('data:')
-                    ? `linear-gradient(rgba(0,0,0,.4),rgba(0,0,0,.4)), url("${coverUrl}") center/cover`
-                    : 'transparent',
-                  textShadow: coverUrl?.startsWith('data:') ? '0 1px 4px rgba(0,0,0,.6)' : 'none',
-                }}
-              >
-                {coverUrl?.startsWith('data:') ? 'Trocar foto' : 'Subir foto'}
-                <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) pickCover(f); }} />
-              </label>
-            </div>
           </div>
         </Section>
 
