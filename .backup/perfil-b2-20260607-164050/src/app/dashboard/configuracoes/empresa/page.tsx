@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, Palette, ChevronDown } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
-import { type BusinessTheme, type BusinessSocials } from '@/shared/profileTheme'
+import { type BusinessTheme } from '@/shared/profileTheme'
 
 import TimezoneCard from './components/TimezoneCard'
 import ProfileThemeEditor from '@/features/settings/components/ProfileThemeEditor'
@@ -17,12 +17,6 @@ interface BusinessSettings {
   theme:    BusinessTheme
   logoUrl:  string | null
   coverUrl: string | null
-  about:    string | null
-  address:  string | null
-  lat:      number | null
-  lng:      number | null
-  socials:  BusinessSocials | null
-  gallery:  string[] | null
 }
 
 export default function EmpresaPage() {
@@ -121,7 +115,7 @@ export default function EmpresaPage() {
                 onSaved={(tz) => setData(d => d ? { ...d, timezone: tz } : d)}
               />
 
-              {/* Botão Aparência — abre/fecha o editor do perfil público */}
+              {/* Botão Aparência — abre/fecha o editor de cores + logo/capa */}
               <button
                 onClick={() => setShowTheme(v => !v)}
                 style={{
@@ -156,7 +150,7 @@ export default function EmpresaPage() {
                     Aparência do perfil público
                   </span>
                   <span style={{ display: 'block', fontSize: 12.5, color: 'rgba(0,0,0,0.45)', marginTop: 2 }}>
-                    Logo, capa, sobre, endereço, redes, fotos e cores
+                    Cores, logo e capa da página de agendamento
                   </span>
                 </span>
                 <ChevronDown
@@ -169,22 +163,28 @@ export default function EmpresaPage() {
                   }}
                 />
               </button>
+
+              {/* Placeholder pra futuras seções */}
+              <div style={{
+                padding: '16px 20px',
+                background: 'rgba(255,255,255,0.6)',
+                borderRadius: 14,
+                border: '1px dashed rgba(0,0,0,0.10)',
+                fontSize: 12,
+                color: 'rgba(0,0,0,0.45)',
+                textAlign: 'center',
+              }}>
+                Outras configurações (nome, endereço) em breve.
+              </div>
             </div>
 
             {/* Editor expandível */}
             {showTheme && (
               <div style={{ animation: 'fadeUp 0.25s ease', marginTop: 14 }}>
                 <ProfileThemeEditor
-                  businessName={data.name}
                   initialTheme={data.theme}
                   initialLogo={data.logoUrl}
                   initialCover={data.coverUrl}
-                  initialAbout={data.about}
-                  initialAddress={data.address}
-                  initialLat={data.lat}
-                  initialLng={data.lng}
-                  initialSocials={data.socials}
-                  initialGallery={data.gallery}
                   onSaved={(theme) => setData(d => d ? { ...d, theme } : d)}
                 />
               </div>
