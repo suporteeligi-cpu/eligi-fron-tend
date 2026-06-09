@@ -20,6 +20,8 @@ interface ApiBooking {
   end:       string   // "HH:mm"
   status?:   string
   isPaid?:   boolean
+  fromOnline?:             boolean   // ← veio do link público (🚀)
+  professionalPreference?: boolean   // ← cliente escolheu o profissional (❤️)
   // legado
   time?:     string
   duration?: number
@@ -61,7 +63,9 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
     start,
     end,
     status,
-    isPaid:         b.isPaid ?? false,
+    isPaid:                 b.isPaid ?? false,
+    fromOnline:             b.fromOnline ?? false,
+    professionalPreference: b.professionalPreference ?? false,
   }
 }
 

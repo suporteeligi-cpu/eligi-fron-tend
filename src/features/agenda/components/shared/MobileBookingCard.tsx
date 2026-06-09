@@ -4,6 +4,7 @@
 import { AgendaBooking } from '../../types'
 import { bookingStatus } from '@/shared/theme'
 import { colorToGradient, colorToGlow } from '@/features/agenda/constants/serviceColors'
+import BookingSeals from './BookingSeals'
 
 interface Props {
   booking:     AgendaBooking
@@ -52,19 +53,15 @@ export default function MobileBookingCard({ booking, height, isDragging = false 
         background:'linear-gradient(180deg,rgba(255,255,255,0.16) 0%,transparent 100%)',
         borderRadius:'10px 10px 0 0', pointerEvents:'none',
       }} />
-      {/* Selo "pago" — nota branca preenchida + cifrão verde */}
-      {booking.isPaid && !isMicro && (
-        <div aria-hidden style={{
-          position:'absolute', top:4, right:4,
-          width:16, height:16, pointerEvents:'none', zIndex:2,
-          filter:'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-        }}>
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <path d="M4 2h16v20l-2.7-1.6L14.7 22 12 20.4 9.3 22 6.7 20.4 4 22V2z" fill="#00b80c"/>
-            <text x="12" y="16.5" textAnchor="middle" fontSize="12" fontWeight="800" fill="#ffffff" fontFamily="system-ui, sans-serif">$</text>
-          </svg>
-        </div>
-      )}
+
+      {/* Selos: Pago 💲 · Online 🚀 · Preferência ❤️ (empilhados, leve sobreposição) */}
+      <BookingSeals
+        isPaid={booking.isPaid}
+        fromOnline={booking.fromOnline}
+        professionalPreference={booking.professionalPreference}
+        hidden={isMicro}
+      />
+
       {/* Barra lateral */}
       {!isMicro && (
         <div aria-hidden style={{

@@ -18,8 +18,6 @@ export type AgendaBooking = {
   end:            string   // "HH:mm"
   status:         BookingStatus
   isPaid?:        boolean  // tem venda CONFIRMED ligada (checkout completo)
-  fromOnline?:             boolean  // veio do link público (selo 🚀)
-  professionalPreference?: boolean  // cliente escolheu o profissional (selo ❤️)
 }
 
 export type AgendaBlock = {
