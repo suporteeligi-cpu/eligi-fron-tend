@@ -1,6 +1,7 @@
 'use client'
 // src/app/dashboard/components/RevenueSparkline.tsx
 
+import { useEffect, useRef } from 'react'
 import { TrendingUp } from 'lucide-react'
 import { colors, typography, radius, shadows } from '@/shared/theme'
 import { RevenueChartPoint } from '@/features/dashboard/types'
@@ -11,124 +12,167 @@ interface Props {
   isMobile: boolean
 }
 
-export default function RevenueSparkline({ data, isMobile }: Props) {
-  // Dimensões do SVG
-  const w = isMobile ? 320 : 460
-  const h = 100
-  const padX = 10
-  const padY = 14
-
-  const max = Math.max(1, ...data.map(d => d.value))
-  const min = 0
-
-  const innerW = w - padX * 2
-  const innerH = h - padY * 2
-
-  const step = data.length > 1 ? innerW / (data.length - 1) : 0
-
-  function pointX(i: number) { return padX + i * step }
-  function pointY(v: number) {
-    const ratio = (v - min) / (max - min || 1)
-    return padY + innerH - ratio * innerH
+declare global {
+  interface Window {
+    Chart: any // eslint-disable-line @typescript-eslint/no-explicit-any
   }
+}
 
-  const linePath = data
-    .map((d, i) => `${i === 0 ? 'M' : 'L'} ${pointX(i)} ${pointY(d.value)}`)
-    .join(' ')
+const CDN = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'
 
-  const areaPath = data.length
-    ? `${linePath} L ${pointX(data.length - 1)} ${padY + innerH} L ${pointX(0)} ${padY + innerH} Z`
-    : ''
+function loadChartJs(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.Chart) { resolve(); return }
+    const s = document.createElement('script')
+    s.src   = CDN
+    s.onload  = () => resolve()
+    s.onerror = () => reject(new Error('Chart.js failed to load'))
+    document.head.appendChild(s)
+  })
+}
+
+export default function RevenueSparkline({ data, isMobile: _ }: Props) {
+  const canvasRef  = useRef<HTMLCanvasElement>(null)
+  const chartRef   = useRef<any>(null)         // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const total = data.reduce((s, d) => s + d.value, 0)
 
+  useEffect(() => {
+    let cancelled = false
+
+    loadChartJs().then(() => {
+      if (cancelled || !canvasRef.current) return
+
+      // destrói instância anterior se existir
+      if (chartRef.current) {
+        chartRef.current.destroy()
+        chartRef.current = null
+      }
+
+      const isDark = matchMedia('(prefers-color-scheme: dark)').matches
+      const lineC  = colors.red.DEFAULT
+      const labelC = isDark ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.35)'
+
+      chartRef.current = new window.Chart(canvasRef.current, {
+        type: 'line',
+        data: {
+          labels:   data.map(d => d.label),
+          datasets: [{
+            data:                 data.map(d => d.value),
+            borderColor:          lineC,
+            borderWidth:          2,
+            pointRadius:          3,
+            pointBackgroundColor: '#fff',
+            pointBorderColor:     lineC,
+            pointBorderWidth:     2,
+            pointHoverRadius:     5,
+            tension:              0.35,
+            fill:                 true,
+            backgroundColor:      isDark
+              ? 'rgba(220,38,38,0.10)'
+              : 'rgba(220,38,38,0.07)',
+          }],
+        },
+        options: {
+          responsive:          true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (c: any) => `R$ ${Math.round(c.parsed.y).toLocaleString('pt-BR')}`,
+              },
+              backgroundColor: isDark ? '#1e1e1e' : '#fff',
+              borderColor:     isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)',
+              borderWidth:     0.5,
+              titleColor:      isDark ? '#fff' : '#111',
+              bodyColor:       lineC,
+              padding:         8,
+              cornerRadius:    6,
+            },
+          },
+          scales: {
+            x: {
+              grid:   { display: false },
+              border: { display: false },
+              ticks:  {
+                font:     { size: 10 },
+                color:    labelC,
+                maxRotation: 0,
+              },
+            },
+            y: {
+              display: false,
+              grid:    { display: false },
+            },
+          },
+        },
+      })
+    }).catch(console.error)
+
+    return () => {
+      cancelled = true
+      chartRef.current?.destroy()
+      chartRef.current = null
+    }
+  }, [data])
+
   return (
     <div style={{
-      background: '#fff',
-      border: `1px solid ${colors.gray.border}`,
+      background:   '#fff',
+      border:       `0.5px solid ${colors.gray.borderMd}`,
+      borderLeft:   `2.5px solid ${colors.red.DEFAULT}`,
       borderRadius: radius.lg,
-      boxShadow: shadows.sm,
-      padding: '14px 16px',
-      fontFamily: typography.fontFamily,
-      display: 'flex', flexDirection: 'column', gap: 10,
+      boxShadow:    shadows.sm,
+      padding:      '16px 20px',
+      fontFamily:   typography.fontFamily,
+      display:      'flex',
+      flexDirection: 'column',
+      gap:          14,
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width:          24,
+          height:         24,
+          borderRadius:   7,
+          background:     colors.red.gradient,
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+        }}>
+          <TrendingUp size={12} color="#fff" strokeWidth={2.4} />
+        </div>
+        <div>
           <div style={{
-            width: 26, height: 26, borderRadius: 7,
-            background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize:      10,
+            fontWeight:    typography.weight.bold,
+            color:         typography.color.muted,
+            textTransform: 'uppercase',
+            letterSpacing: '.07em',
           }}>
-            <TrendingUp size={13} color="#fff" strokeWidth={2.4} />
+            Receita · Últimos 7 dias
           </div>
-          <div>
-            <div style={{
-              fontSize: 10,
-              fontWeight: typography.weight.bold,
-              color: typography.color.muted,
-              textTransform: 'uppercase',
-              letterSpacing: '.07em',
-            }}>
-              RECEITA · ÚLTIMOS 7 DIAS
-            </div>
-            <div style={{
-              fontSize: typography.scale.base,
-              fontWeight: typography.weight.bold,
-              color: typography.color.primary,
-              fontVariantNumeric: 'tabular-nums',
-            }}>
-              {fmtBRL(total)}
-            </div>
+          <div style={{
+            fontSize:           typography.scale.base,
+            fontWeight:         typography.weight.bold,
+            color:              typography.color.primary,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {fmtBRL(total)}
           </div>
         </div>
       </div>
 
-      {/* Chart SVG */}
-      <div style={{ width: '100%', overflow: 'hidden' }}>
-        <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: h, display: 'block' }}>
-          <defs>
-            <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stopColor="#dc2626" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#dc2626" stopOpacity="0.00" />
-            </linearGradient>
-          </defs>
-
-          {/* Linha base sutil */}
-          <line x1={padX} y1={padY + innerH} x2={w - padX} y2={padY + innerH} stroke={colors.gray.border} strokeWidth="1" />
-
-          {/* Área */}
-          <path d={areaPath} fill="url(#revenueGrad)" />
-
-          {/* Linha */}
-          <path d={linePath} fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-
-          {/* Pontos */}
-          {data.map((d, i) => (
-            <circle
-              key={i}
-              cx={pointX(i)} cy={pointY(d.value)} r={3}
-              fill="#fff"
-              stroke="#dc2626"
-              strokeWidth="2"
-            />
-          ))}
-
-          {/* Labels (dias) */}
-          {data.map((d, i) => (
-            <text
-              key={`label-${i}`}
-              x={pointX(i)} y={h - 1}
-              textAnchor="middle"
-              fill={colors.gray.dimText}
-              fontSize="9"
-              fontFamily={typography.fontFamily}
-              fontWeight="600"
-            >
-              {d.label}
-            </text>
-          ))}
-        </svg>
+      {/* Canvas */}
+      <div style={{ position: 'relative', width: '100%', height: 90 }}>
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label="Gráfico de receita dos últimos 7 dias"
+        >
+          {data.map(d => `${d.label}: R$${Math.round(d.value)}`).join(', ')}
+        </canvas>
       </div>
     </div>
   )

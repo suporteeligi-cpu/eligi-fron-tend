@@ -1,10 +1,9 @@
 'use client'
 // src/app/dashboard/page.tsx
-// Dashboard v2.3 — borda esquerda vermelha, strip 3 KPIs, slot "em breve"
+// Dashboard v2.2 — layout Mock 3: hero assimétrico + KPI online
 
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, Users, Receipt, Coins } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Loader2, Link2, Users, AlertTriangle } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
@@ -29,40 +28,29 @@ import AlertsCard           from './components/AlertsCard'
 import PeriodSelector       from './components/PeriodSelector'
 import OnlineBanner         from './components/OnlineBanner'
 
-// ─── tokens locais ─────────────────────────────────────────────────────────
-
-const CARD: React.CSSProperties = {
-  background:   '#fff',
-  border:       `0.5px solid ${colors.gray.borderMd}`,
-  borderLeft:   `2.5px solid ${colors.red.DEFAULT}`,
-  borderRadius: 14,
-  boxShadow:    '0 1px 3px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.07)',
-  padding:      '20px 24px',
-  fontFamily:   typography.fontFamily,
-}
-
-// ─── sub-componentes locais ────────────────────────────────────────────────
+// ─── helpers locais ────────────────────────────────────────────────────────
 
 function MetaDivider() {
   return (
     <div style={{
       width:      1,
-      height:     26,
+      height:     28,
       background: 'rgba(0,0,0,0.08)',
       flexShrink: 0,
     }} />
   )
 }
 
-function MetaItem({ label, value, accent }: {
-  label:   string
-  value:   string
+interface MetaItemProps {
+  label: string
+  value: string
   accent?: string
-}) {
+}
+function MetaItem({ label, value, accent }: MetaItemProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <span style={{
-        fontSize:   13,
+        fontSize:   14,
         fontWeight: typography.weight.bold,
         color:      accent ?? typography.color.primary,
       }}>
@@ -75,43 +63,33 @@ function MetaItem({ label, value, accent }: {
   )
 }
 
-function FlatKPI({ label, value, note, noteColor, icon, onClick }: {
+function FlatKPI({
+  label, value, note, noteColor, icon,
+}: {
   label:      string
   value:      string
   note:       string
   noteColor?: string
   icon:       React.ReactNode
-  onClick?:   () => void
 }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        background:    'var(--surface-2, rgba(0,0,0,0.03))',
-        borderRadius:  10,
-        padding:       '14px 16px',
-        display:       'flex',
-        flexDirection: 'column',
-        gap:           4,
-        cursor:        onClick ? 'pointer' : 'default',
-        transition:    'background 0.15s',
-      }}
-      onMouseEnter={e => {
-        if (onClick) (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0.05)'
-      }}
-      onMouseLeave={e => {
-        if (onClick) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2, rgba(0,0,0,0.03))'
-      }}
-    >
+    <div style={{
+      background:   'var(--surface-2)',
+      borderRadius: 10,
+      padding:      '14px 16px',
+      display:      'flex',
+      flexDirection: 'column',
+      gap:          4,
+    }}>
       <div style={{
-        display:       'flex',
-        alignItems:    'center',
-        gap:           5,
-        fontSize:      10,
-        textTransform: 'uppercase' as const,
+        display:    'flex',
+        alignItems: 'center',
+        gap:        6,
+        fontSize:   10,
+        textTransform: 'uppercase',
         letterSpacing: '.06em',
-        color:         typography.color.muted,
-        marginBottom:  2,
+        color:      typography.color.muted,
+        marginBottom: 2,
       }}>
         {icon}
         {label}
@@ -131,35 +109,11 @@ function FlatKPI({ label, value, note, noteColor, icon, onClick }: {
   )
 }
 
-function EmptySlot() {
-  return (
-    <div style={{
-      background:     'transparent',
-      border:         `0.5px dashed ${colors.gray.borderMd}`,
-      borderRadius:   14,
-      display:        'flex',
-      alignItems:     'center',
-      justifyContent: 'center',
-      minHeight:      100,
-    }}>
-      <span style={{
-        fontSize:      11,
-        color:         typography.color.muted,
-        textTransform: 'uppercase' as const,
-        letterSpacing: '.06em',
-      }}>
-        Em breve
-      </span>
-    </div>
-  )
-}
-
-// ─── página principal ──────────────────────────────────────────────────────
+// ─── component principal ───────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const mode     = useDeviceMode()
   const isMobile = mode === 'mobile'
-  const router   = useRouter()
 
   const [period, setPeriod]   = useState<DashboardPeriod>('today')
   const [data, setData]       = useState<DashboardOverview | null>(null)
@@ -181,11 +135,20 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchData(period) }, [fetchData, period])
 
+  // receita do mês — sempre exibe independente do period selecionado
+  const monthRevenue = data?.kpis.revenue ?? 0
+  const revenueGrowthFmt = data ? fmtGrowth(data.kpis.revenueGrowth) : null
+
   return (
     <>
       <style>{`
-        @keyframes fadeUp   { from { opacity:0;transform:translateY(8px) } to { opacity:1;transform:translateY(0) } }
-        @keyframes pos-spin { to   { transform:rotate(360deg) } }
+        @keyframes fadeUp  { from { opacity:0;transform:translateY(8px) } to { opacity:1;transform:translateY(0) } }
+        @keyframes pos-spin { to { transform:rotate(360deg) } }
+        .dash-surface {
+          background: var(--surface-1, #fff);
+          border:     0.5px solid var(--border-subtle, rgba(0,0,0,0.08));
+          border-radius: 12px;
+        }
       `}</style>
 
       <div style={{
@@ -214,10 +177,10 @@ export default function DashboardPage() {
               Visão geral
             </h1>
             <p style={{
-              fontSize:      typography.scale.sm,
-              color:         typography.color.muted,
-              marginTop:     2,
-              marginBottom:  0,
+              fontSize:  typography.scale.sm,
+              color:     typography.color.muted,
+              marginTop: 2,
+              marginBottom: 0,
               textTransform: 'capitalize',
             }}>
               {todayFull()}
@@ -229,10 +192,8 @@ export default function DashboardPage() {
         {/* ── Loading ── */}
         {loading || !data ? (
           <div style={{
-            display:     'flex',
-            justifyContent: 'center',
-            alignItems:  'center',
-            padding:     80,
+            display: 'flex', justifyContent: 'center',
+            alignItems: 'center', padding: 80,
           }}>
             <Loader2 size={28} style={{
               animation: 'pos-spin 0.8s linear infinite',
@@ -260,10 +221,10 @@ export default function DashboardPage() {
               gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,2fr) minmax(0,1fr)',
               gap:                 10,
             }}>
-              {/* Hero receita */}
-              <div style={CARD}>
+              {/* Hero — receita */}
+              <div className="dash-surface" style={{ padding: isMobile ? '18px 20px' : '22px 26px' }}>
                 <div style={{
-                  fontSize:      10,
+                  fontSize:      11,
                   textTransform: 'uppercase',
                   letterSpacing: '.07em',
                   color:         typography.color.muted,
@@ -276,45 +237,40 @@ export default function DashboardPage() {
                       : 'Receita — últimos 30 dias'}
                 </div>
                 <div style={{
-                  fontSize:      isMobile ? 28 : 36,
+                  fontSize:      isMobile ? 30 : 38,
                   fontWeight:    typography.weight.bold,
                   color:         typography.color.primary,
                   lineHeight:    1,
                   marginBottom:  16,
                   letterSpacing: '-.02em',
                 }}>
-                  {fmtBRL(data.kpis.revenue)}
+                  {fmtBRL(monthRevenue)}
                 </div>
                 <div style={{
-                  display:    'flex',
-                  alignItems: 'center',
-                  gap:        isMobile ? 12 : 18,
-                  flexWrap:   'wrap',
-                  paddingTop: 14,
-                  borderTop:  '0.5px solid rgba(0,0,0,0.07)',
+                  display:       'flex',
+                  alignItems:    'center',
+                  gap:           isMobile ? 12 : 20,
+                  flexWrap:      'wrap',
+                  paddingTop:    14,
+                  borderTop:     '0.5px solid var(--border-subtle, rgba(0,0,0,0.08))',
                 }}>
-                  {(() => {
-                    const g = fmtGrowth(data.kpis.revenueGrowth)
-                    return (
-                      <>
-                        <MetaItem
-                          label={periodCompareLabel(period)}
-                          value={g.text}
-                          accent={
-                            g.positive === true  ? '#16a34a' :
-                            g.positive === false ? '#dc2626' :
-                            undefined
-                          }
-                        />
-                        <MetaDivider />
-                      </>
-                    )
-                  })()}
+                  {revenueGrowthFmt && (
+                    <>
+                      <MetaItem
+                        label={periodCompareLabel(period)}
+                        value={revenueGrowthFmt.text}
+                        accent={
+                          revenueGrowthFmt.positive === true  ? '#16a34a' :
+                          revenueGrowthFmt.positive === false ? '#dc2626' :
+                          undefined
+                        }
+                      />
+                      <MetaDivider />
+                    </>
+                  )}
                   <MetaItem
                     label="ticket médio"
-                    value={isMobile
-                      ? fmtBRLCompact(data.kpis.ticketAverage)
-                      : fmtBRL(data.kpis.ticketAverage)}
+                    value={isMobile ? fmtBRLCompact(data.kpis.ticketAverage) : fmtBRL(data.kpis.ticketAverage)}
                   />
                   <MetaDivider />
                   <MetaItem
@@ -333,20 +289,20 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Side — agenda + online */}
-              <div style={{
-                ...CARD,
-                padding:       '20px 22px',
-                display:       'flex',
-                flexDirection: 'column',
+              {/* Side — agenda + online banner */}
+              <div className="dash-surface" style={{
+                padding:        isMobile ? '18px 20px' : '20px 22px',
+                display:        'flex',
+                flexDirection:  'column',
+                gap:            0,
               }}>
                 <div style={{
                   marginBottom:  14,
                   paddingBottom: 14,
-                  borderBottom:  '0.5px solid rgba(0,0,0,0.07)',
+                  borderBottom:  '0.5px solid var(--border-subtle, rgba(0,0,0,0.08))',
                 }}>
                   <div style={{
-                    fontSize:      10,
+                    fontSize:      11,
                     textTransform: 'uppercase',
                     letterSpacing: '.07em',
                     color:         typography.color.muted,
@@ -368,14 +324,15 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </div>
+
                 <OnlineBanner data={data.kpis.onlineBookings} isMobile={isMobile} />
               </div>
             </div>
 
-            {/* ── Strip 3 KPIs ── */}
+            {/* ── Faixa de KPIs secundários ── */}
             <div style={{
               display:             'grid',
-              gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,minmax(0,1fr))',
+              gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,minmax(0,1fr))',
               gap:                 10,
             }}>
               <FlatKPI
@@ -386,23 +343,23 @@ export default function DashboardPage() {
               />
               <FlatKPI
                 label="Ticket médio"
-                value={isMobile
-                  ? fmtBRLCompact(data.kpis.ticketAverage)
-                  : fmtBRL(data.kpis.ticketAverage)}
+                value={isMobile ? fmtBRLCompact(data.kpis.ticketAverage) : fmtBRL(data.kpis.ticketAverage)}
                 note="por venda no período"
-                icon={<Receipt size={12} />}
+                icon={<span style={{ fontSize: 12 }}>R$</span>}
               />
               <FlatKPI
                 label="Comissões pend."
                 value={fmtBRLCompact(data.alerts.pendingCommissions.total)}
                 note={`${data.alerts.pendingCommissions.professionals} profissional(is)`}
                 noteColor={data.alerts.pendingCommissions.total > 0 ? '#d97706' : undefined}
-                icon={<Coins size={12} />}
-                onClick={
-                  data.alerts.pendingCommissions.total > 0
-                    ? () => router.push(data.alerts.pendingCommissions.href)
-                    : undefined
-                }
+                icon={<AlertTriangle size={12} />}
+              />
+              <FlatKPI
+                label="Sem profissional"
+                value={String(data.alerts.unassignedBookings.count)}
+                note="agendamentos abertos"
+                noteColor={data.alerts.unassignedBookings.count > 0 ? '#dc2626' : undefined}
+                icon={<Link2 size={12} />}
               />
             </div>
 
@@ -424,16 +381,6 @@ export default function DashboardPage() {
             }}>
               <TodayScheduleCard items={data.todaySchedule as TodayScheduleItem[]} />
               <AlertsCard alerts={data.alerts} />
-            </div>
-
-            {/* ── Slot vazio — em breve ── */}
-            <div style={{
-              display:             'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-              gap:                 10,
-            }}>
-              <EmptySlot />
-              <EmptySlot />
             </div>
 
           </div>
