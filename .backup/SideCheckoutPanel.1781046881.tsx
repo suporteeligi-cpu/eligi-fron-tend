@@ -18,7 +18,7 @@ import api from '@/shared/lib/apiClient'
 import { AgendaProfessional, AgendaBooking } from '@/features/agenda/types'
 import { colors, glass, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
-import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAgendaStore'
+import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -70,7 +70,6 @@ interface ServiceItem {
   endTime:   string
   profId:    string
   mode?:     'after' | 'parallel'   // só relevante para idx >= 1 (1º item não tem âncora)
-  bookingId?: string                // se presente, é um item EXISTENTE do grupo (não novo)
 }
 
 interface Props {
@@ -83,7 +82,6 @@ interface Props {
   existingBooking?: AgendaBooking | null   // ← novo: passado pelo AgendaBoard em modo edit
   prefillClient?:   { id: string; name: string; phone: string } | null  // ← adicionar serviço: cliente herdado
   addToGroupRefId?: string | null   // ← adicionar serviço: booking de referência do grupo
-  prefillItems?:    PrefillItem[] | null   // ← serviços CONFIRMED já no grupo (editáveis)
   onClose:         () => void
   onDateChange?:   (date: Date) => void
 }
@@ -535,7 +533,7 @@ function CreateClientSheet({ onCreated, onClose }: {
 // ─── SideCheckoutPanel ────────────────────────────────────────────────────────
 export default function SideCheckoutPanel({
   open, mode, time, professionalId, professionals, selectedDate,
-  existingBooking, prefillClient, addToGroupRefId, prefillItems, onClose, onDateChange,
+  existingBooking, prefillClient, addToGroupRefId, onClose, onDateChange,
 }: Props) {
   const isMobile = useIsMobile()
   const { setPreview, setSelectedDate } = useAgendaStore()
@@ -547,9 +545,6 @@ export default function SideCheckoutPanel({
 
   // Múltiplos serviços
   const [items, setItems] = useState<ServiceItem[]>([])
-  // Snapshot dos itens EXISTENTES (por bookingId) no momento da abertura,
-  // pra detectar o que mudou no save (diff: PATCH só os alterados).
-  const snapshotRef = useRef<Record<string, { serviceId: string; startTime: string; profId: string }>>({})
   const firstItem = items[0]
   const total     = items.reduce((acc, it) => acc + (it.service?.price ?? 0), 0)
 
@@ -592,31 +587,12 @@ export default function SideCheckoutPanel({
     setAddingSvcIdx(-1)
 
     if (mode === 'create') {
-      if (prefillItems && prefillItems.length > 0) {
-        // ── Editor de grupo: popula os serviços existentes (editáveis) ──
-        const existing: ServiceItem[] = prefillItems.map(pi => ({
-          service:   { id: pi.serviceId, name: pi.serviceName, duration: pi.duration, price: pi.price },
-          startTime: pi.startTime,
-          endTime:   pi.endTime,
-          profId:    pi.profId,
-          bookingId: pi.bookingId,
-        }))
-        setItems(existing)
-        // Guarda o estado original de cada existente pra comparar no save.
-        const snap: Record<string, { serviceId: string; startTime: string; profId: string }> = {}
-        existing.forEach(e => {
-          if (e.bookingId) snap[e.bookingId] = { serviceId: e.service.id, startTime: e.startTime, profId: e.profId }
-        })
-        snapshotRef.current = snap
-      } else {
-        setItems([{ service: null as unknown as Service, startTime: initTime, endTime: '', profId: initProf }])
-        snapshotRef.current = {}
-      }
+      setItems([{ service: null as unknown as Service, startTime: initTime, endTime: '', profId: initProf }])
     } else {
       // mode === 'edit': aguardando fetch do detalhe (logo abaixo)
       setItems([])
     }
-  }, [open, mode, time, professionalId, professionals, selectedDate, prefillClient, prefillItems])
+  }, [open, mode, time, professionalId, professionals, selectedDate])
 
   // ── Busca serviços ao abrir ───────────────────────────────────────────────
   useEffect(() => {
@@ -839,37 +815,17 @@ export default function SideCheckoutPanel({
         // (cada serviço continua um booking/card independente na grade,
         //  mas o BookingViewPanel os exibe juntos estilo Booksy).
         if (addToGroupRefId) {
-          // ── EDITOR DE GRUPO: diff entre existentes e novos ──────────────
-          // Em SÉRIE (não Promise.all): novos via add-to-group precisam que a
-          // 1ª chamada gere o groupId; as próximas reusam. PATCH dos alterados.
-          const snap = snapshotRef.current
+          // ── ADICIONAR SERVIÇO A UM GRUPO EXISTENTE ──────────────────────
+          // Em SÉRIE (não Promise.all): a 1ª chamada faz o ref virar grupo
+          // (gera groupId); as próximas reusam o mesmo. Paralelo causaria race.
           for (const it of items) {
             const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
-
-            if (it.bookingId) {
-              // Item EXISTENTE: só faz PATCH se algo mudou (serviço/horário/prof).
-              const orig = snap[it.bookingId]
-              const mudou = !orig
-                || orig.serviceId !== it.service.id
-                || orig.startTime !== it.startTime
-                || orig.profId    !== it.profId
-              if (mudou) {
-                await api.patch(`/bookings/${it.bookingId}`, {
-                  serviceId:      it.service.id,
-                  professionalId: it.profId || null,
-                  startAt,
-                  allowOverlap,
-                })
-              }
-            } else {
-              // Item NOVO: adiciona ao grupo do ref.
-              await api.post(`/bookings/${addToGroupRefId}/add-to-group`, {
-                serviceId:      it.service.id,
-                professionalId: it.profId || null,
-                startAt,
-                allowOverlap,
-              })
-            }
+            await api.post(`/bookings/${addToGroupRefId}/add-to-group`, {
+              serviceId:      it.service.id,
+              professionalId: it.profId || null,
+              startAt,
+              allowOverlap,
+            })
           }
         } else {
           // ── MODO CREATE normal: POST /bookings/confirm (múltiplos serviços) ──

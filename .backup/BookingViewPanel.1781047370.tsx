@@ -20,7 +20,7 @@ import api from '@/shared/lib/apiClient'
 import { AgendaBooking } from '@/features/agenda/types'
 import { colors, typography } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
-import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAgendaStore'
+import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc from 'dayjs/plugin/utc'
@@ -293,39 +293,18 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
   }
 
   function handleAddService() {
-    // Abre o editor de grupo: serviços CONFIRMED já no agendamento (editáveis)
-    // + permite adicionar novos. Save faz diff (PATCH existentes / add-to-group novos).
+    // Adiciona um novo serviço ao MESMO grupo deste agendamento.
+    // Reabre o SideCheckoutPanel (modo create) com o cliente herdado e o
+    // booking de referência — o save usa POST /bookings/:id/add-to-group.
     const client = detail?.client
       ? { id: detail.client.id, name: detail.client.name, phone: detail.client.phone ?? '' }
       : null
     const refId = bookingId
     const startT = bookingStart
     const profId = detail?.professionalId ?? booking.professionalId ?? ''
-
-    // Monta os itens existentes do grupo (só CONFIRMED — finalizados ficam de fora).
-    const source = detail?.groupItems && detail.groupItems.length > 0
-      ? detail.groupItems
-      : (detail ? [{
-          id: detail.id, startAt: detail.startAt, endAt: detail.endAt, status: detail.status,
-          service: detail.service, professional: detail.professional ?? null,
-        }] : [])
-
-    const items: PrefillItem[] = source
-      .filter(gi => gi.status === 'CONFIRMED')
-      .map(gi => ({
-        bookingId:   gi.id,
-        serviceId:   gi.service.id,
-        serviceName: gi.service.name,
-        duration:    gi.service.duration,
-        price:       gi.service.price ?? undefined,
-        startTime:   dayjs(gi.startAt).tz('America/Sao_Paulo').format('HH:mm'),
-        endTime:     dayjs(gi.endAt).tz('America/Sao_Paulo').format('HH:mm'),
-        profId:      gi.professional?.id ?? '',
-      }))
-
     onClose()
     setTimeout(() => {
-      openAddService(refId, startT, profId, client, items)
+      openAddService(refId, startT, profId, client)
     }, 200)
   }
 
@@ -896,7 +875,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                   }}
                 >
                   <Plus size={15} strokeWidth={2.5}/>
-                  ADICIONAR MAIS SERVIÇOS
+                  ADICIONAR SERVIÇO
                 </button>
               )}
 

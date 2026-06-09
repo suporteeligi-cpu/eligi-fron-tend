@@ -14,19 +14,6 @@ interface CheckoutState {
   // ── Adicionar serviço a um grupo existente (reusa o create) ──
   prefillClient?:    { id: string; name: string; phone: string } | null
   addToGroupRefId?:  string | null   // se setado, o save usa POST /bookings/:id/add-to-group
-  prefillItems?:     PrefillItem[] | null   // serviços CONFIRMED já no grupo (editáveis)
-}
-
-// Item do grupo pré-carregado no editor (mapeado pra ServiceItem no painel)
-export interface PrefillItem {
-  bookingId:   string
-  serviceId:   string
-  serviceName: string
-  duration:    number
-  price?:      number
-  startTime:   string
-  endTime:     string
-  profId:      string
 }
 
 // Preview — ghost na grade enquanto o checkout está aberto
@@ -74,7 +61,7 @@ interface AgendaStore {
   openCreate:    (time: string, professionalId: string) => void
   openEdit:      (booking: AgendaBooking) => void
   openView:      (booking: AgendaBooking) => void
-  openAddService:(refBookingId: string, time: string, professionalId: string, client: { id: string; name: string; phone: string } | null, items?: PrefillItem[] | null) => void
+  openAddService:(refBookingId: string, time: string, professionalId: string, client: { id: string; name: string; phone: string } | null) => void
   closeCheckout: () => void
 
   // ── Preview (ghost na grade) ──
@@ -84,7 +71,7 @@ interface AgendaStore {
 
 const CHECKOUT_CLOSED: CheckoutState = {
   open: false, mode: 'create', time: null, professionalId: null, booking: null,
-  prefillClient: null, addToGroupRefId: null, prefillItems: null,
+  prefillClient: null, addToGroupRefId: null,
 }
 
 export const useAgendaStore = create<AgendaStore>()(
@@ -159,11 +146,10 @@ export const useAgendaStore = create<AgendaStore>()(
 
       openView: (booking) =>
         set({ checkout: { open: true, mode: 'view', time: booking.start, professionalId: booking.professionalId, booking } }),
-      openAddService: (refBookingId, time, professionalId, client, items) =>
+      openAddService: (refBookingId, time, professionalId, client) =>
         set({ checkout: {
           open: true, mode: 'create', time, professionalId, booking: null,
           prefillClient: client, addToGroupRefId: refBookingId,
-          prefillItems: items ?? null,
         } }),
 
       closeCheckout: () => set({ checkout: CHECKOUT_CLOSED, preview: null }),
