@@ -26,8 +26,8 @@ export const colors = {
     800:           '#1f2937',
     700:           '#374151',
     500:           '#6b7280',
-    border:        'rgba(0,0,0,0.07)',
-    borderMd:      'rgba(0,0,0,0.09)',
+    border:        'rgba(0,0,0,0.11)',
+    borderMd:      'rgba(0,0,0,0.14)',
     hover:         'rgba(0,0,0,0.04)',
     dimText:       'rgba(0,0,0,0.35)',
     dimTextLight:  'rgba(0,0,0,0.28)',
@@ -133,7 +133,7 @@ export const radius = {
 } as const
 
 export const shadows = {
-  sm:    '0 1px 6px rgba(0,0,0,0.05)',
+  sm:    '0 1px 3px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.07)',
   md:    '0 4px 16px rgba(0,0,0,0.09)',
   lg:    '0 20px 60px rgba(0,0,0,0.13)',
   redSm: '0 3px 10px rgba(220,38,38,0.22)',

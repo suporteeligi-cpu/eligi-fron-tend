@@ -80,8 +80,6 @@ interface Props {
   professionals:   AgendaProfessional[]
   selectedDate:    Date
   existingBooking?: AgendaBooking | null   // ← novo: passado pelo AgendaBoard em modo edit
-  prefillClient?:   { id: string; name: string; phone: string } | null  // ← adicionar serviço: cliente herdado
-  addToGroupRefId?: string | null   // ← adicionar serviço: booking de referência do grupo
   onClose:         () => void
   onDateChange?:   (date: Date) => void
 }
@@ -533,7 +531,7 @@ function CreateClientSheet({ onCreated, onClose }: {
 // ─── SideCheckoutPanel ────────────────────────────────────────────────────────
 export default function SideCheckoutPanel({
   open, mode, time, professionalId, professionals, selectedDate,
-  existingBooking, prefillClient, addToGroupRefId, onClose, onDateChange,
+  existingBooking, onClose, onDateChange,
 }: Props) {
   const isMobile = useIsMobile()
   const { setPreview, setSelectedDate } = useAgendaStore()
@@ -583,7 +581,7 @@ export default function SideCheckoutPanel({
     const initDate  = dayjs(selectedDate)
 
     setDate(initDate)
-    setSelectedClient(prefillClient ?? null)
+    setSelectedClient(null)
     setAddingSvcIdx(-1)
 
     if (mode === 'create') {
@@ -814,41 +812,25 @@ export default function SideCheckoutPanel({
         // Se há mais de 1 serviço, gera um groupId comum pra vinculá-los
         // (cada serviço continua um booking/card independente na grade,
         //  mas o BookingViewPanel os exibe juntos estilo Booksy).
-        if (addToGroupRefId) {
-          // ── ADICIONAR SERVIÇO A UM GRUPO EXISTENTE ──────────────────────
-          // Em SÉRIE (não Promise.all): a 1ª chamada faz o ref virar grupo
-          // (gera groupId); as próximas reusam o mesmo. Paralelo causaria race.
-          for (const it of items) {
-            const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
-            await api.post(`/bookings/${addToGroupRefId}/add-to-group`, {
-              serviceId:      it.service.id,
-              professionalId: it.profId || null,
-              startAt,
-              allowOverlap,
-            })
-          }
-        } else {
-          // ── MODO CREATE normal: POST /bookings/confirm (múltiplos serviços) ──
-          const groupId = items.length > 1
-            ? (crypto.randomUUID?.() ?? `grp_${Date.now()}_${Math.random().toString(36).slice(2)}`)
-            : undefined
+        const groupId = items.length > 1
+          ? (crypto.randomUUID?.() ?? `grp_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+          : undefined
 
-          await Promise.all(items.map(it => {
-            const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
-            return api.post('/bookings/confirm', {
-              clientId:       selectedClient?.id ?? null,
-              clientName:     selectedClient?.name ?? 'Avulso',
-              clientPhone:    selectedClient?.phone ?? '',
-              professionalId: it.profId,
-              serviceId:      it.service.id,
-              startAt,
-              allowOverlap,
-              groupId,
-              internalNote:   internalNote || undefined,
-              clientMessage:  clientMessage || undefined,
-            })
-          }))
-        }
+        await Promise.all(items.map(it => {
+          const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
+          return api.post('/bookings/confirm', {
+            clientId:       selectedClient?.id ?? null,      // ⭐ NEW: linka com Client cadastrado
+            clientName:     selectedClient?.name ?? 'Avulso', // ⭐ NEW: mantém nome mesmo com cliente linkado (pode ser editável futuramente)
+            clientPhone:    selectedClient?.phone ?? '',
+            professionalId: it.profId,
+            serviceId:      it.service.id,
+            startAt,
+            allowOverlap,
+            groupId,                                          // ⭐ NEW: agrupa serviços
+            internalNote:   internalNote || undefined,
+            clientMessage:  clientMessage || undefined,
+          })
+        }))
 
         setPreview(null)
         setSuccess(true)
