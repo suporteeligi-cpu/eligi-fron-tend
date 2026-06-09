@@ -2,7 +2,7 @@
 // src/app/dashboard/components/AlertsCard.tsx
 
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, DollarSign, Package, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Bell, DollarSign, Package, ChevronRight, CheckCircle2 } from 'lucide-react'
 import { colors, typography, radius, shadows } from '@/shared/theme'
 import { DashboardAlerts } from '@/features/dashboard/types'
 import { fmtBRL } from '@/features/dashboard/utils/format'
@@ -20,16 +20,16 @@ export default function AlertsCard({ alerts }: Props) {
 
   return (
     <div style={{
-      background:   '#fff',
-      border:       `0.5px solid ${colors.gray.borderMd}`,
-      borderLeft:   `2.5px solid ${colors.red.DEFAULT}`,
-      borderRadius: radius.lg,
-      boxShadow:    shadows.sm,
-      padding:      '14px 16px',
-      fontFamily:   typography.fontFamily,
-      display:      'flex',
+      background:    '#fff',
+      border:        `0.5px solid ${colors.gray.borderMd}`,
+      borderLeft:    `2.5px solid ${colors.red.DEFAULT}`,
+      borderRadius:  radius.lg,
+      boxShadow:     shadows.sm,
+      padding:       '14px 16px',
+      fontFamily:    typography.fontFamily,
+      display:       'flex',
       flexDirection: 'column',
-      gap:          10,
+      gap:           10,
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -38,15 +38,15 @@ export default function AlertsCard({ alerts }: Props) {
           height:         24,
           borderRadius:   7,
           background:     hasAny
-            ? 'linear-gradient(135deg, #d97706, #b45309)'
+            ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
             : 'linear-gradient(135deg, #16a34a, #15803d)',
           display:        'flex',
           alignItems:     'center',
           justifyContent: 'center',
         }}>
           {hasAny
-            ? <AlertTriangle size={12} color="#fff" strokeWidth={2.4} />
-            : <CheckCircle2  size={12} color="#fff" strokeWidth={2.4} />
+            ? <Bell        size={12} color="#fff" strokeWidth={2.4} />
+            : <CheckCircle2 size={12} color="#fff" strokeWidth={2.4} />
           }
         </div>
         <span style={{
@@ -56,7 +56,7 @@ export default function AlertsCard({ alerts }: Props) {
           textTransform: 'uppercase',
           letterSpacing: '.07em',
         }}>
-          {hasAny ? 'Atenção' : 'Tudo em ordem'}
+          {hasAny ? 'Avisos' : 'Tudo em ordem'}
         </span>
       </div>
 
@@ -67,14 +67,14 @@ export default function AlertsCard({ alerts }: Props) {
           color:     typography.color.muted,
           fontSize:  typography.scale.sm,
         }}>
-          🎉 Nenhuma pendência no momento
+          Nenhuma pendência no momento
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {hasCommissions && (
             <AlertItem
               Icon={DollarSign}
-              iconBg={colors.red.gradient}
+              iconBg="linear-gradient(135deg, #6366f1, #4f46e5)"
               title={`${fmtBRL(alerts.pendingCommissions.total)} em comissões`}
               subtitle={`${alerts.pendingCommissions.professionals} profissional${alerts.pendingCommissions.professionals !== 1 ? 'is' : ''} aguardando pagamento`}
               onClick={() => router.push(alerts.pendingCommissions.href)}
@@ -128,12 +128,12 @@ function AlertItem({
         width:                   '100%',
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.background    = '#fff'
-        e.currentTarget.style.borderColor   = colors.red.borderHover
+        e.currentTarget.style.background  = '#fff'
+        e.currentTarget.style.borderColor = colors.red.borderHover
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.background    = colors.background.page
-        e.currentTarget.style.borderColor   = colors.gray.borderMd
+        e.currentTarget.style.background  = colors.background.page
+        e.currentTarget.style.borderColor = colors.gray.borderMd
       }}
     >
       <div style={{

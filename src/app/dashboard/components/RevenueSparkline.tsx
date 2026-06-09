@@ -31,7 +31,7 @@ function loadChartJs(): Promise<void> {
   })
 }
 
-export default function RevenueSparkline({ data, isMobile: _ }: Props) {
+export default function RevenueSparkline({ data }: Props) {
   const canvasRef  = useRef<HTMLCanvasElement>(null)
   const chartRef   = useRef<any>(null)         // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -80,7 +80,7 @@ export default function RevenueSparkline({ data, isMobile: _ }: Props) {
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: (c: any) => `R$ ${Math.round(c.parsed.y).toLocaleString('pt-BR')}`,
+                label: (c: { parsed: { y: number } }) => `R$ ${Math.round(c.parsed.y).toLocaleString('pt-BR')}`,
               },
               backgroundColor: isDark ? '#1e1e1e' : '#fff',
               borderColor:     isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)',
