@@ -14,7 +14,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, Clock, User, Calendar, AlertTriangle, CheckCircle, Ban, Phone,
-  Edit3, ShoppingBag, Receipt, ChevronDown, Loader2, AlertCircle, Plus } from 'lucide-react'
+  Edit3, ShoppingBag, Receipt, ChevronDown, Loader2, AlertCircle,
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import api from '@/shared/lib/apiClient'
 import { AgendaBooking } from '@/features/agenda/types'
@@ -190,7 +191,7 @@ function ConfirmModal({
 export default function BookingViewPanel({ booking, date, open, onClose }: Props) {
   const router   = useRouter()
   const isMobile = useIsMobile()
-  const { removeBooking, openEdit, updateBooking, openAddService } = useAgendaStore()
+  const { removeBooking, openEdit, updateBooking } = useAgendaStore()
   const dateStr  = dayjs(date).format('YYYY-MM-DD')
 
   const [detail,    setDetail]    = useState<BookingDetail | null>(null)
@@ -289,22 +290,6 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
     // Pequeno delay pra animação de fechar terminar antes de abrir o SideCheckoutPanel
     setTimeout(() => {
       openEdit(booking)
-    }, 200)
-  }
-
-  function handleAddService() {
-    // Adiciona um novo serviço ao MESMO grupo deste agendamento.
-    // Reabre o SideCheckoutPanel (modo create) com o cliente herdado e o
-    // booking de referência — o save usa POST /bookings/:id/add-to-group.
-    const client = detail?.client
-      ? { id: detail.client.id, name: detail.client.name, phone: detail.client.phone ?? '' }
-      : null
-    const refId = bookingId
-    const startT = bookingStart
-    const profId = detail?.professionalId ?? booking.professionalId ?? ''
-    onClose()
-    setTimeout(() => {
-      openAddService(refId, startT, profId, client)
     }, 200)
   }
 
@@ -854,30 +839,6 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                   </div>
                 )
               })()}
-
-              {/* Adicionar serviço ao grupo — só em CONFIRMED e não pago */}
-              {isConfirmed && !hasOpenSale && (
-                <button
-                  onClick={handleAddService}
-                  style={{
-                    width: '100%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    padding: '13px',
-                    borderRadius: 14,
-                    border: `1.5px dashed ${colors.red.border}`,
-                    background: colors.red.subtle,
-                    color: colors.red.DEFAULT,
-                    fontSize: 13, fontWeight: 700,
-                    cursor: 'pointer',
-                    letterSpacing: '.04em',
-                    fontFamily: typography.fontFamily,
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  <Plus size={15} strokeWidth={2.5}/>
-                  ADICIONAR SERVIÇO
-                </button>
-              )}
 
               {/* Card total + status de venda */}
               {(price > 0 || isGroup) && (
