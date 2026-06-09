@@ -1,8 +1,9 @@
 'use client'
 // src/features/agenda/components/shared/BookingSeals.tsx
 // Pilha de selos do card de agendamento, canto superior direito.
-// Ordem (de cima p/ baixo): Pago (💲) → Online (🚀) → Preferência de prof. (❤️).
-// Cada selo abaixo do outro com leve sobreposição (o de cima fica na frente).
+// Ordem (esquerda → direita): Pago (💲) → Online (🚀) → Preferência de prof. (❤️).
+// Sobreposição HORIZONTAL (lado a lado, leve overlap) — cresce pra esquerda,
+// ancorado no canto direito, pra não estourar a altura em cards curtos.
 
 import { Rocket, Heart } from 'lucide-react'
 
@@ -57,11 +58,11 @@ export default function BookingSeals({ isPaid, fromOnline, professionalPreferenc
   return (
     <div aria-hidden style={{
       position: 'absolute', top: 4, right: 4, zIndex: 3,
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      display: 'flex', flexDirection: 'row', alignItems: 'center',
       pointerEvents: 'none',
     }}>
       {seals.map((node, i) => (
-        <div key={i} style={{ marginTop: i === 0 ? 0 : -OVERLAP, zIndex: 20 - i }}>
+        <div key={i} style={{ marginLeft: i === 0 ? 0 : -OVERLAP, zIndex: 20 - i }}>
           {node}
         </div>
       ))}
