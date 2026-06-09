@@ -2,21 +2,13 @@
 
 export type DashboardPeriod = 'today' | '7d' | '30d'
 
-export interface OnlineBookingsKPI {
-  today:       number
-  todayPct:    number        // % dos agendamentos de hoje
-  month:       number
-  monthGrowth: number | null // null = sem base anterior
-}
-
 export interface DashboardKPIs {
   revenue:          number
-  revenueGrowth:    number | null
+  revenueGrowth:    number | null   // null = sem base anterior
   ticketAverage:    number
   attendanceRate:   number
   totalBookings:    number
   tomorrowBookings: number
-  onlineBookings:   OnlineBookingsKPI
 }
 
 export interface RevenueChartPoint {
@@ -33,16 +25,15 @@ export interface TopProfessional {
 }
 
 export interface TodayScheduleItem {
-  id:             string
-  time:           string
-  client:         string
-  service:        string
-  serviceColor:   string | null
-  professional:   string | null
-  professionalId: string | null
-  status:         'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW'
-  isPast:         boolean
-  isOnline:       boolean
+  id:              string
+  time:            string
+  client:          string
+  service:         string
+  serviceColor:    string | null
+  professional:    string | null
+  professionalId:  string | null
+  status:          'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW'
+  isPast:          boolean
 }
 
 export interface DashboardAlerts {

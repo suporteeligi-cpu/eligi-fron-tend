@@ -1,0 +1,367 @@
+// src/modules/dashboard/dashboard.service.ts
+//
+// Dashboard executivo v2.1 — Fase 6.6 + Timezone universal
+// Usa o timezone configurado pelo negócio (BusinessProfile.timezone).
+// Fallback automático pra America/Sao_Paulo se não definido.
+
+import prisma from '../../shared/database/prisma'
+import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+import 'dayjs/locale/pt-br'
+import { getBusinessTimezone } from '../../shared/utils/businessTime'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
+dayjs.locale('pt-br')
+
+export type Period = 'today' | '7d' | '30d'
+
+interface PeriodRange {
+  startDate:     Date
+  endDate:       Date
+  prevStartDate: Date
+  prevEndDate:   Date
+}
+
+function getPeriodRange(period: Period, tz: string): PeriodRange {
+  const now = dayjs().tz(tz)
+
+  if (period === 'today') {
+    const start = now.startOf('day')
+    const end   = now.endOf('day')
+    return {
+      startDate:     start.toDate(),
+      endDate:       end.toDate(),
+      prevStartDate: start.subtract(1, 'day').toDate(),
+      prevEndDate:   end.subtract(1, 'day').toDate(),
+    }
+  }
+
+  const days = period === '30d' ? 30 : 7
+  const start    = now.subtract(days - 1, 'day').startOf('day')
+  const prevEnd  = start.subtract(1, 'millisecond')
+  const prevStart= prevEnd.subtract(days - 1, 'day').startOf('day')
+
+  return {
+    startDate:     start.toDate(),
+    endDate:       now.endOf('day').toDate(),
+    prevStartDate: prevStart.toDate(),
+    prevEndDate:   prevEnd.toDate(),
+  }
+}
+
+async function calcNetRevenue(businessId: string, startDate: Date, endDate: Date) {
+  const sales = await prisma.sale.findMany({
+    where: {
+      businessId,
+      status:      'CONFIRMED',
+      confirmedAt: { gte: startDate, lte: endDate },
+    },
+    select: {
+      total:       true,
+      confirmedAt: true,
+      creditNotes: { select: { amount: true } },
+    },
+  })
+
+  let gross   = 0
+  let credits = 0
+  for (const s of sales) {
+    gross += s.total
+    for (const cn of s.creditNotes) credits += cn.amount
+  }
+
+  return {
+    gross,
+    credits,
+    net:        Math.max(0, gross - credits),
+    salesCount: sales.length,
+    sales,
+  }
+}
+
+export class DashboardService {
+  static async getOverview(userId: string, period: Period = 'today') {
+    const business = await prisma.businessProfile.findFirst({
+      where: { ownerId: userId },
+    })
+    if (!business) throw new Error('Business not found')
+
+    // ⭐ Lê o timezone do business
+    const tz = await getBusinessTimezone(business.id)
+
+    const { startDate, endDate, prevStartDate, prevEndDate } = getPeriodRange(period, tz)
+
+    // ═══════════════════════════════════════════════════════════
+    // 1. RECEITA
+    // ═══════════════════════════════════════════════════════════
+    const [current, previous] = await Promise.all([
+      calcNetRevenue(business.id, startDate, endDate),
+      calcNetRevenue(business.id, prevStartDate, prevEndDate),
+    ])
+
+    const totalRevenue   = current.net
+    const previousRevenue = previous.net
+
+    const revenueGrowth =
+      previousRevenue > 0
+        ? ((totalRevenue - previousRevenue) / previousRevenue) * 100
+        : totalRevenue > 0 ? null : 0
+
+    const ticketAverage = current.salesCount > 0
+      ? totalRevenue / current.salesCount
+      : 0
+
+    // ═══════════════════════════════════════════════════════════
+    // 2. AGENDAMENTOS
+    // ═══════════════════════════════════════════════════════════
+    const tomorrowStart = dayjs().tz(tz).add(1, 'day').startOf('day').toDate()
+    const tomorrowEnd   = dayjs().tz(tz).add(1, 'day').endOf('day').toDate()
+
+    const [totalBookings, completedBookings, tomorrowCount] = await Promise.all([
+      prisma.booking.count({
+        where: {
+          businessId: business.id,
+          startAt:    { gte: startDate, lte: endDate },
+          status:     { in: ['CONFIRMED', 'COMPLETED'] },
+        },
+      }),
+      prisma.booking.count({
+        where: {
+          businessId: business.id,
+          status:     'COMPLETED',
+          startAt:    { gte: startDate, lte: endDate },
+        },
+      }),
+      prisma.booking.count({
+        where: {
+          businessId: business.id,
+          startAt:    { gte: tomorrowStart, lte: tomorrowEnd },
+          status:     'CONFIRMED',
+        },
+      }),
+    ])
+
+    const attendanceRate = totalBookings > 0
+      ? (completedBookings / totalBookings) * 100
+      : 0
+
+    // ═══════════════════════════════════════════════════════════
+    // 3. GRÁFICO: últimos 7 dias
+    // ═══════════════════════════════════════════════════════════
+    const chartStart = dayjs().tz(tz).subtract(6, 'day').startOf('day').toDate()
+    const chartEnd   = dayjs().tz(tz).endOf('day').toDate()
+
+    const chartSales = await prisma.sale.findMany({
+      where: {
+        businessId:  business.id,
+        status:      'CONFIRMED',
+        confirmedAt: { gte: chartStart, lte: chartEnd },
+      },
+      select: {
+        total:       true,
+        confirmedAt: true,
+        creditNotes: { select: { amount: true } },
+      },
+    })
+
+    const revenueByDay: Record<string, number> = {}
+    for (let i = 0; i < 7; i++) {
+      const d = dayjs().tz(tz).subtract(6 - i, 'day').format('DD/MM')
+      revenueByDay[d] = 0
+    }
+
+    for (const s of chartSales) {
+      if (!s.confirmedAt) continue
+      const credited = s.creditNotes.reduce((sum, cn) => sum + cn.amount, 0)
+      const net      = Math.max(0, s.total - credited)
+      const key      = dayjs(s.confirmedAt).tz(tz).format('DD/MM')
+      if (key in revenueByDay) revenueByDay[key] += net
+    }
+
+    const revenueChart = Object.entries(revenueByDay).map(([label, value]) => ({
+      label,
+      value: Math.round(value * 100) / 100,
+    }))
+
+    // ═══════════════════════════════════════════════════════════
+    // 4. TOP PROFISSIONAIS por RECEITA
+    // ═══════════════════════════════════════════════════════════
+    const topProfs = await this.getTopProfessionalsByRevenue(business.id, startDate, endDate)
+
+    // ═══════════════════════════════════════════════════════════
+    // 5. AGENDA DE HOJE
+    // ═══════════════════════════════════════════════════════════
+    const todayStart = dayjs().tz(tz).startOf('day').toDate()
+    const todayEnd   = dayjs().tz(tz).endOf('day').toDate()
+
+    const todayBookings = await prisma.booking.findMany({
+      where: {
+        businessId: business.id,
+        startAt:    { gte: todayStart, lte: todayEnd },
+        status:     { in: ['CONFIRMED', 'COMPLETED'] },
+      },
+      include: {
+        service:      { select: { name: true, color: true } },
+        professional: { select: { id: true, name: true } },
+      },
+      orderBy: { startAt: 'asc' },
+    })
+
+    const nowInTz = dayjs().tz(tz)
+    const todaySchedule = todayBookings.map(b => ({
+      id:               b.id,
+      time:             dayjs(b.startAt).tz(tz).format('HH:mm'),
+      client:           b.clientName || '—',
+      service:          b.service?.name || '—',
+      serviceColor:     b.service?.color ?? null,
+      professional:     b.professional?.name || null,
+      professionalId:   b.professionalId,
+      status:           b.status,
+      isPast:           dayjs(b.startAt).tz(tz).isBefore(nowInTz),
+    }))
+
+    // ═══════════════════════════════════════════════════════════
+    // 6. ALERTAS
+    // ═══════════════════════════════════════════════════════════
+    const alerts = await this.getAlerts(business.id, tz)
+
+    return {
+      period,
+      kpis: {
+        revenue:          totalRevenue,
+        revenueGrowth,
+        ticketAverage,
+        attendanceRate,
+        totalBookings,
+        tomorrowBookings: tomorrowCount,
+      },
+      revenueChart,
+      topProfessionals: topProfs,
+      todaySchedule,
+      alerts,
+    }
+  }
+
+  static async getTopProfessionalsByRevenue(businessId: string, startDate: Date, endDate: Date) {
+    const items = await prisma.saleItem.findMany({
+      where: {
+        sale: {
+          businessId,
+          status:      'CONFIRMED',
+          confirmedAt: { gte: startDate, lte: endDate },
+        },
+        professionalId: { not: null },
+      },
+      select: {
+        total:           true,
+        professionalId:  true,
+        sale: {
+          select: {
+            id: true, total: true,
+            creditNotes: { select: { amount: true } },
+          },
+        },
+      },
+    })
+
+    const byProf = new Map<string, { gross: number; itemsCount: number }>()
+
+    for (const it of items) {
+      if (!it.professionalId) continue
+      const agg = byProf.get(it.professionalId) ?? { gross: 0, itemsCount: 0 }
+
+      const saleTotalCredited = it.sale.creditNotes.reduce((s, c) => s + c.amount, 0)
+      const proportion        = it.sale.total > 0 ? it.total / it.sale.total : 0
+      const itemCredits       = saleTotalCredited * proportion
+      const itemNet           = Math.max(0, it.total - itemCredits)
+
+      agg.gross      += itemNet
+      agg.itemsCount += 1
+      byProf.set(it.professionalId, agg)
+    }
+
+    const profIds = Array.from(byProf.keys())
+    const profs   = await prisma.professional.findMany({
+      where:  { id: { in: profIds } },
+      select: { id: true, name: true, avatarUrl: true },
+    })
+    const nameMap = new Map(profs.map(p => [p.id, p]))
+
+    return Array.from(byProf.entries())
+      .map(([id, agg]) => {
+        const p = nameMap.get(id)
+        return {
+          professionalId: id,
+          name:           p?.name ?? '—',
+          avatarUrl:      p?.avatarUrl ?? null,
+          revenue:        Math.round(agg.gross * 100) / 100,
+          itemsCount:     agg.itemsCount,
+        }
+      })
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5)
+  }
+
+  static async getAlerts(businessId: string, tz: string) {
+    const todayStart = dayjs().tz(tz).startOf('day').toDate()
+    const in30Days   = dayjs().tz(tz).add(30, 'day').endOf('day').toDate()
+
+    const [pendingCommissions, lowStockProducts, unassignedBookings] = await Promise.all([
+      prisma.commissionItem.findMany({
+        where: { businessId, payoutId: null },
+        select: { amount: true, professionalId: true },
+      }),
+
+      prisma.product.findMany({
+        where: {
+          businessId,
+          active:     true,
+          trackStock: true,
+        },
+        select: { id: true, name: true, stock: true, stockAlert: true },
+      }),
+
+      prisma.booking.count({
+        where: {
+          businessId,
+          professionalId: null,
+          status:         'CONFIRMED',
+          startAt: {
+            gte: todayStart,
+            lte: in30Days,
+          },
+        },
+      }),
+    ])
+
+    const commissionsTotal = pendingCommissions.reduce((s, c) => s + c.amount, 0)
+    const commissionsProfs = new Set(pendingCommissions.map(c => c.professionalId)).size
+
+    const lowStockItems = lowStockProducts.filter(p =>
+      p.stockAlert != null && p.stock <= p.stockAlert,
+    )
+
+    return {
+      pendingCommissions: {
+        total:           commissionsTotal,
+        professionals:   commissionsProfs,
+        href:            '/dashboard/financeiro/comissoes',
+      },
+      lowStock: {
+        count: lowStockItems.length,
+        items: lowStockItems.slice(0, 3).map(p => ({
+          id:    p.id,
+          name:  p.name,
+          stock: p.stock,
+        })),
+        href:  '/dashboard/estoque',
+      },
+      unassignedBookings: {
+        count: unassignedBookings,
+        href:  '/dashboard/agenda',
+      },
+    }
+  }
+}

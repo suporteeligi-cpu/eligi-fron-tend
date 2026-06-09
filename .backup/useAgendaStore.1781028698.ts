@@ -11,9 +11,6 @@ interface CheckoutState {
   time:           string | null
   professionalId: string | null
   booking:        AgendaBooking | null
-  // ── Adicionar serviço a um grupo existente (reusa o create) ──
-  prefillClient?:    { id: string; name: string; phone: string } | null
-  addToGroupRefId?:  string | null   // se setado, o save usa POST /bookings/:id/add-to-group
 }
 
 // Preview — ghost na grade enquanto o checkout está aberto
@@ -61,7 +58,6 @@ interface AgendaStore {
   openCreate:    (time: string, professionalId: string) => void
   openEdit:      (booking: AgendaBooking) => void
   openView:      (booking: AgendaBooking) => void
-  openAddService:(refBookingId: string, time: string, professionalId: string, client: { id: string; name: string; phone: string } | null) => void
   closeCheckout: () => void
 
   // ── Preview (ghost na grade) ──
@@ -71,7 +67,6 @@ interface AgendaStore {
 
 const CHECKOUT_CLOSED: CheckoutState = {
   open: false, mode: 'create', time: null, professionalId: null, booking: null,
-  prefillClient: null, addToGroupRefId: null,
 }
 
 export const useAgendaStore = create<AgendaStore>()(
@@ -146,11 +141,6 @@ export const useAgendaStore = create<AgendaStore>()(
 
       openView: (booking) =>
         set({ checkout: { open: true, mode: 'view', time: booking.start, professionalId: booking.professionalId, booking } }),
-      openAddService: (refBookingId, time, professionalId, client) =>
-        set({ checkout: {
-          open: true, mode: 'create', time, professionalId, booking: null,
-          prefillClient: client, addToGroupRefId: refBookingId,
-        } }),
 
       closeCheckout: () => set({ checkout: CHECKOUT_CLOSED, preview: null }),
 
