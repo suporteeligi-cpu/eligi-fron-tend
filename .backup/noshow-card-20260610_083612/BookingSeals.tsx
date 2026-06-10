@@ -1,19 +1,22 @@
 'use client'
 // src/features/agenda/components/shared/BookingSeals.tsx
 // Pilha de selos do card de agendamento, canto superior direito.
-// Ordem: Pago (💲) → Online (🚀) → Preferência (❤️) → Não compareceu (👁‍🗨)
-import { Rocket, Heart, EyeOff } from 'lucide-react'
+// Ordem (esquerda → direita): Pago (💲) → Online (🚀) → Preferência de prof. (❤️).
+// Sobreposição HORIZONTAL (lado a lado, leve overlap) — cresce pra esquerda,
+// ancorado no canto direito, pra não estourar a altura em cards curtos.
+
+import { Rocket, Heart } from 'lucide-react'
 
 interface Props {
   isPaid?:                 boolean
-  fromOnline?:             boolean
-  professionalPreference?: boolean
-  isNoShow?:               boolean
+  fromOnline?:             boolean   // veio do link público
+  professionalPreference?: boolean   // cliente escolheu o profissional
+  /** Esconde tudo (ex.: card micro, sem espaço). */
   hidden?:                 boolean
 }
 
-const SIZE    = 18
-const OVERLAP = 5
+const SIZE = 18 // diâmetro do selo
+const OVERLAP = 5 // px de sobreposição entre selos
 
 function Badge({ bg, children }: { bg: string; children: React.ReactNode }) {
   return (
@@ -31,6 +34,7 @@ function Badge({ bg, children }: { bg: string; children: React.ReactNode }) {
 }
 
 function PaidSeal() {
+  // Nota/recibo branca preenchida + cifrão (mesmo desenho do selo "Pago" original)
   return (
     <div style={{ width: SIZE, height: SIZE, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}>
       <svg viewBox="0 0 24 24" width={SIZE} height={SIZE}>
@@ -41,16 +45,13 @@ function PaidSeal() {
   )
 }
 
-export default function BookingSeals({
-  isPaid, fromOnline, professionalPreference, isNoShow, hidden,
-}: Props) {
+export default function BookingSeals({ isPaid, fromOnline, professionalPreference, hidden }: Props) {
   if (hidden) return null
 
   const seals: React.ReactNode[] = []
-  if (isPaid)                seals.push(<PaidSeal key="paid" />)
-  if (fromOnline)            seals.push(<Badge key="online" bg="#2563eb"><Rocket size={11} color="#fff" strokeWidth={2.4} /></Badge>)
-  if (professionalPreference) seals.push(<Badge key="pref"  bg="#e11d48"><Heart  size={11} color="#fff" fill="#fff" strokeWidth={2} /></Badge>)
-  if (isNoShow)              seals.push(<Badge key="noshow" bg="#475569"><EyeOff size={11} color="#fff" strokeWidth={2.4} /></Badge>)
+  if (isPaid) seals.push(<PaidSeal />)
+  if (fromOnline) seals.push(<Badge bg="#2563eb"><Rocket size={11} color="#fff" strokeWidth={2.4} /></Badge>)
+  if (professionalPreference) seals.push(<Badge bg="#e11d48"><Heart size={11} color="#fff" fill="#fff" strokeWidth={2} /></Badge>)
 
   if (seals.length === 0) return null
 

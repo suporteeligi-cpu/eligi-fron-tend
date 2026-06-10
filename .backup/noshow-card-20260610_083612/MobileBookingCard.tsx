@@ -21,10 +21,9 @@ interface Props {
  * - full    (≥ 56px)  : layout completo com rodapé duração
  */
 export default function MobileBookingCard({ booking, height, isDragging = false }: Props) {
-  const isNoShow    = booking.status === 'NO_SHOW'
   const statusTheme = bookingStatus[booking.status] ?? bookingStatus.CONFIRMED
-  const gradient    = booking.serviceColor && !isNoShow ? colorToGradient(booking.serviceColor) : statusTheme.gradient
-  const glow        = booking.serviceColor && !isNoShow ? colorToGlow(booking.serviceColor)     : statusTheme.glow
+  const gradient    = booking.serviceColor ? colorToGradient(booking.serviceColor) : statusTheme.gradient
+  const glow        = booking.serviceColor ? colorToGlow(booking.serviceColor)     : statusTheme.glow
 
   const isMicro   = height <= 13
   const isCompact = height > 13 && height <= 37
@@ -36,7 +35,6 @@ export default function MobileBookingCard({ booking, height, isDragging = false 
     <div style={{
       width: '100%', height: '100%', borderRadius: 10,
       background: gradient,
-      opacity: isNoShow ? 0.55 : 1,
       padding: isMicro ? '0 6px' : isCompact ? '0 8px 0 10px' : '5px 8px 5px 10px',
       display: 'flex', flexDirection: 'column',
       justifyContent: (isMicro || isCompact) ? 'center' : 'flex-start',
@@ -49,16 +47,7 @@ export default function MobileBookingCard({ booking, height, isDragging = false 
       transform: isDragging ? 'scale(1.04)' : 'scale(1)',
       transition: isDragging ? 'none' : 'box-shadow 0.15s ease, transform 0.12s ease',
     }}>
-            {/* Overlay ghost NO_SHOW */}
-      {isNoShow && (
-        <div aria-hidden style={{
-          position: 'absolute', inset: 0, borderRadius: 7,
-          background: 'repeating-linear-gradient(135deg, transparent, transparent 4px, rgba(0,0,0,0.08) 4px, rgba(0,0,0,0.08) 6px)',
-          pointerEvents: 'none', zIndex: 2,
-        }} />
-      )}
-
-{/* Brilho topo */}
+      {/* Brilho topo */}
       <div aria-hidden style={{
         position:'absolute', top:0, left:0, right:0, height:'40%',
         background:'linear-gradient(180deg,rgba(255,255,255,0.16) 0%,transparent 100%)',
@@ -70,7 +59,6 @@ export default function MobileBookingCard({ booking, height, isDragging = false 
         isPaid={booking.isPaid}
         fromOnline={booking.fromOnline}
         professionalPreference={booking.professionalPreference}
-        isNoShow={isNoShow}
         hidden={isMicro}
       />
 

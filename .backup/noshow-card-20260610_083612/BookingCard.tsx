@@ -37,11 +37,9 @@ export default function BookingCard({ booking, totalHeight }: Props) {
   const showService = totalHeight >= H_MEDIUM
   const showBadge   = totalHeight >= H_FULL
 
-  const isNoShow    = booking.status === 'NO_SHOW'
   const statusTheme = bookingStatus[booking.status] ?? bookingStatus.CONFIRMED
-  // NO_SHOW: mantém cor do serviço mas dessatura/escurece via overlay
-  const gradient    = booking.serviceColor && !isNoShow ? colorToGradient(booking.serviceColor) : statusTheme.gradient
-  const glow        = booking.serviceColor && !isNoShow ? colorToGlow(booking.serviceColor)     : statusTheme.glow
+  const gradient    = booking.serviceColor ? colorToGradient(booking.serviceColor) : statusTheme.gradient
+  const glow        = booking.serviceColor ? colorToGlow(booking.serviceColor)     : statusTheme.glow
 
   return (
     <div
@@ -62,7 +60,6 @@ export default function BookingCard({ booking, totalHeight }: Props) {
         boxShadow: `0 2px 8px ${glow}, 0 1px 3px rgba(0,0,0,0.08)`,
         border: '1px solid rgba(255,255,255,0.15)',
         cursor: 'pointer',
-        opacity: isNoShow ? 0.55 : 1,
         userSelect: 'none',
         pointerEvents: 'auto',
         boxSizing: 'border-box',
@@ -98,18 +95,8 @@ export default function BookingCard({ booking, totalHeight }: Props) {
         isPaid={booking.isPaid}
         fromOnline={booking.fromOnline}
         professionalPreference={booking.professionalPreference}
-        isNoShow={isNoShow}
         hidden={isMicro}
       />
-
-      {/* Overlay ghost NO_SHOW — listras diagonais sutis */}
-      {isNoShow && (
-        <div aria-hidden style={{
-          position: 'absolute', inset: 0, borderRadius: 7,
-          background: 'repeating-linear-gradient(135deg, transparent, transparent 4px, rgba(0,0,0,0.08) 4px, rgba(0,0,0,0.08) 6px)',
-          pointerEvents: 'none', zIndex: 2,
-        }} />
-      )}
 
       {/* Barra lateral esquerda */}
       {!isMicro && (
