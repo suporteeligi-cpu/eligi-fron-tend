@@ -1,4 +1,8 @@
 'use client'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+
 import Navbar from './components/navbar/Navbar'
 import Footer from './components/footer/Footer'
 import Hero from './components/hero/HeroSection'
@@ -15,6 +19,21 @@ import FinalCTA from './components/sections/FinalCTA'
 import styles from './(public)/Home.module.css'
 
 export default function RootPage() {
+  const { user, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace('/dashboard')
+    }
+  }, [user, loading, router])
+
+  // Enquanto verifica auth, não renderiza nada (evita flash da landing)
+  if (loading) return null
+
+  // Já logado — não exibe a landing enquanto o replace acontece
+  if (user) return null
+
   return (
     <div className={styles.root}>
       <Navbar />
