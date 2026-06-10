@@ -10,7 +10,6 @@ export interface PayoutSettings {
   businessId:       string
   frequency:        PayoutFrequency
   weekday:          number | null
-  periodStartDay:   number | null   // dia de início do período (0=Dom…6=Sáb)
   monthDay:         number | null
   includeServices:  boolean
   includeProducts:  boolean
