@@ -225,6 +225,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           existingBooking={checkout.booking}
           prefillClient={checkout.prefillClient}
           addToGroupRefId={checkout.addToGroupRefId}
+          prefillItems={checkout.prefillItems}
           onClose={closeCheckout}
           onDateChange={date => setSelectedDate(date)}
         />
