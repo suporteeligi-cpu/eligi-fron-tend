@@ -41,7 +41,7 @@ interface ApiResponse {
 
 // ─── Adaptador ───────────────────────────────────────────────────────────────
 function adaptBooking(b: ApiBooking): AgendaBooking {
-  const validStatuses = ['CONFIRMED', 'COMPLETED', 'CANCELED'] as const
+  const validStatuses = ['CONFIRMED', 'COMPLETED', 'CANCELED', 'NO_SHOW'] as const
   type BS = typeof validStatuses[number]
 
   const status: BS = validStatuses.includes(b.status as BS)
