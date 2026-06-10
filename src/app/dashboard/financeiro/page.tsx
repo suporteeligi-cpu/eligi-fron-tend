@@ -72,14 +72,14 @@ export default function FinanceiroPage() {
             gradient="linear-gradient(135deg, #475569, #334155)"
           />
 
-          {/* Despesas — em breve */}
+          {/* Despesas — ATIVO */}
           <ModuleCard
             title="Despesas"
             description="Custos operacionais e fluxo de caixa"
             href="/dashboard/financeiro/despesas"
             Icon={TrendingDown}
             gradient="linear-gradient(135deg, #d97706, #b45309)"
-            phaseLabel="Fase 7"
+            
           />
 
           {/* ⭐ Comissões — ATIVO */}
