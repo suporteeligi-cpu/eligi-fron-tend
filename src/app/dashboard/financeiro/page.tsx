@@ -76,6 +76,7 @@ export default function FinanceiroPage() {
           <ModuleCard
             title="Despesas"
             description="Custos operacionais e fluxo de caixa"
+            href="/dashboard/financeiro/despesas"
             Icon={TrendingDown}
             gradient="linear-gradient(135deg, #d97706, #b45309)"
             phaseLabel="Fase 7"
