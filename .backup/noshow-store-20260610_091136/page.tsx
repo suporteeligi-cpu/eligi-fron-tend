@@ -28,20 +28,8 @@ export default function AgendaPage() {
 
   useEffect(() => {
     if (!data?.bookings) return
-    // Preserva status local (ex: NO_SHOW, COMPLETED marcados pelo usuário)
-    // para não sobrescrever com dados antigos da API antes do próximo refetch
-    const existing = getBookingsForDate(dateStr)
-    const existingMap = new Map(existing.map(b => [b.id, b]))
-    const merged = data.bookings.map(b => {
-      const local = existingMap.get(b.id)
-      // Se o status local é mais "avançado" que CONFIRMED, preserva
-      if (local && local.status !== 'CONFIRMED' && b.status === 'CONFIRMED') {
-        return { ...b, status: local.status }
-      }
-      return b
-    })
-    setBookingsForDate(dateStr, merged)
-  }, [data?.bookings, dateStr, setBookingsForDate, getBookingsForDate])
+    setBookingsForDate(dateStr, data.bookings)
+  }, [data?.bookings, dateStr, setBookingsForDate])
 
   return (
     /*
