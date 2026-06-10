@@ -14,8 +14,6 @@ export interface DashboardKPIs {
   revenueGrowth:    number | null
   ticketAverage:    number
   attendanceRate:   number
-  noShowCount:      number
-  noShowRate:       number
   totalBookings:    number
   tomorrowBookings: number
   onlineBookings:   OnlineBookingsKPI

@@ -3,7 +3,7 @@
 // Dashboard v2.3 — borda esquerda vermelha, strip 3 KPIs, slot "em breve"
 
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, Users, Receipt, EyeOff } from 'lucide-react'
+import { Loader2, Users, Receipt, Coins } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
@@ -393,19 +393,16 @@ export default function DashboardPage() {
                 icon={<Receipt size={12} />}
               />
               <FlatKPI
-                label="Não compareceram"
-                value={data.kpis.noShowCount === 0
-                  ? '—'
-                  : `${data.kpis.noShowCount} ${data.kpis.noShowCount === 1 ? 'cliente' : 'clientes'}`}
-                note={data.kpis.noShowCount === 0
-                  ? 'nenhum no período'
-                  : `${Math.round(data.kpis.noShowRate)}% dos agendamentos`}
-                noteColor={data.kpis.noShowRate >= 20
-                  ? '#dc2626'
-                  : data.kpis.noShowRate >= 10
-                    ? '#d97706'
-                    : undefined}
-                icon={<EyeOff size={12} />}
+                label="Comissões pend."
+                value={fmtBRLCompact(data.alerts.pendingCommissions.total)}
+                note={`${data.alerts.pendingCommissions.professionals} profissional(is)`}
+                noteColor={data.alerts.pendingCommissions.total > 0 ? '#d97706' : undefined}
+                icon={<Coins size={12} />}
+                onClick={
+                  data.alerts.pendingCommissions.total > 0
+                    ? () => router.push(data.alerts.pendingCommissions.href)
+                    : undefined
+                }
               />
             </div>
 
