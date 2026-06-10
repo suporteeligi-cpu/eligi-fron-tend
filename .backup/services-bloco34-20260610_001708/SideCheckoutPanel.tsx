@@ -144,19 +144,6 @@ function recomputeFrom(items: ServiceItem[], fromIdx: number): ServiceItem[] {
   return out
 }
 
-/** Retorna profissionais disponíveis para um serviço.
- *  Se o serviço não tem restrição (mapa vazio), retorna todos. */
-function getAvailableProfs(
-  professionals: AgendaProfessional[],
-  serviceId: string | undefined,
-  profMap: Record<string, string[]>,
-): AgendaProfessional[] {
-  if (!serviceId) return professionals
-  const allowed = profMap[serviceId]
-  if (!allowed || allowed.length === 0) return professionals
-  return professionals.filter(p => allowed.includes(p.id))
-}
-
 // Escolhe o 1º profissional que NÃO está ocupado por outro item do painel
 // no intervalo [start, end). Usado ao virar um item para 'parallel'.
 // Fallback: null (mantém o prof atual) quando todos estão ocupados.
@@ -557,7 +544,6 @@ export default function SideCheckoutPanel({
   const [selectedClient,setSelectedClient]= useState<Client|null>(null)
   const [services,      setServices]     = useState<Service[]>([])
   const [servicesLoad,  setServicesLoad] = useState(false)
-  const [serviceProfMap, setServiceProfMap] = useState<Record<string, string[]>>({})
 
   // Múltiplos serviços
   const [items, setItems] = useState<ServiceItem[]>([])
@@ -636,24 +622,9 @@ export default function SideCheckoutPanel({
   useEffect(() => {
     if (!open) return
     setServicesLoad(true)
-    api.get('/services').then(async res => {
+    api.get('/services').then(res => {
       const data = res.data?.data ?? res.data
-      const list = Array.isArray(data) ? data : data.services ?? []
-      setServices(list)
-      // Busca profissionais habilitados por serviço (sem bloquear UI)
-      const map: Record<string, string[]> = {}
-      await Promise.allSettled(
-        list.map(async (svc: { id: string }) => {
-          try {
-            const r = await api.get(`/services/${svc.id}/professionals`)
-            const profs = r.data?.data ?? r.data
-            if (Array.isArray(profs) && profs.length > 0) {
-              map[svc.id] = profs.map((p: { id: string }) => p.id)
-            }
-          } catch { /* sem restrição */ }
-        })
-      )
-      setServiceProfMap(map)
+      setServices(Array.isArray(data) ? data : data.services ?? [])
     }).catch(()=>{}).finally(()=>setServicesLoad(false))
   }, [open])
 
@@ -790,11 +761,6 @@ export default function SideCheckoutPanel({
         // a cadeia recalcular os tempos (a duração pode ter mudado).
         changedIdx = addingSvcIdx
         next[changedIdx] = { ...next[changedIdx], service: svc }
-        // Filtra profissional ao trocar serviço
-        const _avail = getAvailableProfs(professionals, svc.id, serviceProfMap)
-        if (_avail.length > 0 && !_avail.find(p => p.id === next[changedIdx].profId)) {
-          next[changedIdx] = { ...next[changedIdx], profId: _avail[0].id }
-        }
       }
 
       return recomputeFrom(next, changedIdx)
@@ -1155,7 +1121,7 @@ export default function SideCheckoutPanel({
                         <div style={{padding:'10px 12px',borderTop:`1px solid ${colors.gray.border}`}}>
                           <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Funcionário</div>
                           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                            {getAvailableProfs(professionals, item.service?.id, serviceProfMap).map(p=>(
+                            {professionals.map(p=>(
                               <button key={p.id} className={`cp-prof${item.profId===p.id?' sel':''}`} onClick={()=>setItems(prev=>{const n=[...prev];n[idx]={...n[idx],profId:p.id};return n})}>{p.name.split(' ')[0]}</button>
                             ))}
                           </div>
