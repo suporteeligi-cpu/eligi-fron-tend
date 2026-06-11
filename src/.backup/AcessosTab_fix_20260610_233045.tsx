@@ -6,7 +6,6 @@ import { UserCog, Send, Copy, Check, RefreshCw, X, ShieldOff, Clock, CheckCircle
 import { colors, typography, transitions } from '@/shared/theme'
 import { Professional } from '@/features/professionals/types'
 import api from '@/shared/lib/apiClient'
-import { useAuth } from '@/hooks/useAuth'
 import { getRoleLabel } from '@/app/components/navigation/navigation.config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -349,7 +348,6 @@ function AccessRowItem({ row, isMobile, onInvite, onRevoke, onCancel, onResend, 
 
 // ─── AcessosTab principal ─────────────────────────────────────────────────────
 export default function AcessosTab({ professionals, isMobile, loading }: Props) {
-  const { user: authUser } = useAuth()
   const [invites,     setInvites]     = useState<Invite[]>([])
   const [loadingInv,  setLoadingInv]  = useState(true)
   const [inviteProf,  setInviteProf]  = useState<Professional | null>(null)
@@ -379,9 +377,8 @@ export default function AcessosTab({ professionals, isMobile, loading }: Props) 
       i.status === 'PENDING' && i.professional?.id === prof.id
     ) ?? null
 
-    // Prof tem acesso se: tem userId vinculado OU é o Professional do user logado
     // @ts-expect-error userId é campo do backend não tipado no front ainda
-    const hasAccess = Boolean(prof.userId) || (authUser?.professionalId === prof.id)
+    const hasAccess = Boolean(prof.userId)
 
     return { prof, invite, hasAccess }
   })

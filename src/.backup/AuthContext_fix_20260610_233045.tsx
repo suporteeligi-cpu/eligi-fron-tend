@@ -59,7 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /* ── Redirect by role ── */
   const redirectByRole = useCallback((me: AuthUser) => {
-    // Só BUSINESS_OWNER sem negócio vai pro onboarding
     if (me.role === 'BUSINESS_OWNER' && !me.businessId) {
       router.push('/onboarding')
     } else {
