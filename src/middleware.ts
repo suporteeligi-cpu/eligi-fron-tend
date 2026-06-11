@@ -9,19 +9,24 @@ const PROTECTED_PREFIX = '/dashboard'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Lê o accessToken do cookie (httpOnly — só acessível server-side)
-  const token = request.cookies.get('accessToken')?.value
+  // Considera autenticado se tiver QUALQUER um dos dois tokens.
+  // O accessToken dura 15min — pode estar expirado no reload.
+  // O refreshToken dura 7 dias — o interceptor do axios renova
+  // o accessToken automaticamente assim que a página carrega.
+  const hasSession =
+    !!request.cookies.get('accessToken')?.value ||
+    !!request.cookies.get('refreshToken')?.value
 
-  const isPublicOnly  = PUBLIC_ONLY.includes(pathname)
-  const isProtected   = pathname.startsWith(PROTECTED_PREFIX)
+  const isPublicOnly = PUBLIC_ONLY.includes(pathname)
+  const isProtected  = pathname.startsWith(PROTECTED_PREFIX)
 
   // Logado tentando acessar rota pública (/, /login, /register)
-  if (token && isPublicOnly) {
+  if (hasSession && isPublicOnly) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   // Não logado tentando acessar rota protegida
-  if (!token && isProtected) {
+  if (!hasSession && isProtected) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
@@ -32,13 +37,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Roda em todas as rotas EXCETO:
-     * - _next/static (arquivos estáticos)
-     * - _next/image  (otimização de imagem)
-     * - favicon, ícones, manifesto
-     * - rotas de API internas
-     */
     '/((?!_next/static|_next/image|favicon|icons|manifest|api/).*)',
   ],
 }
