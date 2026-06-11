@@ -494,7 +494,7 @@ export default function AgendaGrid({
                 ...colStyle(p.id),
                 display: 'flex', flexDirection: 'column',
                 borderLeft: `1px solid ${colors.gray.border}`,
-                overflow: 'hidden',
+                overflow: 'visible',
               }}>
                 {/* ── Header do profissional ── */}
                 <div
@@ -537,6 +537,7 @@ export default function AgendaGrid({
                   background: isColTarget ? 'rgba(220,38,38,0.035)' : 'transparent',
                   transition:'background 0.12s ease',
                   flex: 1,
+                  overflow: 'hidden',
                 }}>
                 {/* Slots de fundo */}
                 {SLOTS.map((time, i) => {
