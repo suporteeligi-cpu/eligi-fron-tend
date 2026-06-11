@@ -47,13 +47,6 @@ function ProfTabs({ professionals, selected, bookings, onChange }: {
   const ref = useRef<HTMLDivElement>(null)
   const userInteractedRef = useRef(false)
 
-  // Sync com focusedProfId externo (ex: AgendaBoard inicializa para staff)
-  useEffect(() => {
-    if (focusedProfId && professionals.find(p => p.id === focusedProfId)) {
-      setSelected(focusedProfId)
-    }
-  }, [focusedProfId, professionals])
-
   useEffect(() => {
     if (!userInteractedRef.current) return
     const el = ref.current?.querySelector('.ptab-active') as HTMLElement | null
