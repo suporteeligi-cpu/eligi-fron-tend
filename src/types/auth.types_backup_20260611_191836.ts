@@ -15,6 +15,5 @@ export interface AuthUser {
   emailVerified: boolean
   businessId?:   string | null
   businessName?: string | null
-  businessSlug?:  string | null
   professionalId?: string | null
 }
