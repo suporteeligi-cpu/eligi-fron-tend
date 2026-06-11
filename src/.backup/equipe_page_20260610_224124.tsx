@@ -13,9 +13,8 @@ import AddProfessionalModal from './components/AddProfessionalModal'
 import FuncionariosTab      from './components/FuncionariosTab'
 import HorariosTab          from './components/HorariosTab'
 import ComissoesTab         from './components/ComissoesTab'
-import AcessosTab           from './components/AcessosTab'
 
-type TabId = 'funcionarios' | 'horarios' | 'comissoes' | 'acessos'
+type TabId = 'funcionarios' | 'horarios' | 'comissoes'
 type MobileLevel = 'list' | 'categories' | 'editor'
 
 export default function EquipePage() {
@@ -132,7 +131,6 @@ export default function EquipePage() {
     { id: 'funcionarios', label: 'Funcionários' },
     { id: 'horarios',     label: 'Horários' },
     { id: 'comissoes',    label: 'Comissões' },
-    { id: 'acessos',      label: 'Acessos' },
   ]
 
   return (
@@ -310,14 +308,6 @@ export default function EquipePage() {
                 onSelect={handleSelectProf}
                 onUpdated={handleUpdated}
                 onMobileLevel={setComissoesMobileLevel}
-              />
-            )}
-
-            {tab === 'acessos' && (
-              <AcessosTab
-                professionals={professionals}
-                isMobile={isMobile}
-                loading={loading}
               />
             )}
           </div>
