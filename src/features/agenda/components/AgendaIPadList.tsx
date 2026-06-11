@@ -69,6 +69,8 @@ interface Props {
   onOpenBlockModal?:(time?: string, profId?: string) => void
   onDeleteBlock?:   (id: string) => void
   onUpdateBlock?:   (block: AgendaBlock) => void
+  focusedProfId?:   string | null
+  onFocusProf?:     (id: string | null) => void
 }
 
 export default function AgendaIPadList({

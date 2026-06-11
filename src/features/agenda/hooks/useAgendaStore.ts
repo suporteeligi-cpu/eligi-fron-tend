@@ -51,7 +51,10 @@ export interface PreviewState {
 
 interface AgendaStore {
   // ── Data ──
+  focusedProfId: null,
   selectedDate:    Date
+  focusedProfId:   string | null
+  setFocusedProf:  (id: string | null) => void
   setSelectedDate: (date: Date) => void
 
   // ── Bookings por data ──
@@ -92,7 +95,8 @@ export const useAgendaStore = create<AgendaStore>()(
     (set, get) => ({
       // ── Data ──
       selectedDate:    new Date(),
-      setSelectedDate: (date) => set({ selectedDate: date }),
+      setFocusedProf: (id) => set({ focusedProfId: id }),
+  setSelectedDate: (date) => set({ selectedDate: date }),
 
       // ── Bookings ──
       bookingsByDate: {},

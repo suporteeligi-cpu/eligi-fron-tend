@@ -18,6 +18,7 @@ import PreviewGhost, { PreviewItem } from './shared/PreviewGhost'
 import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
 import { colors, typography, radius, transitions } from '@/shared/theme'
 import { useAgendaStore }    from '../hooks/useAgendaStore'
+import { useAuth }            from '@/hooks/useAuth'
 import { useCurrentTimeY }   from '../hooks/useCurrentTimeY'
 import { useBookingActions } from '../hooks/useBookingActions'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildHalfSlots, computeGridRange } from '../utils/time'
@@ -45,6 +46,13 @@ function ProfTabs({ professionals, selected, bookings, onChange }: {
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const userInteractedRef = useRef(false)
+
+  // Sync com focusedProfId externo (ex: AgendaBoard inicializa para staff)
+  useEffect(() => {
+    if (focusedProfId && professionals.find(p => p.id === focusedProfId)) {
+      setSelected(focusedProfId)
+    }
+  }, [focusedProfId, professionals])
 
   useEffect(() => {
     if (!userInteractedRef.current) return
@@ -147,12 +155,14 @@ interface Props {
   onDeleteBlock:    (id: string) => void
   onUpdateBlock:    (block: AgendaBlock) => void
   onOpenBlockModal?:(time?: string, profId?: string) => void
+  focusedProfId?:   string | null
+  onFocusProf?:     (id: string | null) => void
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function AgendaMobileList({
   professionals, bookings, blocks, workingHours,
-  onDeleteBlock, onUpdateBlock, onOpenBlockModal,
+  onDeleteBlock, onUpdateBlock, onOpenBlockModal, focusedProfId,
 }: Props) {
   const openCreate    = useAgendaStore(s => s.openCreate)
   const openView      = useAgendaStore(s => s.openView)

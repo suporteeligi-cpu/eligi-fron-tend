@@ -74,11 +74,14 @@ interface Props {
   onOpenBlockModal?:(time?: string, profId?: string) => void
   onDeleteBlock?:   (id: string) => void
   onUpdateBlock?:   (block: AgendaBlock) => void
+  focusedProfId?:   string | null
+  onFocusProf?:     (id: string | null) => void
 }
 
 export default function AgendaGrid({
   professionals, bookings, blocks, workingHours,
   onOpenBlockModal, onDeleteBlock, onUpdateBlock,
+  focusedProfId, onFocusProf,
 }: Props) {
   const openCreate    = useAgendaStore(s => s.openCreate)
   const openView      = useAgendaStore(s => s.openView)
@@ -90,6 +93,27 @@ export default function AgendaGrid({
   // Refs DOM
   const scrollRef = useRef<HTMLDivElement>(null)
   const gridRef   = useRef<HTMLDivElement>(null)
+
+
+  // ── Spotlight helpers ────────────────────────────────────────────────────
+  function handleProfClick(profId: string) {
+    if (!onFocusProf) return
+    // Toggle: clica no focado → desfoca; clica em outro → foca
+    onFocusProf(focusedProfId === profId ? null : profId)
+  }
+
+  function colStyle(profId: string): React.CSSProperties {
+    if (!focusedProfId) return { flex: 1, minWidth: MIN_COL_W }
+    if (profId === focusedProfId) return {
+      flex: 4, minWidth: MIN_COL_W,
+      transition: 'flex 260ms cubic-bezier(.4,0,.2,1)',
+    }
+    return {
+      flex: 0.55, minWidth: 48,
+      opacity: 0.5,
+      transition: 'flex 260ms cubic-bezier(.4,0,.2,1), opacity 260ms ease',
+    }
+  }
 
   // Scroll automático para a coluna do funcionário ao montar
   const { user: authUser } = useAuth()
@@ -412,9 +436,8 @@ export default function AgendaGrid({
         <div
           ref={gridRef}
           style={{
-            display:'grid',
-            gridTemplateColumns:`${TIME_COL_W}px repeat(${professionals.length}, minmax(${MIN_COL_W}px, 1fr))`,
-            minWidth:`${TIME_COL_W + professionals.length * MIN_COL_W}px`,
+            display: 'flex',
+            minWidth: `${TIME_COL_W + professionals.length * MIN_COL_W}px`,
           }}
         >
           {/* Header canto */}
@@ -489,14 +512,57 @@ export default function AgendaGrid({
                   : [])
               : []
 
+            const isFocused = focusedProfId === p.id
+            const isSlim    = Boolean(focusedProfId) && !isFocused
             return (
               <div key={p.id} style={{
-                position:'relative',
-                borderLeft:`1px solid ${colors.gray.border}`,
-                zIndex: Z.gridBase, height: TOTAL_H,
-                background: isColTarget ? 'rgba(220,38,38,0.035)' : 'transparent',
-                transition:'background 0.12s ease',
+                ...colStyle(p.id),
+                display: 'flex', flexDirection: 'column',
+                borderLeft: `1px solid ${colors.gray.border}`,
+                overflow: 'hidden',
               }}>
+                {/* ── Header do profissional ── */}
+                <div
+                  onClick={() => handleProfClick(p.id)}
+                  style={{
+                    height: HEADER_H, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    position: 'sticky', top: 0, zIndex: Z.headerSticky,
+                    background: isFocused
+                      ? 'rgba(220,38,38,0.06)'
+                      : isMovingReal && hoverProfId === p.id
+                        ? 'rgba(220,38,38,0.08)'
+                        : 'rgba(255,255,255,0.95)',
+                    backdropFilter: 'blur(20px)',
+                    borderBottom: (isFocused || (isMovingReal && hoverProfId === p.id))
+                      ? `2px solid ${colors.red.DEFAULT}`
+                      : `1px solid ${colors.gray.border}`,
+                    fontWeight: 600, fontSize: isSlim ? 11 : 13,
+                    color: isFocused ? colors.red.DEFAULT : colors.gray['900'],
+                    cursor: onFocusProf ? 'pointer' : 'default',
+                    transition: 'background 0.15s ease, color 0.15s ease',
+                    userSelect: 'none',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={isFocused ? 32 : isSlim ? 22 : 28} />
+                  {!isSlim && (
+                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth: isFocused ? 140 : 80, transition: 'max-width 260ms ease' }}>
+                      {p.name}
+                    </span>
+                  )}
+                  {isFocused && (
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: colors.red.DEFAULT, marginLeft: 4, flexShrink: 0 }} />
+                  )}
+                </div>
+                {/* ── Body da coluna ── */}
+                <div style={{
+                  position:'relative',
+                  zIndex: Z.gridBase, height: TOTAL_H,
+                  background: isColTarget ? 'rgba(220,38,38,0.035)' : 'transparent',
+                  transition:'background 0.12s ease',
+                  flex: 1,
+                }}>
                 {/* Slots de fundo */}
                 {SLOTS.map((time, i) => {
                   const min = i * SLOT_STEP
@@ -608,6 +674,7 @@ export default function AgendaGrid({
                 })}
 
                 <CurrentTimeLine y={currentY} />
+              </div>
               </div>
             )
           })}

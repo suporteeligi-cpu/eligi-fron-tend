@@ -14,6 +14,7 @@ import BookingViewPanel  from '@/features/booking/components/BookingViewPanel'
 import BlockModal        from './BlockModal'
 
 import { useAgendaStore }  from '../hooks/useAgendaStore'
+import { useAuth }         from '@/hooks/useAuth'
 import { useAgendaSocket } from '../hooks/useAgendaSocket'
 import { useDeviceMode }   from '../hooks/useDeviceMode'
 import { AgendaProfessional, AgendaBlock } from '../types'
@@ -54,7 +55,19 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   const checkout           = useAgendaStore(s => s.checkout)
   const closeCheckout      = useAgendaStore(s => s.closeCheckout)
 
+  const focusedProfId  = useAgendaStore(s => s.focusedProfId)
+  const setFocusedProf = useAgendaStore(s => s.setFocusedProf)
+  const { user: authUser } = useAuth()
   const mode = useDeviceMode()
+
+  // Staff: foca automaticamente na própria coluna
+  useEffect(() => {
+    if (!authUser?.professionalId) return
+    const staffRoles = ['BASIC_STAFF', 'STAFF', 'RECEPTIONIST']
+    if (staffRoles.includes(authUser.role)) {
+      setFocusedProf(authUser.professionalId)
+    }
+  }, [authUser?.professionalId, authUser?.role, setFocusedProf])
 
   const [allHours,      setAllHours]      = useState<HourSlot[]>([])
   const [blockModal,    setBlockModal]    = useState(false)
@@ -176,6 +189,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           {mode === 'desktop' && (
             <AgendaGrid
               professionals={professionals} bookings={bookings} blocks={blocks}
+                focusedProfId={focusedProfId} onFocusProf={setFocusedProf}
               workingHours={workingHours}
               onOpenBlockModal={openBlockModal}
               onDeleteBlock={handleDeleteBlock}
@@ -185,6 +199,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           {mode === 'ipad' && (
             <AgendaIPadList
               professionals={professionals} bookings={bookings} blocks={blocks}
+                focusedProfId={focusedProfId} onFocusProf={setFocusedProf}
               workingHours={workingHours}
               onOpenBlockModal={openBlockModal}
               onDeleteBlock={handleDeleteBlock}
@@ -194,6 +209,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           {mode === 'mobile' && (
             <AgendaMobileList
               professionals={professionals} bookings={bookings} blocks={blocks}
+                focusedProfId={focusedProfId} onFocusProf={setFocusedProf}
               workingHours={workingHours}
               onDeleteBlock={handleDeleteBlock}
               onUpdateBlock={handleUpdateBlock}
