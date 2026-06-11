@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Bell, Sun, Moon, Search, X, Calendar, Users, ChevronRight, Clock } from 'lucide-react'
+import { Bell, Sun, Moon, Search, X, Calendar, Users, ChevronRight, Clock, Share2 } from 'lucide-react'
 import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import api from '@/shared/lib/apiClient'
@@ -11,7 +11,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useRouter } from 'next/navigation'
-
+import ShareProfileModal from '@/features/sharing/ShareProfileModal'
 
 dayjs.extend(relativeTime)
 dayjs.locale('pt-br')
@@ -52,7 +52,6 @@ function SearchModal({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 80) }, [])
 
-  // Busca com debounce
   useEffect(() => {
     if (!query.trim()) { setResults([]); return }
     const t = setTimeout(async () => {
@@ -76,7 +75,6 @@ function SearchModal({ onClose }: { onClose: () => void }) {
     return () => clearTimeout(t)
   }, [query])
 
-  // Navegação por teclado
   useEffect(() => {
     function handleSelect(r: SearchResult) {
       if (r.type === 'client')  router.push(`/dashboard/clientes/${r.id}`)
@@ -117,7 +115,6 @@ function SearchModal({ onClose }: { onClose: () => void }) {
       }}>
         <style>{`@keyframes smIn{from{opacity:0;transform:translateX(-50%) translateY(-8px) scale(0.97)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}`}</style>
 
-        {/* Input */}
         <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 16px', borderBottom:`1px solid ${colors.gray.border}` }}>
           <Search size={18} color={colors.gray.dimText} strokeWidth={2} style={{ flexShrink:0 }} />
           <input
@@ -138,7 +135,6 @@ function SearchModal({ onClose }: { onClose: () => void }) {
           <kbd style={{ padding:'2px 8px', borderRadius:6, border:`1px solid ${colors.gray.borderMd}`, background:colors.background.page, fontSize:11, color:colors.gray.dimText, fontWeight:600, flexShrink:0 }}>ESC</kbd>
         </div>
 
-        {/* Resultados */}
         {results.length > 0 ? (
           <div style={{ maxHeight:360, overflowY:'auto' }}>
             {results.map((r, i) => {
@@ -192,7 +188,6 @@ function SearchModal({ onClose }: { onClose: () => void }) {
           </div>
         ) : null}
 
-        {/* Footer */}
         <div style={{ padding:'8px 16px', borderTop:`1px solid ${colors.gray.border}`, display:'flex', gap:12 }}>
           {[['↑↓','navegar'],['↵','selecionar'],['ESC','fechar']].map(([key, label]) => (
             <div key={key} style={{ display:'flex', alignItems:'center', gap:4 }}>
@@ -247,14 +242,12 @@ function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: bool
           @keyframes npUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
         `}</style>
 
-        {/* Handle mobile */}
         {isMobile && (
           <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 4px' }}>
             <div style={{ width:40, height:4, borderRadius:2, background:'rgba(0,0,0,0.12)' }} />
           </div>
         )}
 
-        {/* Header */}
         <div style={{ padding:'14px 18px', borderBottom:`1px solid ${colors.gray.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <span style={{ fontSize:15, fontWeight:700, color:colors.gray[900] }}>Notificações</span>
@@ -277,7 +270,6 @@ function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: bool
           </div>
         </div>
 
-        {/* Lista */}
         <div style={{ flex:1, overflowY:'auto' }}>
           {notifs.length === 0 ? (
             <div style={{ padding:'48px 20px', textAlign:'center', color:colors.gray.dimText }}>
@@ -299,7 +291,6 @@ function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: bool
               onMouseEnter={e => (e.currentTarget.style.background = n.read ? colors.gray.hover : 'rgba(220,38,38,0.09)')}
               onMouseLeave={e => (e.currentTarget.style.background = n.read ? 'transparent' : colors.red.subtle)}
             >
-              {/* Ícone */}
               <div style={{ width:36, height:36, borderRadius:radius.sm, background: n.read ? colors.background.page : 'rgba(220,38,38,0.1)', border:`1px solid ${n.read ? colors.gray.border : colors.red.border}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                 {n.type === 'booking'
                   ? <Calendar size={16} color={n.read ? colors.gray.dimText : colors.red.DEFAULT} strokeWidth={2} />
@@ -307,7 +298,6 @@ function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: bool
                 }
               </div>
 
-              {/* Texto */}
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:13, fontWeight: n.read ? 500 : 700, color:colors.gray[900], marginBottom:2 }}>{n.title}</div>
                 <div style={{ fontSize:12, color:colors.gray.dimText, lineHeight:1.4 }}>{n.body}</div>
@@ -319,7 +309,6 @@ function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: bool
                 </div>
               </div>
 
-              {/* Dot não lido */}
               {!n.read && (
                 <div style={{ width:8, height:8, borderRadius:'50%', background:colors.red.DEFAULT, flexShrink:0, marginTop:4, boxShadow:`0 0 6px ${colors.red.glow}` }} />
               )}
@@ -339,29 +328,28 @@ export default function AppNavbar() {
   const auth     = useAuth()
   const isMobile = useIsMobile(768)
 
-  const [scrolled,      setScrolled]      = useState(false)
-  const [darkMode,      setDarkMode]      = useState<boolean>(() =>
+  const [scrolled,        setScrolled]        = useState(false)
+  const [darkMode,        setDarkMode]        = useState<boolean>(() =>
     typeof window !== 'undefined' ? localStorage.getItem('eligi-theme') === 'dark' : false
   )
-  const [showSearch,    setShowSearch]    = useState(false)
-  const [showNotifs,    setShowNotifs]    = useState(false)
-  const [unreadCount,   setUnreadCount]   = useState(MOCK_NOTIFS.filter(n => !n.read).length)
-  const [avatarHover,   setAvatarHover]   = useState(false)
+  const [showSearch,      setShowSearch]      = useState(false)
+  const [showNotifs,      setShowNotifs]      = useState(false)
+  const [showShare,       setShowShare]       = useState(false)
+  const [unreadCount,     setUnreadCount]     = useState(MOCK_NOTIFS.filter(n => !n.read).length)
+  const [avatarHover,     setAvatarHover]     = useState(false)
+  const [shareHover,      setShareHover]      = useState(false)
 
-  // Dark mode
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark')
     else          document.documentElement.classList.remove('dark')
   }, [darkMode])
 
-  // Scroll
   useEffect(() => {
     function onScroll() { setScrolled(window.scrollY > 10) }
     window.addEventListener('scroll', onScroll, { passive:true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // ⌘K atalho
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowSearch(v => !v) }
@@ -414,6 +402,7 @@ export default function AppNavbar() {
 
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
       {showNotifs && <NotifPanel onClose={() => { setShowNotifs(false); setUnreadCount(0) }} isMobile={isMobile} />}
+      {showShare  && <ShareProfileModal onClose={() => setShowShare(false)} />}
 
       <div style={{ position:'fixed', top:16, left:0, right:0, display:'flex', justifyContent:'center', zIndex:1000, pointerEvents:'none' }}>
         <header style={{
@@ -466,6 +455,47 @@ export default function AppNavbar() {
 
           {/* RIGHT */}
           <div style={{ display:'flex', alignItems:'center', gap:4, zIndex:1 }}>
+
+            {/* ── Botão Link de agendamento ── */}
+            {!isMobile && (
+              <button
+                onClick={() => setShowShare(true)}
+                onMouseEnter={() => setShareHover(true)}
+                onMouseLeave={() => setShareHover(false)}
+                title="Compartilhar link de agendamento"
+                style={{
+                  display:      'flex',
+                  alignItems:   'center',
+                  gap:          6,
+                  padding:      '6px 13px',
+                  borderRadius: 10,
+                  border:       `1px solid ${shareHover ? 'var(--glass-border)' : 'var(--divider)'}`,
+                  background:   shareHover ? 'var(--surface-1)' : 'var(--surface-2)',
+                  cursor:       'pointer',
+                  fontSize:     12,
+                  fontWeight:   600,
+                  color:        'var(--text-primary)',
+                  transition:   'all 160ms ease',
+                  whiteSpace:   'nowrap',
+                  fontFamily:   typography.fontFamily,
+                  marginRight:  4,
+                }}
+              >
+                <Share2 size={13} color="var(--text-secondary)" strokeWidth={2} />
+                Link de agendamento
+              </button>
+            )}
+
+            {/* Mobile: só ícone */}
+            {isMobile && (
+              <button
+                className="eligi-icon-btn"
+                onClick={() => setShowShare(true)}
+                title="Link de agendamento"
+              >
+                <Share2 size={18} />
+              </button>
+            )}
 
             {/* Bell */}
             <button
