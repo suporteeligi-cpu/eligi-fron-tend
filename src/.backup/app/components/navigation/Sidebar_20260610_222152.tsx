@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { navigationByRole, NavItemType, getRoleLabel } from './navigation.config'
+import { navigationByRole, NavItemType } from './navigation.config'
 import { useAuth } from '@/hooks/useAuth'
 import NavItem from './NavItem'
 import { LogOut, MoreHorizontal, X } from 'lucide-react'
@@ -12,7 +12,11 @@ const NAVBAR_OFFSET = 104
 const BOTTOM_NAV_H  = 64 // height of the mobile bottom bar
 
 /* ── helpers ── */
-// getRoleLabel importado de navigation.config
+function getRoleLabel(role?: string) {
+  if (role === 'BUSINESS_OWNER') return 'Proprietário'
+  if (role === 'PROFESSIONAL')   return 'Profissional'
+  return 'Afiliado'
+}
 
 /* ============================================================
    MOBILE BOTTOM NAV
@@ -379,8 +383,7 @@ export default function Sidebar() {
 
   if (!user || !mounted) return null
 
-  const role = user.role as keyof typeof navigationByRole
-  const navItems: NavItemType[] = navigationByRole[role] ?? navigationByRole['BASIC_STAFF']
+  const navItems: NavItemType[] = navigationByRole[user.role]
   const sections = {
     principal:  navItems.filter(i => i.section === 'principal'),
     financeiro: navItems.filter(i => i.section === 'financeiro'),

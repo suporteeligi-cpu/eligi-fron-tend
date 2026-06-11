@@ -9,10 +9,18 @@ import {
   ShoppingBag,
   PackageOpen,
   DollarSign,
-  CreditCard
+  CreditCard,
+  Coins,
 } from 'lucide-react'
 
-export type Role = 'BUSINESS_OWNER' | 'PROFESSIONAL' | 'AFFILIATE'
+export type Role =
+  | 'BUSINESS_OWNER'
+  | 'MANAGER'
+  | 'RECEPTIONIST'
+  | 'STAFF'
+  | 'BASIC_STAFF'
+  | 'PROFESSIONAL'
+  | 'AFFILIATE'
 
 export interface NavItemType {
   label:   string
@@ -34,6 +42,35 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Financeiro',    path: '/dashboard/financeiro',    icon: DollarSign,      section: 'financeiro' },
     { label: 'Configurações', path: '/dashboard/configuracoes', icon: Settings,        section: 'gestao'     },
   ],
+  MANAGER: [
+    { label: 'Dashboard', path: '/dashboard',          icon: LayoutDashboard, section: 'principal'  },
+    { label: 'Agenda',    path: '/dashboard/agenda',   icon: Calendar,        section: 'principal'  },
+    { label: 'Clientes',  path: '/dashboard/clientes', icon: Users,           section: 'principal'  },
+    { label: 'Serviços',  path: '/dashboard/servicos', icon: Scissors,        section: 'principal'  },
+    { label: 'Pacotes',   path: '/dashboard/pacotes',  icon: CreditCard,      section: 'principal'  },
+    { label: 'Equipe',    path: '/dashboard/equipe',   icon: UserCog,         section: 'principal'  },
+    { label: 'Estoque',   path: '/dashboard/estoque',  icon: PackageOpen,     section: 'principal'  },
+    { label: 'Caixa',     path: '/dashboard/caixa',    icon: ShoppingBag,     section: 'financeiro' },
+  ],
+  RECEPTIONIST: [
+    { label: 'Dashboard', path: '/dashboard',          icon: LayoutDashboard, section: 'principal'  },
+    { label: 'Agenda',    path: '/dashboard/agenda',   icon: Calendar,        section: 'principal'  },
+    { label: 'Clientes',  path: '/dashboard/clientes', icon: Users,           section: 'principal'  },
+    { label: 'Serviços',  path: '/dashboard/servicos', icon: Scissors,        section: 'principal'  },
+    { label: 'Estoque',   path: '/dashboard/estoque',  icon: PackageOpen,     section: 'principal'  },
+    { label: 'Caixa',     path: '/dashboard/caixa',    icon: ShoppingBag,     section: 'financeiro' },
+    { label: 'Comissões', path: '/dashboard/financeiro/comissoes', icon: Coins, section: 'financeiro' },
+  ],
+  STAFF: [
+    { label: 'Agenda',    path: '/dashboard/agenda',   icon: Calendar,    section: 'principal'  },
+    { label: 'Clientes',  path: '/dashboard/clientes', icon: Users,       section: 'principal'  },
+    { label: 'Caixa',     path: '/dashboard/caixa',    icon: ShoppingBag, section: 'financeiro' },
+    { label: 'Comissões', path: '/dashboard/financeiro/comissoes', icon: Coins, section: 'financeiro' },
+  ],
+  BASIC_STAFF: [
+    { label: 'Agenda',    path: '/dashboard/agenda',   icon: Calendar, section: 'principal'  },
+    { label: 'Comissões', path: '/dashboard/financeiro/comissoes', icon: Coins, section: 'financeiro' },
+  ],
   PROFESSIONAL: [
     { label: 'Dashboard', path: '/dashboard',        icon: LayoutDashboard, section: 'principal' },
     { label: 'Agenda',    path: '/dashboard/agenda', icon: Calendar,        section: 'principal' },
@@ -41,4 +78,21 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
   AFFILIATE: [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, section: 'principal' },
   ],
+}
+
+export const DASHBOARD_ROLES: Role[] = [
+  'BUSINESS_OWNER', 'MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF', 'PROFESSIONAL', 'AFFILIATE',
+]
+
+export function getRoleLabel(role?: string): string {
+  const labels: Record<string, string> = {
+    BUSINESS_OWNER: 'Proprietário',
+    MANAGER:        'Gerente',
+    RECEPTIONIST:   'Recepcionista',
+    STAFF:          'Funcionário',
+    BASIC_STAFF:    'Func. básico',
+    PROFESSIONAL:   'Profissional',
+    AFFILIATE:      'Afiliado',
+  }
+  return labels[role ?? ''] ?? 'Usuário'
 }

@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 
 import AppNavbar from '@/app/components/navigation/AppNavbar'
-import { DASHBOARD_ROLES } from '@/app/components/navigation/navigation.config'
 import Sidebar from '@/app/components/navigation/Sidebar'
 import CommandPalette from '@/app/components/search/CommandPalette'
 import { DashboardProvider } from '@/app/dashboard/DashboardContext'
@@ -19,10 +18,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login')
-    // Role não reconhecido → volta pro login
-    if (!loading && user && !DASHBOARD_ROLES.includes(user.role as never)) {
-      router.replace('/login')
-    }
   }, [user, loading, router])
 
   useEffect(() => {

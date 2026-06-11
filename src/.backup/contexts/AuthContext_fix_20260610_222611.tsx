@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     role: Role,
   ) => {
-    await registerRequest(name, email, password, role as 'BUSINESS_OWNER' | 'AFFILIATE')
+    await registerRequest(name, email, password, role)
     const me = await refetchUser()
     redirectByRole(me)
   }, [refetchUser, redirectByRole])

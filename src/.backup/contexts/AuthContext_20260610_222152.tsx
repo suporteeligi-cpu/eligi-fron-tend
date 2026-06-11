@@ -11,7 +11,7 @@ import {
 } from '@/lib/auth.api'
 import { AuthUser } from '@/types/auth.types'
 
-type Role = 'BUSINESS_OWNER' | 'MANAGER' | 'RECEPTIONIST' | 'STAFF' | 'BASIC_STAFF' | 'PROFESSIONAL' | 'AFFILIATE'
+type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
 interface AuthContextValue {
   user:            AuthUser | null
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     role: Role,
   ) => {
-    await registerRequest(name, email, password, role as 'BUSINESS_OWNER' | 'AFFILIATE')
+    await registerRequest(name, email, password, role)
     const me = await refetchUser()
     redirectByRole(me)
   }, [refetchUser, redirectByRole])
