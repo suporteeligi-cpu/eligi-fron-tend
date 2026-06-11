@@ -440,37 +440,8 @@ export default function AgendaGrid({
             minWidth: `${TIME_COL_W + professionals.length * MIN_COL_W}px`,
           }}
         >
-          {/* Header canto */}
-          <div style={{
-            height: HEADER_H, position:'sticky', top:0, zIndex: Z.headerSticky,
-            background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)',
-            borderBottom:`1px solid ${colors.gray.border}`, borderRight:`1px solid ${colors.gray.border}`,
-          }} />
-
-          {/* Header profissionais */}
-          {professionals.map(p => {
-            const isTarget = isMovingReal && hoverProfId === p.id
-            return (
-              <div key={p.id} style={{
-                height: HEADER_H, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                position:'sticky', top:0, zIndex: Z.headerSticky,
-                background: isTarget ? 'rgba(220,38,38,0.08)' : 'rgba(255,255,255,0.95)',
-                backdropFilter:'blur(20px)',
-                borderBottom: isTarget ? `2px solid ${colors.red.DEFAULT}` : `1px solid ${colors.gray.border}`,
-                borderLeft:`1px solid ${colors.gray.border}`,
-                fontWeight:600, fontSize:13, color:colors.gray['900'],
-                transition:'background 0.12s ease',
-              }}>
-                <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={30} />
-                <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:100 }}>
-                  {p.name}
-                </span>
-              </div>
-            )
-          })}
-
           {/* Coluna horários */}
-          <div style={{ position:'relative', zIndex:2, height: TOTAL_H }}>
+          <div style={{ position:'relative', zIndex:2, height: TOTAL_H + HEADER_H, paddingTop: HEADER_H, boxSizing:'border-box' }}>
             {SLOTS.map((time, i) => {
               const min = i * SLOT_STEP
               const isHour = min % 60 === 0
