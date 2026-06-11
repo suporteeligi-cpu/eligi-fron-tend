@@ -441,7 +441,10 @@ export default function AgendaGrid({
           }}
         >
           {/* Coluna horários */}
-          <div style={{ position:'relative', zIndex:2, height: TOTAL_H + HEADER_H, paddingTop: HEADER_H, boxSizing:'border-box' }}>
+          <div style={{ display:'flex', flexDirection:'column' }}>
+            {/* Espaçador do header (alinha os slots com as colunas dos profissionais) */}
+            <div style={{ height: HEADER_H, flexShrink: 0 }} />
+            <div style={{ position:'relative', zIndex:2, height: TOTAL_H }}>
             {SLOTS.map((time, i) => {
               const min = i * SLOT_STEP
               const isHour = min % 60 === 0
@@ -465,6 +468,7 @@ export default function AgendaGrid({
                 </div>
               )
             })}
+            </div>
           </div>
 
           {/* Colunas profissionais */}
