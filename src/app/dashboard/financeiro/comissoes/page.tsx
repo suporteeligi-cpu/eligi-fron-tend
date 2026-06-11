@@ -7,6 +7,8 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import { PayoutSettings, PayoutListItem } from '@/features/payouts/types'
+import { useAuth } from '@/hooks/useAuth'
+import MyCommissionsView from './components/MyCommissionsView'
 
 import PayoutSettingsCard    from './components/PayoutSettingsCard'
 import PayoutSettingsModal   from './components/PayoutSettingsModal'
@@ -17,6 +19,7 @@ import MarkAsPaidModal       from './components/MarkAsPaidModal'
 type Tab = 'pending' | 'history'
 
 export default function ComissoesPage() {
+  const { user } = useAuth()
   const router   = useRouter()
   const mode     = useDeviceMode()
   const isMobile = mode === 'mobile'
@@ -46,11 +49,20 @@ export default function ComissoesPage() {
     setRefreshSignal(n => n + 1)
   }
 
+  const staffRoles = ['STAFF', 'BASIC_STAFF', 'RECEPTIONIST']
+  const isStaff = Boolean(user && staffRoles.includes(user.role))
+
   return (
     <>
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)}}
       `}</style>
+
+      {/* Funcionários: visão somente leitura das próprias comissões */}
+      {isStaff && <MyCommissionsView isMobile={isMobile} />}
+
+      {/* Owner/Manager: visão completa */}
+      {!isStaff && <>
 
       {/* Modal de config */}
       {showSettingsModal && (
@@ -163,6 +175,7 @@ export default function ComissoesPage() {
           />
         )}
       </div>
+      </>}
     </>
   )
 }
