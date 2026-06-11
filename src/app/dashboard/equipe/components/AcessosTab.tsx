@@ -382,7 +382,8 @@ export default function AcessosTab({ professionals, isMobile, loading }: Props) 
     // Prof tem acesso se: tem userId vinculado OU é o Professional do user logado
     const hasAccess = Boolean(prof.userId) || (authUser?.professionalId === prof.id)
 
-    return { prof, invite, hasAccess }
+    const userRole = prof.user?.role ?? invite?.role ?? undefined
+    return { prof, invite, hasAccess, userRole }
   })
 
   const activeCount  = rows.filter(r => r.hasAccess).length
