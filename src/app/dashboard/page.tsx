@@ -160,11 +160,6 @@ function EmptySlot() {
 
 export default function DashboardPage() {
   const { user: authUser } = useAuth()
-  const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF']
-  // STAFF_REDIRECT: funcionários não têm visão geral do dashboard
-  if (authUser && staffRoles.includes(authUser.role)) {
-    return <AccessDenied message="A visão geral do dashboard é exclusiva para proprietários. Use o menu lateral para navegar." />
-  }
 
   const mode     = useDeviceMode()
   const isMobile = mode === 'mobile'
@@ -190,6 +185,10 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchData(period) }, [fetchData, period])
 
+  // Guard: funcionários não vêem o dashboard geral (dentro do JSX para não violar regra de hooks)
+  const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF']
+  const isStaff = Boolean(authUser && staffRoles.includes(authUser.role))
+
   return (
     <>
       <style>{`
@@ -197,7 +196,11 @@ export default function DashboardPage() {
         @keyframes pos-spin { to   { transform:rotate(360deg) } }
       `}</style>
 
-      <div style={{
+      {isStaff && (
+        <AccessDenied message="A visão geral do dashboard é exclusiva para proprietários. Use o menu lateral para navegar." />
+      )}
+
+      {!isStaff && <div style={{
         maxWidth:   1100,
         padding:    isMobile ? '0 12px' : 0,
         animation:  'fadeUp 0.3s ease',
@@ -450,7 +453,7 @@ export default function DashboardPage() {
 
           </div>
         )}
-      </div>
+      </div>}
     </>
   )
 }
