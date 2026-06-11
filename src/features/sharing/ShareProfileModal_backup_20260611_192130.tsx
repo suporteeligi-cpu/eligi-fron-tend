@@ -13,7 +13,7 @@ interface Props {
 
 export default function ShareProfileModal({ onClose }: Props) {
   const { user }                       = useAuth()
-  const slug                           = user?.businessSlug ?? null
+  const slug                           = (user as (typeof user & { businessSlug?: string }))?.businessSlug ?? null
   const [loading,    setLoading]       = useState(false)
   const [copied,     setCopied]        = useState(false)
   const [qrDataUrl,  setQrDataUrl]     = useState<string | null>(null)
