@@ -380,7 +380,6 @@ export default function AcessosTab({ professionals, isMobile, loading }: Props) 
     ) ?? null
 
     // Prof tem acesso se: tem userId vinculado OU é o Professional do user logado
-    // @ts-expect-error userId é campo do backend não tipado no front ainda
     const hasAccess = Boolean(prof.userId) || (authUser?.professionalId === prof.id)
 
     return { prof, invite, hasAccess }
