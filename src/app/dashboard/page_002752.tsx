@@ -1,7 +1,5 @@
 'use client'
 // src/app/dashboard/page.tsx
-import { useAuth } from '@/hooks/useAuth'
-import AccessDenied from '@/app/components/AccessDenied'
 // Dashboard v2.3 — borda esquerda vermelha, strip 3 KPIs, slot "em breve"
 
 import { useState, useEffect, useCallback } from 'react'
@@ -159,13 +157,6 @@ function EmptySlot() {
 // ─── página principal ──────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { user: authUser } = useAuth()
-  const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF']
-  // STAFF_REDIRECT: funcionários não têm visão geral do dashboard
-  if (authUser && staffRoles.includes(authUser.role)) {
-    return <AccessDenied message="A visão geral do dashboard é exclusiva para proprietários. Use o menu lateral para navegar." />
-  }
-
   const mode     = useDeviceMode()
   const isMobile = mode === 'mobile'
   const router   = useRouter()

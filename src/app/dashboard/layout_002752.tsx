@@ -23,12 +23,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (!loading && user && !DASHBOARD_ROLES.includes(user.role as never)) {
       router.replace('/login')
     }
-    // Funcionários tentando acessar /dashboard raiz → agenda
-    const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF']
-    if (!loading && user && staffRoles.includes(user.role) &&
-        window.location.pathname === '/dashboard') {
-      router.replace('/dashboard/agenda')
-    }
   }, [user, loading, router])
 
   useEffect(() => {

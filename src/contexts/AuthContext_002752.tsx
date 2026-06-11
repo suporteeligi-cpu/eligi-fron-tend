@@ -59,19 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /* ── Redirect by role ── */
   const redirectByRole = useCallback((me: AuthUser) => {
-    // Owner sem negócio → onboarding
+    // Só BUSINESS_OWNER sem negócio vai pro onboarding
     if (me.role === 'BUSINESS_OWNER' && !me.businessId) {
       router.push('/onboarding')
-      return
+    } else {
+      router.push('/dashboard')
     }
-    // Funcionários → agenda direta (sem visão geral do dashboard)
-    const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF']
-    if (staffRoles.includes(me.role)) {
-      router.push('/dashboard/agenda')
-      return
-    }
-    // Owner/Affiliate → dashboard
-    router.push('/dashboard')
   }, [router])
 
   /* ── Login ── */
