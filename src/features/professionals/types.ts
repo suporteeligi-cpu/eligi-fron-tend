@@ -35,6 +35,8 @@ export interface Professional {
   showInCalendar?:  boolean
   availableOnline?: boolean
   active:           boolean
+  userId?:          string | null
+  user?:            { role: string } | null
 
   // Comissão de serviços (Fase 1)
   commissionType?:  CommissionType | null
