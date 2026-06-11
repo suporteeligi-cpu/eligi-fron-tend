@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useAuth } from '@/hooks/useAuth'
 import { X, Link2, Copy, Check, Download, Share2 } from 'lucide-react'
 import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
+import api from '@/shared/lib/apiClient'
 import QRCode from 'qrcode'
 
 interface Props {
@@ -12,14 +12,29 @@ interface Props {
 }
 
 export default function ShareProfileModal({ onClose }: Props) {
-  const { user }                       = useAuth()
-  const slug                           = (user as (typeof user & { businessSlug?: string }))?.businessSlug ?? null
-  const [loading,    setLoading]       = useState(false)
-  const [copied,     setCopied]        = useState(false)
-  const [qrDataUrl,  setQrDataUrl]     = useState<string | null>(null)
+  const [slug,       setSlug]       = useState<string | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [copied,     setCopied]     = useState(false)
+  const [qrDataUrl,  setQrDataUrl]  = useState<string | null>(null)
 
   const publicUrl = slug ? `app.eligi.com.br/${slug}` : ''
   const fullUrl   = slug ? `https://app.eligi.com.br/${slug}` : ''
+
+  /* ── Busca slug do negócio ── */
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await api.get('/business-profile')
+        const s   = res.data?.slug ?? res.data?.data?.slug ?? null
+        setSlug(s)
+      } catch {
+        setSlug(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
 
   /* ── Gera QR Code quando slug disponível ── */
   useEffect(() => {
