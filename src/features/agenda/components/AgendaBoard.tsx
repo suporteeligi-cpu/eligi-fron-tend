@@ -61,11 +61,14 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   const mode = useDeviceMode()
 
   // Staff: foca automaticamente na própria coluna
+  // Owner/Manager: garante que não há foco forçado
   useEffect(() => {
-    if (!authUser?.professionalId) return
+    if (!authUser) return
     const staffRoles = ['BASIC_STAFF', 'STAFF', 'RECEPTIONIST']
-    if (staffRoles.includes(authUser.role)) {
+    if (staffRoles.includes(authUser.role) && authUser.professionalId) {
       setFocusedProf(authUser.professionalId)
+    } else if (!staffRoles.includes(authUser.role)) {
+      setFocusedProf(null)  // owner/manager começa sem foco
     }
   }, [authUser?.professionalId, authUser?.role, setFocusedProf])
 
