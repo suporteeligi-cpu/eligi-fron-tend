@@ -109,8 +109,8 @@ export default function AgendaGrid({
       transition: 'flex 260ms cubic-bezier(.4,0,.2,1)',
     }
     return {
-      flex: 0.55, minWidth: 48,
-      opacity: 0.5,
+      flex: 0, width: 56, minWidth: 56, maxWidth: 56,
+      opacity: 0.6,
       transition: 'flex 260ms cubic-bezier(.4,0,.2,1), opacity 260ms ease',
     }
   }
