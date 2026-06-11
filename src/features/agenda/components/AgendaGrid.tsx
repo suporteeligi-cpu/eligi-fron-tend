@@ -17,6 +17,7 @@ import PreviewGhost, { PreviewItem } from './shared/PreviewGhost'
 import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
 import { colors, agendaLayout } from '@/shared/theme'
 import { useAgendaStore }   from '../hooks/useAgendaStore'
+import { useAuth }          from '@/hooks/useAuth'
 import { useCurrentTimeY }  from '../hooks/useCurrentTimeY'
 import { useBookingActions } from '../hooks/useBookingActions'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildSlots, computeGridRange } from '../utils/time'
@@ -89,6 +90,17 @@ export default function AgendaGrid({
   // Refs DOM
   const scrollRef = useRef<HTMLDivElement>(null)
   const gridRef   = useRef<HTMLDivElement>(null)
+
+  // Scroll automático para a coluna do funcionário ao montar
+  const { user: authUser } = useAuth()
+  useEffect(() => {
+    if (!authUser?.professionalId || !scrollRef.current || professionals.length === 0) return
+    const profIndex = professionals.findIndex(p => p.id === authUser.professionalId)
+    if (profIndex < 0) return
+    // TIME_COL_W + (profIndex * MIN_COL_W) = posição X da coluna
+    const targetX = TIME_COL_W + profIndex * MIN_COL_W
+    scrollRef.current.scrollLeft = targetX
+  }, [authUser?.professionalId, professionals])
 
   // ─── Range de horas ────────────────────────────────────────────────────────
   const { startHour: START_HOUR, endHour: END_HOUR, startMin: START_MIN } = useMemo(
