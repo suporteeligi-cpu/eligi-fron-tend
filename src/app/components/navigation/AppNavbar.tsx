@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Bell, Sun, Moon, Search, X, Calendar, Users, ChevronRight, Clock, Share2 } from 'lucide-react'
+import { Bell, Sun, Moon, Search, X, Calendar, Users, ChevronRight, Clock, Share2, Store } from 'lucide-react'
 import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import api from '@/shared/lib/apiClient'
@@ -12,6 +12,7 @@ import 'dayjs/locale/pt-br'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useRouter } from 'next/navigation'
 import ShareProfileModal from '@/features/sharing/ShareProfileModal'
+import ProfAvatar from '@/features/agenda/components/shared/ProfAvatar'
 import QRCode from 'qrcode'
 
 dayjs.extend(relativeTime)
@@ -325,6 +326,16 @@ function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: bool
 }
 
 // ─── AppNavbar ────────────────────────────────────────────────────────────────
+const ROLE_LABEL: Record<string, string> = {
+  BUSINESS_OWNER: 'Proprietário',
+  MANAGER:        'Gerente',
+  RECEPTIONIST:   'Recepção',
+  STAFF:          'Equipe',
+  BASIC_STAFF:    'Equipe',
+  PROFESSIONAL:   'Profissional',
+  AFFILIATE:      'Afiliado',
+}
+
 export default function AppNavbar() {
   const auth     = useAuth()
   const isMobile = useIsMobile(768)
@@ -379,8 +390,9 @@ export default function AppNavbar() {
   }
 
   const firstName = auth?.user?.name?.split(' ')[0] ?? ''
-  const initials  = auth?.user?.name
-    ?.split(' ').slice(0,2).map((n: string) => n[0]).join('').toUpperCase() ?? '?'
+  const roleLabel = ROLE_LABEL[auth?.user?.role ?? ''] ?? ''
+  const logoUrl   = auth?.user?.logoUrl ?? null
+  const bizName   = auth?.user?.businessName ?? ''
 
   return (
     <>
@@ -442,15 +454,20 @@ export default function AppNavbar() {
           {/* Specular shine */}
           <div aria-hidden style={{ position:'absolute', top:0, left:0, right:0, height:'50%', background:'linear-gradient(180deg,var(--glass-shine) 0%,transparent 100%)', opacity:0.45, pointerEvents:'none', borderRadius:'18px 18px 0 0' }} />
 
-          {/* LEFT — logo + nome */}
+          {/* LEFT — avatar do usuário + saudação + cargo */}
           <div style={{ display:'flex', alignItems:'center', gap:10, zIndex:1 }}>
-            <div style={{ width:32, height:32, borderRadius:9, background:'linear-gradient(145deg,#ef4444 0%,#dc2626 60%,#b91c1c 100%)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 12px var(--eligi-red-glow)', flexShrink:0 }}>
-              <span style={{ color:'#fff', fontWeight:800, fontSize:14, letterSpacing:'-0.04em' }}>e</span>
+            <div style={{ borderRadius:'50%', padding:2, border:'2px solid var(--glass-border)', display:'flex', flexShrink:0 }}>
+              <ProfAvatar name={auth?.user?.name ?? '?'} avatarUrl={auth?.user?.avatarUrl ?? undefined} size={32} />
             </div>
             {!isMobile && (
-              <span style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', letterSpacing:'-0.02em' }}>
-                Olá, {firstName}
-              </span>
+              <div style={{ display:'flex', flexDirection:'column', lineHeight:1.2, minWidth:0 }}>
+                <span style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', letterSpacing:'-0.02em', whiteSpace:'nowrap' }}>
+                  Olá, {firstName}
+                </span>
+                {roleLabel && (
+                  <span style={{ fontSize:11, color:'var(--text-muted)', whiteSpace:'nowrap' }}>{roleLabel}</span>
+                )}
+              </div>
             )}
           </div>
 
@@ -531,23 +548,34 @@ export default function AppNavbar() {
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            {/* Avatar */}
+            {/* Logo do estabelecimento + nome */}
+            {!isMobile && bizName && (
+              <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)', whiteSpace:'nowrap', marginLeft:2, maxWidth:140, overflow:'hidden', textOverflow:'ellipsis' }}>
+                {bizName}
+              </span>
+            )}
             <div
               onMouseEnter={() => setAvatarHover(true)}
               onMouseLeave={() => setAvatarHover(false)}
-              title={auth?.user?.name ?? ''}
+              title={bizName}
               style={{
                 marginLeft:4,
                 width:36, height:36, borderRadius:10,
-                background:'linear-gradient(145deg,#ef4444 0%,#dc2626 60%,#b91c1c 100%)',
-                color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-                fontWeight:700, fontSize:13, cursor:'pointer',
-                boxShadow: avatarHover ? '0 6px 20px var(--eligi-red-glow)' : '0 3px 10px var(--eligi-red-glow)',
+                background: logoUrl ? 'var(--surface-2)' : 'linear-gradient(145deg,#ef4444 0%,#dc2626 60%,#b91c1c 100%)',
+                border:'1px solid var(--glass-border)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', overflow:'hidden', flexShrink:0,
+                boxShadow: avatarHover ? '0 6px 18px rgba(0,0,0,0.18)' : '0 2px 8px rgba(0,0,0,0.10)',
                 transform: avatarHover ? 'scale(1.07)' : 'scale(1)',
                 transition:'all 160ms ease', userSelect:'none',
               }}
             >
-              {initials}
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt={bizName || 'Logo'} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+              ) : (
+                <Store size={18} color="#fff" strokeWidth={2} />
+              )}
             </div>
           </div>
         </header>

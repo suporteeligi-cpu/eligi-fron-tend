@@ -16,5 +16,7 @@ export interface AuthUser {
   businessId?:   string | null
   businessName?: string | null
   businessSlug?:  string | null
+  logoUrl?:        string | null
+  avatarUrl?:      string | null
   professionalId?: string | null
 }
