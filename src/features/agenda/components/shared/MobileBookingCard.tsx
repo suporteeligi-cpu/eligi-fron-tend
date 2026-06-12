@@ -72,6 +72,7 @@ export default function MobileBookingCard({ booking, height, isDragging = false 
         professionalPreference={booking.professionalPreference}
         isNoShow={isNoShow}
         hidden={isMicro}
+        cardHeight={height}
       />
 
       {/* Barra lateral */}

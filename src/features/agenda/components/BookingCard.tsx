@@ -100,6 +100,7 @@ export default function BookingCard({ booking, totalHeight }: Props) {
         professionalPreference={booking.professionalPreference}
         isNoShow={isNoShow}
         hidden={isMicro}
+        cardHeight={totalHeight}
       />
 
       {/* Overlay ghost NO_SHOW — listras diagonais sutis */}
