@@ -282,7 +282,7 @@ export default function DashboardPage() {
                   marginBottom:  6,
                 }}>
                   {period === 'today'
-                    ? 'Receita do mês'
+                    ? 'Receita de Hoje'
                     : period === '7d'
                       ? 'Receita — últimos 7 dias'
                       : 'Receita — últimos 30 dias'}
