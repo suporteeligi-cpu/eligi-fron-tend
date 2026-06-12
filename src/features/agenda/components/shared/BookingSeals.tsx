@@ -1,13 +1,14 @@
 'use client'
 // src/features/agenda/components/shared/BookingSeals.tsx
 // Pilha de selos do card de agendamento, canto superior direito.
-// Ordem: Pago -> Online -> Preferencia -> Nao compareceu
+// Ordem: Pago ($) -> Online (rocket) -> Preferencia (heart) -> Nao compareceu (eye-off)
 //
-// ADAPTATIVO (jun/2026): o tamanho do selo escala com a altura do card.
+// ADAPTATIVO: o tamanho do selo escala com a altura do card (computeSize).
 //  - card alto  -> selo no MAX (18px), ancorado no topo direito (canonico)
-//  - card curto -> selo encolhe pra caber com folga simetrica (top=bottom=GAP),
-//                  ficando visualmente centralizado na linha unica - sem corte.
-// Passe cardHeight (px) do consumidor (BookingCard.totalHeight / MobileBookingCard.height).
+//  - card curto -> selo encolhe pra caber com folga simetrica - sem corte.
+// UNIFICADO (jun/2026): o selo "Pago" agora e uma MOEDA verde (mesmo Badge
+// circular dos demais) em vez da nota SVG antiga, garantindo alinhamento
+// perfeito na pilha. Tudo passa pelo mesmo wrapper Badge.
 import { Rocket, Heart, EyeOff } from 'lucide-react'
 
 interface Props {
@@ -46,29 +47,22 @@ function Badge({ bg, size, children }: { bg: string; size: number; children: Rea
   )
 }
 
-function PaidSeal({ size }: { size: number }) {
-  return (
-    <div style={{ width: size, height: size, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}>
-      {/* SVG escala sozinho via width/height; texto e path acompanham o viewBox */}
-      <svg viewBox="0 0 24 24" width={size} height={size}>
-        <path d="M4 2h16v20l-2.7-1.6L14.7 22 12 20.4 9.3 22 6.7 20.4 4 22V2z" fill="#00b80c" />
-        <text x="12" y="16.5" textAnchor="middle" fontSize="13" fontWeight="900" fill="#fff" fontFamily="system-ui, sans-serif">$</text>
-      </svg>
-    </div>
-  )
-}
-
 export default function BookingSeals({
   isPaid, fromOnline, professionalPreference, isNoShow, hidden, cardHeight,
 }: Props) {
   if (hidden) return null
 
-  const size    = computeSize(cardHeight)
-  const overlap = Math.round(size * 0.28)   // sobreposicao escala junto (~5 em 18px)
-  const iconSz  = Math.round(size * 0.6)    // icone interno escala junto (~11 em 18px)
+  const size     = computeSize(cardHeight)
+  const overlap  = Math.round(size * 0.28)   // sobreposicao escala junto (~5 em 18px)
+  const iconSz   = Math.round(size * 0.6)    // icone interno escala junto (~11 em 18px)
+  const dollarSz = Math.round(size * 0.7)    // cifrao escala junto (~13 em 18px)
 
   const seals: React.ReactNode[] = []
-  if (isPaid)                 seals.push(<PaidSeal key="paid" size={size} />)
+  if (isPaid)                 seals.push(
+    <Badge key="paid" bg="#00b80c" size={size}>
+      <span style={{ color: '#fff', fontWeight: 900, fontSize: dollarSz, lineHeight: 1, fontFamily: 'system-ui, sans-serif' }}>$</span>
+    </Badge>,
+  )
   if (fromOnline)             seals.push(<Badge key="online" bg="#2563eb" size={size}><Rocket size={iconSz} color="#fff" strokeWidth={2.4} /></Badge>)
   if (professionalPreference) seals.push(<Badge key="pref"   bg="#e11d48" size={size}><Heart  size={iconSz} color="#fff" fill="#fff" strokeWidth={2} /></Badge>)
   if (isNoShow)               seals.push(<Badge key="noshow" bg="#475569" size={size}><EyeOff size={iconSz} color="#fff" strokeWidth={2.4} /></Badge>)
