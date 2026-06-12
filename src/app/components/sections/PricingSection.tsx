@@ -3,6 +3,8 @@
 import { useEffect, useRef } from 'react'
 import styles from './PricingSection.module.css'
 
+const WHATSAPP = 'https://wa.me/5511918579495'
+
 const AUTONOMO_FEATURES = [
   'Agendamento online em tempo real',
   'Link público de agendamento para clientes',
@@ -32,7 +34,12 @@ export default function PricingSection() {
     const el = sectionRef.current
     if (!el) return
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { el.classList.add(styles.visible); observer.disconnect() } },
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.add(styles.visible)
+          observer.disconnect()
+        }
+      },
       { threshold: 0.15 }
     )
     observer.observe(el)
@@ -56,14 +63,16 @@ export default function PricingSection() {
             <p className={styles.description}>Ideal para profissionais que trabalham sozinhos</p>
             <div className={styles.price}>
               <span className={styles.currency}>R$</span>
-              <strong>49,90</strong>
+              <strong>59,90</strong>
               <span className={styles.period}>/mês</span>
             </div>
             <span className={styles.discount}>40% OFF no plano anual</span>
             <ul className={styles.features}>
               {AUTONOMO_FEATURES.map(f => <li key={f}>{f}</li>)}
             </ul>
-            <button className={styles.buttonOutline} disabled>Começar teste grátis</button>
+            <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className={styles.buttonOutline}>
+              Começar teste grátis
+            </a>
           </div>
 
           {/* Estabelecimento */}
@@ -73,14 +82,17 @@ export default function PricingSection() {
             <p className={styles.description}>Para negócios com 2 ou mais profissionais</p>
             <div className={styles.price}>
               <span className={styles.currency}>R$</span>
-              <strong>89,90</strong>
+              <strong>99,90</strong>
               <span className={styles.period}>/mês</span>
             </div>
+            <span className={styles.addon}>+ R$ 10,00 por profissional adicional</span>
             <span className={styles.discount}>40% OFF no plano anual</span>
             <ul className={styles.features}>
               {ESTABELECIMENTO_FEATURES.map(f => <li key={f}>{f}</li>)}
             </ul>
-            <button className={styles.buttonPrimary} disabled>Começar teste grátis</button>
+            <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className={styles.buttonPrimary}>
+              Começar teste grátis
+            </a>
           </div>
         </div>
       </div>

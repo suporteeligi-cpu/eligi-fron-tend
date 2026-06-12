@@ -5,8 +5,12 @@ import styles from './FAQSection.module.css'
 
 const FAQS = [
   {
-    question: 'Qual valor mensal do aplicativo?',
-    answer: <>A mensalidade do <strong>eligi</strong> é <strong>R$ 89,90</strong>. É cobrado <strong>R$ 10,00</strong> por membro adicional. Não há fidelidade: cancele quando quiser, sem multas.</>,
+    question: 'Quais são os planos e valores do eligi?',
+    answer: <>O eligi tem dois planos: <strong>Autônomo</strong> por <strong>R$ 59,90/mês</strong> e <strong>Estabelecimento</strong> por <strong>R$ 99,90/mês</strong> (inclui 1 profissional, <strong>+R$ 10,00</strong> por profissional adicional). Sem fidelidade: cancele quando quiser, sem multas.</>,
+  },
+  {
+    question: 'Como funciona o teste grátis?',
+    answer: <>Você começa com <strong>7 dias grátis</strong>, sem precisar cadastrar cartão de crédito. É tempo de sobra para organizar sua agenda, clientes e pagamentos antes de decidir.</>,
   },
   {
     question: 'Preciso de conhecimento técnico para usar o eligi?',
@@ -18,7 +22,7 @@ const FAQS = [
   },
   {
     question: 'O sistema substitui o WhatsApp para agendamentos?',
-    answer: <>Sim. Com o agendamento online automático, o eligi reduz drasticamente o volume de mensagens no WhatsApp, economizando tempo e evitando erros de marcação.</>,
+    answer: <>Sim. Com o link público de agendamento, o eligi reduz drasticamente o volume de mensagens no WhatsApp, economizando tempo e evitando erros de marcação.</>,
   },
 ]
 

@@ -21,14 +21,14 @@
   display: inline-block;
   padding: 7px 14px;
   border-radius: 999px;
-  background: rgba(220,38,38,0.08);
+  background: rgba(220, 38, 38, 0.08);
   color: #dc2626;
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 16px;
 }
 
-:root[data-theme='dark'] .badge { background: rgba(220,38,38,0.14); color: #f87171; }
+:root[data-theme='dark'] .badge { background: rgba(220, 38, 38, 0.14); color: #f87171; }
 
 .title {
   font-size: clamp(28px, 4vw, 40px);
@@ -39,7 +39,7 @@
   line-height: 1.12;
 }
 
-:root[data-theme='dark'] .title { color: rgba(255,255,255,0.92); }
+:root[data-theme='dark'] .title { color: rgba(255, 255, 255, 0.92); }
 
 .subtitle { font-size: 16px; color: var(--text-muted, #6b7280); }
 
@@ -54,34 +54,34 @@
 /* ── Card ── */
 .card {
   position: relative;
-  background: rgba(255,255,255,0.72);
+  background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border-radius: 24px;
   padding: 36px 28px;
-  border: 1px solid rgba(255,255,255,0.60);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  border: 1px solid rgba(255, 255, 255, 0.60);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   transition: transform 250ms ease, box-shadow 250ms ease;
 }
 
-.card:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(0,0,0,0.09); }
+.card:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(0, 0, 0, 0.09); }
 
 :root[data-theme='dark'] .card {
-  background: rgba(22,22,30,0.75);
-  border-color: rgba(255,255,255,0.07);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.30);
+  background: rgba(22, 22, 30, 0.75);
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.30);
 }
 
 .highlight {
-  border-color: rgba(220,38,38,0.35);
-  box-shadow: 0 4px 24px rgba(220,38,38,0.08);
+  border-color: rgba(220, 38, 38, 0.35);
+  box-shadow: 0 4px 24px rgba(220, 38, 38, 0.08);
 }
 
 .highlight:hover {
   transform: translateY(-4px) scale(1.005);
-  box-shadow: 0 16px 48px rgba(220,38,38,0.12);
+  box-shadow: 0 16px 48px rgba(220, 38, 38, 0.12);
 }
 
 /* ── Tags ── */
@@ -98,8 +98,8 @@
   letter-spacing: 0.02em;
 }
 
-.tag        { background: rgba(220,38,38,0.08); color: #dc2626; border: 1px solid rgba(220,38,38,0.20); }
-.tagPrimary { background: #dc2626; color: #fff; box-shadow: 0 4px 12px rgba(220,38,38,0.30); }
+.tag        { background: rgba(220, 38, 38, 0.08); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.20); }
+.tagPrimary { background: #dc2626; color: #fff; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.30); }
 
 /* ── Text ── */
 .plan {
@@ -110,7 +110,7 @@
   margin-bottom: 6px;
 }
 
-:root[data-theme='dark'] .plan { color: rgba(255,255,255,0.92); }
+:root[data-theme='dark'] .plan { color: rgba(255, 255, 255, 0.92); }
 
 .description { font-size: 14px; color: var(--text-muted, #6b7280); margin-bottom: 24px; }
 
@@ -124,7 +124,7 @@
 
 .currency { font-size: 17px; color: var(--text-main, #0f0f14); margin-bottom: 5px; font-weight: 600; }
 
-:root[data-theme='dark'] .currency { color: rgba(255,255,255,0.88); }
+:root[data-theme='dark'] .currency { color: rgba(255, 255, 255, 0.88); }
 
 .price strong {
   font-size: 42px;
@@ -134,17 +134,25 @@
   line-height: 1;
 }
 
-:root[data-theme='dark'] .price strong { color: rgba(255,255,255,0.92); }
+:root[data-theme='dark'] .price strong { color: rgba(255, 255, 255, 0.92); }
 
 .period { font-size: 13px; color: var(--text-muted, #6b7280); margin-bottom: 5px; }
+
+.addon {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+  margin-bottom: 12px;
+}
 
 .discount {
   display: inline-block;
   font-size: 12.5px;
   font-weight: 600;
   color: #16a34a;
-  background: rgba(22,163,74,0.09);
-  border: 1px solid rgba(22,163,74,0.18);
+  background: rgba(22, 163, 74, 0.09);
+  border: 1px solid rgba(22, 163, 74, 0.18);
   padding: 5px 10px;
   border-radius: 8px;
   margin-bottom: 24px;
@@ -177,16 +185,18 @@
   font-weight: 700;
 }
 
-/* ── Buttons ── */
+/* ── Buttons (links) ── */
 .buttonOutline, .buttonPrimary {
   margin-top: auto;
   height: 48px;
   border-radius: 13px;
   font-size: 14.5px;
   font-weight: 600;
-  cursor: not-allowed;
-  transition: opacity 200ms ease;
-  opacity: 0.80;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
 }
 
 .buttonOutline {
@@ -195,11 +205,21 @@
   color: #dc2626;
 }
 
+.buttonOutline:hover {
+  background: rgba(220, 38, 38, 0.06);
+  transform: translateY(-1px);
+}
+
 .buttonPrimary {
   background: linear-gradient(160deg, #ef4444 0%, #dc2626 60%, #b91c1c 100%);
   color: #fff;
   border: none;
-  box-shadow: 0 4px 16px rgba(220,38,38,0.25);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.25);
+}
+
+.buttonPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(220, 38, 38, 0.35);
 }
 
 /* ── Mobile ── */

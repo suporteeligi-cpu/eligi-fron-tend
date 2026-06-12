@@ -7,12 +7,12 @@ import Navbar from './components/navbar/Navbar'
 import Footer from './components/footer/Footer'
 import Hero from './components/hero/HeroSection'
 import FloatingWhatsApp from './components/ui/FloatingWhatsApp'
+import VideoSection from './components/sections/VideoSection'
+import Ecosystem from './components/sections/Ecosystem'
 import AgendaSection from './components/sections/AgendaSection'
-import MetricsStrip from './components/sections/MetricsStrip'
-import Statistics from './components/sections/StatisticsSection'
 import DashboardPreview from './components/sections/DashboardPreview'
 import ProfessionalsSection from './components/sections/ProfessionalsSection'
-import Ecosystem from './components/sections/Ecosystem'
+import PublicLinkSection from './components/sections/PublicLinkSection'
 import PricingSection from './components/sections/PricingSection'
 import FAQSection from './components/sections/FAQSection'
 import FinalCTA from './components/sections/FinalCTA'
@@ -39,12 +39,12 @@ export default function RootPage() {
       <Navbar />
       <main className={styles.main}>
         <Hero />
-        <AgendaSection />
-        <MetricsStrip />
-        <Statistics />
+        <VideoSection />
         <Ecosystem />
-        <ProfessionalsSection />
+        <AgendaSection />
         <DashboardPreview />
+        <ProfessionalsSection />
+        <PublicLinkSection />
         <PricingSection />
         <FAQSection />
         <FinalCTA />

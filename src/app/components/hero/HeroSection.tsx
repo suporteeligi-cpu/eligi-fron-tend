@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import styles from './HeroSection.module.css'
 
 export default function HeroSection() {
@@ -10,49 +11,38 @@ export default function HeroSection() {
 
       <div className={styles.container}>
         <div className={styles.content}>
-          {/* LOGO — LIGHT / DARK CONTROLADO POR CSS */}
-          <div className={styles.logoWrapper}>
-            <Image
-              src="/images/logo.png"
-              alt="ELIGI"
-              width={220}
-              height={220}
-              priority
-              className={styles.logoLight}
-            />
+          <span className={styles.badge}>Sistema para barbearias e salões</span>
 
-            <Image
-              src="/images/logo.branco.png"
-              alt="ELIGI"
-              width={220}
-              height={220}
-              priority
-              className={styles.logoDark}
-            />
-          </div>
-
-          {/* TÍTULO */}
           <h1 className={styles.title}>
             Gerencie, cresça e
             <br />
-            <span className={styles.highlight}>
-              transforme seu negócio
-            </span>
+            <span className={styles.highlight}>transforme seu negócio</span>
           </h1>
 
           <p className={styles.subtitle}>
-            Agendamentos, gestão, pagamentos e crescimento — tudo em um único
-            ecossistema inteligente para o seu negócio.
+            Agenda, equipe, financeiro e link de agendamento online — tudo em um
+            só ecossistema, simples e no seu controle.
           </p>
 
           <div className={styles.actions}>
-            <a href="/register" className={styles.primary}>
-              Criar conta
-            </a>
-            <a href="/login" className={styles.secondary}>
-              Entrar
+            <Link href="/register" className={styles.primary}>
+              Criar conta grátis
+            </Link>
+            <a href="#video" className={styles.secondary}>
+              Ver demonstração
             </a>
           </div>
+        </div>
+
+        <div className={styles.visual}>
+          <Image
+            src="/images/hero-mockup.png"
+            alt="Eligi no computador e no celular"
+            width={2114}
+            height={1447}
+            priority
+            className={styles.mockup}
+          />
         </div>
       </div>
     </section>

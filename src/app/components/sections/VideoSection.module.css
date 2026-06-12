@@ -1,10 +1,10 @@
 /* ============================================================
-   DASHBOARD PREVIEW (screenshot real)
+   VIDEO SECTION
    ============================================================ */
 
 .section {
-  position: relative;
-  padding: clamp(64px, 8vw, 112px) 24px;
+  padding: clamp(48px, 6vw, 88px) 24px;
+  scroll-margin-top: 90px;
   opacity: 0;
   transform: translateY(16px);
   transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
@@ -13,50 +13,44 @@
 .visible { opacity: 1; transform: translateY(0); }
 
 .container {
-  max-width: 1100px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
 /* ── Header ── */
 .header {
-  max-width: 600px;
-  margin: 0 auto 40px;
   text-align: center;
+  margin-bottom: 28px;
 }
 
 .kicker {
+  display: block;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-muted, #9ca3af);
-  display: block;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .title {
   font-size: clamp(26px, 3vw, 36px);
   font-weight: 700;
   letter-spacing: -0.025em;
-  line-height: 1.12;
   color: var(--text-main, #0f0f14);
-  margin-bottom: 14px;
-}
-
-.subtitle {
-  font-size: 16.5px;
-  line-height: 1.65;
-  color: var(--text-muted, #6b7280);
+  margin: 0;
 }
 
 /* ── Frame ── */
 .frame {
-  border-radius: 22px;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 24px;
   overflow: hidden;
+  background: #000;
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.14);
-  background: var(--bg-main, #fff);
-  line-height: 0;
 }
 
 :root[data-theme='dark'] .frame {
@@ -64,12 +58,14 @@
   box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
 }
 
-.image {
+.iframe {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: auto;
-  display: block;
+  height: 100%;
+  border: 0;
 }
 
 @media (max-width: 640px) {
-  .frame { border-radius: 14px; }
+  .frame { border-radius: 16px; }
 }
