@@ -5,20 +5,33 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { X, Link2, Copy, Check, Download, Share2 } from 'lucide-react'
 import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
+import QRCode from 'qrcode'
 
 interface Props {
-  onClose:    () => void
-  qrDataUrl?: string | null
+  onClose: () => void
 }
 
-export default function ShareProfileModal({ onClose, qrDataUrl = null }: Props) {
-  const { user }   = useAuth()
-  const slug       = user?.businessSlug ?? null
-  const [loading,  setLoading] = useState(false)
-  const [copied,   setCopied]  = useState(false)
+export default function ShareProfileModal({ onClose }: Props) {
+  const { user }                       = useAuth()
+  const slug                           = user?.businessSlug ?? null
+  const [loading,    setLoading]       = useState(false)
+  const [copied,     setCopied]        = useState(false)
+  const [qrDataUrl,  setQrDataUrl]     = useState<string | null>(null)
 
   const publicUrl = slug ? `app.eligi.com.br/${slug}` : ''
   const fullUrl   = slug ? `https://app.eligi.com.br/${slug}` : ''
+
+  /* ── Gera QR Code quando slug disponível ── */
+  useEffect(() => {
+    if (!fullUrl) return
+    QRCode.toDataURL(fullUrl, {
+      width:     200,
+      margin:    2,
+      color: { dark: '#1a1a1a', light: '#ffffff' },
+    })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(null))
+  }, [fullUrl])
 
   /* ── Fechar com ESC ── */
   useEffect(() => {

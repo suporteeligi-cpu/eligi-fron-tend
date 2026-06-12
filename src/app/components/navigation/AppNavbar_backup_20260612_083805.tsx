@@ -12,7 +12,6 @@ import 'dayjs/locale/pt-br'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useRouter } from 'next/navigation'
 import ShareProfileModal from '@/features/sharing/ShareProfileModal'
-import QRCode from 'qrcode'
 
 dayjs.extend(relativeTime)
 dayjs.locale('pt-br')
@@ -336,21 +335,8 @@ export default function AppNavbar() {
   const [showSearch,      setShowSearch]      = useState(false)
   const [showNotifs,      setShowNotifs]      = useState(false)
   const [showShare,       setShowShare]       = useState(false)
-  const [qrDataUrl,       setQrDataUrl]       = useState<string | null>(null)
   const [unreadCount,     setUnreadCount]     = useState(MOCK_NOTIFS.filter(n => !n.read).length)
   const [avatarHover,     setAvatarHover]     = useState(false)
-
-  /* ── Pré-gera QR Code assim que slug disponível ── */
-  useEffect(() => {
-    const slug = auth?.user?.businessSlug
-    if (!slug) return
-    QRCode.toDataURL(`https://app.eligi.com.br/${slug}`, {
-      width: 200, margin: 2,
-      color: { dark: '#1a1a1a', light: '#ffffff' },
-    })
-      .then(setQrDataUrl)
-      .catch(() => setQrDataUrl(null))
-  }, [auth?.user?.businessSlug])
   const [shareHover,      setShareHover]      = useState(false)
 
   useEffect(() => {
@@ -416,7 +402,7 @@ export default function AppNavbar() {
 
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
       {showNotifs && <NotifPanel onClose={() => { setShowNotifs(false); setUnreadCount(0) }} isMobile={isMobile} />}
-      {showShare  && <ShareProfileModal onClose={() => setShowShare(false)} qrDataUrl={qrDataUrl} />}
+      {showShare  && <ShareProfileModal onClose={() => setShowShare(false)} />}
 
       <div style={{ position:'fixed', top:16, left:0, right:0, display:'flex', justifyContent:'center', zIndex:1000, pointerEvents:'none' }}>
         <header style={{
