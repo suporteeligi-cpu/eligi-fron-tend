@@ -11,7 +11,7 @@ export default function HeroSection() {
 
       <div className={styles.container}>
         <div className={styles.content}>
-          <span className={styles.badge}>Sistema para barbearias e salões</span>
+          <span className={styles.badge}>Sistema de Gestão</span>
 
           <h1 className={styles.title}>
             Gerencie, cresça e
@@ -20,7 +20,7 @@ export default function HeroSection() {
           </h1>
 
           <p className={styles.subtitle}>
-            Agenda, equipe, financeiro e link de agendamento online — tudo em um
+            Agenda, equipe, financeiro e link de agendamento online  tudo em um
             só ecossistema, simples e no seu controle.
           </p>
 

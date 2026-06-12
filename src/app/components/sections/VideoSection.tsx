@@ -28,8 +28,8 @@ export default function VideoSection() {
     <section id="video" ref={sectionRef} className={styles.section}>
       <div className={styles.container}>
         <header className={styles.header}>
-          <span className={styles.kicker}>Demonstração</span>
-          <h2 className={styles.title}>Veja o eligi em ação</h2>
+          <span className={styles.kicker}>Mais controle. Mais organização.</span>
+          <h2 className={styles.title}>Mais resultados.</h2>
         </header>
 
         <div className={styles.frame}>
