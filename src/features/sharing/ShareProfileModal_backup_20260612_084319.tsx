@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function ShareProfileModal({ onClose, qrDataUrl = null }: Props) {
-  const { user, loading: authLoading } = useAuth()
+  const { user }   = useAuth()
   const slug       = user?.businessSlug ?? null
   const [loading,  setLoading] = useState(false)
   const [copied,   setCopied]  = useState(false)
@@ -167,7 +167,7 @@ export default function ShareProfileModal({ onClose, qrDataUrl = null }: Props) 
         {/* ── Body ── */}
         <div style={{ padding:'20px 22px' }}>
 
-          {(loading || authLoading) ? (
+          {loading ? (
             <div style={{ display:'flex', justifyContent:'center', padding:'32px 0' }}>
               <div style={{ width:20, height:20, borderRadius:'50%', border:`2px solid ${colors.red.subtle}`, borderTopColor: colors.red.DEFAULT, animation:'spin 0.7s linear infinite' }} />
               <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
