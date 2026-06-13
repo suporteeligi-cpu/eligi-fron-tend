@@ -61,3 +61,19 @@ export interface OverviewData {
   /** quebra de receita por tipo de venda */
   receitaPorTipo: ReceitaTipo[]
 }
+
+
+export interface MarketingData {
+  periodo: string
+  kpis: {
+    agendamentosOnline: number
+    agendamentosOnlineDelta: { pct: number }
+    receitaOnline: number
+    receitaOnlinePct: number
+    novosClientesLink: number
+    escolheuProfissionalPct: number
+  }
+  serieOnline: { mes: string; total: number | null }[]
+  origem: { online: number; manual: number }
+  topClientes: { nome: string; reservas: number; receita: number }[]
+}

@@ -6,45 +6,63 @@ type BusinessHours = {
   endTime: string;
 };
 
-type TeamMember = {
-  name: string;
-  role?: string;
-};
-
 type Service = {
   name: string;
+  duration: number;
   price?: number;
-  duration?: number;
 };
 
-interface OnboardingStore {
-  // step 01
-  journeyType?: 'BUSINESS' | 'SOLO' | 'PERSONAL' | 'AFFILIATE';
-
-  // step 02
+interface OnboardingData {
+  // 01 — identidade
+  journeyType?: 'BUSINESS' | 'SOLO';
   displayName?: string;
-  businessType?: string;
+  segment?: string; // valor canônico (ver SEGMENTS no backend)
 
-  // step 03
-  name?: string;
+  // 02 — localização
+  cep?: string;
+  address?: string;
   city?: string;
   state?: string;
   country?: string;
+  lat?: number;
+  lng?: number;
   timezone?: string;
 
-  // step 04
+  // 03 — horário
   hours?: BusinessHours[];
 
-  // futuros
-  team?: TeamMember[];
+  // 04 — serviços
   services?: Service[];
 
-  // actions
-  setData: (data: Partial<OnboardingStore>) => void;
+  // 05 — plano
+  plan?: 'trial' | 'subscribe';
+}
+
+interface OnboardingStore extends OnboardingData {
+  setData: (data: Partial<OnboardingData>) => void;
   reset: () => void;
 }
 
+const EMPTY: OnboardingData = {
+  journeyType: undefined,
+  displayName: undefined,
+  segment: undefined,
+  cep: undefined,
+  address: undefined,
+  city: undefined,
+  state: undefined,
+  country: undefined,
+  lat: undefined,
+  lng: undefined,
+  timezone: undefined,
+  hours: undefined,
+  services: undefined,
+  plan: undefined,
+};
+
 export const useOnboardingStore = create<OnboardingStore>((set) => ({
+  ...EMPTY,
   setData: (data) => set((state) => ({ ...state, ...data })),
-  reset: () => set({})
+  // merge com todos os campos undefined — limpa os dados sem apagar as actions
+  reset: () => set({ ...EMPTY }),
 }));
