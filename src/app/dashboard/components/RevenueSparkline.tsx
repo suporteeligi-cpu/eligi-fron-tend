@@ -59,18 +59,18 @@ export default function RevenueSparkline({ data }: Props) {
           labels:   data.map(d => d.label),
           datasets: [{
             data:                 data.map(d => d.value),
-            borderColor:          lineC,
+            borderColor:          '#16a34a',
             borderWidth:          2,
             pointRadius:          3,
             pointBackgroundColor: '#fff',
-            pointBorderColor:     lineC,
+            pointBorderColor:     '#16a34a',
             pointBorderWidth:     2,
             pointHoverRadius:     5,
             tension:              0.35,
             fill:                 true,
             backgroundColor:      isDark
-              ? 'rgba(220,38,38,0.10)'
-              : 'rgba(220,38,38,0.07)',
+              ? 'rgba(22,163,74,0.14)'
+              : 'rgba(22,163,74,0.10)',
           }],
         },
         options: {
@@ -86,7 +86,7 @@ export default function RevenueSparkline({ data }: Props) {
               borderColor:     isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)',
               borderWidth:     0.5,
               titleColor:      isDark ? '#fff' : '#111',
-              bodyColor:       lineC,
+              bodyColor:       '#16a34a',
               padding:         8,
               cornerRadius:    6,
             },
@@ -136,7 +136,7 @@ export default function RevenueSparkline({ data }: Props) {
           width:          24,
           height:         24,
           borderRadius:   7,
-          background:     colors.red.gradient,
+          background:     'linear-gradient(135deg,#16a34a,#15803d)',
           display:        'flex',
           alignItems:     'center',
           justifyContent: 'center',

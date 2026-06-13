@@ -68,7 +68,7 @@ export default function SalesSummaryCards({ summary, loading, isMobile, date, on
     {
       label: 'Líquido',
       value: summary ? formatBRL(summary.netTotal) : '—',
-      sub:   'bruto - notas crédito',
+      sub:   'bruto - notas - comissões',
       icon:  TrendingUp,
       color: colors.red.DEFAULT,
       bg:    colors.red.subtle,
