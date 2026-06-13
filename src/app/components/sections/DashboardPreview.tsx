@@ -38,9 +38,9 @@ export default function DashboardPreview() {
         <div className={styles.frame}>
           <Image
             src="/images/dashboard-preview.png"
-            alt="Painel do eligi"
-            width={2732}
-            height={1984}
+            alt="Painel do eligi — visão geral"
+            width={1920}
+            height={1022}
             className={styles.image}
           />
         </div>
