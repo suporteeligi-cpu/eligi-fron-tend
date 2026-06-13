@@ -30,6 +30,7 @@ import TodayScheduleCard    from './components/TodayScheduleCard'
 import AlertsCard           from './components/AlertsCard'
 import PeriodSelector       from './components/PeriodSelector'
 import OnlineBanner         from './components/OnlineBanner'
+import OnboardingChecklistCard from './components/OnboardingChecklistCard'
 
 // ─── tokens locais ─────────────────────────────────────────────────────────
 
@@ -237,6 +238,8 @@ export default function DashboardPage() {
           </div>
           <PeriodSelector value={period} onChange={setPeriod} />
         </div>
+
+        <OnboardingChecklistCard />
 
         {/* ── Loading ── */}
         {loading || !data ? (
