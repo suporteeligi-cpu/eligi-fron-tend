@@ -1,5 +1,5 @@
 'use client'
-// src/app/(dashboard)/layout.tsx
+// src/app/dashboard/layout.tsx
 
 import { ReactNode, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -19,10 +19,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login')
+
     // Role não reconhecido → volta pro login
     if (!loading && user && !DASHBOARD_ROLES.includes(user.role as never)) {
       router.replace('/login')
     }
+
+    // Owner que ainda não concluiu o onboarding → wizard
+    if (!loading && user && user.role === 'BUSINESS_OWNER' && !user.onboardingDone) {
+      router.replace('/onboarding')
+      return
+    }
+
     // Funcionários tentando acessar /dashboard raiz → agenda
     const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF']
     if (!loading && user && staffRoles.includes(user.role) &&
@@ -53,6 +61,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <p style={{ opacity: 0.7, marginBottom: 20 }}>Sua sessão terminou. Faça login novamente.</p>
           <button onClick={() => router.push('/login')} style={loginButton}>Fazer login</button>
         </div>
+      </div>
+    )
+  }
+
+  // Owner incompleto: não renderiza o dashboard, só segura enquanto redireciona
+  if (user.role === 'BUSINESS_OWNER' && !user.onboardingDone) {
+    return (
+      <div style={centerStyle}>
+        <style>{`@keyframes eligi-spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={spinnerStyle} />
       </div>
     )
   }

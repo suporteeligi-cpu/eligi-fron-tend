@@ -19,4 +19,8 @@ export interface AuthUser {
   logoUrl?:        string | null
   avatarUrl?:      string | null
   professionalId?: string | null
+
+  // Onboarding (vem do BusinessProfile no /auth/me)
+  onboardingDone?: boolean
+  onboardingStep?: number
 }

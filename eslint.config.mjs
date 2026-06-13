@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Backups locais — não lintar
     ".backup/**",
+    "**/*_backup_*",
+    "src/app/dashboard/page_002752.tsx",
   ]),
 ]);
 

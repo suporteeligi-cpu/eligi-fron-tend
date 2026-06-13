@@ -61,7 +61,7 @@ export function useAuth() {
   }, [pathname, router])
 
   function redirectByRole(me: AuthUser) {
-    if (me.role === 'BUSINESS_OWNER' && !me.onboardingDone) {
+    if (me.role === 'BUSINESS_OWNER' && !me.businessId) {
       router.push('/onboarding')
     } else {
       router.push('/dashboard')

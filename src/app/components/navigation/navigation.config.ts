@@ -11,6 +11,7 @@ import {
   DollarSign,
   CreditCard,
   Coins,
+  BarChart3,
 } from 'lucide-react'
 
 export type Role =
@@ -40,6 +41,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Estoque',       path: '/dashboard/estoque',       icon: PackageOpen,     section: 'principal'  },
     { label: 'Caixa',         path: '/dashboard/caixa',         icon: ShoppingBag,     section: 'financeiro' },
     { label: 'Financeiro',    path: '/dashboard/financeiro',    icon: DollarSign,      section: 'financeiro' },
+    { label: 'Relatórios',    path: '/dashboard/relatorios',    icon: BarChart3,       section: 'financeiro' },
     { label: 'Configurações', path: '/dashboard/configuracoes', icon: Settings,        section: 'gestao'     },
   ],
   MANAGER: [
