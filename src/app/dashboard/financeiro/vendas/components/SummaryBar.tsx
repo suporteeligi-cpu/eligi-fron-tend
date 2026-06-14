@@ -14,9 +14,17 @@ interface Props {
 export default function SummaryBar({ summary, isMobile }: Props) {
   const cards = [
     {
-      label: 'RECEITA LÍQUIDA',
+      label: 'BRUTO',
+      value: fmtBRL(summary.grossTotal),
+      sub:   `${summary.canceledCount} cancelada${summary.canceledCount !== 1 ? 's' : ''}`,
+      Icon:  CheckCircle2,
+      color: '#475569',
+      gradient: 'linear-gradient(135deg, #475569, #334155)',
+    },
+    {
+      label: 'LÍQUIDO',
       value: fmtBRL(summary.netTotal),
-      sub:   `${summary.confirmedCount} venda${summary.confirmedCount !== 1 ? 's' : ''}`,
+      sub:   '− notas − comissões',
       Icon:  TrendingUp,
       color: '#16a34a',
       gradient: 'linear-gradient(135deg, #16a34a, #15803d)',
@@ -36,14 +44,6 @@ export default function SummaryBar({ summary, isMobile }: Props) {
       Icon:  RotateCcw,
       color: '#d97706',
       gradient: 'linear-gradient(135deg, #d97706, #b45309)',
-    },
-    {
-      label: 'BRUTO',
-      value: fmtBRL(summary.grossTotal),
-      sub:   `${summary.canceledCount} cancelada${summary.canceledCount !== 1 ? 's' : ''}`,
-      Icon:  CheckCircle2,
-      color: '#475569',
-      gradient: 'linear-gradient(135deg, #475569, #334155)',
     },
   ]
 

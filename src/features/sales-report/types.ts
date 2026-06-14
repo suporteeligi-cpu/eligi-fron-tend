@@ -13,9 +13,10 @@ export interface SaleReportRow {
   subtotal:      number
   discount:      number
   total:         number
-  creditTotal:   number
-  netTotal:      number
-  itemsCount:    number
+  creditTotal:     number
+  commissionTotal: number
+  netTotal:        number
+  itemsCount:      number
   professionals: string[]
   methods:       PaymentMethod[]
   items: Array<{
@@ -29,9 +30,10 @@ export interface SaleReportRow {
 }
 
 export interface SalesReportSummary {
-  grossTotal:     number
-  creditsTotal:   number
-  netTotal:       number
+  grossTotal:      number
+  creditsTotal:    number
+  commissionTotal: number
+  netTotal:        number
   confirmedCount: number
   canceledCount:  number
   ticketAverage:  number
@@ -72,5 +74,6 @@ export interface ExportRow {
   desconto:      number
   total:         number
   notaCredito:   number
+  comissao:      number
   liquido:       number
 }

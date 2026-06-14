@@ -45,7 +45,7 @@ export function statusLabel(s: SaleReportStatus): string {
 
 const CSV_HEADERS = [
   'Data', 'Status', 'Cliente', 'Itens', 'Profissionais', 'Métodos',
-  'Subtotal', 'Desconto', 'Total', 'Nota Crédito', 'Líquido',
+  'Subtotal', 'Desconto', 'Total', 'Nota Crédito', 'Comissão', 'Líquido',
 ] as const
 
 function csvEscape(value: string | number): string {
@@ -72,6 +72,7 @@ export function exportToCSV(rows: ExportRow[], filename: string) {
       csvEscape(r.desconto.toFixed(2).replace('.', ',')),
       csvEscape(r.total.toFixed(2).replace('.', ',')),
       csvEscape(r.notaCredito.toFixed(2).replace('.', ',')),
+      csvEscape(r.comissao.toFixed(2).replace('.', ',')),
       csvEscape(r.liquido.toFixed(2).replace('.', ',')),
     ].join(','))
   }
@@ -99,6 +100,7 @@ export async function exportToExcel(rows: ExportRow[], filename: string) {
     'Desconto':      r.desconto,
     'Total':         r.total,
     'Nota Crédito':  r.notaCredito,
+    'Comissão':      r.comissao,
     'Líquido':       r.liquido,
   }))
 
@@ -108,7 +110,7 @@ export async function exportToExcel(rows: ExportRow[], filename: string) {
   ws['!cols'] = [
     { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 30 },
     { wch: 20 }, { wch: 16 }, { wch: 11 }, { wch: 11 },
-    { wch: 11 }, { wch: 12 }, { wch: 11 },
+    { wch: 11 }, { wch: 12 }, { wch: 11 }, { wch: 11 },
   ]
 
   const wb = XLSX.utils.book_new()

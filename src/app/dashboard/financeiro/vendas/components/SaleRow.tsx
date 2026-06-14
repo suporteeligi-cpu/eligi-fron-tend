@@ -17,6 +17,8 @@ export default function SaleRow({ sale, isMobile }: Props) {
 
   const isCanceled = sale.status === 'CANCELED'
   const hasCredit  = sale.creditTotal > 0
+  const hasCommission = sale.commissionTotal > 0
+  const hasDeduction  = hasCredit || hasCommission
 
   const statusColor = isCanceled ? colors.gray.dimText : '#16a34a'
   const statusBg    = isCanceled ? 'rgba(0,0,0,0.04)' : 'rgba(22,163,74,0.08)'
@@ -167,7 +169,10 @@ export default function SaleRow({ sale, isMobile }: Props) {
             {hasCredit && (
               <SummaryLine label="Nota de crédito" value={`− ${fmtBRL(sale.creditTotal)}`} color="#d97706" />
             )}
-            {hasCredit && (
+            {hasCommission && (
+              <SummaryLine label="Comissões" value={`− ${fmtBRL(sale.commissionTotal)}`} color="#b45309" />
+            )}
+            {hasDeduction && (
               <SummaryLine label="Líquido" value={fmtBRL(sale.netTotal)} bold color="#16a34a" />
             )}
           </div>
