@@ -1,11 +1,10 @@
 'use client'
 // src/app/dashboard/caixa/components/CartItemRow.tsx
 //
-// ⭐ NOVO: se item tem appliedPackageCardId, mostra badge "Pago via pacote"
-// + botão pra remover só o pacote (não o item).
-// Também trata item.type === 'PACKAGE' (venda de pacote) com ícone diferente.
+// Item do carrinho. Cobertura (R$0) por PACOTE (verde + Layers) ou ASSINATURA (verde + Ticket).
+// "Coberto" desabilita qty/prof e zera o preço. Cada cobertura tem seu próprio badge + remover.
 
-import { Minus, Plus, Trash2, Scissors, Package, Users, Layers, XCircle } from 'lucide-react'
+import { Minus, Plus, Trash2, Scissors, Package, Users, Layers, Ticket, XCircle } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { SaleItem, ProfLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -19,43 +18,46 @@ interface Props {
   onChangeQty:    (newQty: number) => void
   onChangeProf:   (profId: string | null) => void
   onRemove:       () => void
-  onRemovePackage?: () => void        // ⭐ NOVO: remove só o pacote aplicado
-  suggestion?:    { cardNumber: string; packageName: string; remaining: number } | null  // ⭐ pacote disponível
-  onUsePackage?:  () => void           // ⭐ abre modal de usar pacote
+  onRemovePackage?: () => void        // remove só o pacote aplicado
+  onRemoveMembership?: () => void     // ⭐ remove só a assinatura aplicada
+  suggestion?:    { cardNumber: string; packageName: string; remaining: number } | null
+  onUsePackage?:  () => void
   disabled?:      boolean
 }
 
 export default function CartItemRow({
   item, professionals, globalProfId, isMobile,
-  onChangeQty, onChangeProf, onRemove, onRemovePackage,
+  onChangeQty, onChangeProf, onRemove, onRemovePackage, onRemoveMembership,
   suggestion, onUsePackage, disabled,
 }: Props) {
-  // Detecta tipo de ícone
   const Icon =
-    item.type === 'PRODUCT' ? Package :
-    item.type === 'PACKAGE' ? Layers  :
-                              Scissors
+    item.type === 'PRODUCT'    ? Package :
+    item.type === 'PACKAGE'    ? Layers  :
+    item.type === 'MEMBERSHIP' ? Ticket  :
+                                 Scissors
 
   const color = item.product?.color
              ?? item.service?.color
              ?? item.package?.color
-             ?? (item.type === 'PACKAGE' ? colors.red.DEFAULT : colors.red.DEFAULT)
+             ?? colors.red.DEFAULT
 
   const isOverride = item.professionalId != null &&
                      globalProfId != null &&
                      item.professionalId !== globalProfId
 
-  // ⭐ Item tem pacote aplicado?
-  const hasPackageApplied = item.appliedPackageCardId != null
+  // Coberturas (R$0)
+  const hasPackageApplied    = item.appliedPackageCardId != null
+  const hasMembershipApplied = item.appliedMembershipCardId != null
+  const isCovered            = hasPackageApplied || hasMembershipApplied
 
   return (
     <div style={{
       padding: '12px 14px',
-      background: hasPackageApplied
+      background: isCovered
         ? 'linear-gradient(135deg, rgba(22,163,74,0.05), rgba(22,163,74,0.10))'
         : '#fff',
       borderRadius: 11,
-      border: `1px solid ${hasPackageApplied ? 'rgba(22,163,74,0.30)' : colors.gray.border}`,
+      border: `1px solid ${isCovered ? 'rgba(22,163,74,0.30)' : colors.gray.border}`,
       fontFamily: typography.fontFamily,
       display: 'flex',
       flexDirection: 'column',
@@ -102,6 +104,17 @@ export default function CartItemRow({
                 flexShrink: 0,
               }}>PACOTE</span>
             )}
+            {item.type === 'MEMBERSHIP' && (
+              <span style={{
+                fontSize: 8, fontWeight: 800,
+                color: '#fff',
+                background: '#6366f1',
+                padding: '1px 5px',
+                borderRadius: 4,
+                letterSpacing: '.04em',
+                flexShrink: 0,
+              }}>ASSINATURA</span>
+            )}
           </div>
           <div style={{
             fontSize: 11,
@@ -110,7 +123,7 @@ export default function CartItemRow({
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             <span>
-              {hasPackageApplied
+              {isCovered
                 ? <span style={{ textDecoration: 'line-through' }}>{formatBRL(item.unitPrice || 0)}</span>
                 : formatBRL(item.unitPrice)
               }
@@ -127,10 +140,10 @@ export default function CartItemRow({
         }}>
           <div style={{
             fontSize: 14, fontWeight: 700,
-            color: hasPackageApplied ? '#15803d' : colors.gray[900],
+            color: isCovered ? '#15803d' : colors.gray[900],
             fontVariantNumeric: 'tabular-nums',
           }}>
-            {hasPackageApplied ? 'R$ 0,00' : formatBRL(item.total)}
+            {isCovered ? 'R$ 0,00' : formatBRL(item.total)}
           </div>
           <button
             onClick={onRemove}
@@ -162,7 +175,7 @@ export default function CartItemRow({
         </div>
       </div>
 
-      {/* ⭐ Badge "pago via pacote" + botão remover só o pacote */}
+      {/* Badge "pago via pacote" + remover só o pacote */}
       {hasPackageApplied && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
@@ -209,8 +222,55 @@ export default function CartItemRow({
         </div>
       )}
 
-      {/* ⭐ Badge "pacote disponível" — clica pra aplicar via modal */}
-      {!hasPackageApplied && suggestion && onUsePackage && (
+      {/* ⭐ Badge "coberto por assinatura" + remover só a assinatura */}
+      {hasMembershipApplied && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '7px 10px',
+          background: 'rgba(99,102,241,0.10)',
+          border: '1px solid rgba(99,102,241,0.25)',
+          borderRadius: 8,
+        }}>
+          <Ticket size={12} color="#4f46e5" strokeWidth={2.4} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 800,
+              color: '#4f46e5',
+              letterSpacing: '.04em', textTransform: 'uppercase',
+            }}>
+              Coberto por assinatura
+            </div>
+            {item.appliedMembershipCard && (
+              <div style={{
+                fontSize: 10, color: colors.gray[700],
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                #{item.appliedMembershipCard.cardNumber} · {item.appliedMembershipCard.planName}
+              </div>
+            )}
+          </div>
+          {onRemoveMembership && (
+            <button
+              onClick={onRemoveMembership}
+              disabled={disabled}
+              aria-label="Remover assinatura"
+              title="Remover aplicação da assinatura (item volta ao preço normal)"
+              style={{
+                background: 'none', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+                padding: 3, display: 'flex',
+                color: '#4f46e5',
+                opacity: disabled ? 0.4 : 1,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <XCircle size={14} strokeWidth={2.2} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Badge "pacote disponível" — clica pra aplicar via modal */}
+      {!isCovered && suggestion && onUsePackage && (
         <button
           onClick={onUsePackage}
           disabled={disabled}
@@ -247,7 +307,7 @@ export default function CartItemRow({
         </button>
       )}
 
-      {/* Linha inferior: qty + prof (oculta se item PACKAGE com qty=1 sem prof flex) */}
+      {/* Linha inferior: qty + prof */}
       <div style={{
         display: 'flex',
         gap: 8,
@@ -271,14 +331,14 @@ export default function CartItemRow({
         }}>
           <button
             onClick={() => item.quantity > 1 && onChangeQty(item.quantity - 1)}
-            disabled={disabled || item.quantity <= 1 || hasPackageApplied}
+            disabled={disabled || item.quantity <= 1 || isCovered}
             aria-label="Diminuir"
             style={{
               width: 26, height: 26, borderRadius: 6,
               border: 'none', background: 'transparent',
-              cursor: (disabled || item.quantity <= 1 || hasPackageApplied) ? 'not-allowed' : 'pointer',
+              cursor: (disabled || item.quantity <= 1 || isCovered) ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: (disabled || item.quantity <= 1 || hasPackageApplied) ? 0.3 : 1,
+              opacity: (disabled || item.quantity <= 1 || isCovered) ? 0.3 : 1,
               color: colors.gray[700],
               WebkitTapHighlightColor: 'transparent',
             }}
@@ -293,14 +353,14 @@ export default function CartItemRow({
           }}>{item.quantity}</span>
           <button
             onClick={() => onChangeQty(item.quantity + 1)}
-            disabled={disabled || hasPackageApplied}
+            disabled={disabled || isCovered}
             aria-label="Aumentar"
             style={{
               width: 26, height: 26, borderRadius: 6,
               border: 'none', background: 'transparent',
-              cursor: (disabled || hasPackageApplied) ? 'not-allowed' : 'pointer',
+              cursor: (disabled || isCovered) ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: (disabled || hasPackageApplied) ? 0.3 : 1,
+              opacity: (disabled || isCovered) ? 0.3 : 1,
               color: colors.gray[700],
               WebkitTapHighlightColor: 'transparent',
             }}
@@ -316,7 +376,7 @@ export default function CartItemRow({
             value={item.professionalId ?? null}
             onChange={onChangeProf}
             label="Profissional do item"
-            disabled={disabled || hasPackageApplied}
+            disabled={disabled || isCovered}
             compact
           />
         </div>

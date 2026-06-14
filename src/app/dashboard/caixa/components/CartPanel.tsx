@@ -6,7 +6,7 @@
 //   - cliente tem cartões ativos
 
 import { useState, useEffect, useCallback } from 'react'
-import { ShoppingCart, CreditCard, Loader2, XCircle, Layers } from 'lucide-react'
+import { ShoppingCart, CreditCard, Loader2, XCircle, Layers, Ticket } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions, radius } from '@/shared/theme'
 import { Sale, ProfLite, PackageCardLite } from '@/features/sales/types'
@@ -16,6 +16,7 @@ import ProfPicker from './ProfPicker'
 import CartItemRow from './CartItemRow'
 import PaymentModal from './PaymentModal'
 import UsePackageModal from './UsePackageModal'
+import UseMembershipModal, { MembershipCardLite } from './UseMembershipModal'
 
 interface Props {
   sale:           Sale
@@ -37,6 +38,7 @@ export default function CartPanel({
   const [notes, setNotes] = useState(sale.notes ?? '')
   const [showPayment, setShowPayment] = useState(false)
   const [showUsePackage, setShowUsePackage] = useState(false)
+  const [showUseMembership, setShowUseMembership] = useState(false)
   const [cancelling,  setCancelling]  = useState(false)
   const [confirmingFree, setConfirmingFree] = useState(false)
   const [error,       setError]       = useState<string | null>(null)
@@ -44,6 +46,7 @@ export default function CartPanel({
   // ⭐ Cartões ativos do cliente atual (pra decidir se mostra botão "Usar pacote")
   const [activeCards, setActiveCards] = useState<PackageCardLite[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
+  const [activeMemberships, setActiveMemberships] = useState<MembershipCardLite[]>([])
 
   const refreshActiveCards = useCallback(() => {
     if (!sale.clientId) {
@@ -63,9 +66,26 @@ export default function CartPanel({
       })
   }, [sale.clientId])
 
+  const refreshActiveMemberships = useCallback(() => {
+    if (!sale.clientId) {
+      setActiveMemberships([])
+      return
+    }
+    api.get(`/membership-cards/client/${sale.clientId}/active`)
+      .then(res => {
+        const data = res.data?.data ?? res.data
+        setActiveMemberships(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setActiveMemberships([]))
+  }, [sale.clientId])
+
   useEffect(() => {
     refreshActiveCards()
   }, [refreshActiveCards])
+
+  useEffect(() => {
+    refreshActiveMemberships()
+  }, [refreshActiveMemberships])
 
   async function refetchSale() {
     try {
@@ -146,6 +166,7 @@ export default function CartPanel({
       await api.delete(`/sales/${sale.id}/items/${itemId}`)
       await refetchSale()
       refreshActiveCards()  // estorno pode ter restaurado saldos
+      refreshActiveMemberships()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
       setError(e.response?.data?.error ?? 'Erro ao remover item')
@@ -165,6 +186,22 @@ export default function CartPanel({
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
       setError(e.response?.data?.error ?? 'Erro ao remover pacote do item')
+    } finally {
+      setUpdatingItemId(null)
+    }
+  }
+
+  // ⭐ Remove assinatura aplicada a um item específico
+  async function removeMembershipFromItem(itemId: string) {
+    setUpdatingItemId(itemId)
+    setError(null)
+    try {
+      await api.delete(`/sales/${sale.id}/items/${itemId}/apply-membership`)
+      await refetchSale()
+      refreshActiveMemberships()
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } }
+      setError(e.response?.data?.error ?? 'Erro ao remover assinatura do item')
     } finally {
       setUpdatingItemId(null)
     }
@@ -213,6 +250,7 @@ export default function CartPanel({
 
   // ⭐ Mostra botão "Usar pacote" só se cliente vinculado E tem cards ativos
   const canUsePackage = sale.clientId != null && activeCards.length > 0
+  const canUseMembership = sale.clientId != null && activeMemberships.length > 0
 
   return (
     <>
@@ -238,6 +276,18 @@ export default function CartPanel({
             refreshActiveCards()
           }}
           onClose={() => setShowUsePackage(false)}
+        />
+      )}
+
+      {showUseMembership && (
+        <UseMembershipModal
+          sale={sale}
+          isMobile={isMobile}
+          onApplied={(updated) => {
+            onSaleUpdated(updated)
+            refreshActiveMemberships()
+          }}
+          onClose={() => setShowUseMembership(false)}
         />
       )}
 
@@ -340,6 +390,55 @@ export default function CartPanel({
           </button>
         )}
 
+        {/* ⭐ Botão Usar Assinatura */}
+        {canUseMembership && (
+          <button
+            onClick={() => setShowUseMembership(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              padding: '11px 14px',
+              borderRadius: 11,
+              border: '1px solid rgba(99,102,241,0.30)',
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(99,102,241,0.12))',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              textAlign: 'left',
+              WebkitTapHighlightColor: 'transparent',
+              transition: `all ${transitions.fast}`,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99,102,241,0.10), rgba(99,102,241,0.18))'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(99,102,241,0.12))'
+            }}
+          >
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Ticket size={16} color="#fff" strokeWidth={2} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 12, fontWeight: 800,
+                color: '#4f46e5',
+                letterSpacing: '.04em', textTransform: 'uppercase',
+              }}>
+                Usar assinatura
+              </div>
+              <div style={{
+                fontSize: 10, color: colors.gray[700],
+                marginTop: 1,
+              }}>
+                {activeMemberships.length} assinatura(s) ativa(s) do cliente
+              </div>
+            </div>
+          </button>
+        )}
+
         {loadingCards && sale.clientId && (
           <div style={{
             fontSize: 10, color: colors.gray.dimText,
@@ -393,6 +492,7 @@ export default function CartPanel({
                     onChangeProf={pid => changeItemProf(item.id, pid)}
                     onRemove={() => removeItem(item.id)}
                     onRemovePackage={() => removePackageFromItem(item.id)}
+                    onRemoveMembership={() => removeMembershipFromItem(item.id)}
                     suggestion={(() => {
                       const s = sale.packageSuggestions?.find(ps => ps.saleItemId === item.id)
                       return s ? { cardNumber: s.cardNumber, packageName: s.packageName, remaining: s.remaining } : null
