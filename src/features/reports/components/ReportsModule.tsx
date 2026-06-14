@@ -14,6 +14,8 @@ import MarketingPanel from './panels/MarketingPanel'
 import AgendamentosPanel from './panels/AgendamentosPanel'
 import ClientesPanel from './panels/ClientesPanel'
 import FluxoCaixaPanel from './panels/FluxoCaixaPanel'
+import EquipePanel from './panels/EquipePanel'
+import EstoquePanel from './panels/EstoquePanel'
 
 dayjs.locale('pt-br')
 
@@ -134,6 +136,10 @@ export default function ReportsModule() {
         <ClientesPanel period={period} />
       ) : tab === 'fluxo-de-caixa' ? (
         <FluxoCaixaPanel period={period} />
+      ) : tab === 'equipe' ? (
+        <EquipePanel period={period} />
+      ) : tab === 'estoque' ? (
+        <EstoquePanel period={period} />
       ) : (
         <PlaceholderPanel label={TABS.find((t) => t.id === tab)?.label ?? ''} />
       )}

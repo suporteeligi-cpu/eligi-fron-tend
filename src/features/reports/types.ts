@@ -102,3 +102,22 @@ export interface FluxoCaixaData {
   porPagamento: { label: string; valor: number; pct: number; cor: string }[]
   porCategoria: { label: string; valor: number; pct: number; cor: string }[]
 }
+
+
+export interface EquipeData {
+  periodo: string
+  kpis: { profissionais: number; receita: number; comissoes: number; ocupacaoMedia: number | null }
+  profissionais: {
+    nome: string; avatarUrl: string | null; reservas: number; receita: number;
+    servicos: number; produtos: number; pacotes: number; comissao: number;
+    horas: number; ocupacao: number | null
+  }[]
+}
+
+export interface EstoqueData {
+  periodo: string
+  kpis: { unidades: number; valor: number; vendidosMes: number; baixoEstoque: number }
+  movimentacao: { mes: string; entradas: number | null; saidas: number | null }[]
+  baixoEstoque: { nome: string; estoque: number; alerta: number | null; valor: number }[]
+  topValor: { nome: string; estoque: number; alerta: number | null; valor: number }[]
+}
