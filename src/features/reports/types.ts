@@ -121,3 +121,14 @@ export interface EstoqueData {
   baixoEstoque: { nome: string; estoque: number; alerta: number | null; valor: number }[]
   topValor: { nome: string; estoque: number; alerta: number | null; valor: number }[]
 }
+
+
+export interface ReceitaData {
+  periodo: string
+  kpis: { receita: number; receitaDelta: { pct: number }; vendas: number; ticketMedio: number; descontos: number }
+  serie: { mes: string; real: number | null; projecao: number | null }[]
+  porTipo: { label: string; valor: number; pct: number; cor: string }[]
+  porPagamento: { label: string; valor: number; pct: number; cor: string }[]
+  topServicos: { nome: string; valor: number }[]
+  topProdutos: { nome: string; valor: number }[]
+}

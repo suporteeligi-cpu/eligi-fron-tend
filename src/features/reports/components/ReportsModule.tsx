@@ -16,6 +16,7 @@ import ClientesPanel from './panels/ClientesPanel'
 import FluxoCaixaPanel from './panels/FluxoCaixaPanel'
 import EquipePanel from './panels/EquipePanel'
 import EstoquePanel from './panels/EstoquePanel'
+import ReceitaPanel from './panels/ReceitaPanel'
 
 dayjs.locale('pt-br')
 
@@ -140,6 +141,8 @@ export default function ReportsModule() {
         <EquipePanel period={period} />
       ) : tab === 'estoque' ? (
         <EstoquePanel period={period} />
+      ) : tab === 'receita' ? (
+        <ReceitaPanel period={period} />
       ) : (
         <PlaceholderPanel label={TABS.find((t) => t.id === tab)?.label ?? ''} />
       )}
