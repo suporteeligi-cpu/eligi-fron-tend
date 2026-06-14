@@ -32,8 +32,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return
     }
 
-    // Funcionários tentando acessar /dashboard raiz → agenda
-    const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF']
+    // BASIC_STAFF e RECEPTIONIST: rota fixa sempre /dashboard/agenda
+    const agendaOnlyRoles = ['BASIC_STAFF', 'RECEPTIONIST']
+    if (!loading && user && agendaOnlyRoles.includes(user.role) &&
+        window.location.pathname !== '/dashboard/agenda') {
+      router.replace('/dashboard/agenda')
+      return
+    }
+    // Demais funcionários: só /dashboard raiz vai pra /agenda
+    const staffRoles = ['MANAGER', 'STAFF']
     if (!loading && user && staffRoles.includes(user.role) &&
         window.location.pathname === '/dashboard') {
       router.replace('/dashboard/agenda')
