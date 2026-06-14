@@ -65,7 +65,7 @@ export default function RegisterForm() {
         try {
           setLoading(true)
           await loginWithGoogle(credential, 'register')
-          window.location.href = '/dashboard'
+          window.location.href = role === 'BUSINESS_OWNER' ? '/onboarding' : '/dashboard'
         } catch {
           setErrors({ general: 'Erro ao registrar com Google.' })
         } finally {
