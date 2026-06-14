@@ -53,13 +53,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return () => { document.body.classList.remove('eligi-dashboard') }
   }, [])
 
-  if (loading) {
-    return (
-      <div style={centerStyle}>
-        <style>{`@keyframes eligi-spin { to { transform: rotate(360deg); } }`}</style>
-        <div style={spinnerStyle} />
-      </div>
-    )
+  // agendaOnlyRoles: retorna null enquanto carrega ou antes do redirect
+  // (evita flash da visão geral no mobile)
+  const agendaOnlyRoles = ['BASIC_STAFF', 'RECEPTIONIST']
+  const isAgendaOnly = user ? agendaOnlyRoles.includes(user.role) : false
+  if (loading || (isAgendaOnly && pathname !== '/dashboard/agenda')) {
+    return null
   }
 
   if (!user) {
