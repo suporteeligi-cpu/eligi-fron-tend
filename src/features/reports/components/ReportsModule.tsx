@@ -13,6 +13,7 @@ import PlaceholderPanel from './panels/PlaceholderPanel'
 import MarketingPanel from './panels/MarketingPanel'
 import AgendamentosPanel from './panels/AgendamentosPanel'
 import ClientesPanel from './panels/ClientesPanel'
+import FluxoCaixaPanel from './panels/FluxoCaixaPanel'
 
 dayjs.locale('pt-br')
 
@@ -131,6 +132,8 @@ export default function ReportsModule() {
         <AgendamentosPanel period={period} />
       ) : tab === 'clientes' ? (
         <ClientesPanel period={period} />
+      ) : tab === 'fluxo-de-caixa' ? (
+        <FluxoCaixaPanel period={period} />
       ) : (
         <PlaceholderPanel label={TABS.find((t) => t.id === tab)?.label ?? ''} />
       )}

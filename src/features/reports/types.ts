@@ -93,3 +93,12 @@ export interface ClientesData {
   receitaPorTipo: { novos: number; recorrentes: number }
   topClientes: { nome: string; reservas: number; receita: number }[]
 }
+
+
+export interface FluxoCaixaData {
+  periodo: string
+  kpis: { entradas: number; entradasDelta: { pct: number }; saidas: number; saldo: number; margem: number }
+  serie: { mes: string; entradas: number | null; saidas: number | null }[]
+  porPagamento: { label: string; valor: number; pct: number; cor: string }[]
+  porCategoria: { label: string; valor: number; pct: number; cor: string }[]
+}
