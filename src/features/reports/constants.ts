@@ -7,6 +7,9 @@ import { Rocket } from 'lucide-react'
 export const ACCENT = '#dc2626'
 export const ACCENT_GRADIENT = 'linear-gradient(135deg,#dc2626,#b91c1c)'
 
+/** Verde vibrante do gráfico de receita. Manter igual ao sparkline do dashboard. */
+export const GREEN = '#10B981'
+
 /** Roxo do canal online (link). Manter igual ao KPI do dashboard. */
 export const ONLINE = '#7C3AED'
 export const ONLINE_HI = '#6D28D9'

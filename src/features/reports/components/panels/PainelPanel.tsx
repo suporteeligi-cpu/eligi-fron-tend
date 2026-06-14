@@ -4,7 +4,7 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useOverview } from '../../hooks/useOverview'
-import { ACCENT, GLASS_CARD, ONLINE } from '../../constants'
+import { GLASS_CARD, ONLINE, GREEN } from '../../constants'
 
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -87,15 +87,15 @@ export default function PainelPanel({ period }: { period: string }) {
       <div style={{ ...GLASS_CARD, padding: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: '#0c0c12' }}>Receita</span>
-          <span style={{ fontSize: 11, color: ACCENT, fontWeight: 600 }}>— Projeção</span>
+          <span style={{ fontSize: 11, color: GREEN, fontWeight: 600 }}>— Projeção</span>
         </div>
         <div style={{ width: '100%', height: 200 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={serieReceita} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="recv" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={ACCENT} stopOpacity={0.22} />
-                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                  <stop offset="0%" stopColor={GREEN} stopOpacity={0.22} />
+                  <stop offset="100%" stopColor={GREEN} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="mes" tick={{ fontSize: 10, fill: 'rgba(0,0,0,0.4)' }} axisLine={false} tickLine={false} />
@@ -104,9 +104,9 @@ export default function PainelPanel({ period }: { period: string }) {
                 formatter={(v) => brl(Number(v ?? 0))}
                 contentStyle={{ borderRadius: 12, border: '0.5px solid rgba(0,0,0,0.1)', fontSize: 12 }}
               />
-              <Area type="monotone" dataKey="real" stroke={ACCENT} strokeWidth={3} fill="url(#recv)" connectNulls />
+              <Area type="monotone" dataKey="real" stroke={GREEN} strokeWidth={3} fill="url(#recv)" connectNulls />
               <Area
-                type="monotone" dataKey="projecao" stroke={ACCENT} strokeWidth={2.5}
+                type="monotone" dataKey="projecao" stroke={GREEN} strokeWidth={2.5}
                 strokeDasharray="5 5" fill="url(#recv)" fillOpacity={0.4} connectNulls
               />
             </AreaChart>
