@@ -2,7 +2,7 @@
 // src/app/dashboard/layout.tsx
 
 import { ReactNode, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 
 import AppNavbar from '@/app/components/navigation/AppNavbar'
@@ -16,7 +16,8 @@ const NAVBAR_HEIGHT = 104
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
-  const router = useRouter()
+  const router   = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login')
@@ -35,17 +36,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // BASIC_STAFF e RECEPTIONIST: rota fixa sempre /dashboard/agenda
     const agendaOnlyRoles = ['BASIC_STAFF', 'RECEPTIONIST']
     if (!loading && user && agendaOnlyRoles.includes(user.role) &&
-        window.location.pathname !== '/dashboard/agenda') {
+        pathname !== '/dashboard/agenda') {
       router.replace('/dashboard/agenda')
       return
     }
     // Demais funcionários: só /dashboard raiz vai pra /agenda
     const staffRoles = ['MANAGER', 'STAFF']
     if (!loading && user && staffRoles.includes(user.role) &&
-        window.location.pathname === '/dashboard') {
+        pathname === '/dashboard') {
       router.replace('/dashboard/agenda')
     }
-  }, [user, loading, router])
+  }, [user, loading, router, pathname])
 
   useEffect(() => {
     document.body.classList.add('eligi-dashboard')
