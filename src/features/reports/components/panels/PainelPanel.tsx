@@ -4,7 +4,7 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useOverview } from '../../hooks/useOverview'
-import { ACCENT, GLASS_CARD } from '../../constants'
+import { ACCENT, GLASS_CARD, ONLINE } from '../../constants'
 
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -72,10 +72,10 @@ export default function PainelPanel({ period }: { period: string }) {
         <div
           style={{
             ...GLASS_CARD, padding: '16px 18px',
-            borderColor: 'rgba(220,38,38,0.25)',
+            borderColor: 'rgba(124,58,237,0.3)',
           }}
         >
-          <div style={{ fontSize: 12, color: ACCENT, marginBottom: 6, fontWeight: 600 }}>Online (link)</div>
+          <div style={{ fontSize: 12, color: ONLINE, marginBottom: 6, fontWeight: 600 }}>Online (link)</div>
           <div style={{ fontSize: 26, fontWeight: 600, color: '#0c0c12', lineHeight: 1.1 }}>
             {kpis.onlinePct}%
           </div>

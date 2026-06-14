@@ -4,10 +4,9 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useMarketing } from '../../hooks/useMarketing'
-import { GLASS_CARD } from '../../constants'
+import { GLASS_CARD, ONLINE, ONLINE_HI } from '../../constants'
 
-const ONLINE = '#1D9E75'
-const ONLINE_HI = '#0F6E56'
+// cores do canal online (ONLINE/ONLINE_HI) vêm de constants
 const MANUAL = '#B4B2A9'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -134,7 +133,7 @@ export default function MarketingPanel({ period }: { period: string }) {
             >
               <div style={{
                 width: 32, height: 32, borderRadius: '50%', flex: 'none',
-                background: 'rgba(29,158,117,0.14)', color: '#0f6e56',
+                background: 'rgba(124,58,237,0.14)', color: '#6D28D9',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 12, fontWeight: 600,
               }}>

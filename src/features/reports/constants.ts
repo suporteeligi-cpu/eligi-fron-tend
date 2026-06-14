@@ -1,10 +1,15 @@
 // src/features/reports/constants.ts
 
 import type { TabDef } from './types'
+import { Rocket } from 'lucide-react'
 
 /** Vermelho eligi — trocar por token do theme.ts se preferir centralizar */
 export const ACCENT = '#dc2626'
 export const ACCENT_GRADIENT = 'linear-gradient(135deg,#dc2626,#b91c1c)'
+
+/** Roxo do canal online (link). Manter igual ao KPI do dashboard. */
+export const ONLINE = '#7C3AED'
+export const ONLINE_HI = '#6D28D9'
 
 /** Estilo glass reaproveitado nos cards (Direção B). */
 export const GLASS_CARD: React.CSSProperties = {
@@ -24,7 +29,7 @@ export const TABS: TabDef[] = [
   { id: 'fluxo-de-caixa', label: 'Fluxo de caixa' },
   { id: 'estoque', label: 'Estoque' },
   { id: 'equipe', label: 'Equipe' },
-  { id: 'marketing', label: 'Marketing' },
+  { id: 'marketing', label: 'Link online', icon: Rocket },
 ]
 
 export const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']

@@ -106,6 +106,7 @@ export default function ReportsModule() {
       >
         {TABS.map((t) => {
           const active = t.id === tab
+          const Icon = t.icon
           return (
             <button
               key={t.id}
@@ -113,6 +114,7 @@ export default function ReportsModule() {
               onClick={() => setTab(t.id)}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
                 fontSize: 14, whiteSpace: 'nowrap', padding: '0 0 12px',
                 fontWeight: active ? 600 : 400,
                 color: active ? '#0c0c12' : 'rgba(0,0,0,0.45)',
@@ -120,7 +122,7 @@ export default function ReportsModule() {
                 marginBottom: -1,
               }}
             >
-              {t.label}
+              {Icon && <Icon size={14} />}{t.label}
             </button>
           )
         })}

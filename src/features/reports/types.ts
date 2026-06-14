@@ -3,6 +3,8 @@
 // endpoint GET /reports/overview vai devolver — por isso trocar o mock pelo
 // fetch real depois é só mexer no hook, sem tocar nos componentes.
 
+import type { LucideIcon } from 'lucide-react'
+
 export type ReportTab =
   | 'painel'
   | 'agendamentos'
@@ -16,6 +18,7 @@ export type ReportTab =
 export interface TabDef {
   id: ReportTab
   label: string
+  icon?: LucideIcon
 }
 
 export interface KpiDelta {
