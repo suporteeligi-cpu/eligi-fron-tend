@@ -20,9 +20,24 @@ export function middleware(request: NextRequest) {
   const isPublicOnly = PUBLIC_ONLY.includes(pathname)
   const isProtected  = pathname.startsWith(PROTECTED_PREFIX)
 
+  // Roles que ficam travados na agenda
+  const AGENDA_ONLY_ROLES = ['BASIC_STAFF', 'RECEPTIONIST']
+
   // Logado tentando acessar rota pública (/, /login, /register)
   if (hasSession && isPublicOnly) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const userRole = request.cookies.get('userRole')?.value ?? ''
+    const target = AGENDA_ONLY_ROLES.includes(userRole)
+      ? '/dashboard/agenda'
+      : '/dashboard'
+    return NextResponse.redirect(new URL(target, request.url))
+  }
+
+  // BASIC_STAFF e RECEPTIONIST logados tentando acessar qualquer rota
+  // que não seja /dashboard/agenda → redireciona imediatamente (server-side)
+  const userRole = request.cookies.get('userRole')?.value ?? ''
+  if (hasSession && AGENDA_ONLY_ROLES.includes(userRole) && isProtected &&
+      !pathname.startsWith('/dashboard/agenda')) {
+    return NextResponse.redirect(new URL('/dashboard/agenda', request.url))
   }
 
   // Não logado tentando acessar rota protegida

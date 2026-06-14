@@ -59,13 +59,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /* ── Redirect by role ── */
   const redirectByRole = useCallback((me: AuthUser) => {
+    // Grava role num cookie acessível pelo middleware (não-httpOnly, 7 dias)
+    document.cookie = `userRole=${me.role};path=/;max-age=${7 * 24 * 3600};samesite=lax`
+
     // Owner sem negócio → onboarding
     if (me.role === 'BUSINESS_OWNER' && !me.businessId) {
       router.push('/onboarding')
       return
     }
-    // Funcionários → agenda direta (sem visão geral do dashboard)
-    const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF']
+    // BASIC_STAFF e RECEPTIONIST → agenda sempre
+    const agendaOnlyRoles = ['BASIC_STAFF', 'RECEPTIONIST']
+    if (agendaOnlyRoles.includes(me.role)) {
+      router.push('/dashboard/agenda')
+      return
+    }
+    // Demais funcionários → agenda (mas podem navegar pelo menu)
+    const staffRoles = ['MANAGER', 'STAFF']
     if (staffRoles.includes(me.role)) {
       router.push('/dashboard/agenda')
       return
@@ -106,6 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /* ── Logout ── */
   const logout = useCallback(async () => {
     try { await logoutRequest() } catch { /* best-effort */ }
+    // Limpa cookie de role
+    document.cookie = 'userRole=;path=/;max-age=0'
     setUser(null)
     router.replace('/login')
   }, [router])
