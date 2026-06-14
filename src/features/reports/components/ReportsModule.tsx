@@ -11,6 +11,8 @@ import type { ReportTab } from '../types'
 import PainelPanel from './panels/PainelPanel'
 import PlaceholderPanel from './panels/PlaceholderPanel'
 import MarketingPanel from './panels/MarketingPanel'
+import AgendamentosPanel from './panels/AgendamentosPanel'
+import ClientesPanel from './panels/ClientesPanel'
 
 dayjs.locale('pt-br')
 
@@ -125,6 +127,10 @@ export default function ReportsModule() {
         <PainelPanel period={period} />
       ) : tab === 'marketing' ? (
         <MarketingPanel period={period} />
+      ) : tab === 'agendamentos' ? (
+        <AgendamentosPanel period={period} />
+      ) : tab === 'clientes' ? (
+        <ClientesPanel period={period} />
       ) : (
         <PlaceholderPanel label={TABS.find((t) => t.id === tab)?.label ?? ''} />
       )}

@@ -77,3 +77,19 @@ export interface MarketingData {
   origem: { online: number; manual: number }
   topClientes: { nome: string; reservas: number; receita: number }[]
 }
+
+
+export interface AgendamentosData {
+  periodo: string
+  kpis: { total: number; totalDelta: { pct: number }; finalizados: number; naoCompareceram: number; cancelados: number }
+  status: { label: string; status: string; quantidade: number; pct: number; valor: number; cor: string }[]
+  topServicos: { nome: string; reservas: number; valor: number }[]
+}
+
+export interface ClientesData {
+  periodo: string
+  kpis: { ativos: number; novos: number; recorrentes: number; ticketMedio: number }
+  serie: { mes: string; novos: number | null; recorrentes: number | null }[]
+  receitaPorTipo: { novos: number; recorrentes: number }
+  topClientes: { nome: string; reservas: number; receita: number }[]
+}
