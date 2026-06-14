@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Plus, X } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Plus, X, Tag } from 'lucide-react';
 
 import { useOnboardingStore } from '../../store';
 import { api } from '@/lib/api';
@@ -70,48 +70,52 @@ export default function ServicesStep() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <p className="text-xs text-neutral-500">Passo 4 de 5</p>
-        <h1 className="text-xl font-semibold">Seus serviços</h1>
-        <p className="text-sm text-neutral-500">Toque numa sugestão ou adicione o seu.</p>
-      </div>
+    <div>
+      <p className="ob-eyebrow ob-anim">Passo 4 de 5</p>
+      <h1 className="ob-title ob-anim" style={{ animationDelay: '.05s' }}>Seus serviços</h1>
+      <p className="ob-subtitle ob-anim" style={{ animationDelay: '.1s' }}>
+        Toque numa sugestão ou adicione o seu.
+      </p>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="ob-chips ob-anim" style={{ animationDelay: '.15s' }}>
         {suggestions.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => addSuggestion(s)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 px-3 py-1.5 text-sm hover:border-red-300"
-          >
+          <button key={s} type="button" onClick={() => addSuggestion(s)} className="ob-chip">
             <Plus size={14} /> {s}
           </button>
         ))}
       </div>
 
-      <div className="space-y-2">
+      {services.length > 0 && (
+        <p className="ob-section-label">ADICIONADOS ({services.length})</p>
+      )}
+
+      <div>
         {services.map((s, i) => (
-          <div key={i} className="flex items-center gap-2 rounded-xl border border-neutral-200 p-2.5">
+          <div key={i} className="ob-svc-card ob-anim">
+            <div className="ob-svc-icon">
+              <Tag size={18} color="#dc2626" />
+            </div>
             <input
               value={s.name}
               onChange={(e) => update(i, { name: e.target.value })}
               placeholder="Nome do serviço"
-              className="flex-1 min-w-0 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm"
+              className="ob-mini-input"
+              style={{ flex: 1, minWidth: 0 }}
             />
-            <div className="flex items-center gap-1">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <input
                 type="number"
                 min={5}
                 step={5}
                 value={s.duration}
                 onChange={(e) => update(i, { duration: Number(e.target.value) })}
-                className="w-16 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                className="ob-mini-input"
+                style={{ width: 60 }}
               />
-              <span className="text-xs text-neutral-400">min</span>
+              <span style={{ fontSize: 12, color: '#9ca3af' }}>min</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-neutral-400">R$</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 12, color: '#9ca3af' }}>R$</span>
               <input
                 type="number"
                 min={0}
@@ -121,13 +125,14 @@ export default function ServicesStep() {
                   update(i, { price: e.target.value === '' ? undefined : Number(e.target.value) })
                 }
                 placeholder="0"
-                className="w-20 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                className="ob-mini-input"
+                style={{ width: 72 }}
               />
             </div>
             <button
               type="button"
               onClick={() => remove(i)}
-              className="text-neutral-400 hover:text-red-500"
+              className="ob-svc-remove"
               aria-label="Remover"
             >
               <X size={16} />
@@ -135,35 +140,23 @@ export default function ServicesStep() {
           </div>
         ))}
 
-        <button
-          type="button"
-          onClick={addBlank}
-          className="inline-flex items-center gap-1.5 text-sm text-red-600"
-        >
+        <button type="button" onClick={addBlank} className="ob-add-btn">
           <Plus size={16} /> Adicionar serviço
         </button>
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="ob-error">{error}</p>}
 
-      <div className="flex justify-between items-center pt-2">
+      <div className="ob-nav">
         <button
           type="button"
           onClick={() => router.push('/onboarding/steps/03-hours')}
-          className="text-sm text-neutral-500"
+          className="ob-btn-back"
         >
-          Voltar
+          <ArrowLeft size={16} /> Voltar
         </button>
-        <button
-          onClick={handleContinue}
-          disabled={loading}
-          className="btn-primary inline-flex items-center gap-2"
-        >
-          {loading ? 'Salvando...' : (
-            <>
-              Continuar <ArrowRight size={16} />
-            </>
-          )}
+        <button onClick={handleContinue} disabled={loading} className="ob-btn-next">
+          {loading ? 'Salvando...' : (<>Continuar <ArrowRight size={16} /></>)}
         </button>
       </div>
     </div>

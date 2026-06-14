@@ -65,10 +65,13 @@ export default function IdentityStep() {
 
   return (
     <div>
-      <p className="ob-eyebrow">Passo 1 de 5</p>
-      <h1 className="ob-title">Sobre o seu negócio</h1>
+      <p className="ob-eyebrow ob-anim">Passo 1 de 5</p>
+      <h1 className="ob-title ob-anim" style={{ animationDelay: '.05s' }}>Sobre o seu negócio</h1>
+      <p className="ob-subtitle ob-anim" style={{ animationDelay: '.1s' }}>
+        Vamos começar com o essencial.
+      </p>
 
-      <div className="ob-field">
+      <div className="ob-field ob-anim" style={{ animationDelay: '.15s' }}>
         <label className="ob-label">Tipo de operação</label>
         <div className="ob-grid2">
           {TYPE_OPTIONS.map(({ value, title, desc, Icon }) => {
@@ -89,7 +92,7 @@ export default function IdentityStep() {
         </div>
       </div>
 
-      <div className="ob-field">
+      <div className="ob-field ob-anim" style={{ animationDelay: '.2s' }}>
         <label className="ob-label">Nome do estabelecimento</label>
         <input
           type="text"
@@ -101,7 +104,7 @@ export default function IdentityStep() {
         />
       </div>
 
-      <div className="ob-field">
+      <div className="ob-field ob-anim" style={{ animationDelay: '.25s' }}>
         <label className="ob-label">
           Segmento <span className="ob-label-hint">({TOTAL_SEGMENTS} opções)</span>
         </label>
@@ -125,13 +128,8 @@ export default function IdentityStep() {
 
       {error && <p className="ob-error">{error}</p>}
 
-      <div className="ob-actions">
-        <button
-          onClick={handleContinue}
-          disabled={loading}
-          className="btn-primary"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-        >
+      <div className="ob-actions ob-anim" style={{ animationDelay: '.3s' }}>
+        <button onClick={handleContinue} disabled={loading} className="ob-btn-next">
           {loading ? 'Salvando...' : (<>Continuar <ArrowRight size={16} /></>)}
         </button>
       </div>

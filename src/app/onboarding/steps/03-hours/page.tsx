@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ArrowLeft } from 'lucide-react';
 
 import { useOnboardingStore } from '../../store';
 import { api } from '@/lib/api';
@@ -15,7 +15,6 @@ type Day = {
   endTime: string;
 };
 
-// Convenção: 0=Dom ... 6=Sáb. Domingo fechado por padrão.
 const DEFAULT_DAYS: Day[] = [
   { weekday: 0, label: 'Domingo', open: false, startTime: '09:00', endTime: '18:00' },
   { weekday: 1, label: 'Segunda', open: true, startTime: '09:00', endTime: '19:00' },
@@ -63,75 +62,62 @@ export default function HoursStep() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <p className="text-xs text-neutral-500">Passo 3 de 5</p>
-        <h1 className="text-xl font-semibold">Horário de funcionamento</h1>
-        <p className="text-sm text-neutral-500">Já deixamos um padrão — ajuste se precisar.</p>
-      </div>
+    <div>
+      <p className="ob-eyebrow ob-anim">Passo 3 de 5</p>
+      <h1 className="ob-title ob-anim" style={{ animationDelay: '.05s' }}>Horário de funcionamento</h1>
+      <p className="ob-subtitle ob-anim" style={{ animationDelay: '.1s' }}>
+        Já deixamos um padrão — ajuste se precisar.
+      </p>
 
-      <div className="space-y-2">
-        {days.map((d) => (
-          <div
-            key={d.weekday}
-            className="flex items-center gap-3 rounded-xl border border-neutral-200 p-3"
-          >
+      <div>
+        {days.map((d, i) => (
+          <div key={d.weekday} className="ob-day-row ob-anim" style={{ animationDelay: `${0.1 + i * 0.04}s` }}>
             <button
               type="button"
               onClick={() => update(d.weekday, { open: !d.open })}
-              className={`relative w-10 h-6 rounded-full transition ${d.open ? 'bg-red-600' : 'bg-neutral-300'}`}
+              className={d.open ? 'ob-sw ob-sw--on' : 'ob-sw'}
               aria-label={d.open ? 'Aberto' : 'Fechado'}
             >
-              <span
-                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${d.open ? 'left-[1.125rem]' : 'left-0.5'}`}
-              />
+              <span className="ob-sw-knob" />
             </button>
 
-            <span className="w-20 text-sm">{d.label}</span>
+            <span className="ob-day-label">{d.label}</span>
 
             {d.open ? (
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="ob-day-times">
                 <input
                   type="time"
                   value={d.startTime}
                   onChange={(e) => update(d.weekday, { startTime: e.target.value })}
-                  className="rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                  className="ob-time-input"
                 />
-                <span className="text-neutral-400">–</span>
+                <span className="ob-day-sep">até</span>
                 <input
                   type="time"
                   value={d.endTime}
                   onChange={(e) => update(d.weekday, { endTime: e.target.value })}
-                  className="rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                  className="ob-time-input"
                 />
               </div>
             ) : (
-              <span className="ml-auto text-sm text-neutral-400">Fechado</span>
+              <span className="ob-day-closed">Fechado</span>
             )}
           </div>
         ))}
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="ob-error">{error}</p>}
 
-      <div className="flex justify-between items-center pt-2">
+      <div className="ob-nav ob-anim" style={{ animationDelay: '.45s' }}>
         <button
           type="button"
           onClick={() => router.push('/onboarding/steps/02-location')}
-          className="text-sm text-neutral-500"
+          className="ob-btn-back"
         >
-          Voltar
+          <ArrowLeft size={16} /> Voltar
         </button>
-        <button
-          onClick={handleContinue}
-          disabled={loading}
-          className="btn-primary inline-flex items-center gap-2"
-        >
-          {loading ? 'Salvando...' : (
-            <>
-              Continuar <ArrowRight size={16} />
-            </>
-          )}
+        <button onClick={handleContinue} disabled={loading} className="ob-btn-next">
+          {loading ? 'Salvando...' : (<>Continuar <ArrowRight size={16} /></>)}
         </button>
       </div>
     </div>

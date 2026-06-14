@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Loader2, CheckCircle2, MapPin } from 'lucide-react';
 
 import MapPicker from '@/features/settings/components/MapPicker';
 import { useOnboardingStore } from '../../store';
@@ -91,98 +91,94 @@ export default function LocationStep() {
   }
 
   return (
-    <div className="space-y-6">
+    <div>
       <style>{`@keyframes eligi-spin { to { transform: rotate(360deg); } }`}</style>
 
-      <div className="space-y-1">
-        <p className="text-xs text-neutral-500">Passo 2 de 5</p>
-        <h1 className="text-xl font-semibold">Onde fica seu negócio?</h1>
-      </div>
+      <p className="ob-eyebrow ob-anim">Passo 2 de 5</p>
+      <h1 className="ob-title ob-anim" style={{ animationDelay: '.05s' }}>Onde fica seu negócio?</h1>
+      <p className="ob-subtitle ob-anim" style={{ animationDelay: '.1s' }}>
+        Isso ajuda seus clientes a te encontrar.
+      </p>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div className="col-span-2 space-y-2">
-          <label className="block text-sm font-medium">CEP</label>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={cep}
-              onChange={(e) => setCep(e.target.value)}
-              onBlur={(e) => buscarCep(e.target.value)}
-              className="input-base w-full"
-              placeholder="00000-000"
-            />
-            {loadingCep && (
-              <Loader2
-                size={16}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
-                style={{ animation: 'eligi-spin 1s linear infinite' }}
-              />
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-medium">Número</label>
+      <div className="ob-field ob-anim" style={{ animationDelay: '.15s' }}>
+        <label className="ob-label">CEP</label>
+        <div className="ob-input-wrap">
+          <MapPin size={16} className="ob-input-icon" />
           <input
             type="text"
-            value={numero}
-            onChange={(e) => setNumero(e.target.value)}
-            className="input-base w-full"
-            placeholder="123"
+            inputMode="numeric"
+            value={cep}
+            onChange={(e) => setCep(e.target.value)}
+            onBlur={(e) => buscarCep(e.target.value)}
+            className="input-base"
+            style={{ width: '100%', paddingLeft: 34 }}
+            placeholder="00000-000"
           />
+          {loadingCep && (
+            <Loader2 size={16} className="ob-input-spin" style={{ animation: 'eligi-spin 1s linear infinite' }} />
+          )}
         </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">Endereço</label>
-        <input
-          type="text"
-          value={logradouro}
-          onChange={(e) => setLogradouro(e.target.value)}
-          className="input-base w-full"
-          placeholder="Rua / Avenida"
-        />
+      <div className="ob-field ob-anim" style={{ animationDelay: '.2s' }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ width: 96 }}>
+            <label className="ob-label">Número</label>
+            <input
+              type="text"
+              value={numero}
+              onChange={(e) => setNumero(e.target.value)}
+              className="input-base"
+              style={{ width: '100%' }}
+              placeholder="123"
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <label className="ob-label">Endereço</label>
+            <input
+              type="text"
+              value={logradouro}
+              onChange={(e) => setLogradouro(e.target.value)}
+              className="input-base"
+              style={{ width: '100%' }}
+              placeholder="Rua / Avenida"
+            />
+          </div>
+        </div>
       </div>
 
       {(city || uf) && (
-        <div className="flex items-center gap-2 text-sm text-green-600">
+        <div className="ob-hint-ok">
           <CheckCircle2 size={16} />
           {city}
           {uf ? ` · ${uf}` : ''} — preenchido pelo CEP
         </div>
       )}
 
-      <MapPicker
-        lat={lat}
-        lng={lng}
-        address={addressForGeocode}
-        onChange={(la, ln) => {
-          setLat(la);
-          setLng(ln);
-        }}
-      />
+      <div className="ob-anim" style={{ animationDelay: '.25s' }}>
+        <MapPicker
+          lat={lat}
+          lng={lng}
+          address={addressForGeocode}
+          onChange={(la, ln) => {
+            setLat(la);
+            setLng(ln);
+          }}
+        />
+      </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="ob-error">{error}</p>}
 
-      <div className="flex justify-between items-center pt-2">
+      <div className="ob-nav ob-anim" style={{ animationDelay: '.3s' }}>
         <button
           type="button"
           onClick={() => router.push('/onboarding/steps/01-identity')}
-          className="text-sm text-neutral-500"
+          className="ob-btn-back"
         >
-          Voltar
+          <ArrowLeft size={16} /> Voltar
         </button>
-        <button
-          onClick={handleContinue}
-          disabled={loading}
-          className="btn-primary inline-flex items-center gap-2"
-        >
-          {loading ? 'Salvando...' : (
-            <>
-              Continuar <ArrowRight size={16} />
-            </>
-          )}
+        <button onClick={handleContinue} disabled={loading} className="ob-btn-next">
+          {loading ? 'Salvando...' : (<>Continuar <ArrowRight size={16} /></>)}
         </button>
       </div>
     </div>

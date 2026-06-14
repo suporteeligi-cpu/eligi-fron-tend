@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Gift, Zap, Lock } from 'lucide-react';
+import { Gift, Zap, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
 
 import { useOnboardingStore } from '../../store';
 import { api } from '@/lib/api';
@@ -12,6 +12,11 @@ type Plan = 'trial' | 'subscribe';
 export default function PlanStep() {
   const router = useRouter();
   const setData = useOnboardingStore((s) => s.setData);
+  const journeyType = useOnboardingStore((s) => s.journeyType);
+
+  const isBusiness = journeyType === 'BUSINESS';
+  const planName = isBusiness ? 'Estabelecimento' : 'Autônomo';
+  const price = isBusiness ? '99,90' : '59,90';
 
   const [plan, setPlan] = useState<Plan>('trial');
   const [accepted, setAccepted] = useState(false);
@@ -25,7 +30,7 @@ export default function PlanStep() {
       setError(null);
       await api.post('/onboarding/finish', { termsAccepted: true, plan });
       setData({ plan });
-      // TODO(stripe): se plan === 'subscribe', abrir o checkout do Stripe
+      // TODO(asaas): se plan === 'subscribe', abrir o pagamento do plano (Asaas)
       // em vez de ir direto pro dashboard. Por ora ambos concluem o onboarding.
       router.replace('/dashboard');
     } catch {
@@ -35,92 +40,85 @@ export default function PlanStep() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-1">
-        <p className="text-xs text-neutral-500">Passo 5 de 5</p>
-        <h1 className="text-xl font-semibold">Como você quer começar?</h1>
-        <p className="text-sm text-neutral-500">Plano Solo · você pode mudar depois</p>
+    <div>
+      <p className="ob-eyebrow ob-anim">Passo 5 de 5</p>
+      <h1 className="ob-title ob-anim" style={{ animationDelay: '.05s' }}>Como você quer começar?</h1>
+      <p className="ob-subtitle ob-anim" style={{ animationDelay: '.1s' }}>
+        Plano {planName} · você pode mudar depois.
+      </p>
+
+      <div className="ob-plans ob-anim" style={{ animationDelay: '.15s' }}>
+        <button
+          type="button"
+          onClick={() => setPlan('trial')}
+          className={plan === 'trial' ? 'ob-plan ob-plan--active' : 'ob-plan'}
+        >
+          <span className="ob-plan-badge">Recomendado</span>
+          <div className="ob-plan-head">
+            <Gift size={20} color="#dc2626" />
+            <span className="ob-plan-name">7 dias grátis</span>
+          </div>
+          <div className="ob-plan-price" style={{ color: '#dc2626' }}>Sem cartão agora</div>
+          <div className="ob-plan-desc">Explore tudo sem pagar nada. No 8º dia você decide.</div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPlan('subscribe')}
+          className={plan === 'subscribe' ? 'ob-plan ob-plan--active' : 'ob-plan'}
+        >
+          <div className="ob-plan-head">
+            <Zap size={20} color={plan === 'subscribe' ? '#dc2626' : '#9ca3af'} />
+            <span className="ob-plan-name">Assinar agora</span>
+          </div>
+          <div className="ob-plan-price">
+            R$ {price}<span className="ob-plan-price-unit">/mês</span>
+          </div>
+          <div className="ob-plan-desc">Ativa na hora, sem prazo. Para quem já está convencido.</div>
+        </button>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setPlan('trial')}
-        className={`w-full text-left rounded-2xl border-2 p-4 transition ${plan === 'trial' ? 'border-red-500 bg-red-500/5' : 'border-neutral-200'}`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Gift size={20} className="text-red-600" />
-            <span className="font-medium">7 dias grátis</span>
-          </div>
-          <span className="text-xs rounded-full bg-red-50 text-red-600 px-2.5 py-0.5">Sem cartão agora</span>
-        </div>
-        <p className="text-sm text-neutral-500 mt-2">
-          Explore tudo sem pagar nada. No 8º dia a gente lembra e você decide.
-        </p>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setPlan('subscribe')}
-        className={`w-full text-left rounded-2xl border-2 p-4 transition ${plan === 'subscribe' ? 'border-red-500 bg-red-500/5' : 'border-neutral-200'}`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Zap size={20} className="text-neutral-600" />
-            <span className="font-medium">Assinar agora</span>
-          </div>
-          <span className="text-sm font-medium">
-            R$ 49<span className="text-xs text-neutral-500">/mês</span>
-          </span>
-        </div>
-        <p className="text-sm text-neutral-500 mt-2">Ativa na hora, sem prazo. Para quem já está convencido.</p>
-      </button>
-
-      <label className="flex items-start gap-2.5 text-sm">
+      <label className="ob-terms ob-anim" style={{ animationDelay: '.2s' }}>
         <input
           type="checkbox"
           checked={accepted}
           onChange={(e) => setAccepted(e.target.checked)}
-          className="mt-0.5"
+          style={{ marginTop: 2, accentColor: '#dc2626' }}
         />
         <span>
           Li e aceito os{' '}
-          <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-red-600 underline">
-            Termos de Uso
-          </a>{' '}
+          <a href="/termos" target="_blank" rel="noopener noreferrer">Termos de Uso</a>{' '}
           e a{' '}
-          <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-red-600 underline">
-            Política de Privacidade
-          </a>
-          .
+          <a href="/privacidade" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>.
         </span>
       </label>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="ob-error" style={{ marginBottom: 12 }}>{error}</p>}
 
       <button
         onClick={finish}
         disabled={!accepted || loading}
-        className="btn-primary w-full disabled:opacity-50"
+        className="ob-btn-next ob-btn-next--block ob-anim"
+        style={{ animationDelay: '.25s' }}
       >
         {loading
           ? 'Concluindo...'
           : plan === 'trial'
-          ? 'Começar teste grátis'
-          : 'Ir para o pagamento'}
+          ? (<>Começar teste grátis <ArrowRight size={17} /></>)
+          : (<>Ir para o pagamento <ArrowRight size={17} /></>)}
       </button>
 
-      <div className="flex items-center justify-center gap-1.5 text-xs text-neutral-400">
-        <Lock size={12} /> Pagamento seguro via Stripe · cancele quando quiser
-      </div>
+      <p className="ob-secure ob-anim" style={{ animationDelay: '.3s' }}>
+        <Lock size={14} /> Pagamento seguro via Asaas · cancele quando quiser
+      </p>
 
-      <div className="flex justify-start">
+      <div className="ob-nav" style={{ justifyContent: 'flex-start' }}>
         <button
           type="button"
           onClick={() => router.push('/onboarding/steps/04-services')}
-          className="text-sm text-neutral-500"
+          className="ob-btn-back"
         >
-          Voltar
+          <ArrowLeft size={16} /> Voltar
         </button>
       </div>
     </div>

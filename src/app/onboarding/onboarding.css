@@ -28,11 +28,18 @@
 .ob-main { flex: 1; width: 100%; max-width: 36rem; margin: 0 auto; padding: 40px 24px; }
 @media (min-width: 768px) { .ob-main { padding: 56px 24px; } }
 
-/* form / steps */
-.ob-eyebrow { font-size: 12px; color: #737373; margin: 0 0 4px; }
-.ob-title { font-size: 20px; font-weight: 600; margin: 0 0 28px; }
-.ob-field { margin-bottom: 28px; }
-.ob-label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+/* cabecalho do step */
+.ob-eyebrow { font-size: 12px; color: #9ca3af; margin: 0 0 4px; }
+.ob-title { font-size: 22px; font-weight: 600; margin: 0 0 6px; color: #18181b; }
+.ob-subtitle { font-size: 14px; color: #6b7280; margin: 0 0 26px; }
+
+/* animacao de entrada */
+@keyframes ob-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.ob-anim { animation: ob-up .5s ease both; }
+
+/* campos / form */
+.ob-field { margin-bottom: 22px; }
+.ob-label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px; }
 .ob-label-hint { color: #a3a3a3; font-weight: 400; }
 .ob-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .ob-optcard { text-align: left; background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px; cursor: pointer; transition: border-color .15s, background .15s; }
@@ -44,5 +51,61 @@
 .ob-segcard:hover { border-color: #fca5a5; }
 .ob-segcard--active { border-color: var(--ob-red); background: rgba(220,38,38,.05); }
 .ob-segcard-label { font-size: 14px; line-height: 1.2; }
-.ob-error { font-size: 14px; color: var(--ob-red); margin: 0; }
+.ob-error { font-size: 14px; color: var(--ob-red); margin: 6px 0 0; }
+
+/* campo com icone */
+.ob-input-wrap { position: relative; }
+.ob-input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; pointer-events: none; }
+.ob-input-spin { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+.ob-hint-ok { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #16a34a; margin: 0 0 18px; }
+
+/* acoes / navegacao */
 .ob-actions { display: flex; justify-content: flex-end; padding-top: 8px; }
+.ob-nav { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; }
+.ob-btn-next { display: inline-flex; align-items: center; gap: 8px; background: var(--ob-red); color: #fff; border: none; font-size: 14px; font-weight: 500; padding: 11px 22px; border-radius: 11px; cursor: pointer; transition: transform .15s ease, filter .15s ease; }
+.ob-btn-next:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.ob-btn-next:disabled { opacity: .6; cursor: default; transform: none; filter: none; }
+.ob-btn-next--block { width: 100%; justify-content: center; padding: 14px; font-size: 15px; }
+.ob-btn-back { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; color: #6b7280; font-size: 14px; cursor: pointer; transition: color .15s; }
+.ob-btn-back:hover { color: #374151; }
+
+/* step 03 - dias / switch */
+.ob-day-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid #f1f1f1; }
+.ob-day-row:last-of-type { border-bottom: none; }
+.ob-day-label { width: 84px; font-size: 14px; color: #374151; }
+.ob-day-times { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.ob-day-sep { color: #9ca3af; font-size: 13px; }
+.ob-day-closed { margin-left: auto; font-size: 13px; color: #9ca3af; }
+.ob-time-input { border: 1px solid #d4d4d8; border-radius: 9px; padding: 7px 10px; font-size: 13px; color: #18181b; background: #fff; }
+.ob-sw { width: 38px; height: 22px; border-radius: 11px; background: #d4d4d8; position: relative; flex-shrink: 0; border: none; padding: 0; cursor: pointer; transition: background .2s; }
+.ob-sw--on { background: var(--ob-red); }
+.ob-sw-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.ob-sw--on .ob-sw-knob { transform: translateX(16px); }
+
+/* step 04 - servicos */
+.ob-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ob-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border: 1px solid #d4d4d8; border-radius: 20px; font-size: 13px; color: #374151; background: #fff; cursor: pointer; transition: border-color .15s, color .15s; }
+.ob-chip:hover { border-color: var(--ob-red); color: var(--ob-red); }
+.ob-section-label { font-size: 12px; font-weight: 500; color: #9ca3af; margin: 20px 0 10px; letter-spacing: .03em; }
+.ob-svc-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; margin-bottom: 10px; }
+.ob-svc-icon { width: 38px; height: 38px; border-radius: 9px; background: rgba(220,38,38,.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ob-mini-input { border: 1px solid #e5e7eb; border-radius: 8px; padding: 7px 9px; font-size: 13px; color: #18181b; background: #fff; }
+.ob-svc-remove { color: #c4c4c4; cursor: pointer; background: none; border: none; padding: 0; display: flex; align-items: center; transition: color .15s; }
+.ob-svc-remove:hover { color: var(--ob-red); }
+.ob-add-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; border: 1px dashed #d4d4d8; border-radius: 12px; background: #fafafa; color: #6b7280; font-size: 14px; font-weight: 500; cursor: pointer; transition: border-color .15s, color .15s; margin-top: 4px; }
+.ob-add-btn:hover { border-color: var(--ob-red); color: var(--ob-red); }
+
+/* step 05 - planos */
+.ob-plans { display: flex; gap: 12px; margin-bottom: 20px; }
+.ob-plan { flex: 1; text-align: left; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; background: #fff; cursor: pointer; transition: border-color .15s, background .15s; position: relative; }
+.ob-plan:hover { border-color: #fca5a5; }
+.ob-plan--active { border: 2px solid var(--ob-red); padding: 15px; background: rgba(220,38,38,.04); }
+.ob-plan-badge { position: absolute; top: -10px; left: 14px; background: #fcebeb; color: #a32d2d; font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 8px; }
+.ob-plan-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ob-plan-name { font-size: 15px; font-weight: 500; color: #18181b; }
+.ob-plan-price { font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px; }
+.ob-plan-price-unit { font-weight: 400; color: #9ca3af; }
+.ob-plan-desc { font-size: 12px; color: #6b7280; line-height: 1.5; }
+.ob-terms { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; color: #6b7280; margin-bottom: 20px; line-height: 1.5; cursor: pointer; }
+.ob-terms a { color: var(--ob-red); }
+.ob-secure { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #9ca3af; margin: 12px 0 0; }
