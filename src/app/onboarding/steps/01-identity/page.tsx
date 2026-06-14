@@ -3,17 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Scissors,
-  Sparkles,
-  Gem,
-  Eye,
-  Hand,
-  Feather,
-  Droplet,
-  Palette,
-  User,
-  Users,
-  ArrowRight,
+  Scissors, Sparkles, Gem, Eye, Hand, Feather, Droplet, Palette, User, Users, ArrowRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -34,17 +24,11 @@ const SEGMENT_META: { value: Segment; label: string; Icon: LucideIcon }[] = [
   { value: 'STUDIO', label: 'Studio', Icon: Palette },
 ];
 
-const TYPE_OPTIONS: {
-  value: JourneyType;
-  title: string;
-  desc: string;
-  Icon: LucideIcon;
-}[] = [
+const TYPE_OPTIONS: { value: JourneyType; title: string; desc: string; Icon: LucideIcon }[] = [
   { value: 'SOLO', title: 'Solo', desc: 'Só eu atendo', Icon: User },
   { value: 'BUSINESS', title: 'Estabelecimento', desc: 'Tenho equipe', Icon: Users },
 ];
 
-// garante que SEGMENTS é usado mesmo se a lista mudar (evita import morto)
 const TOTAL_SEGMENTS = SEGMENTS.length;
 
 export default function IdentityStep() {
@@ -80,16 +64,13 @@ export default function IdentityStep() {
   }
 
   return (
-    <div className="space-y-7">
-      <div className="space-y-1">
-        <p className="text-xs text-neutral-500">Passo 1 de 5</p>
-        <h1 className="text-xl font-semibold">Sobre o seu negócio</h1>
-      </div>
+    <div>
+      <p className="ob-eyebrow">Passo 1 de 5</p>
+      <h1 className="ob-title">Sobre o seu negócio</h1>
 
-      {/* Tipo de operação */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">Tipo de operação</label>
-        <div className="grid grid-cols-2 gap-3">
+      <div className="ob-field">
+        <label className="ob-label">Tipo de operação</label>
+        <div className="ob-grid2">
           {TYPE_OPTIONS.map(({ value, title, desc, Icon }) => {
             const active = journeyType === value;
             return (
@@ -97,37 +78,34 @@ export default function IdentityStep() {
                 key={value}
                 type="button"
                 onClick={() => setJourneyType(value)}
-                className={`text-left rounded-xl border p-4 transition ${
-                  active ? 'border-red-500 bg-red-500/5' : 'border-neutral-200 hover:border-red-300'
-                }`}
+                className={active ? 'ob-optcard ob-optcard--active' : 'ob-optcard'}
               >
-                <Icon size={20} className={active ? 'text-red-600' : 'text-neutral-500'} />
-                <div className="mt-2 text-sm font-medium">{title}</div>
-                <div className="text-xs text-neutral-500">{desc}</div>
+                <Icon size={20} color={active ? '#dc2626' : '#737373'} />
+                <div className="ob-optcard-title">{title}</div>
+                <div className="ob-optcard-desc">{desc}</div>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Nome do estabelecimento */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">Nome do estabelecimento</label>
+      <div className="ob-field">
+        <label className="ob-label">Nome do estabelecimento</label>
         <input
           type="text"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          className="input-base w-full"
+          className="input-base"
+          style={{ width: '100%' }}
           placeholder="Ex: Barbearia do Eli"
         />
       </div>
 
-      {/* Segmento */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">
-          Segmento <span className="text-neutral-400">({TOTAL_SEGMENTS} opções)</span>
+      <div className="ob-field">
+        <label className="ob-label">
+          Segmento <span className="ob-label-hint">({TOTAL_SEGMENTS} opções)</span>
         </label>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="ob-grid2">
           {SEGMENT_META.map(({ value, label, Icon }) => {
             const active = segment === value;
             return (
@@ -135,31 +113,26 @@ export default function IdentityStep() {
                 key={value}
                 type="button"
                 onClick={() => setSegment(value)}
-                className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition ${
-                  active ? 'border-red-500 bg-red-500/5' : 'border-neutral-200 hover:border-red-300'
-                }`}
+                className={active ? 'ob-segcard ob-segcard--active' : 'ob-segcard'}
               >
-                <Icon size={20} className={`shrink-0 ${active ? 'text-red-600' : 'text-neutral-500'}`} />
-                <span className="text-sm leading-tight">{label}</span>
+                <Icon size={20} color={active ? '#dc2626' : '#737373'} style={{ flexShrink: 0 }} />
+                <span className="ob-segcard-label">{label}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="ob-error">{error}</p>}
 
-      <div className="flex justify-end pt-2">
+      <div className="ob-actions">
         <button
           onClick={handleContinue}
           disabled={loading}
-          className="btn-primary inline-flex items-center gap-2"
+          className="btn-primary"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
         >
-          {loading ? 'Salvando...' : (
-            <>
-              Continuar <ArrowRight size={16} />
-            </>
-          )}
+          {loading ? 'Salvando...' : (<>Continuar <ArrowRight size={16} /></>)}
         </button>
       </div>
     </div>

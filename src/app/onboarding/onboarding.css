@@ -1,0 +1,48 @@
+:root { --ob-red: var(--eligi-red, #dc2626); }
+
+/* layout raiz */
+.ob-root { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+@media (min-width: 768px) { .ob-root { flex-direction: row; } }
+
+/* barra de progresso (mobile) */
+.ob-mobilebar { display: block; width: 100%; height: 4px; background: #e5e5e5; }
+.ob-mobilebar-fill { height: 4px; background: var(--ob-red); transition: width .3s ease; }
+@media (min-width: 768px) { .ob-mobilebar { display: none; } }
+
+/* painel lateral (desktop) */
+.ob-aside { display: none; background: var(--ob-red); color: #fff; padding: 28px; flex-direction: column; }
+@media (min-width: 768px) { .ob-aside { display: flex; width: 38%; } }
+@media (min-width: 1024px) { .ob-aside { width: 32%; } }
+.ob-logo { width: 48px; height: 48px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; margin-bottom: 32px; }
+.ob-aside-title { font-size: 18px; font-weight: 500; line-height: 1.35; margin-bottom: 24px; }
+.ob-steps { list-style: none; padding: 0; margin: 0; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+.ob-step { display: flex; align-items: center; gap: 10px; opacity: .55; }
+.ob-step--active, .ob-step--done { opacity: 1; }
+.ob-step-badge { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 1px solid rgba(255,255,255,.6); color: #fff; }
+.ob-step--active .ob-step-badge { background: #fff; color: var(--ob-red); border-color: #fff; }
+.ob-step--done .ob-step-badge { background: rgba(255,255,255,.25); color: #fff; border-color: transparent; }
+.ob-step-label { font-size: 14px; }
+.ob-aside-foot { font-size: 12px; opacity: .8; margin-top: 16px; }
+
+/* conteudo central */
+.ob-main { flex: 1; width: 100%; max-width: 36rem; margin: 0 auto; padding: 40px 24px; }
+@media (min-width: 768px) { .ob-main { padding: 56px 24px; } }
+
+/* form / steps */
+.ob-eyebrow { font-size: 12px; color: #737373; margin: 0 0 4px; }
+.ob-title { font-size: 20px; font-weight: 600; margin: 0 0 28px; }
+.ob-field { margin-bottom: 28px; }
+.ob-label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+.ob-label-hint { color: #a3a3a3; font-weight: 400; }
+.ob-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ob-optcard { text-align: left; background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px; cursor: pointer; transition: border-color .15s, background .15s; }
+.ob-optcard:hover { border-color: #fca5a5; }
+.ob-optcard--active { border-color: var(--ob-red); background: rgba(220,38,38,.05); }
+.ob-optcard-title { font-size: 14px; font-weight: 500; margin-top: 8px; }
+.ob-optcard-desc { font-size: 12px; color: #737373; }
+.ob-segcard { display: flex; align-items: center; gap: 10px; text-align: left; background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+.ob-segcard:hover { border-color: #fca5a5; }
+.ob-segcard--active { border-color: var(--ob-red); background: rgba(220,38,38,.05); }
+.ob-segcard-label { font-size: 14px; line-height: 1.2; }
+.ob-error { font-size: 14px; color: var(--ob-red); margin: 0; }
+.ob-actions { display: flex; justify-content: flex-end; padding-top: 8px; }
