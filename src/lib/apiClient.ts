@@ -26,6 +26,15 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
+    // 402 = assinatura inativa (billingGate). Avisa o front pra mostrar a tela de bloqueio.
+    if (error.response?.status === 402) {
+      if (typeof window !== 'undefined') {
+        const data = error.response.data as { error?: { code?: string; trialDaysLeft?: number } } | undefined
+        window.dispatchEvent(new CustomEvent('billing:blocked', { detail: data?.error ?? {} }))
+      }
+      return Promise.reject(error)
+    }
+
     const isAuthRoute =
       originalRequest?.url?.includes('/auth/refresh') ||
       originalRequest?.url?.includes('/auth/login')   ||

@@ -1,7 +1,9 @@
 'use client'
 // src/features/agenda/components/BookingCard.tsx
-// Card de agendamento desktop. Layout adaptativo por altura — prioridade NOME (estratégia C).
-// Cor do texto adapta ao fundo do serviço (claro vs escuro) via inkFor().
+// Card de agendamento desktop. Ordem FIXA em qualquer tamanho: horário (faixa) · nome · serviço.
+// Curto → uma linha inline; alto (≥56px) → empilhado, mesma ordem.
+// O horário (faixa início–fim) nunca encolhe; nome e serviço truncam (serviço cede primeiro).
+// Cor do texto adapta ao fundo do serviço via inkFor().
 
 import { AgendaBooking } from '../types'
 import { bookingStatus } from '@/shared/theme'
@@ -14,20 +16,13 @@ interface Props {
   totalHeight: number
 }
 
-// Desktop: PX_PER_MIN = 2  → altura(px) = duração(min) * 2
-// < 22px  (<11min)  NANO  : só primeiro nome (centralizado)
-// 22–38px (11–19m)  TIGHT : nome + horário inline
-// 38–60px (19–30m)  MID   : nome + serviço
-// ≥ 60px  (≥30min)  FULL  : horário + nome + serviço
-const H_NANO = 22
-const H_MID  = 38
-const H_FULL = 60
+// Desktop: PX_PER_MIN = 2 → altura(px) = duração(min) * 2
+const H_STACK = 56 // ≥ 56px (≥28min) empilha em 3 linhas; abaixo é inline numa linha
 
 export default function BookingCard({ booking, totalHeight }: Props) {
-  const isNano  = totalHeight < H_NANO
-  const isTight = totalHeight >= H_NANO && totalHeight < H_MID
-  const isMid   = totalHeight >= H_MID && totalHeight < H_FULL
-  const isFull  = totalHeight >= H_FULL
+  const stacked      = totalHeight >= H_STACK
+  const sealsHidden  = totalHeight < 22
+  const nameFsInline = totalHeight < 22 ? 11 : totalHeight < 38 ? 12 : 13
 
   const isNoShow    = booking.status === 'NO_SHOW'
   const statusTheme = bookingStatus[booking.status] ?? bookingStatus.CONFIRMED
@@ -36,8 +31,8 @@ export default function BookingCard({ booking, totalHeight }: Props) {
   const glow        = booking.serviceColor && !isNoShow ? colorToGlow(booking.serviceColor)     : statusTheme.glow
 
   // Tinta adaptativa: NO_SHOW (fundo escuro do tema) e sem cor → branco.
-  const ink       = isNoShow ? inkFor(null) : inkFor(booking.serviceColor)
-  const firstName = booking.clientName.split(' ')[0] || booking.clientName
+  const ink   = isNoShow ? inkFor(null) : inkFor(booking.serviceColor)
+  const range = `${booking.start}–${booking.end}`
 
   return (
     <div
@@ -53,7 +48,7 @@ export default function BookingCard({ booking, totalHeight }: Props) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        justifyContent: (isNano || isTight) ? 'center' : 'flex-start',
+        justifyContent: stacked ? 'flex-start' : 'center',
         overflow: 'hidden',
         boxShadow: `0 2px 8px ${glow}, 0 1px 3px rgba(0,0,0,0.08)`,
         border: '1px solid rgba(255,255,255,0.15)',
@@ -62,7 +57,7 @@ export default function BookingCard({ booking, totalHeight }: Props) {
         userSelect: 'none',
         pointerEvents: 'auto',
         boxSizing: 'border-box',
-        padding: isNano ? '0 6px' : isTight ? '0 8px 0 9px' : '4px 7px 4px 9px',
+        padding: stacked ? '4px 7px 4px 9px' : '0 6px 0 9px',
         gap: 1,
         // CSS vars pro hover (mais performante que JS handlers)
         ['--bc-glow' as string]: glow,
@@ -95,7 +90,7 @@ export default function BookingCard({ booking, totalHeight }: Props) {
         fromOnline={booking.fromOnline}
         professionalPreference={booking.professionalPreference}
         isNoShow={isNoShow}
-        hidden={isNano}
+        hidden={sealsHidden}
         cardHeight={totalHeight}
       />
 
@@ -109,74 +104,21 @@ export default function BookingCard({ booking, totalHeight }: Props) {
       )}
 
       {/* Barra lateral esquerda — adapta ao fundo */}
-      {!isNano && (
-        <div aria-hidden style={{
-          position:'absolute', left:0, top:0, bottom:0, width:3,
-          background: ink.isDark ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.38)',
-          borderRadius:'7px 0 0 7px',
-        }} />
-      )}
+      <div aria-hidden style={{
+        position:'absolute', left:0, top:0, bottom:0, width:3,
+        background: ink.isDark ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.38)',
+        borderRadius:'7px 0 0 7px',
+      }} />
 
-      {/* NANO — só primeiro nome */}
-      {isNano && (
-        <span style={{
-          fontSize:11, fontWeight:700, color: ink.primary,
-          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-          width:'100%', textAlign:'center', letterSpacing:'-0.2px', lineHeight:1,
-        }}>
-          {firstName}
-        </span>
-      )}
-
-      {/* TIGHT — nome + horário inline */}
-      {isTight && (
-        <div style={{ display:'flex', alignItems:'baseline', gap:6, width:'100%', overflow:'hidden', lineHeight:1.1 }}>
-          <span style={{
-            fontSize:12, fontWeight:700, color: ink.primary,
-            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-            minWidth:0, letterSpacing:'-0.15px',
-          }}>
-            {booking.clientName}
-          </span>
-          <span style={{
-            fontSize:9, fontWeight:600, color: ink.secondary, flexShrink:0,
-            fontVariantNumeric:'tabular-nums',
-          }}>
-            {booking.start}
-          </span>
-        </div>
-      )}
-
-      {/* MID — nome + serviço */}
-      {isMid && (
-        <>
-          <div style={{
-            fontSize:13, fontWeight:700, color: ink.primary, lineHeight:1.2,
-            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-            width:'100%', letterSpacing:'-0.15px',
-          }}>
-            {booking.clientName}
-          </div>
-          {booking.serviceName && (
-            <div style={{
-              fontSize:11, fontWeight:600, color: ink.secondary,
-              whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%',
-            }}>
-              {booking.serviceName}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* FULL — horário + nome + serviço */}
-      {isFull && (
+      {/* EMPILHADO (alto) — horário / nome / serviço */}
+      {stacked ? (
         <>
           <div style={{
             fontSize:10, fontWeight:600, color: ink.secondary, fontVariantNumeric:'tabular-nums',
             letterSpacing:'-0.1px', lineHeight:1,
             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%',
           }}>
-            {booking.start}–{booking.end}
+            {range}
           </div>
           <div style={{
             fontSize:14, fontWeight:700, color: ink.primary, lineHeight:1.2,
@@ -194,6 +136,36 @@ export default function BookingCard({ booking, totalHeight }: Props) {
             </div>
           )}
         </>
+      ) : (
+        /* INLINE (curto) — horário · nome · serviço numa linha */
+        <div style={{ display:'flex', alignItems:'baseline', gap:5, width:'100%', overflow:'hidden', lineHeight:1.1 }}>
+          <span style={{
+            fontSize:9, fontWeight:700, color: ink.secondary, flexShrink:0,
+            fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px',
+          }}>
+            {range}
+          </span>
+          <span style={{ fontSize:9, color: ink.faint, flexShrink:0 }}>·</span>
+          <span style={{
+            fontSize:nameFsInline, fontWeight:700, color: ink.primary,
+            flex:'1 1 0', minWidth:0, letterSpacing:'-0.15px',
+            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+          }}>
+            {booking.clientName}
+          </span>
+          {booking.serviceName && (
+            <>
+              <span style={{ fontSize:9, color: ink.faint, flexShrink:0 }}>·</span>
+              <span style={{
+                fontSize:10, fontWeight:600, color: ink.secondary,
+                flex:'1 2 0', minWidth:0,
+                whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+              }}>
+                {booking.serviceName}
+              </span>
+            </>
+          )}
+        </div>
       )}
     </div>
   )
