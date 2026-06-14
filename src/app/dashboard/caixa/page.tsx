@@ -9,7 +9,7 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  Sale, CatalogProduct, CatalogPackage, ProfLite, SaleItemType,
+  Sale, CatalogProduct, CatalogPackage, CatalogMembership, ProfLite, SaleItemType,
 } from '@/features/sales/types'
 import { useSalesSummary } from '@/features/sales/hooks/useSalesSummary'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -49,6 +49,7 @@ export default function CaixaPage() {
   // Catálogo
   const [products,        setProducts]        = useState<CatalogProduct[]>([])
   const [packages,        setPackages]        = useState<CatalogPackage[]>([])  // ⭐ NOVO
+  const [memberships,     setMemberships]     = useState<CatalogMembership[]>([])  // ⭐ Assinaturas
   const [professionals,   setProfessionals]   = useState<ProfLite[]>([])
   const [catalogLoading,  setCatalogLoading]  = useState(true)
 
@@ -123,19 +124,22 @@ export default function CaixaPage() {
   // ⭐ Carrega catálogo: services + products + packages + professionals
   const fetchCatalog = useCallback(async (signal?: AbortSignal) => {
     try {
-      const [prdRes, pkgRes, profRes] = await Promise.all([
+      const [prdRes, pkgRes, memRes, profRes] = await Promise.all([
         api.get('/products',         { signal }),
         api.get('/packages',         { params: { active: true }, signal }),  // ⭐ NOVO
+        api.get('/memberships',      { params: { active: true }, signal }),  // ⭐ Assinaturas
         api.get('/equipe',           { signal }),
       ])
       if (signal?.aborted) return
 
       const prdData  = prdRes.data?.data  ?? prdRes.data
       const pkgData  = pkgRes.data?.data  ?? pkgRes.data
+      const memData  = memRes.data?.data  ?? memRes.data
       const profData = profRes.data?.data ?? profRes.data
 
       setProducts(Array.isArray(prdData) ? prdData : prdData.products ?? [])
       setPackages(Array.isArray(pkgData) ? pkgData : [])  // ⭐ NOVO
+      setMemberships(Array.isArray(memData) ? memData : [])  // ⭐ Assinaturas
       setProfessionals(
         (Array.isArray(profData) ? profData : [])
           .filter((p: { id?: string; active?: boolean }) => p.id != null && p.active !== false)
@@ -147,6 +151,7 @@ export default function CaixaPage() {
       if (!signal?.aborted) {
         setProducts([])
         setPackages([])
+        setMemberships([])
         setProfessionals([])
       }
     } finally {
@@ -240,11 +245,37 @@ export default function CaixaPage() {
     })
   }
 
+  // ⭐ Assinaturas: adicionar ao carrinho
+  async function addMembership(mem: CatalogMembership) {
+    if (!activeSaleId) {
+      try {
+        const res = await api.post('/sales', {})
+        const newSale: Sale = res.data?.data ?? res.data
+        setOpenSales([newSale])
+        setActiveSaleId(newSale.id)
+        await addItemToSale(newSale.id, {
+          type: 'MEMBERSHIP',
+          membershipId: mem.id,
+          professionalId: globalProfId,
+        })
+      } catch {
+        setToast({ message: 'Erro ao criar venda', kind: 'error' })
+      }
+      return
+    }
+    await addItemToSale(activeSaleId, {
+      type: 'MEMBERSHIP',
+      membershipId: mem.id,
+      professionalId: globalProfId,
+    })
+  }
+
   async function addItemToSale(saleId: string, item: {
     type: SaleItemType
     serviceId?: string
     productId?: string
     packageId?: string             // ⭐ NOVO
+    membershipId?: string          // ⭐ Assinaturas
     professionalId: string | null
   }) {
     try {
@@ -435,6 +466,7 @@ export default function CaixaPage() {
             activeSale={activeSale}
             products={products}
             packages={packages}            /* ⭐ NOVO */
+            memberships={memberships}      /* ⭐ Assinaturas */
             professionals={professionals}
             globalProfId={globalProfId}
             openLoading={openLoading}
@@ -444,6 +476,7 @@ export default function CaixaPage() {
             onCreateNew={createNewSale}
             onAddProduct={addProduct}
             onAddPackage={addPackage}      /* ⭐ NOVO */
+            onAddMembership={addMembership} /* ⭐ Assinaturas */
             onSaleUpdated={updateSaleInList}
             onSaleClosed={handleSaleClosed}
             onProfChange={setGlobalProfId}
@@ -476,6 +509,7 @@ interface OpenTabProps {
   activeSale:      Sale | null
   products:        CatalogProduct[]
   packages:        CatalogPackage[]      // ⭐ NOVO
+  memberships:     CatalogMembership[]   // ⭐ Assinaturas
   professionals:   ProfLite[]
   globalProfId:    string | null
   openLoading:     boolean
@@ -485,6 +519,7 @@ interface OpenTabProps {
   onCreateNew:     () => void
   onAddProduct:    (p: CatalogProduct) => void
   onAddPackage:    (p: CatalogPackage) => void   // ⭐ NOVO
+  onAddMembership: (m: CatalogMembership) => void // ⭐ Assinaturas
   onSaleUpdated:   (s: Sale) => void
   onSaleClosed:    () => void
   onProfChange:    (id: string | null) => void
@@ -576,10 +611,12 @@ function OpenTab(props: OpenTabProps) {
               <CatalogPanel
                 products={props.products}
                 packages={props.packages}             /* ⭐ NOVO */
+                memberships={props.memberships}       /* ⭐ Assinaturas */
                 loading={props.catalogLoading}
                 isMobile={props.isMobile}
                 onAddProduct={props.onAddProduct}
                 onAddPackage={props.onAddPackage}     /* ⭐ NOVO */
+                onAddMembership={props.onAddMembership} /* ⭐ Assinaturas */
               />
             </div>
 
@@ -707,10 +744,12 @@ function OpenTab(props: OpenTabProps) {
           <CatalogPanel
             products={props.products}
             packages={props.packages}             /* ⭐ NOVO */
+            memberships={props.memberships}       /* ⭐ Assinaturas */
             loading={props.catalogLoading}
             isMobile={props.isMobile}
             onAddProduct={props.onAddProduct}
             onAddPackage={props.onAddPackage}     /* ⭐ NOVO */
+            onAddMembership={props.onAddMembership} /* ⭐ Assinaturas */
           />
         </div>
 

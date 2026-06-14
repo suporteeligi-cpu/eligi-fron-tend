@@ -187,7 +187,13 @@ export default function DashboardPage() {
   useEffect(() => { fetchData(period) }, [fetchData, period])
 
   // Guard: funcionários não vêem o dashboard geral (dentro do JSX para não violar regra de hooks)
-  const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF', 'BASIC_STAFF']
+  // BASIC_STAFF e RECEPTIONIST: nunca veem o dashboard — redirect silencioso
+  const agendaOnlyRoles = ['BASIC_STAFF', 'RECEPTIONIST']
+  if (authUser && agendaOnlyRoles.includes(authUser.role)) {
+    router.replace('/dashboard/agenda')
+    return null
+  }
+  const staffRoles = ['MANAGER', 'STAFF']
   const isStaff = Boolean(authUser && staffRoles.includes(authUser.role))
 
   return (

@@ -3,34 +3,44 @@
 
 import { useState, useMemo } from 'react'
 import {
-  Search, X, Package, AlertTriangle, Layers,
+  Search, X, Package, AlertTriangle, Layers, Ticket, Infinity as InfinityIcon,
 } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { formatBRL } from '@/features/sales/utils/format'
-import { CatalogProduct, CatalogPackage } from '@/features/sales/types'
+import { CatalogProduct, CatalogPackage, CatalogMembership } from '@/features/sales/types'
 
-type Tab = 'product' | 'package'
+type Tab = 'product' | 'package' | 'membership'
 
 interface Props {
   products: CatalogProduct[]
   packages: CatalogPackage[]
+  memberships: CatalogMembership[]
   loading:  boolean
   isMobile: boolean
   onAddProduct: (product: CatalogProduct) => void
   onAddPackage: (pkg: CatalogPackage) => void
+  onAddMembership: (mem: CatalogMembership) => void
 }
 
 export default function CatalogPanel({
-  products, packages, loading, isMobile,
-  onAddProduct, onAddPackage,
+  products, packages, memberships, loading, isMobile,
+  onAddProduct, onAddPackage, onAddMembership,
 }: Props) {
   const [tab,   setTab]   = useState<Tab>('product')
   const [query, setQuery] = useState('')
   const activeProducts = useMemo(() => products.filter(p => p.active !== false), [products])
   const activePackages = useMemo(() => packages.filter(p => p.active !== false), [packages])
+  const activeMemberships = useMemo(() => memberships.filter(m => m.active !== false), [memberships])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
+    if (tab === 'membership') {
+      if (!q) return activeMemberships
+      return activeMemberships.filter(m =>
+        m.name.toLowerCase().includes(q) ||
+        (m.description ?? '').toLowerCase().includes(q),
+      )
+    }
     if (tab === 'package') {
       if (!q) return activePackages
       return activePackages.filter(p =>
@@ -44,11 +54,12 @@ export default function CatalogPanel({
       (p.category ?? '').toLowerCase().includes(q) ||
       (p.sku ?? '').toLowerCase().includes(q),
     )
-  }, [tab, query, activeProducts, activePackages])
+  }, [tab, query, activeProducts, activePackages, activeMemberships])
 
   const tabs: Array<{ id: Tab; label: string; count: number; icon: typeof Package }> = [
-    { id: 'product', label: 'Produtos', count: activeProducts.length, icon: Package   },
-    { id: 'package', label: 'Pacotes',  count: activePackages.length, icon: Layers    },
+    { id: 'product',    label: 'Produtos',    count: activeProducts.length,    icon: Package },
+    { id: 'package',    label: 'Pacotes',     count: activePackages.length,    icon: Layers  },
+    { id: 'membership', label: 'Assinaturas', count: activeMemberships.length, icon: Ticket  },
   ]
 
   return (
@@ -122,8 +133,9 @@ export default function CatalogPanel({
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder={
-            tab === 'package' ? 'Buscar pacote...'  :
-                                'Buscar produto, SKU...'
+            tab === 'membership' ? 'Buscar assinatura...' :
+            tab === 'package'    ? 'Buscar pacote...'     :
+                                   'Buscar produto, SKU...'
           }
           inputMode="search"
           style={{
@@ -165,14 +177,19 @@ export default function CatalogPanel({
             textAlign: 'center', padding: '40px 20px',
             color: colors.gray.dimText, fontSize: 12,
           }}>
-            {tab === 'package'
+            {tab === 'membership'
+              ? <Ticket  size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+              : tab === 'package'
               ? <Layers  size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
               : <Package size={32} style={{ opacity: 0.3, marginBottom: 8 }} />}
             <div>
-              {query
-                ? `Nenhum ${tab === 'package' ? 'pacote' : 'produto'} encontrado`
-                : `Nenhum ${tab === 'package' ? 'pacote' : 'produto'} cadastrado`
-              }
+              {(() => {
+                const fem  = tab === 'membership'
+                const noun = tab === 'membership' ? 'assinatura' : tab === 'package' ? 'pacote' : 'produto'
+                const art  = fem ? 'Nenhuma' : 'Nenhum'
+                const verb = fem ? (query ? 'encontrada' : 'cadastrada') : (query ? 'encontrado' : 'cadastrado')
+                return `${art} ${noun} ${verb}`
+              })()}
             </div>
           </div>
         ) : (
@@ -196,6 +213,14 @@ export default function CatalogPanel({
                 pkg={item as CatalogPackage}
                 isMobile={isMobile}
                 onClick={() => onAddPackage(item as CatalogPackage)}
+              />
+            ))}
+            {tab === 'membership' && filtered.map(item => (
+              <MembershipCardCatalog
+                key={item.id}
+                mem={item as CatalogMembership}
+                isMobile={isMobile}
+                onClick={() => onAddMembership(item as CatalogMembership)}
               />
             ))}
           </div>
@@ -374,6 +399,92 @@ function PackageCardCatalog({ pkg, isMobile, onClick }: { pkg: CatalogPackage; i
           color: dot, fontVariantNumeric: 'tabular-nums',
         }}>
           {formatBRL(pkg.price)}
+        </div>
+      </div>
+    </button>
+  )
+}
+
+function MembershipCardCatalog({ mem, isMobile, onClick }: { mem: CatalogMembership; isMobile: boolean; onClick: () => void }) {
+  const dot = mem.color ?? colors.red.DEFAULT
+  const coverage = mem.allServices
+    ? 'Todos os serviços'
+    : `${mem.services.length} serviço${mem.services.length !== 1 ? 's' : ''}`
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: 0,
+        background: `linear-gradient(135deg, ${dot}15, ${dot}05)`,
+        border: `1px solid ${dot}40`,
+        borderRadius: 11,
+        cursor: 'pointer',
+        textAlign: 'left', fontFamily: 'inherit',
+        transition: `all 0.15s ease`,
+        WebkitTapHighlightColor: 'transparent',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = dot
+        e.currentTarget.style.transform = 'translateY(-1px)'
+        e.currentTarget.style.boxShadow = `0 4px 14px ${dot}30`
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = `${dot}40`
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = 'none'
+      }}
+    >
+      {/* Header ícone */}
+      <div style={{
+        width: '100%',
+        padding: '14px 12px 12px',
+        background: dot,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative',
+      }}>
+        <Ticket size={26} color="#fff" strokeWidth={1.8} />
+        <div style={{
+          position: 'absolute', top: 6, right: 6,
+          padding: '2px 6px',
+          borderRadius: 5,
+          background: 'rgba(255,255,255,0.25)',
+          color: '#fff',
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: '.04em',
+        }}>
+          ASSINATURA
+        </div>
+      </div>
+
+      {/* Info */}
+      <div style={{ padding: isMobile ? '9px 10px 11px' : '8px 10px 10px', flex: 1 }}>
+        <div style={{
+          fontSize: isMobile ? 12 : 11, fontWeight: 700,
+          color: colors.gray[900],
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          marginBottom: 3,
+        }}>
+          {mem.name}
+        </div>
+        <div style={{
+          fontSize: 9,
+          color: colors.gray.dimText,
+          marginBottom: 4,
+          display: 'flex', alignItems: 'center', gap: 3,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          <InfinityIcon size={10} strokeWidth={2.4} />
+          {coverage}
+        </div>
+        <div style={{
+          fontSize: isMobile ? 14 : 13, fontWeight: 700,
+          color: dot, fontVariantNumeric: 'tabular-nums',
+        }}>
+          {formatBRL(mem.price)}
         </div>
       </div>
     </button>

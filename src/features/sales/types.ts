@@ -1,13 +1,14 @@
 // src/features/sales/types.ts
 
 export type SaleStatus    = 'OPEN' | 'CONFIRMED' | 'CANCELED'
-export type SaleItemType  = 'SERVICE' | 'PRODUCT' | 'PACKAGE'
+export type SaleItemType  = 'SERVICE' | 'PRODUCT' | 'PACKAGE' | 'MEMBERSHIP'
 export type PaymentMethod = 'CASH' | 'PIX' | 'CREDIT' | 'DEBIT' | 'TRANSFER' | 'OTHER'
 export type CommissionType = 'PERCENT' | 'FIXED'
 
 // ─── PACOTES ──────────────────────────────────────────────────────────────
 export type ValidityType      = 'NEVER' | 'DAYS' | 'MONTHS' | 'END_OF_MONTH' | 'END_OF_YEAR'
 export type PackageCardStatus = 'ACTIVE' | 'DEPLETED' | 'EXPIRED' | 'CANCELED'
+export type MembershipCardStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELED'
 
 export interface SaleItem {
   id:                string
@@ -36,6 +37,17 @@ export interface SaleItem {
     status:      PackageCardStatus
   } | null
 
+  // ⭐ Item de assinatura / coberto por assinatura
+  membershipId?:            string | null
+  appliedMembershipCardId?: string | null
+  appliedMembershipUseId?:  string | null
+  appliedMembershipCard?: {
+    id:         string
+    cardNumber: string
+    planName:   string
+    status:     MembershipCardStatus
+  } | null
+
   createdAt:         string
 
   product?: {
@@ -54,6 +66,13 @@ export interface SaleItem {
     color?:   string | null
   } | null
   package?: {
+    id:    string
+    name:  string
+    color: string | null
+    validityType?:  ValidityType
+    validityValue?: number | null
+  } | null
+  membership?: {
     id:    string
     name:  string
     color: string | null
@@ -116,6 +135,13 @@ export interface Sale {
     status:      PackageCardStatus
     totalPrice:  number
   }>
+  membershipCards?: Array<{
+    id:         string
+    cardNumber: string
+    planName:   string
+    status:     MembershipCardStatus
+    totalPrice: number
+  }>
   // ⭐ Sugestões de pacote por item (badge "pacote disponível" no POS)
   packageSuggestions?: Array<{
     saleItemId:  string
@@ -136,6 +162,7 @@ export interface SalesSummary {
   serviceTotal:    number
   productTotal:    number
   packageTotal?:   number
+  membershipTotal?: number
   byMethod:        Partial<Record<PaymentMethod, number>>
   byProfessional?: Array<{
     professionalId: string
@@ -191,6 +218,31 @@ export interface CatalogPackage {
       duration: number
       price:    number | null
       color:    string | null
+    }
+  }>
+}
+
+// ⭐ NOVO: assinatura no catálogo do caixa
+export interface CatalogMembership {
+  id:                 string
+  name:               string
+  description:        string | null
+  price:              number
+  color:              string | null
+  imageUrl:           string | null
+  active:             boolean
+  recurring:          boolean
+  allServices:        boolean
+  validityType:       ValidityType
+  validityValue:      number | null
+  earnsCommission:    boolean
+  lockProfessionalId: string | null
+  services: Array<{
+    serviceId: string
+    service?: {
+      id:    string
+      name:  string
+      color: string | null
     }
   }>
 }
