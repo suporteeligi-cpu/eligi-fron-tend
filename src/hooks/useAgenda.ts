@@ -1,7 +1,7 @@
 'use client'
 // src/hooks/useAgenda.ts
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import api from '@/lib/api'
 import { AgendaBooking, AgendaProfessional } from '@/features/agenda/types'
 
@@ -81,13 +81,15 @@ export function useAgenda(date: string) {
   const [data,    setData]    = useState<AgendaData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
+  const reqRef = useRef(0)   // token p/ ignorar respostas obsoletas (troca rapida de dia)
 
   const fetchData = useCallback(async () => {
+    const myReq = ++reqRef.current
+    // Sem setLoading/setError sincrono antes do await (regra set-state-in-effect).
+    // loading e true so no 1o load (estado inicial); refresh em background nao pisca.
     try {
-      setLoading(true)
-      setError(null)
-
       const res     = await api.get<ApiResponse>('/agenda/day', { params: { date } })
+      if (myReq !== reqRef.current) return   // chegou tarde — outro dia ja foi pedido
       const payload = res.data?.data ?? (res.data as unknown as AgendaPayload)
 
       setData({
@@ -96,16 +98,18 @@ export function useAgenda(date: string) {
         professionals: payload.professionals ?? [],
         bookings:      (payload.bookings ?? []).map(adaptBooking),
       })
+      setError(null)
     } catch (err) {
+      if (myReq !== reqRef.current) return
       console.error('[useAgenda] Erro:', err)
       setError('Não foi possível carregar a agenda.')
-      setData(null)
+      // preserva o ultimo data bom — nao zera em erro de refresh
     } finally {
-      setLoading(false)
+      if (myReq === reqRef.current) setLoading(false)
     }
   }, [date])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { void fetchData() }, [fetchData])
 
   return { data, loading, error, refetch: fetchData }
 }

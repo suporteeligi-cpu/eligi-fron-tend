@@ -4,6 +4,7 @@
 // Curto → uma linha inline; alto (≥56px) → empilhado, mesma ordem.
 // Cor do texto adapta ao fundo do serviço via inkFor().
 
+import { memo } from 'react'
 import { AgendaBooking } from '../../types'
 import { bookingStatus } from '@/shared/theme'
 import { colorToGradient, colorToGlow } from '@/features/agenda/constants/serviceColors'
@@ -18,7 +19,7 @@ interface Props {
 
 const H_STACK = 56 // ≥ 56px empilha em 3 linhas; abaixo é inline numa linha
 
-export default function MobileBookingCard({ booking, height, isDragging = false }: Props) {
+function MobileBookingCard({ booking, height, isDragging = false }: Props) {
   const stacked      = height >= H_STACK
   const sealsHidden  = height < 20
   const nameFsInline = height < 20 ? 11 : height < 36 ? 12 : 13
@@ -140,3 +141,5 @@ export default function MobileBookingCard({ booking, height, isDragging = false 
     </div>
   )
 }
+
+export default memo(MobileBookingCard)

@@ -5,6 +5,7 @@
 // O horário (faixa início–fim) nunca encolhe; nome e serviço truncam (serviço cede primeiro).
 // Cor do texto adapta ao fundo do serviço via inkFor().
 
+import { memo } from 'react'
 import { AgendaBooking } from '../types'
 import { bookingStatus } from '@/shared/theme'
 import { colorToGradient, colorToGlow } from '@/features/agenda/constants/serviceColors'
@@ -19,7 +20,7 @@ interface Props {
 // Desktop: PX_PER_MIN = 2 → altura(px) = duração(min) * 2
 const H_STACK = 56 // ≥ 56px (≥28min) empilha em 3 linhas; abaixo é inline numa linha
 
-export default function BookingCard({ booking, totalHeight }: Props) {
+function BookingCard({ booking, totalHeight }: Props) {
   const stacked      = totalHeight >= H_STACK
   const sealsHidden  = totalHeight < 22
   const nameFsInline = totalHeight < 22 ? 11 : totalHeight < 38 ? 12 : 13
@@ -170,3 +171,5 @@ export default function BookingCard({ booking, totalHeight }: Props) {
     </div>
   )
 }
+
+export default memo(BookingCard)

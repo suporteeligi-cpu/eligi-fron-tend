@@ -24,10 +24,12 @@ export default function AgendaPage() {
   const { selectedDate, setSelectedDate, setBookingsForDate, getBookingsForDate } = useAgendaStore()
   const dateStr        = dayjs(selectedDate).format('YYYY-MM-DD')
   const cachedBookings = getBookingsForDate(dateStr)
-  const { data, loading } = useAgenda(dateStr)
+  const { data, loading, refetch } = useAgenda(dateStr)
 
   useEffect(() => {
-    if (!data?.bookings) return
+    // Só mescla quando o data retornado é do dia atual — evita gravar bookings
+    // de um dia no cache de outro (race na troca rápida de dia).
+    if (!data?.bookings || data.date !== dateStr) return
     // Preserva status local (ex: NO_SHOW, COMPLETED marcados pelo usuário)
     // para não sobrescrever com dados antigos da API antes do próximo refetch
     const existing = getBookingsForDate(dateStr)
@@ -41,7 +43,7 @@ export default function AgendaPage() {
       return b
     })
     setBookingsForDate(dateStr, merged)
-  }, [data?.bookings, dateStr, setBookingsForDate, getBookingsForDate])
+  }, [data?.bookings, data?.date, dateStr, setBookingsForDate, getBookingsForDate])
 
   return (
     /*
@@ -69,6 +71,7 @@ export default function AgendaPage() {
             businessId={data?.businessId ?? ''}
             externalDate={selectedDate}
             onDateChange={setSelectedDate}
+            onRefreshBookings={refetch}
           />
         )
       }

@@ -15,10 +15,11 @@ interface SocketHandlers {
   onBlockCreate?: (block: AgendaBlock) => void
   onBlockDelete?: (blockId: string) => void
   onBlockUpdate?: (block: AgendaBlock) => void
+  onReconnect?:   () => void
 }
 
 export function useAgendaSocket({
-  businessId, onCreate, onUpdate, onCancel, onBlockCreate, onBlockDelete, onBlockUpdate,
+  businessId, onCreate, onUpdate, onCancel, onBlockCreate, onBlockDelete, onBlockUpdate, onReconnect,
 }: SocketHandlers) {
   const onCreateRef      = useRef(onCreate)
   const onUpdateRef      = useRef(onUpdate)
@@ -26,6 +27,7 @@ export function useAgendaSocket({
   const onBlockCreateRef = useRef(onBlockCreate)
   const onBlockDeleteRef = useRef(onBlockDelete)
   const onBlockUpdateRef = useRef(onBlockUpdate)
+  const onReconnectRef   = useRef(onReconnect)
 
   // useLayoutEffect é permitido para atualizar refs após render mas antes dos efeitos
   useLayoutEffect(() => {
@@ -35,6 +37,7 @@ export function useAgendaSocket({
     onBlockCreateRef.current = onBlockCreate
     onBlockDeleteRef.current = onBlockDelete
     onBlockUpdateRef.current = onBlockUpdate
+    onReconnectRef.current   = onReconnect
   })
 
   useEffect(() => {
@@ -56,7 +59,7 @@ export function useAgendaSocket({
 
     socket.on('connect',       ()  => socket.emit('join:business', businessId))
     socket.on('connect_error', err => console.warn('[AgendaSocket] connect_error:', err.message))
-    socket.on('reconnect',     ()  => socket.emit('join:business', businessId))
+    socket.on('reconnect',     ()  => { socket.emit('join:business', businessId); onReconnectRef.current?.() })
 
     socket.on('booking:created',  (b: SocketBooking)       => onCreateRef.current(b))
     socket.on('booking:updated',  (b: SocketBooking)       => onUpdateRef.current?.(b))

@@ -2,7 +2,7 @@
 // src/features/agenda/components/AgendaBoard.tsx
 // Coordenador da agenda: detecta dispositivo, busca dados, gerencia painéis.
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import dayjs from 'dayjs'
 
 import AgendaToolbar     from './AgendaToolbar'
@@ -39,14 +39,14 @@ interface Props {
   businessId:    string
   externalDate?: Date
   onDateChange?: (date: Date) => void
+  onRefreshBookings?: () => void
 }
 
-export default function AgendaBoard({ professionals, businessId, externalDate, onDateChange }: Props) {
+export default function AgendaBoard({ professionals, businessId, externalDate, onDateChange, onRefreshBookings }: Props) {
   const selectedDate       = useAgendaStore(s => s.selectedDate)
   const setSelectedDate    = useAgendaStore(s => s.setSelectedDate)
   const getBookingsForDate = useAgendaStore(s => s.getBookingsForDate)
   const addBooking         = useAgendaStore(s => s.addBooking)
-  const updateBooking      = useAgendaStore(s => s.updateBooking)
   const removeBooking      = useAgendaStore(s => s.removeBooking)
   const getBlocksForDate   = useAgendaStore(s => s.getBlocksForDate)
   const setBlocksForDate   = useAgendaStore(s => s.setBlocksForDate)
@@ -132,11 +132,23 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
     addBlock(ds, updated)
   }, [addBlock, removeBlock])
 
+  // Socket = sinal de refresh. Eventos de booking (criado/alterado/cancelado em
+  // outro dispositivo, cliente online, ou venda confirmada) disparam um refetch
+  // debounced do dia — o /agenda/day recalcula selo/flags/grupo, sempre correto.
+  // created/canceled também aplicam otimista (snap); o refetch reconcilia.
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current)
+    refreshTimer.current = setTimeout(() => { onRefreshBookings?.() }, 250)
+  }, [onRefreshBookings])
+  useEffect(() => () => { if (refreshTimer.current) clearTimeout(refreshTimer.current) }, [])
+
   useAgendaSocket({
     businessId,
-    onCreate:      b  => addBooking(dateStr, b),
-    onUpdate:      b  => updateBooking(dateStr, b),
-    onCancel:      id => removeBooking(dateStr, id),
+    onCreate:      b  => { addBooking(dateStr, b); scheduleRefresh() },
+    onUpdate:      () => scheduleRefresh(),
+    onCancel:      id => { removeBooking(dateStr, id); scheduleRefresh() },
+    onReconnect:   () => scheduleRefresh(),
     onBlockCreate: b  => { if (b.date === dateStr) addBlock(dateStr, b) },
     onBlockDelete: id => removeBlock(dateStr, id),
     onBlockUpdate: b  => { if (b.date === dateStr) updateBlock(dateStr, b) },
