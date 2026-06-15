@@ -185,7 +185,6 @@ export default function AgendaMobileList({
     () => computeGridRange(workingHours, { startHour: DEFAULT_START_HOUR_MOBILE, endHour: DEFAULT_END_HOUR_MOBILE }, extraMinutes),
     [workingHours, extraMinutes],
   )
-  console.log('[AGENDA-MOBILE]', { START_HOUR, END_HOUR, START_MIN, extra: extraMinutes, bk: bookings.map(b => `${b.start}/${b.professionalId}`) })
   const HALF_SLOTS = useMemo(() => buildHalfSlots(START_HOUR, END_HOUR), [START_HOUR, END_HOUR])
   const TOTAL_H    = HALF_SLOTS.length * ROW_H
   const currentY   = useCurrentTimeY(START_MIN, PX_PER_MIN, END_HOUR)
