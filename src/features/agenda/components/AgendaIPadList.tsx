@@ -105,6 +105,7 @@ export default function AgendaIPadList({
     () => computeGridRange(workingHours, { startHour: DEFAULT_START_HOUR_DESKTOP, endHour: DEFAULT_END_HOUR_DESKTOP }, extraMinutes),
     [workingHours, extraMinutes],
   )
+  console.log('[AGENDA-IPAD]', { START_HOUR, END_HOUR, START_MIN, extra: extraMinutes, bk: bookings.map(b => `${b.start}/${b.professionalId}`) })
   const SLOTS    = useMemo(() => buildSlots(START_HOUR, END_HOUR), [START_HOUR, END_HOUR])
   const TOTAL_H  = SLOTS.length * SLOT_H
   const currentY = useCurrentTimeY(START_MIN, PX_PER_MIN, END_HOUR)
