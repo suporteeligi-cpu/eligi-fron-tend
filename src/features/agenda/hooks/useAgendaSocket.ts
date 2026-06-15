@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
 import { io, Socket }        from 'socket.io-client'
 import { AgendaBooking, AgendaBlock } from '@/features/agenda/types'
 
-export type SocketBooking = AgendaBooking
+export type SocketBooking = AgendaBooking & { date?: string }
 
 interface SocketHandlers {
   businessId:     string

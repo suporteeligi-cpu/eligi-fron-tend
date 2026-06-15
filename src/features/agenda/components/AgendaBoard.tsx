@@ -145,7 +145,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
 
   useAgendaSocket({
     businessId,
-    onCreate:      b  => { addBooking(dateStr, b); scheduleRefresh() },
+    onCreate:      b  => { if (b.date === dateStr) addBooking(dateStr, b); scheduleRefresh() },
     onUpdate:      () => scheduleRefresh(),
     onCancel:      id => { removeBooking(dateStr, id); scheduleRefresh() },
     onReconnect:   () => scheduleRefresh(),
