@@ -165,9 +165,25 @@ export default function AgendaMobileList({
   const { savingId, pendingAction, setPendingAction, doReschedule, doResize } = useBookingActions(selectedDate)
 
   // ─── Range ─────────────────────────────────────────────────────────────────
+  // Minutos (start/end) de bookings + ghost — esticam a janela pra fora do
+  // expediente quando há agendamento manual fora de hora (senão o card some).
+  const extraMinutes = useMemo(() => {
+    const arr: number[] = []
+    for (const b of bookings) arr.push(toMinutes(b.start), toMinutes(b.end))
+    const ds = dayjs(selectedDate).format('YYYY-MM-DD')
+    if (preview?.active && preview.date === ds) {
+      if (preview.allItems?.length) {
+        for (const it of preview.allItems) arr.push(toMinutes(it.startTime), toMinutes(it.endTime))
+      } else {
+        arr.push(toMinutes(preview.time), toMinutes(preview.time) + preview.duration)
+      }
+    }
+    return arr
+  }, [bookings, preview, selectedDate])
+
   const { startHour: START_HOUR, endHour: END_HOUR, startMin: START_MIN } = useMemo(
-    () => computeGridRange(workingHours, { startHour: DEFAULT_START_HOUR_MOBILE, endHour: DEFAULT_END_HOUR_MOBILE }),
-    [workingHours],
+    () => computeGridRange(workingHours, { startHour: DEFAULT_START_HOUR_MOBILE, endHour: DEFAULT_END_HOUR_MOBILE }, extraMinutes),
+    [workingHours, extraMinutes],
   )
   const HALF_SLOTS = useMemo(() => buildHalfSlots(START_HOUR, END_HOUR), [START_HOUR, END_HOUR])
   const TOTAL_H    = HALF_SLOTS.length * ROW_H
