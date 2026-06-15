@@ -32,11 +32,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(target, request.url))
   }
 
-  // BASIC_STAFF e RECEPTIONIST logados tentando acessar qualquer rota
-  // que não seja /dashboard/agenda → redireciona imediatamente (server-side)
+  // BASIC_STAFF: só agenda e comissões próprias (server-side)
   const userRole = request.cookies.get('userRole')?.value ?? ''
-  if (hasSession && AGENDA_ONLY_ROLES.includes(userRole) && isProtected &&
-      !pathname.startsWith('/dashboard/agenda')) {
+  const BASIC_STAFF_ALLOWED = ['/dashboard/agenda', '/dashboard/financeiro/comissoes']
+  if (hasSession && userRole === 'BASIC_STAFF' && isProtected &&
+      !BASIC_STAFF_ALLOWED.some(r => pathname.startsWith(r))) {
     return NextResponse.redirect(new URL('/dashboard/agenda', request.url))
   }
 

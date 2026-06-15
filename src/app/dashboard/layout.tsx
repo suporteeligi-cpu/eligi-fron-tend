@@ -33,9 +33,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return
     }
 
-    // BASIC_STAFF: rota fixa sempre /dashboard/agenda (não pode navegar)
+    // BASIC_STAFF: só agenda e comissões próprias
+    const basicStaffAllowed = ['/dashboard/agenda', '/dashboard/financeiro/comissoes']
     if (!loading && user && user.role === 'BASIC_STAFF' &&
-        pathname !== '/dashboard/agenda') {
+        !basicStaffAllowed.includes(pathname)) {
       router.replace('/dashboard/agenda')
       return
     }
@@ -53,8 +54,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, [])
 
   // BASIC_STAFF: retorna null enquanto redireciona (sem flash)
+  const basicStaffAllowed = ['/dashboard/agenda', '/dashboard/financeiro/comissoes']
   const isAgendaOnly = user ? user.role === 'BASIC_STAFF' : false
-  if (loading || (isAgendaOnly && pathname !== '/dashboard/agenda')) {
+  if (loading || (isAgendaOnly && !basicStaffAllowed.includes(pathname))) {
     return null
   }
 
