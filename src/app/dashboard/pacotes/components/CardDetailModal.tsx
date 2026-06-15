@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, RotateCw, Loader2, AlertCircle, Package as PackageIcon,
-  History,
+  History, ArrowLeft, Minus, Plus, Check,
 } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
@@ -20,9 +20,10 @@ interface Props {
   isMobile: boolean
   onClose:  () => void
   onCanceled?: (cardId: string) => void
+  onUsed?:  (cardId: string) => void
 }
 
-export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled }: Props) {
+export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled, onUsed }: Props) {
   const [card, setCard]     = useState<PackageCard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState<string | null>(null)
@@ -30,6 +31,11 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled 
 
   // Frente (QR) ou verso (info)
   const [flipped, setFlipped] = useState(false)
+
+  // Telas: detalhe ou baixa manual
+  const [mode, setMode] = useState<'detail' | 'use'>('detail')
+  const [useQtys, setUseQtys] = useState<Record<string, number>>({})
+  const [submitting, setSubmitting] = useState(false)
 
   // Cancelamento
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
@@ -85,7 +91,45 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled 
     }
   }
 
-  // QR Code via API pública (Google Charts ou QR Server)
+  function openUse() {
+    setError(null)
+    setUseQtys({})
+    setMode('use')
+  }
+
+  function setQty(serviceId: string, val: number, max: number) {
+    const v = Math.max(0, Math.min(max, val))
+    setUseQtys(prev => ({ ...prev, [serviceId]: v }))
+  }
+
+  async function confirmUse() {
+    const entries = Object.entries(useQtys).filter(([, q]) => q > 0)
+    if (entries.length === 0) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      // Em série (não Promise.all): cada baixa é uma transação; evita corrida no status DEPLETED
+      for (const [serviceId, quantity] of entries) {
+        await api.post(`/package-cards/${cardId}/use`, {
+          serviceId,
+          quantity,
+          notes: 'Baixa manual',
+        })
+      }
+      const res = await api.get(`/package-cards/${cardId}`)
+      setCard(res.data?.data ?? null)
+      onUsed?.(cardId)
+      setUseQtys({})
+      setMode('detail')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } }
+      setError(e.response?.data?.error ?? 'Erro ao registrar utilização')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // QR Code via API pública
   function qrUrl(text: string, size = 240): string {
     return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=2&data=${encodeURIComponent(text)}`
   }
@@ -93,6 +137,10 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled 
   const statusC = card ? STATUS_COLOR[card.status] : { fg: '#000', bg: 'transparent' }
   const isCanceled = card?.status === 'CANCELED'
   const isExpired  = card?.status === 'EXPIRED'
+
+  const totalRemaining = card?.balances?.reduce((s, b) => s + (b.initialQty - b.usedQty), 0) ?? 0
+  const canUse = !!card && card.status === 'ACTIVE' && totalRemaining > 0
+  const selectedTotal = Object.values(useQtys).reduce((s, q) => s + q, 0)
 
   const content = (
     <div
@@ -135,25 +183,28 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled 
           flexShrink: 0,
         }}>
           <button
-            onClick={handleClose}
+            onClick={mode === 'use' ? () => setMode('detail') : handleClose}
+            aria-label={mode === 'use' ? 'Voltar' : 'Fechar'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               padding: 6, display: 'flex',
               WebkitTapHighlightColor: 'transparent',
             }}
           >
-            <X size={20} color={colors.gray[700]} strokeWidth={2} />
+            {mode === 'use'
+              ? <ArrowLeft size={20} color={colors.gray[700]} strokeWidth={2} />
+              : <X size={20} color={colors.gray[700]} strokeWidth={2} />}
           </button>
           <h2 style={{
             flex: 1, textAlign: 'center',
             margin: 0,
             fontSize: 16, fontWeight: 700,
             color: colors.gray[900],
-            paddingLeft: 32,  // compensa o botão X
+            paddingLeft: 32,  // compensa o botão
           }}>
-            {card?.packageName ?? 'Carregando…'}
+            {mode === 'use' ? 'Utilizar' : (card?.packageName ?? 'Carregando…')}
           </h2>
-          {card && (
+          {card && mode === 'detail' ? (
             <span style={{
               padding: '3px 10px',
               borderRadius: 999,
@@ -166,6 +217,8 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled 
             }}>
               {STATUS_LABEL[card.status]}
             </span>
+          ) : (
+            <span style={{ width: 32, display: 'inline-block' }} />
           )}
         </div>
 
@@ -183,7 +236,170 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled 
             <div style={{ textAlign: 'center', padding: 40, color: colors.gray.dimText }}>
               {error ?? 'Cartão não encontrado'}
             </div>
+          ) : mode === 'use' ? (
+            /* ═══════ TELA: BAIXA MANUAL ═══════ */
+            <div style={{ maxWidth: 560, margin: '0 auto' }}>
+              <div style={{
+                fontSize: 12, color: colors.gray.dimText,
+                marginBottom: 14,
+              }}>
+                Escolha quantos créditos dar baixa. Isso desconta do saldo sem gerar venda.
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(card.balances ?? []).map(b => {
+                  const remaining = b.initialQty - b.usedQty
+                  const isEmpty = remaining === 0
+                  const qty = useQtys[b.serviceId] ?? 0
+                  return (
+                    <div key={b.id} style={{
+                      background: colors.background.page,
+                      border: `1px solid ${colors.gray.border}`,
+                      borderRadius: 12,
+                      padding: '12px 14px',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      position: 'relative', overflow: 'hidden',
+                      opacity: isEmpty ? 0.55 : 1,
+                    }}>
+                      <div style={{
+                        position: 'absolute', top: 0, left: 0, bottom: 0,
+                        width: 3, background: b.service?.color ?? colors.red.DEFAULT,
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: colors.gray[900] }}>
+                          {b.serviceName}
+                        </div>
+                        <div style={{ fontSize: 10, color: colors.gray.dimText, marginTop: 2 }}>
+                          {b.service?.duration ?? 0}min · Preço normal {fmtBRL(b.service?.price ?? b.unitPrice)}
+                        </div>
+                      </div>
+
+                      <div style={{
+                        fontSize: 13, fontWeight: 800,
+                        color: isEmpty ? colors.gray.dimText : colors.gray[900],
+                        fontVariantNumeric: 'tabular-nums',
+                        marginRight: 4,
+                      }}>
+                        {remaining}<span style={{ color: colors.gray.dimText, fontSize: 10, fontWeight: 600 }}>/{b.initialQty}</span>
+                      </div>
+
+                      {/* Stepper */}
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 2,
+                        background: '#fff',
+                        border: `1px solid ${colors.gray.borderMd}`,
+                        borderRadius: 9,
+                        padding: 3,
+                        flexShrink: 0,
+                      }}>
+                        <button
+                          onClick={() => setQty(b.serviceId, qty - 1, remaining)}
+                          disabled={isEmpty || qty <= 0 || submitting}
+                          aria-label="Diminuir"
+                          style={{
+                            width: 30, height: 30, borderRadius: 7,
+                            border: 'none', background: 'transparent',
+                            cursor: (isEmpty || qty <= 0 || submitting) ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            opacity: (isEmpty || qty <= 0) ? 0.3 : 1,
+                            color: colors.gray[700],
+                            WebkitTapHighlightColor: 'transparent',
+                          }}
+                        >
+                          <Minus size={13} strokeWidth={2.5} />
+                        </button>
+                        <span style={{
+                          minWidth: 30, textAlign: 'center',
+                          fontSize: 15, fontWeight: 800,
+                          color: qty > 0 ? colors.red.DEFAULT : colors.gray[900],
+                          fontVariantNumeric: 'tabular-nums',
+                        }}>{qty}</span>
+                        <button
+                          onClick={() => setQty(b.serviceId, qty + 1, remaining)}
+                          disabled={isEmpty || qty >= remaining || submitting}
+                          aria-label="Aumentar"
+                          style={{
+                            width: 30, height: 30, borderRadius: 7,
+                            border: 'none', background: 'transparent',
+                            cursor: (isEmpty || qty >= remaining || submitting) ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            opacity: (isEmpty || qty >= remaining) ? 0.3 : 1,
+                            color: colors.gray[700],
+                            WebkitTapHighlightColor: 'transparent',
+                          }}
+                        >
+                          <Plus size={13} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {error && (
+                <div style={{
+                  marginTop: 14,
+                  padding: '8px 10px',
+                  background: 'rgba(220,38,38,0.06)',
+                  border: `1px solid ${colors.red.border}`,
+                  borderRadius: 7,
+                  fontSize: 11,
+                  color: colors.red.DEFAULT,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <AlertCircle size={12} strokeWidth={2.4} />
+                  {error}
+                </div>
+              )}
+
+              {/* Ações */}
+              <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+                <button
+                  onClick={() => { setMode('detail'); setUseQtys({}); setError(null) }}
+                  disabled={submitting}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 10,
+                    border: `1px solid ${colors.gray.borderMd}`,
+                    background: '#fff',
+                    fontSize: 12, fontWeight: 700,
+                    color: colors.gray[700],
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit',
+                    letterSpacing: '.04em', textTransform: 'uppercase',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >Cancelar</button>
+                <button
+                  onClick={confirmUse}
+                  disabled={selectedTotal === 0 || submitting}
+                  style={{
+                    flex: 2,
+                    padding: 12,
+                    borderRadius: 10,
+                    border: 'none',
+                    background: (selectedTotal === 0 || submitting)
+                      ? 'rgba(0,0,0,0.07)'
+                      : 'linear-gradient(135deg, #1e293b, #0f172a)',
+                    color: (selectedTotal === 0 || submitting) ? colors.gray.dimText : '#fff',
+                    fontSize: 12, fontWeight: 800,
+                    cursor: (selectedTotal === 0 || submitting) ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit',
+                    letterSpacing: '.05em', textTransform: 'uppercase',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  {submitting
+                    ? <Loader2 size={13} style={{ animation: 'pkg-spin 0.8s linear infinite' }} />
+                    : <Check size={13} strokeWidth={2.6} />}
+                  {selectedTotal > 0 ? `Confirmar utilização · ${selectedTotal}` : 'Confirmar utilização'}
+                </button>
+              </div>
+            </div>
           ) : (
+            /* ═══════ TELA: DETALHE ═══════ */
             <div style={{
               display: 'grid',
               gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
@@ -578,6 +794,38 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled 
             </div>
           )}
         </div>
+
+        {/* Footer: botão UTILIZAR (só no detalhe, cartão ativo com saldo) */}
+        {!loading && card && mode === 'detail' && canUse && (
+          <div style={{
+            flexShrink: 0,
+            padding: isMobile ? '12px 16px' : '14px 22px',
+            borderTop: `1px solid ${colors.gray.border}`,
+            background: '#fff',
+          }}>
+            <button
+              onClick={openUse}
+              style={{
+                width: '100%',
+                padding: 14,
+                borderRadius: 12,
+                border: 'none',
+                background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                color: '#fff',
+                fontSize: 13, fontWeight: 800,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                letterSpacing: '.06em', textTransform: 'uppercase',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                boxShadow: '0 6px 20px rgba(15,23,42,0.28)',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <Check size={15} strokeWidth={2.6} />
+              Utilizar
+            </button>
+          </div>
+        )}
       </div>
 
       <style>{`@keyframes pkg-spin { to { transform: rotate(360deg) } }`}</style>
