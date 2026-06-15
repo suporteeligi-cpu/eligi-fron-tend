@@ -138,7 +138,7 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
       {sales.map(sale => {
         const hasCreditNote = sale.creditNotes.length > 0
         const totalCredit   = sale.creditNotes.reduce((s, n) => s + n.amount, 0)
-        const isFullyAnnulled = totalCredit >= sale.total - 0.01
+        const isFullyAnnulled = hasCreditNote && totalCredit >= sale.total - 0.01
 
         return (
           <button

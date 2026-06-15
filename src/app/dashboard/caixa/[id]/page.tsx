@@ -91,7 +91,7 @@ export default function SaleDetailPage() {
   }
 
   const totalCredit   = sale.creditNotes.reduce((s, n) => s + n.amount, 0)
-  const isFullyAnnulled = totalCredit >= sale.total - 0.01
+  const isFullyAnnulled = sale.creditNotes.length > 0 && totalCredit >= sale.total - 0.01
   const hasCreditNote = sale.creditNotes.length > 0
   const isConfirmed = sale.status === 'CONFIRMED'
 
