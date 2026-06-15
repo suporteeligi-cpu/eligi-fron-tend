@@ -928,14 +928,16 @@ async function saveValidity(d: dayjs.Dayjs) {
       </div>
 
       {editingValidity && card && (
-        <CalendarPicker
-          date={card.validUntil ? dayjs(card.validUntil) : dayjs()}
-          minDate={card.validFrom ? dayjs(card.validFrom) : undefined}
-          onSelect={saveValidity}
-          onClose={() => setEditingValidity(false)}
-          isMobile={isMobile}
-          showWeekJump={false}
-        />
+        <div onClick={e => e.stopPropagation()}>
+          <CalendarPicker
+            date={card.validUntil ? dayjs(card.validUntil) : dayjs()}
+            minDate={card.validFrom ? dayjs(card.validFrom) : undefined}
+            onSelect={saveValidity}
+            onClose={() => setEditingValidity(false)}
+            isMobile={isMobile}
+            showWeekJump={false}
+          />
+        </div>
       )}
 
       <style>{`@keyframes pkg-spin { to { transform: rotate(360deg) } }`}</style>
