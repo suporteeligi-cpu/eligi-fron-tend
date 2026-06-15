@@ -33,15 +33,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return
     }
 
-    // BASIC_STAFF e RECEPTIONIST: rota fixa sempre /dashboard/agenda
-    const agendaOnlyRoles = ['BASIC_STAFF', 'RECEPTIONIST']
-    if (!loading && user && agendaOnlyRoles.includes(user.role) &&
+    // BASIC_STAFF: rota fixa sempre /dashboard/agenda (não pode navegar)
+    if (!loading && user && user.role === 'BASIC_STAFF' &&
         pathname !== '/dashboard/agenda') {
       router.replace('/dashboard/agenda')
       return
     }
     // Demais funcionários: só /dashboard raiz vai pra /agenda
-    const staffRoles = ['MANAGER', 'STAFF']
+    const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF']
     if (!loading && user && staffRoles.includes(user.role) &&
         pathname === '/dashboard') {
       router.replace('/dashboard/agenda')
@@ -53,10 +52,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return () => { document.body.classList.remove('eligi-dashboard') }
   }, [])
 
-  // agendaOnlyRoles: retorna null enquanto carrega ou antes do redirect
-  // (evita flash da visão geral no mobile)
-  const agendaOnlyRoles = ['BASIC_STAFF', 'RECEPTIONIST']
-  const isAgendaOnly = user ? agendaOnlyRoles.includes(user.role) : false
+  // BASIC_STAFF: retorna null enquanto redireciona (sem flash)
+  const isAgendaOnly = user ? user.role === 'BASIC_STAFF' : false
   if (loading || (isAgendaOnly && pathname !== '/dashboard/agenda')) {
     return null
   }
