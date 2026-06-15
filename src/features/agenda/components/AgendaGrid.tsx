@@ -127,9 +127,25 @@ export default function AgendaGrid({
   }, [authUser?.professionalId, professionals])
 
   // ─── Range de horas ────────────────────────────────────────────────────────
+  // Minutos (start/end) de bookings + ghost de criação — esticam a janela pra
+  // fora do expediente quando há agendamento manual fora de hora (senão some).
+  const extraMinutes = useMemo(() => {
+    const arr: number[] = []
+    for (const b of bookings) arr.push(toMinutes(b.start), toMinutes(b.end))
+    const ds = dayjs(selectedDate).format('YYYY-MM-DD')
+    if (preview?.active && preview.date === ds) {
+      if (preview.allItems?.length) {
+        for (const it of preview.allItems) arr.push(toMinutes(it.startTime), toMinutes(it.endTime))
+      } else {
+        arr.push(toMinutes(preview.time), toMinutes(preview.time) + preview.duration)
+      }
+    }
+    return arr
+  }, [bookings, preview, selectedDate])
+
   const { startHour: START_HOUR, endHour: END_HOUR, startMin: START_MIN } = useMemo(
-    () => computeGridRange(workingHours, { startHour: DEFAULT_START_HOUR_DESKTOP, endHour: DEFAULT_END_HOUR_DESKTOP }),
-    [workingHours],
+    () => computeGridRange(workingHours, { startHour: DEFAULT_START_HOUR_DESKTOP, endHour: DEFAULT_END_HOUR_DESKTOP }, extraMinutes),
+    [workingHours, extraMinutes],
   )
   const SLOTS    = useMemo(() => buildSlots(START_HOUR, END_HOUR), [START_HOUR, END_HOUR])
   const TOTAL_H  = SLOTS.length * SLOT_H

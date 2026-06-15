@@ -49,15 +49,28 @@ export function buildHalfSlots(startHour: number, endHour: number): string[] {
 /**
  * Calcula a janela visível da grade com base no horário de funcionamento.
  * Adiciona 1h de folga antes/depois do expediente para o usuário visualizar.
+ * `extraMinutes` (start/end de bookings e do ghost) estica a janela pra fora
+ * do expediente quando há agendamento manual fora de hora — senão o card some.
  */
 export function computeGridRange(
   workingHours: { open: boolean; startTime: string; endTime: string } | undefined,
   fallback: { startHour: number; endHour: number },
+  extraMinutes: number[] = [],
 ): { startHour: number; endHour: number; startMin: number } {
+  let startHour: number
+  let endHour:   number
   if (workingHours?.open) {
-    const startHour = Math.max(0,  Math.floor(toMinutes(workingHours.startTime) / 60) - 1)
-    const endHour   = Math.min(24, Math.floor(toMinutes(workingHours.endTime)   / 60) + 1)
-    return { startHour, endHour, startMin: startHour * 60 }
+    startHour = Math.max(0,  Math.floor(toMinutes(workingHours.startTime) / 60) - 1)
+    endHour   = Math.min(24, Math.floor(toMinutes(workingHours.endTime)   / 60) + 1)
+  } else {
+    startHour = fallback.startHour
+    endHour   = fallback.endHour
   }
-  return { startHour: fallback.startHour, endHour: fallback.endHour, startMin: fallback.startHour * 60 }
+  // Estica pra caber qualquer booking/ghost fora do expediente.
+  for (const m of extraMinutes) {
+    const h = Math.floor(m / 60)
+    if (h < startHour)   startHour = Math.max(0, h)       // flush no topo (sem folga extra)
+    if (h + 1 > endHour) endHour   = Math.min(24, h + 1)  // +1 pro card não colar no fundo
+  }
+  return { startHour, endHour, startMin: startHour * 60 }
 }
