@@ -627,7 +627,7 @@ export default function AgendaMobileList({
               return <PreviewGhost key={`pv-${gi}`} item={it} top={top} height={h} inset={4} radius={10} />
             })}
 
-            <CurrentTimeLine y={currentY} />
+            {dayjs(selectedDate).isSame(dayjs(), 'day') && <CurrentTimeLine y={currentY} />}
 
             {/* Bloqueios */}
             {profBlocks.map(bl => {

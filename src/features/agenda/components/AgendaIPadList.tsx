@@ -594,7 +594,7 @@ export default function AgendaIPadList({
                   return <PreviewGhost key={`pv-${gi}`} item={it} top={top} height={h} inset={3} radius={7} />
                 })}
 
-                <CurrentTimeLine y={currentY} />
+                {dayjs(selectedDate).isSame(dayjs(), 'day') && <CurrentTimeLine y={currentY} />}
               </div>
             )
           })}
