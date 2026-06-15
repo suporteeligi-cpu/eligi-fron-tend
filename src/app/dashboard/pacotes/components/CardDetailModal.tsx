@@ -5,10 +5,12 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, RotateCw, Loader2, AlertCircle, Package as PackageIcon,
-  History, ArrowLeft, Minus, Plus, Check,
+  History, ArrowLeft, Minus, Plus, Check, Calendar,
 } from 'lucide-react'
+import dayjs from 'dayjs'
 
 import api from '@/shared/lib/apiClient'
+import CalendarPicker from '@/shared/components/CalendarPicker'
 import { colors, typography, transitions, radius } from '@/shared/theme'
 import { PackageCard } from '@/features/packages/types'
 import {
@@ -36,6 +38,10 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled,
   const [mode, setMode] = useState<'detail' | 'use'>('detail')
   const [useQtys, setUseQtys] = useState<Record<string, number>>({})
   const [submitting, setSubmitting] = useState(false)
+
+  // Edição de validade (reusa o calendário da agenda)
+  const [editingValidity, setEditingValidity] = useState(false)
+  const [savingValidity, setSavingValidity] = useState(false)
 
   // Cancelamento
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
@@ -126,6 +132,41 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled,
       setError(e.response?.data?.error ?? 'Erro ao registrar utilização')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+async function saveValidity(d: dayjs.Dayjs) {
+    setSavingValidity(true)
+    setError(null)
+    try {
+      await api.patch(`/package-cards/${cardId}/validity`, {
+        validUntil: d.endOf('day').toISOString(),
+      })
+      const res = await api.get(`/package-cards/${cardId}`)
+      setCard(res.data?.data ?? null)
+      onUsed?.(cardId)
+      setEditingValidity(false)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } }
+      setError(e.response?.data?.error ?? 'Erro ao atualizar validade')
+    } finally {
+      setSavingValidity(false)
+    }
+  }
+
+  async function clearValidity() {
+    setSavingValidity(true)
+    setError(null)
+    try {
+      await api.patch(`/package-cards/${cardId}/validity`, { validUntil: null })
+      const res = await api.get(`/package-cards/${cardId}`)
+      setCard(res.data?.data ?? null)
+      onUsed?.(cardId)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } }
+      setError(e.response?.data?.error ?? 'Erro ao atualizar validade')
+    } finally {
+      setSavingValidity(false)
     }
   }
 
@@ -671,6 +712,64 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled,
                   </div>
                 )}
 
+                {/* Editar validade (expiração) */}
+                {!isCanceled && (
+                  <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px dashed ${colors.gray.border}` }}>
+                    <div style={{
+                      fontSize: 11, fontWeight: 700, color: colors.gray.dimText,
+                      textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 8,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                      <Calendar size={11} strokeWidth={2.4} />
+                      Validade
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: colors.gray[900], fontVariantNumeric: 'tabular-nums' }}>
+                          {card.validUntil ? fmtDate(card.validUntil) : 'Nunca expira'}
+                        </div>
+                        <div style={{ fontSize: 10, color: colors.gray.dimText, marginTop: 1 }}>
+                          Início {fmtDate(card.validFrom)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { setError(null); setEditingValidity(true) }}
+                        disabled={savingValidity}
+                        style={{
+                          padding: '8px 14px', borderRadius: 9,
+                          border: `1px solid ${colors.gray.borderMd}`,
+                          background: '#fff',
+                          fontSize: 11, fontWeight: 700, color: colors.gray[700],
+                          cursor: savingValidity ? 'not-allowed' : 'pointer',
+                          fontFamily: 'inherit', letterSpacing: '.04em', textTransform: 'uppercase',
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        {savingValidity
+                          ? <Loader2 size={12} style={{ animation: 'pkg-spin 0.8s linear infinite' }} />
+                          : <Calendar size={12} strokeWidth={2.2} />}
+                        Editar
+                      </button>
+                    </div>
+                    {card.validUntil && (
+                      <button
+                        onClick={clearValidity}
+                        disabled={savingValidity}
+                        style={{
+                          marginTop: 8, background: 'none', border: 'none',
+                          padding: 0, cursor: savingValidity ? 'not-allowed' : 'pointer',
+                          fontSize: 11, fontWeight: 600, color: colors.gray.dimText,
+                          fontFamily: 'inherit', textDecoration: 'underline',
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        Remover validade (nunca expira)
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {/* Cancelar */}
                 {!isCanceled && !isExpired && (
                   <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px dashed ${colors.gray.border}` }}>
@@ -827,6 +926,17 @@ export default function CardDetailModal({ cardId, isMobile, onClose, onCanceled,
           </div>
         )}
       </div>
+
+      {editingValidity && card && (
+        <CalendarPicker
+          date={card.validUntil ? dayjs(card.validUntil) : dayjs()}
+          minDate={card.validFrom ? dayjs(card.validFrom) : undefined}
+          onSelect={saveValidity}
+          onClose={() => setEditingValidity(false)}
+          isMobile={isMobile}
+          showWeekJump={false}
+        />
+      )}
 
       <style>{`@keyframes pkg-spin { to { transform: rotate(360deg) } }`}</style>
     </div>
