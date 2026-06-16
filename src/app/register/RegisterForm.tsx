@@ -15,8 +15,9 @@ import styles from './Register.module.css'
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
 interface ApiError {
-  code: string
+  code?: string
   field?: 'name' | 'email' | 'password'
+  message?: string
 }
 
 interface GoogleCredentialResponse {
@@ -93,9 +94,11 @@ export default function RegisterForm() {
     if (loading) return
 
     const nextErrors: typeof errors = {}
-    if (!name.trim())        nextErrors.name     = 'Nome é obrigatório'
-    if (!email.trim())       nextErrors.email    = 'Email é obrigatório'
-    if (password.length < 6) nextErrors.password = 'Senha deve ter pelo menos 6 caracteres'
+    if (!name.trim())                 nextErrors.name     = 'Informe seu nome.'
+    if (!email.trim())                nextErrors.email    = 'Informe o e-mail.'
+    if (password.length < 8)          nextErrors.password = 'Mínimo 8 caracteres.'
+    else if (!/[A-Z]/.test(password)) nextErrors.password = 'Inclua 1 letra maiúscula.'
+    else if (!/[0-9]/.test(password)) nextErrors.password = 'Inclua 1 número.'
 
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors)
@@ -108,15 +111,13 @@ export default function RegisterForm() {
     try {
       await register(name.trim(), email.trim(), password, role)
     } catch (error: unknown) {
-      const code = (error && typeof error === 'object' && 'code' in error)
-        ? (error as ApiError).code
-        : 'UNKNOWN'
-      const mapped = mapAuthError(code)
+      const e = (error && typeof error === 'object') ? (error as ApiError) : ({} as ApiError)
+      const mapped = mapAuthError(e.code ?? 'UNKNOWN', e.message)
 
       if (mapped.field) {
         setErrors({ [mapped.field]: mapped.message })
       } else {
-        setErrors({ general: mapped.message ?? 'Erro inesperado. Tente novamente.' })
+        setErrors({ general: mapped.message })
       }
     } finally {
       setLoading(false)

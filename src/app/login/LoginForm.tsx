@@ -11,7 +11,7 @@ import { mapAuthError }     from '@/lib/auth.error.map'
 import styles from './Login.module.css'
 
 /* ── Types ── */
-type ApiError = { code: string }
+type ApiError = { code?: string; message?: string }
 
 interface GoogleCredentialResponse {
   credential?: string
@@ -90,12 +90,9 @@ export default function LoginForm() {
     try {
       await login(email, password)
     } catch (error: unknown) {
-      const mapped = mapAuthError(
-        (error && typeof error === 'object' && 'code' in error)
-          ? (error as ApiError).code
-          : 'UNKNOWN'
-      )
-      if (mapped.field) {
+      const e = (error && typeof error === 'object') ? (error as ApiError) : ({} as ApiError)
+      const mapped = mapAuthError(e.code ?? 'UNKNOWN', e.message)
+      if (mapped.field === 'email' || mapped.field === 'password') {
         setErrors({ [mapped.field]: mapped.message })
       } else {
         setErrors({ general: mapped.message })

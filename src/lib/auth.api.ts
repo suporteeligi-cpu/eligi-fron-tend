@@ -1,4 +1,5 @@
 import api from '@/lib/apiClient'
+import axios from 'axios'
 import { AuthUser } from '@/types/auth.types'
 
 /* =========================================
@@ -13,6 +14,31 @@ export interface ApiResponse<T> {
 export type MeResponse = ApiResponse<AuthUser>
 
 /* =========================================
+   NORMALIZE ERROR
+   O back manda { code, field, message } no corpo.
+   Sem isto, o form recebe o AxiosError cru
+   (code = 'ERR_BAD_REQUEST') -> cai no generico.
+========================================= */
+
+export interface AuthApiError {
+  code: string
+  field?: 'email' | 'password' | 'name'
+  message?: string
+}
+
+function toAuthError(err: unknown): AuthApiError {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as Partial<AuthApiError> | undefined
+    return {
+      code:    data?.code ?? 'UNKNOWN',
+      field:   data?.field,
+      message: data?.message,
+    }
+  }
+  return { code: 'UNKNOWN' }
+}
+
+/* =========================================
    LOGIN
 ========================================= */
 
@@ -20,7 +46,11 @@ export async function loginRequest(
   email: string,
   password: string
 ): Promise<void> {
-  await api.post<void>('/auth/login', { email, password })
+  try {
+    await api.post<void>('/auth/login', { email, password })
+  } catch (err) {
+    throw toAuthError(err)
+  }
 }
 
 /* =========================================
@@ -33,12 +63,16 @@ export async function registerRequest(
   password: string,
   role: 'BUSINESS_OWNER' | 'AFFILIATE'
 ): Promise<void> {
-  await api.post<void>('/auth/register', {
-    name,
-    email,
-    password,
-    role
-  })
+  try {
+    await api.post<void>('/auth/register', {
+      name,
+      email,
+      password,
+      role
+    })
+  } catch (err) {
+    throw toAuthError(err)
+  }
 }
 
 /* =========================================
@@ -49,10 +83,14 @@ export async function googleLoginRequest(
   idToken: string,
   mode: 'login' | 'register'
 ): Promise<void> {
-  await api.post<void>('/auth/google', {
-    idToken,
-    mode
-  })
+  try {
+    await api.post<void>('/auth/google', {
+      idToken,
+      mode
+    })
+  } catch (err) {
+    throw toAuthError(err)
+  }
 }
 
 /* =========================================
