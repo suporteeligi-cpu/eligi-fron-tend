@@ -1,12 +1,17 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Bell, Sun, Moon, Search, X, Calendar, Users, ChevronRight, Clock, Share2, Store } from 'lucide-react'
+import {
+  Bell, Sun, Moon, Search, X, Calendar, Users, ChevronRight, Clock, Share2, Store,
+  Sunrise, CalendarPlus, CalendarClock, CalendarX, UserX, Package, CreditCard, UserPlus, CheckCheck,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import api from '@/shared/lib/apiClient'
+import { io, Socket } from 'socket.io-client'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -27,21 +32,43 @@ interface SearchResult {
   meta?:    string
 }
 
-interface Notification {
-  id:      string
-  title:   string
-  body:    string
-  time:    string
-  read:    boolean
-  type:    'booking' | 'system'
+type NotifSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
+type NotifCategory =
+  | 'DAILY_SUMMARY' | 'BOOKING_ONLINE' | 'RESCHEDULE' | 'CANCELLATION'
+  | 'NO_SHOW' | 'STOCK_LOW' | 'NEW_CLIENT' | 'BILLING'
+
+interface NotifItem {
+  id:        string
+  category:  NotifCategory
+  severity:  NotifSeverity
+  title:     string
+  body:      string | null
+  createdAt: string
+  readAt:    string | null
 }
 
-// ─── Mock notifications (base para futuro real-time) ─────────────────────────
-const MOCK_NOTIFS: Notification[] = [
-  { id:'1', title:'Novo agendamento', body:'Lucas Mendes agendou Corte às 14:00', time: dayjs().subtract(5,'minute').toISOString(), read:false, type:'booking' },
-  { id:'2', title:'Agendamento cancelado', body:'Rafael Costa cancelou Barba às 10:30', time: dayjs().subtract(1,'hour').toISOString(), read:false, type:'booking' },
-  { id:'3', title:'Lembrete', body:'Você tem 3 agendamentos amanhã', time: dayjs().subtract(2,'hour').toISOString(), read:true, type:'system' },
-]
+type ToastState =
+  | { kind: 'summary'; count: number }
+  | { kind: 'item'; notif: NotifItem }
+  | null
+
+// Severidade → cores (fixas, legíveis em claro e escuro)
+const SEV: Record<NotifSeverity, { accent: string; soft: string; ink: string }> = {
+  INFO:     { accent: '#378ADD', soft: '#E6F1FB', ink: '#0C447C' },
+  WARNING:  { accent: '#EF9F27', soft: '#FAEEDA', ink: '#633806' },
+  CRITICAL: { accent: '#E24B4A', soft: '#FCEBEB', ink: '#791F1F' },
+}
+// Categoria → ícone
+const CAT_ICON: Record<NotifCategory, LucideIcon> = {
+  DAILY_SUMMARY:  Sunrise,
+  BOOKING_ONLINE: CalendarPlus,
+  RESCHEDULE:     CalendarClock,
+  CANCELLATION:   CalendarX,
+  NO_SHOW:        UserX,
+  STOCK_LOW:      Package,
+  NEW_CLIENT:     UserPlus,
+  BILLING:        CreditCard,
+}
 
 // ─── SearchModal ──────────────────────────────────────────────────────────────
 function SearchModal({ onClose }: { onClose: () => void }) {
@@ -205,39 +232,68 @@ function SearchModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-// ─── NotifPanel ───────────────────────────────────────────────────────────────
-function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: boolean }) {
-  const [notifs, setNotifs] = useState<Notification[]>(MOCK_NOTIFS)
+// ─── NotifPanel (dados reais, Direção B, liquid glass) ──────────────────────────
+function NotifPanel({
+  onClose, isMobile, refreshKey, onUnread,
+}: {
+  onClose:   () => void
+  isMobile:  boolean
+  refreshKey: number
+  onUnread:  (n: number) => void
+}) {
+  const [items,   setItems]   = useState<NotifItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  function markAllRead() { setNotifs(n => n.map(x => ({ ...x, read:true }))) }
-  function markRead(id: string) { setNotifs(n => n.map(x => x.id===id ? { ...x, read:true } : x)) }
+  const load = useCallback(async () => {
+    try {
+      const res = await api.get('/notifications', { params: { limit: 30 } })
+      setItems(res.data?.items ?? [])
+      onUnread(res.data?.unread ?? 0)
+    } catch {
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }, [onUnread])
 
-  const unread = notifs.filter(n => !n.read).length
+  useEffect(() => { void load() }, [load, refreshKey])
+
+  const unread = items.filter(n => !n.readAt).length
+
+  function markAll() {
+    const now = new Date().toISOString()
+    setItems(prev => prev.map(n => (n.readAt ? n : { ...n, readAt: now })))
+    onUnread(0)
+    void api.patch('/notifications/read-all').catch(() => {})
+  }
+  function markOne(id: string) {
+    const now = new Date().toISOString()
+    setItems(prev => {
+      const next = prev.map(n => (n.id === id && !n.readAt ? { ...n, readAt: now } : n))
+      onUnread(next.filter(n => !n.readAt).length)
+      return next
+    })
+    void api.patch(`/notifications/${id}/read`).catch(() => {})
+  }
 
   const panel = (
     <>
       <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:9990, background:'rgba(0,0,0,0.12)' }} />
       <div style={isMobile ? {
-        position:'fixed', bottom:0, left:0, right:0,
-        maxHeight:'80dvh',
-        background:'rgba(255,255,255,0.98)',
-        borderRadius:'24px 24px 0 0',
-        boxShadow:'0 -8px 40px rgba(0,0,0,0.15)',
-        zIndex:9991, display:'flex', flexDirection:'column',
-        fontFamily:typography.fontFamily,
+        position:'fixed', bottom:0, left:0, right:0, maxHeight:'80dvh',
+        background:'var(--glass-bg)', backdropFilter:'var(--glass-blur)', WebkitBackdropFilter:'var(--glass-blur)',
+        borderRadius:'24px 24px 0 0', borderTop:'1px solid var(--glass-border)',
+        boxShadow:'0 -8px 40px var(--glass-shadow), 0 1px 0 var(--glass-shine) inset',
+        zIndex:9991, display:'flex', flexDirection:'column', fontFamily:typography.fontFamily,
         animation:'npUp 0.28s cubic-bezier(0.34,1.2,0.64,1)',
         paddingBottom:'max(16px,env(safe-area-inset-bottom))',
       } : {
-        position:'fixed', top:80, right:20,
-        width:360,
-        background:'rgba(255,255,255,0.98)',
-        borderRadius:radius['2xl'],
-        boxShadow:shadows.lg,
-        border:`1px solid ${colors.gray.borderMd}`,
-        zIndex:9991, display:'flex', flexDirection:'column',
-        fontFamily:typography.fontFamily,
-        animation:'npIn 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-        maxHeight:'70vh',
+        position:'fixed', top:80, right:20, width:380,
+        background:'var(--glass-bg)', backdropFilter:'var(--glass-blur)', WebkitBackdropFilter:'var(--glass-blur)',
+        borderRadius:18, border:'1px solid var(--glass-border)',
+        boxShadow:'0 8px 32px var(--glass-shadow), 0 1px 0 var(--glass-shine) inset',
+        zIndex:9991, display:'flex', flexDirection:'column', fontFamily:typography.fontFamily,
+        animation:'npIn 0.18s cubic-bezier(0.34,1.56,0.64,1)', maxHeight:'70vh',
       }}>
         <style>{`
           @keyframes npIn{from{opacity:0;transform:translateY(-8px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -246,76 +302,72 @@ function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: bool
 
         {isMobile && (
           <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 4px' }}>
-            <div style={{ width:40, height:4, borderRadius:2, background:'rgba(0,0,0,0.12)' }} />
+            <div style={{ width:40, height:4, borderRadius:2, background:'var(--glass-border)' }} />
           </div>
         )}
 
-        <div style={{ padding:'14px 18px', borderBottom:`1px solid ${colors.gray.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+        <div style={{ padding:'14px 18px', borderBottom:'1px solid var(--glass-border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ fontSize:15, fontWeight:700, color:colors.gray[900] }}>Notificações</span>
+            <span style={{ fontSize:15, fontWeight:700, color:'var(--text-primary)' }}>Notificações</span>
             {unread > 0 && (
               <span style={{ padding:'1px 8px', borderRadius:radius.full, background:colors.red.gradient, color:'#fff', fontSize:11, fontWeight:700, boxShadow:`0 2px 6px ${colors.red.glow}` }}>{unread}</span>
             )}
           </div>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             {unread > 0 && (
-              <button onClick={markAllRead} style={{ fontSize:11, fontWeight:600, color:colors.red.DEFAULT, background:'none', border:'none', cursor:'pointer', padding:'4px 8px', borderRadius:radius.sm, transition:transitions.fast }}
-                onMouseEnter={e => (e.currentTarget.style.background = colors.red.subtle)}
-                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-              >
-                Marcar todas como lidas
+              <button onClick={markAll} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:colors.red.DEFAULT, background:'none', border:'none', cursor:'pointer', padding:'4px 8px', borderRadius:radius.sm }}>
+                <CheckCheck size={13} /> Marcar lidas
               </button>
             )}
-            <button onClick={onClose} style={{ width:26, height:26, borderRadius:radius.full, border:`1px solid ${colors.gray.borderMd}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <X size={13} color={colors.gray.dimText} />
+            <button onClick={onClose} style={{ width:26, height:26, borderRadius:radius.full, border:'1px solid var(--glass-border)', background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <X size={13} color="var(--text-muted)" />
             </button>
           </div>
         </div>
 
         <div style={{ flex:1, overflowY:'auto' }}>
-          {notifs.length === 0 ? (
-            <div style={{ padding:'48px 20px', textAlign:'center', color:colors.gray.dimText }}>
-              <Bell size={28} style={{ opacity:0.2, marginBottom:8 }} />
+          {loading ? (
+            <div style={{ padding:'40px 20px', textAlign:'center', color:'var(--text-muted)', fontSize:13 }}>Carregando…</div>
+          ) : items.length === 0 ? (
+            <div style={{ padding:'48px 20px', textAlign:'center', color:'var(--text-muted)' }}>
+              <Bell size={28} style={{ opacity:0.3, marginBottom:8 }} />
               <div style={{ fontSize:14, fontWeight:500 }}>Sem notificações</div>
             </div>
-          ) : notifs.map(n => (
-            <button
-              key={n.id}
-              onClick={() => markRead(n.id)}
-              style={{
-                width:'100%', display:'flex', alignItems:'flex-start', gap:12,
-                padding:'14px 18px', border:'none',
-                borderBottom:`1px solid ${colors.gray.border}`,
-                background: n.read ? 'transparent' : colors.red.subtle,
-                cursor:'pointer', textAlign:'left',
-                transition:`background ${transitions.fast}`,
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = n.read ? colors.gray.hover : 'rgba(220,38,38,0.09)')}
-              onMouseLeave={e => (e.currentTarget.style.background = n.read ? 'transparent' : colors.red.subtle)}
-            >
-              <div style={{ width:36, height:36, borderRadius:radius.sm, background: n.read ? colors.background.page : 'rgba(220,38,38,0.1)', border:`1px solid ${n.read ? colors.gray.border : colors.red.border}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                {n.type === 'booking'
-                  ? <Calendar size={16} color={n.read ? colors.gray.dimText : colors.red.DEFAULT} strokeWidth={2} />
-                  : <Bell     size={16} color={n.read ? colors.gray.dimText : colors.red.DEFAULT} strokeWidth={2} />
-                }
-              </div>
-
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:13, fontWeight: n.read ? 500 : 700, color:colors.gray[900], marginBottom:2 }}>{n.title}</div>
-                <div style={{ fontSize:12, color:colors.gray.dimText, lineHeight:1.4 }}>{n.body}</div>
-                <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:4 }}>
-                  <Clock size={10} color={colors.gray.dimText} />
-                  <span style={{ fontSize:11, color:colors.gray.dimText }}>
-                    {dayjs(n.time).fromNow()}
-                  </span>
+          ) : items.map(n => {
+            const sv = SEV[n.severity] ?? SEV.INFO
+            const Icon = CAT_ICON[n.category] ?? Bell
+            const isUnread = !n.readAt
+            return (
+              <button
+                key={n.id}
+                onClick={() => markOne(n.id)}
+                style={{
+                  width:'100%', display:'flex', alignItems:'flex-start', gap:12, padding:'14px 18px',
+                  border:'none', borderBottom:'1px solid var(--glass-border)',
+                  background: isUnread ? 'var(--surface-1)' : 'transparent',
+                  cursor:'pointer', textAlign:'left', transition:`background ${transitions.fast}`,
+                }}
+              >
+                <div style={{ width:40, height:40, borderRadius:radius.sm, background:sv.soft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <Icon size={19} color={sv.ink} strokeWidth={2} />
                 </div>
-              </div>
-
-              {!n.read && (
-                <div style={{ width:8, height:8, borderRadius:'50%', background:colors.red.DEFAULT, flexShrink:0, marginTop:4, boxShadow:`0 0 6px ${colors.red.glow}` }} />
-              )}
-            </button>
-          ))}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:2 }}>
+                    <span style={{ fontSize:13, fontWeight: isUnread ? 600 : 500, color:'var(--text-primary)' }}>{n.title}</span>
+                    {isUnread && (
+                      <span style={{ fontSize:11, fontWeight:600, padding:'0 7px', borderRadius:radius.full, background:sv.soft, color:sv.ink, flexShrink:0 }}>novo</span>
+                    )}
+                  </div>
+                  {n.body && <div style={{ fontSize:12, color:'var(--text-secondary)', lineHeight:1.4 }}>{n.body}</div>}
+                  <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:4 }}>
+                    <span style={{ width:6, height:6, borderRadius:'50%', background:sv.accent, flexShrink:0 }} />
+                    <Clock size={10} color="var(--text-muted)" />
+                    <span style={{ fontSize:11, color:'var(--text-muted)' }}>{dayjs(n.createdAt).fromNow()}</span>
+                  </div>
+                </div>
+              </button>
+            )
+          })}
         </div>
       </div>
     </>
@@ -323,6 +375,46 @@ function NotifPanel({ onClose, isMobile }: { onClose: () => void; isMobile: bool
 
   if (typeof document === 'undefined') return null
   return createPortal(panel, document.body)
+}
+
+// ─── NotifToast (popup leve) ────────────────────────────────────────────────────
+function NotifToast({ toast, isMobile, onClose }: { toast: NonNullable<ToastState>; isMobile: boolean; onClose: () => void }) {
+  const isSummary = toast.kind === 'summary'
+  const sv    = isSummary ? SEV.INFO : (SEV[toast.notif.severity] ?? SEV.INFO)
+  const Icon  = isSummary ? Bell : (CAT_ICON[toast.notif.category] ?? Bell)
+  const title = isSummary
+    ? `${toast.count} ${toast.count === 1 ? 'nova notificação' : 'novas notificações'}`
+    : toast.notif.title
+  const body  = isSummary ? 'Toque no sino para ver' : (toast.notif.body ?? '')
+
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position:'fixed',
+        right: isMobile ? 12 : 24,
+        bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom) + 12px)' : 24,
+        width:300, maxWidth:'calc(100vw - 32px)',
+        background:'var(--glass-bg)', backdropFilter:'var(--glass-blur)', WebkitBackdropFilter:'var(--glass-blur)',
+        border:'1px solid var(--glass-border)', borderRadius:14,
+        boxShadow:'0 8px 32px var(--glass-shadow), 0 1px 0 var(--glass-shine) inset',
+        zIndex:10050, display:'flex', gap:11, alignItems:'flex-start', padding:'12px 14px',
+        cursor:'pointer', fontFamily:typography.fontFamily,
+        animation:'ntIn 0.26s cubic-bezier(0.34,1.56,0.64,1)',
+      }}
+    >
+      <style>{`@keyframes ntIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <div style={{ width:36, height:36, borderRadius:radius.sm, background:sv.soft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <Icon size={18} color={sv.ink} strokeWidth={2} />
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{title}</div>
+        {body && <div style={{ fontSize:12, color:'var(--text-secondary)', lineHeight:1.4, marginTop:1 }}>{body}</div>}
+      </div>
+    </div>,
+    document.body
+  )
 }
 
 // ─── AppNavbar ────────────────────────────────────────────────────────────────
@@ -340,16 +432,21 @@ export default function AppNavbar() {
   const auth     = useAuth()
   const isMobile = useIsMobile(768)
 
-  const [scrolled,        setScrolled]        = useState(false)
-  const [darkMode,        setDarkMode]        = useState<boolean>(() =>
+  const [scrolled,    setScrolled]    = useState(false)
+  const [darkMode,    setDarkMode]    = useState<boolean>(() =>
     typeof window !== 'undefined' ? localStorage.getItem('eligi-theme') === 'dark' : false
   )
-  const [showSearch,      setShowSearch]      = useState(false)
-  const [showNotifs,      setShowNotifs]      = useState(false)
-  const [showShare,       setShowShare]       = useState(false)
-  const [qrDataUrl,       setQrDataUrl]       = useState<string | null>(null)
-  const [unreadCount,     setUnreadCount]     = useState(MOCK_NOTIFS.filter(n => !n.read).length)
-  const [avatarHover,     setAvatarHover]     = useState(false)
+  const [showSearch,  setShowSearch]  = useState(false)
+  const [showNotifs,  setShowNotifs]  = useState(false)
+  const [showShare,   setShowShare]   = useState(false)
+  const [qrDataUrl,   setQrDataUrl]   = useState<string | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [toast,       setToast]       = useState<ToastState>(null)
+  const [refreshKey,  setRefreshKey]  = useState(0)
+  const [avatarHover, setAvatarHover] = useState(false)
+  const [shareHover,  setShareHover]  = useState(false)
+
+  const businessId = auth?.user?.businessId ?? ''
 
   /* ── Pré-gera QR Code assim que slug disponível ── */
   useEffect(() => {
@@ -362,7 +459,6 @@ export default function AppNavbar() {
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(null))
   }, [auth?.user?.businessSlug])
-  const [shareHover,      setShareHover]      = useState(false)
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark')
@@ -382,6 +478,63 @@ export default function AppNavbar() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  /* ── Notificações: contador inicial + toast de boas-vindas ── */
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      try {
+        const res = await api.get('/notifications/unread-count')
+        if (!alive) return
+        const count: number = res.data?.count ?? 0
+        setUnreadCount(count)
+        if (count > 0) setToast({ kind: 'summary', count })
+      } catch { /* silencioso */ }
+    }
+    void run()
+    return () => { alive = false }
+  }, [])
+
+  /* ── Toast auto-dismiss ── */
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4500)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  /* ── Socket: notification:created em tempo real ── */
+  const onNotifRef = useRef<(n: NotifItem) => void>(() => {})
+  useLayoutEffect(() => {
+    onNotifRef.current = (n: NotifItem) => {
+      setUnreadCount(c => c + 1)
+      setToast({ kind: 'item', notif: n })
+      setRefreshKey(k => k + 1)
+    }
+  })
+  useEffect(() => {
+    if (!businessId) return
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'
+    const socket: Socket = io(apiUrl, {
+      withCredentials:      true,
+      transports:           ['polling'],
+      upgrade:              false,
+      forceNew:             true,
+      reconnection:         true,
+      reconnectionAttempts: 10,
+      reconnectionDelay:    1000,
+      reconnectionDelayMax: 5000,
+      timeout:              10000,
+    })
+    socket.on('connect',   () => socket.emit('join:business', businessId))
+    socket.on('reconnect', () => socket.emit('join:business', businessId))
+    socket.on('notification:created', (n: NotifItem) => onNotifRef.current(n))
+    const ping = setInterval(() => { if (socket.connected) socket.emit('ping') }, 25_000)
+    return () => {
+      clearInterval(ping)
+      socket.emit('leave:business', businessId)
+      socket.disconnect()
+    }
+  }, [businessId])
 
   function toggleTheme() {
     const next = !darkMode
@@ -427,8 +580,9 @@ export default function AppNavbar() {
       `}</style>
 
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
-      {showNotifs && <NotifPanel onClose={() => { setShowNotifs(false); setUnreadCount(0) }} isMobile={isMobile} />}
+      {showNotifs && <NotifPanel onClose={() => setShowNotifs(false)} isMobile={isMobile} refreshKey={refreshKey} onUnread={setUnreadCount} />}
       {showShare  && <ShareProfileModal onClose={() => setShowShare(false)} qrDataUrl={qrDataUrl} />}
+      {toast && <NotifToast toast={toast} isMobile={isMobile} onClose={() => setToast(null)} />}
 
       <div style={{ position:'fixed', top:16, left:0, right:0, display:'flex', justifyContent:'center', zIndex:1000, pointerEvents:'none' }}>
         <header style={{
