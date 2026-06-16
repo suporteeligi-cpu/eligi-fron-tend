@@ -15,12 +15,13 @@ import BillingGuard from './components/BillingGuard'
 const NAVBAR_HEIGHT = 104
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, loading, authError } = useAuth()
   const router   = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/login')
+    // !user → o useAuth é dono do redirect de auth (hard nav no caso 'expired');
+    // não redirecionamos aqui pra não ricochetear no estado 'offline'.
 
     // Role não reconhecido → volta pro login
     if (!loading && user && !DASHBOARD_ROLES.includes(user.role as never)) {
@@ -61,12 +62,30 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
+    // Backend indisponível (cold start / queda): a sessão pode estar viva.
+    // Não manda pro login — só oferece re-tentar.
+    if (authError === 'offline') {
+      return (
+        <div style={centerStyle}>
+          <div style={unauthorizedCard}>
+            <h1 style={{ marginBottom: 12 }}>Sem conexão com o servidor</h1>
+            <p style={{ opacity: 0.7, marginBottom: 20 }}>
+              Não foi possível conectar agora. Sua sessão continua ativa — tente de novo.
+            </p>
+            <button onClick={() => window.location.reload()} style={loginButton}>Tentar de novo</button>
+          </div>
+        </div>
+      )
+    }
+
+    // Sessão expirada: o useAuth já limpou o cookie e fez hard nav. Este card
+    // é fallback — o botão usa hard nav (router.push ricochetearia no middleware).
     return (
       <div style={centerStyle}>
         <div style={unauthorizedCard}>
           <h1 style={{ marginBottom: 12 }}>Sessão expirada</h1>
           <p style={{ opacity: 0.7, marginBottom: 20 }}>Sua sessão terminou. Faça login novamente.</p>
-          <button onClick={() => router.push('/login')} style={loginButton}>Fazer login</button>
+          <button onClick={() => { window.location.href = '/login' }} style={loginButton}>Fazer login</button>
         </div>
       </div>
     )

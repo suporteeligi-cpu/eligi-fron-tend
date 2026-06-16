@@ -21,6 +21,7 @@ export function useAuth() {
 
   const [user,    setUser]    = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState<'expired' | 'offline' | null>(null)
 
   const refetchUser = useCallback(async (): Promise<AuthUser> => {
     const me: AuthUser = await getMe()
@@ -31,32 +32,62 @@ export function useAuth() {
   useEffect(() => {
     let cancelled = false
 
-    // Se já está em rota pública, não tenta carregar o usuário
-    // para evitar o loop de refresh → redirect
-    const isPublic = PUBLIC_ROUTES.some(r => pathname === r || pathname?.startsWith('/onboarding'))
-    if (isPublic) {
-      setLoading(false)
-      return
-    }
-
     async function loadUser() {
-      try {
-        const me = await getMe()
-        if (!cancelled) setUser(me)
-      } catch {
-        if (!cancelled) {
-          setUser(null)
-          // Só redireciona se não estiver já em rota pública
-          if (!PUBLIC_ROUTES.some(r => pathname === r)) {
-            router.replace('/login')
-          }
-        }
-      } finally {
+      // Rota pública: não carrega usuário (evita loop refresh → redirect).
+      const isPublic = PUBLIC_ROUTES.some(r => pathname === r || pathname?.startsWith('/onboarding'))
+      if (isPublic) {
         if (!cancelled) setLoading(false)
+        return
+      }
+
+      const MAX_TRIES = 4
+      const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms))
+
+      for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
+        if (cancelled) return
+
+        try {
+          const me = await getMe()
+          if (cancelled) return
+          setUser(me)
+          setAuthError(null)
+          setLoading(false)
+          return
+        } catch (err) {
+          if (cancelled) return
+
+          const status = (err as { response?: { status?: number } })?.response?.status
+
+          // 401 = o interceptor já tentou o refresh e ele falhou → sessão morta.
+          if (status === 401) {
+            setUser(null)
+            setAuthError('expired')
+            setLoading(false)
+            // O middleware checa PRESENÇA do cookie; sem limpar, o /login
+            // ricochetearia pro /dashboard. Hard nav garante releitura do
+            // cookie já expirado.
+            try { await logoutRequest() } catch { /* best-effort */ }
+            if (typeof window !== 'undefined') window.location.href = '/login'
+            return
+          }
+
+          // Transitório (rede / 5xx / cold start do Railway): espera e re-tenta.
+          if (attempt < MAX_TRIES) {
+            await sleep(attempt * 500)
+            continue
+          }
+
+          // Esgotou: backend indisponível. NÃO desloga (sessão pode estar
+          // viva) e NÃO redireciona — estado offline pro usuário re-tentar.
+          setUser(null)
+          setAuthError('offline')
+          setLoading(false)
+          return
+        }
       }
     }
 
-    loadUser()
+    void loadUser()
     return () => { cancelled = true }
   }, [pathname, router])
 
@@ -92,5 +123,5 @@ export function useAuth() {
     router.replace('/login')
   }
 
-  return { user, loading, login, register, loginWithGoogle, logout, refetchUser }
+  return { user, loading, authError, login, register, loginWithGoogle, logout, refetchUser }
 }
