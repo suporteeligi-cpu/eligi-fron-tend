@@ -9,6 +9,12 @@ function detect(): DeviceMode {
   if (typeof window === 'undefined') return 'desktop'
   const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
   if (!hasTouch) return 'desktop'
+  // Notebook touch tem ponteiro fino (trackpad/mouse) ALEM do toque: trata
+  // como desktop (grade completa, nao a lista de iPad). Tablet/celular sem
+  // mouse nao casa '(any-pointer: fine)' e segue no caminho touch.
+  const hasFinePointer = typeof window.matchMedia === 'function'
+    && window.matchMedia('(any-pointer: fine)').matches
+  if (hasFinePointer) return 'desktop'
   if (window.innerWidth >= 768) return 'ipad'
   return 'mobile'
 }
