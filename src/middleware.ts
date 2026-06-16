@@ -23,8 +23,13 @@ export function middleware(request: NextRequest) {
   // Roles que ficam travados na agenda
   const AGENDA_ONLY_ROLES = ['BASIC_STAFF', 'RECEPTIONIST']
 
+  // Reautenticação forçada: o client detectou sessão morta e mandou pra cá.
+  // Sem isto o cookie stale (httpOnly, o client não apaga) ricochetearia o
+  // /login de volta pro /dashboard e prenderia o usuário.
+  const isReauth = request.nextUrl.searchParams.get('reauth') === '1'
+
   // Logado tentando acessar rota pública (/, /login, /register)
-  if (hasSession && isPublicOnly) {
+  if (hasSession && isPublicOnly && !isReauth) {
     const userRole = request.cookies.get('userRole')?.value ?? ''
     const target = AGENDA_ONLY_ROLES.includes(userRole)
       ? '/dashboard/agenda'

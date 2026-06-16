@@ -72,7 +72,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <p style={{ opacity: 0.7, marginBottom: 20 }}>
               Não foi possível conectar agora. Sua sessão continua ativa — tente de novo.
             </p>
-            <button onClick={() => window.location.reload()} style={loginButton}>Tentar de novo</button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={() => window.location.reload()} style={loginButton}>Tentar de novo</button>
+              <button onClick={() => { window.location.href = '/login?reauth=1' }} style={secondaryButton}>Fazer login</button>
+            </div>
           </div>
         </div>
       )
@@ -85,7 +88,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <div style={unauthorizedCard}>
           <h1 style={{ marginBottom: 12 }}>Sessão expirada</h1>
           <p style={{ opacity: 0.7, marginBottom: 20 }}>Sua sessão terminou. Faça login novamente.</p>
-          <button onClick={() => { window.location.href = '/login' }} style={loginButton}>Fazer login</button>
+          <button onClick={() => { window.location.href = '/login?reauth=1' }} style={loginButton}>Fazer login</button>
         </div>
       </div>
     )
@@ -139,5 +142,9 @@ const unauthorizedCard: React.CSSProperties = {
 }
 const loginButton: React.CSSProperties = {
   background: '#dc2626', color: '#ffffff', border: 'none',
+  padding: '12px 24px', borderRadius: '12px', cursor: 'pointer', fontWeight: 600,
+}
+const secondaryButton: React.CSSProperties = {
+  background: 'transparent', color: '#dc2626', border: '1px solid #dc2626',
   padding: '12px 24px', borderRadius: '12px', cursor: 'pointer', fontWeight: 600,
 }

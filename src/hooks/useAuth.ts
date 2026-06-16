@@ -58,27 +58,29 @@ export function useAuth() {
 
           const status = (err as { response?: { status?: number } })?.response?.status
 
-          // 401 = o interceptor já tentou o refresh e ele falhou → sessão morta.
-          if (status === 401) {
+          // Resposta 4xx numa rota protegida = não autenticado (o interceptor
+          // já tentou o refresh e ele falhou) → sessão morta de verdade.
+          if (status != null && status >= 400 && status < 500) {
             setUser(null)
             setAuthError('expired')
             setLoading(false)
-            // O middleware checa PRESENÇA do cookie; sem limpar, o /login
-            // ricochetearia pro /dashboard. Hard nav garante releitura do
-            // cookie já expirado.
+            // Cookies são httpOnly (só o back limpa). Best-effort no logout +
+            // hard nav com ?reauth=1: o middleware libera o /login mesmo com o
+            // cookie stale presente, e o login refaz os cookies por cima.
             try { await logoutRequest() } catch { /* best-effort */ }
-            if (typeof window !== 'undefined') window.location.href = '/login'
+            if (typeof window !== 'undefined') window.location.href = '/login?reauth=1'
             return
           }
 
-          // Transitório (rede / 5xx / cold start do Railway): espera e re-tenta.
+          // 5xx ou sem resposta (rede / CORS / cold start do Railway): pode ser
+          // transitório com sessão ainda viva → espera e re-tenta.
           if (attempt < MAX_TRIES) {
             await sleep(attempt * 500)
             continue
           }
 
-          // Esgotou: backend indisponível. NÃO desloga (sessão pode estar
-          // viva) e NÃO redireciona — estado offline pro usuário re-tentar.
+          // Esgotou: backend indisponível. NÃO desloga (sessão pode estar viva)
+          // e NÃO redireciona — estado offline pro usuário re-tentar / sair.
           setUser(null)
           setAuthError('offline')
           setLoading(false)
