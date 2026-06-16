@@ -1,6 +1,8 @@
 'use client'
 // src/app/dashboard/components/BillingGuard.tsx
-// A trava real e o backend (billingGate -> 402). Esta tela e so UX.
+//
+// Tela de bloqueio (planos sobre o dashboard esmaecido) quando a assinatura
+// esta inativa. A trava real e o backend (billingGate -> 402); isto e so UX.
 
 import { ReactNode, useState, useEffect, useCallback } from 'react'
 import api from '@/shared/lib/apiClient'
@@ -72,6 +74,7 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
 function BlockOverlay({ reason, onResolved }: { reason: string; onResolved: () => void }) {
   const r = REASONS[reason] ?? REASONS.BLOCKED_TRIAL_EXPIRED
   const [doc, setDoc] = useState('')
+  const [accepted, setAccepted] = useState(false)
   const [submitting, setSubmitting] = useState<Plan | null>(null)
   const [err, setErr] = useState('')
 
@@ -81,12 +84,16 @@ function BlockOverlay({ reason, onResolved }: { reason: string; onResolved: () =
       setErr('Informe um CPF ou CNPJ valido.')
       return
     }
+    if (!accepted) {
+      setErr('Aceite os Termos de Planos e Assinatura para continuar.')
+      return
+    }
     setErr('')
     setSubmitting(plan)
     try {
       const res = await api.post<{ data: { status: string; checkoutUrl: string | null } }>(
         '/billing/subscribe',
-        { plan, billingType: 'UNDEFINED', cpfCnpj: digits },
+        { plan, cpfCnpj: digits, acceptedTerms: true },
       )
       const data = res.data?.data
       if (data?.checkoutUrl) {
@@ -125,12 +132,28 @@ function BlockOverlay({ reason, onResolved }: { reason: string; onResolved: () =
           style={inputStyle}
         />
 
+        <label style={termsRow}>
+          <input
+            type="checkbox"
+            checked={accepted}
+            onChange={(e) => setAccepted(e.target.checked)}
+            style={{ marginTop: 2 }}
+          />
+          <span style={termsText}>
+            Li e aceito os{' '}
+            <a href="/termos-plano" target="_blank" rel="noopener noreferrer" style={termsLink}>
+              Termos de Planos e Assinatura
+            </a>
+            . O pagamento e por boleto ou Pix; a cobranca se repete todo mes ate o cancelamento.
+          </span>
+        </label>
+
         <div style={plansRow}>
           <div style={planCard}>
             <p style={planName}>Autonomo</p>
             <p style={planPrice}>R$&nbsp;59,90<span style={planPer}>/mes</span></p>
             <p style={planDesc}>So voce. Agenda unica, caixa, clientes e link publico.</p>
-            <button style={btnGhost} disabled={busy} onClick={() => subscribe('AUTONOMO')}>
+            <button style={btnGhost} disabled={busy || !accepted} onClick={() => subscribe('AUTONOMO')}>
               {submitting === 'AUTONOMO' ? 'Aguarde...' : r.cta}
             </button>
           </div>
@@ -140,7 +163,7 @@ function BlockOverlay({ reason, onResolved }: { reason: string; onResolved: () =
             <p style={planName}>Estabelecimento</p>
             <p style={planPrice}>R$&nbsp;99,90<span style={planPer}>/mes</span></p>
             <p style={planDesc}>Equipe ate 3 inclusos + todos os modulos.</p>
-            <button style={btnRed} disabled={busy} onClick={() => subscribe('ESTABELECIMENTO')}>
+            <button style={btnRed} disabled={busy || !accepted} onClick={() => subscribe('ESTABELECIMENTO')}>
               {submitting === 'ESTABELECIMENTO' ? 'Aguarde...' : r.cta}
             </button>
           </div>
@@ -168,9 +191,15 @@ const modal: React.CSSProperties = {
 const titleStyle: React.CSSProperties = { fontSize: 20, fontWeight: 600, margin: '0 0 8px', color: '#18181b' }
 const subStyle: React.CSSProperties = { fontSize: 14, color: '#71717a', margin: '0 0 20px', lineHeight: 1.6 }
 const inputStyle: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box', padding: '11px 14px', marginBottom: 16,
+  width: '100%', boxSizing: 'border-box', padding: '11px 14px', marginBottom: 14,
   border: '0.5px solid rgba(0,0,0,0.2)', borderRadius: 10, fontSize: 14, outline: 'none',
 }
+const termsRow: React.CSSProperties = {
+  display: 'flex', gap: 8, alignItems: 'flex-start', textAlign: 'left',
+  marginBottom: 16, cursor: 'pointer',
+}
+const termsText: React.CSSProperties = { fontSize: 12.5, color: '#52525b', lineHeight: 1.5 }
+const termsLink: React.CSSProperties = { color: '#dc2626', textDecoration: 'underline' }
 const plansRow: React.CSSProperties = { display: 'flex', gap: 12, textAlign: 'left', flexWrap: 'wrap' }
 const planCard: React.CSSProperties = {
   flex: '1 1 200px', position: 'relative', background: '#ffffff',
