@@ -265,12 +265,13 @@ export default function AgendaGrid({
     openView(booking)
   }, [openView])
 
-  const onResizeMouseDown = useCallback((
-    e: React.MouseEvent, booking: AgendaBooking, profId: string,
+  const onResizePointerDown = useCallback((
+    e: React.PointerEvent, booking: AgendaBooking, profId: string,
     _cardTop: number, cardHeight: number,
   ) => {
     e.preventDefault()
     e.stopPropagation()
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
     setDrag({
       type: 'resize',
       bookingId: booking.id,
@@ -280,6 +281,37 @@ export default function AgendaGrid({
       currentEnd:  booking.end,
     })
   }, [])
+
+  const onResizePointerMove = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current
+    if (!d || d.type !== 'resize') return
+    const endMin = Math.max(
+      toMinutes(d.booking.start) + MIN_DUR,
+      Math.min(yToSnappedMin(e.clientY), END_HOUR * 60),
+    )
+    const h = Math.max((endMin - toMinutes(d.booking.start)) * PX_PER_MIN - 2, MIN_CARD_H_DESKTOP)
+    const next: ResizeDrag = { ...d, ghostHeight: h, currentEnd: minutesToTime(endMin) }
+    dragRef.current = next
+    setDragState(next)
+  }, [yToSnappedMin, END_HOUR])
+
+  const onResizePointerEnd = useCallback(() => {
+    const d = dragRef.current
+    if (!d || d.type !== 'resize') return
+    dragRef.current = null
+    setDragState(null)
+    if (d.currentEnd !== d.booking.end) {
+      setPendingAction({
+        type: 'resize',
+        title: `Alterar duração para\n${d.booking.start}–${d.currentEnd}?`,
+        confirmLabel: 'Salvar alteração',
+        onConfirm: () => {
+          setPendingAction(null)
+          doResize(d.bookingId, d.booking, d.currentEnd)
+        },
+      })
+    }
+  }, [doResize, setPendingAction])
 
   // ─── Listeners globais de mouse ─────────────────────────────────────────────
   useEffect(() => {
@@ -326,17 +358,6 @@ export default function AgendaGrid({
         }
         return
       }
-
-      if (d.type === 'resize') {
-        const endMin = Math.max(
-          toMinutes(d.booking.start) + MIN_DUR,
-          Math.min(yToSnappedMin(e.clientY), END_HOUR * 60),
-        )
-        const h = Math.max((endMin - toMinutes(d.booking.start)) * PX_PER_MIN - 2, MIN_CARD_H_DESKTOP)
-        const next: ResizeDrag = { ...d, ghostHeight: h, currentEnd: minutesToTime(endMin) }
-        dragRef.current = next
-        setDragState(next)
-      }
     }
 
     function onMouseUp() {
@@ -368,18 +389,6 @@ export default function AgendaGrid({
           },
         })
         return
-      }
-
-      if (d.type === 'resize' && d.currentEnd !== d.booking.end) {
-        setPendingAction({
-          type: 'resize',
-          title: `Alterar duração para\n${d.booking.start}–${d.currentEnd}?`,
-          confirmLabel: 'Salvar alteração',
-          onConfirm: () => {
-            setPendingAction(null)
-            doResize(d.bookingId, d.booking, d.currentEnd)
-          },
-        })
       }
     }
 
@@ -441,9 +450,13 @@ export default function AgendaGrid({
           .ag-hour{border-top:1px solid ${colors.gray.border}}
           .ag-half{border-top:1px dashed rgba(0,0,0,0.06)}
           .ag-5{border-top:1px solid transparent}
-          .ag-rh{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:28px;height:8px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;z-index:20;border-radius:0 0 7px 7px}
+          .ag-rh{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:28px;height:8px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;z-index:20;border-radius:0 0 7px 7px;touch-action:none}
           .ag-rh::after{content:'';width:20px;height:4px;background:rgba(255,255,255,0.50);border-radius:2px;transition:all 0.15s ${EASE.smooth}}
           .ag-rh:hover::after{background:rgba(255,255,255,0.95);width:24px;height:5px;box-shadow:0 0 4px rgba(0,0,0,0.2)}
+          @media (any-pointer: coarse){
+            .ag-rh{width:72px;height:24px;align-items:flex-end;padding-bottom:5px;box-sizing:border-box}
+            .ag-rh::after{width:34px;height:6px;background:rgba(255,255,255,0.92)}
+          }
           .ag-card-hover{cursor:grab}
           .ag-card-hover:active{cursor:grabbing}
           .ag-col-target{background:rgba(220,38,38,0.04)!important}
@@ -635,10 +648,13 @@ export default function AgendaGrid({
                     >
                       <BookingCard booking={b} totalHeight={height} />
 
-                      {height > 18 && (
+                      {(height > 18 || isThisResize) && (
                         <div
                           className="ag-rh"
-                          onMouseDown={e => onResizeMouseDown(e, b, p.id, top, baseH)}
+                          onPointerDown={e => onResizePointerDown(e, b, p.id, top, baseH)}
+                          onPointerMove={onResizePointerMove}
+                          onPointerUp={onResizePointerEnd}
+                          onPointerCancel={onResizePointerEnd}
                         />
                       )}
 

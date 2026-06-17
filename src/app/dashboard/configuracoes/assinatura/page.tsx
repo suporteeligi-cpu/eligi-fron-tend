@@ -38,6 +38,7 @@ export default function AssinaturaPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [canceling, setCanceling] = useState(false)
+  const [paidFlag] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pago') === '1')
 
   const load = useCallback(async () => {
     try {
@@ -120,6 +121,14 @@ export default function AssinaturaPage() {
           </div>
         </div>
 
+        {paidFlag && !loading && status !== 'ACTIVE' && (
+          <div style={{
+            padding: '12px 16px', borderRadius: 12, fontSize: 13, marginBottom: 16,
+            background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', color: '#047857',
+          }}>
+            Pagamento recebido. Estamos confirmando com o provedor de pagamento - pode levar alguns instantes. Atualize a pagina em breve.
+          </div>
+        )}
         {loading && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 40, color: 'rgba(0,0,0,0.4)' }}>
             <Loader2 size={18} style={{ animation: 'a-spin 0.8s linear infinite' }} /> Carregando...
