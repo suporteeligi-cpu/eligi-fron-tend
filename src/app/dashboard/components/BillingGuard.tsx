@@ -71,12 +71,12 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      {blocked && <BlockOverlay reason={reason} onResolved={check} />}
+      {blocked && <BlockOverlay reason={reason} onResolved={check} onClose={() => setBlocked(false)} />}
     </>
   )
 }
 
-function BlockOverlay({ reason, onResolved }: { reason: string; onResolved: () => void }) {
+function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResolved: () => void; onClose: () => void }) {
   const r = REASONS[reason] ?? REASONS.BLOCKED_TRIAL_EXPIRED
   const [doc, setDoc] = useState('')
   const [accepted, setAccepted] = useState(false)
@@ -125,6 +125,9 @@ function BlockOverlay({ reason, onResolved }: { reason: string; onResolved: () =
   return (
     <div style={overlay}>
       <div style={modal}>
+        {reason === 'VOLUNTARY' && (
+          <button onClick={onClose} aria-label="Fechar" style={closeBtn}>×</button>
+        )}
         <p style={titleStyle}>{r.title}</p>
         <p style={subStyle}>{r.sub}</p>
 
@@ -190,6 +193,7 @@ const overlay: React.CSSProperties = {
 }
 const modal: React.CSSProperties = {
   background: '#ffffff', borderRadius: 16, padding: '32px 28px',
+  position: 'relative',
   maxWidth: 560, width: '100%', textAlign: 'center',
   boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
 }
@@ -231,4 +235,10 @@ const errStyle: React.CSSProperties = { color: '#dc2626', fontSize: 13, margin: 
 const signOut: React.CSSProperties = {
   marginTop: 18, background: 'none', border: 'none', color: '#a1a1aa',
   fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
+}
+const closeBtn: React.CSSProperties = {
+  position: 'absolute', top: 12, right: 14, width: 30, height: 30,
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: 'none', border: 'none', borderRadius: 8,
+  fontSize: 22, lineHeight: 1, color: '#a1a1aa', cursor: 'pointer',
 }
