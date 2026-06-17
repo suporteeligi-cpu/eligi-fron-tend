@@ -9,7 +9,7 @@ import api from '@/shared/lib/apiClient'
 
 type AccessStatus =
   | 'EXEMPT' | 'ACTIVE' | 'TRIAL'
-  | 'BLOCKED_TRIAL_EXPIRED' | 'BLOCKED_PAST_DUE' | 'BLOCKED_CANCELED'
+  | 'BLOCKED_TRIAL_EXPIRED' | 'BLOCKED_PAST_DUE' | 'BLOCKED_CANCELED' | 'CANCELED_GRACE'
 
 interface SubscriptionView {
   access: { status: AccessStatus; blocked: boolean; trialDaysLeft: number }
@@ -36,6 +36,8 @@ export default function AssinaturaPage() {
   const [data, setData] = useState<SubscriptionView | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [canceling, setCanceling] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -57,8 +59,23 @@ export default function AssinaturaPage() {
     window.dispatchEvent(new CustomEvent('billing:blocked'))
   }
 
+  async function doCancel() {
+    setCanceling(true)
+    try {
+      await api.post('/billing/cancel')
+      await load()
+      setConfirmCancel(false)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: { message?: string } } } }
+      setError(e.response?.data?.error?.message ?? 'Nao foi possivel cancelar a assinatura')
+    } finally {
+      setCanceling(false)
+    }
+  }
+
   const status = data?.access.status
   const planLabel = data?.plan ? PLAN_LABEL[data.plan] : ''
+  const endLabel = data?.currentPeriodEnd ? fmtDate(data.currentPeriodEnd) : 'o fim do ciclo'
 
   return (
     <>
@@ -150,6 +167,34 @@ export default function AssinaturaPage() {
                     <Info label="Profissionais extras" value={`${data.extraSeats} (+R$ ${fmtBRL(19.9 * data.extraSeats)})`} />
                   ) : null}
                 </div>
+
+                <div style={cancelArea}>
+                  {!confirmCancel ? (
+                    <button onClick={() => setConfirmCancel(true)} style={cancelLink}>Cancelar assinatura</button>
+                  ) : (
+                    <div style={confirmBox}>
+                      <p style={confirmText}>
+                        Tem certeza? Voce mantem o acesso ate {endLabel} e nao havera novas cobrancas.
+                      </p>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={doCancel} disabled={canceling} style={btnDangerSm}>
+                          {canceling ? 'Cancelando...' : 'Sim, cancelar'}
+                        </button>
+                        <button onClick={() => setConfirmCancel(false)} disabled={canceling} style={btnGhostSm}>
+                          Voltar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {status === 'CANCELED_GRACE' && (
+              <>
+                <StateRow icon={<AlertTriangle size={18} color="#f59e0b" />} title="Assinatura cancelada"
+                  desc={`Voce ainda tem acesso ate ${endLabel}. Depois disso o acesso sera bloqueado ate uma nova assinatura.`} />
+                <button onClick={openSubscribe} style={ctaStyle}>Reativar assinatura</button>
               </>
             )}
 
@@ -158,8 +203,11 @@ export default function AssinaturaPage() {
                 desc="Ha uma cobranca em aberto. Regularize para reativar o acesso." />
             )}
             {status === 'BLOCKED_CANCELED' && (
-              <StateRow icon={<AlertTriangle size={18} color="#dc2626" />} title="Assinatura cancelada"
-                desc="Assine novamente para voltar a usar o Eligi." />
+              <>
+                <StateRow icon={<AlertTriangle size={18} color="#dc2626" />} title="Assinatura cancelada"
+                  desc="Assine novamente para voltar a usar o Eligi." />
+                <button onClick={openSubscribe} style={ctaStyle}>Assinar novamente</button>
+              </>
             )}
             {status === 'BLOCKED_TRIAL_EXPIRED' && (
               <>
@@ -182,6 +230,23 @@ const ctaStyle: CSSProperties = {
 }
 const infoGrid: CSSProperties = {
   marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 14,
+}
+const cancelArea: CSSProperties = {
+  marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.06)',
+}
+const cancelLink: CSSProperties = {
+  background: 'none', border: 'none', padding: 0,
+  color: 'rgba(0,0,0,0.4)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
+}
+const confirmBox: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12 }
+const confirmText: CSSProperties = { margin: 0, fontSize: 13, color: 'rgba(0,0,0,0.6)', lineHeight: 1.5 }
+const btnDangerSm: CSSProperties = {
+  padding: '8px 16px', borderRadius: 8, border: 'none',
+  background: '#dc2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+}
+const btnGhostSm: CSSProperties = {
+  padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)',
+  background: 'transparent', color: '#18181b', fontSize: 13, fontWeight: 600, cursor: 'pointer',
 }
 
 function StateRow({ icon, title, desc }: { icon: ReactNode; title: string; desc: string }) {
