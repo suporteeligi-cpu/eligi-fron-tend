@@ -31,11 +31,16 @@ const REASONS: Record<string, { title: string; sub: string; cta: string }> = {
     sub: 'Reative sua assinatura pra voltar a usar o Eligi.',
     cta: 'Reativar',
   },
+  VOLUNTARY: {
+    title: 'Assine o Eligi',
+    sub: 'Garanta o acesso a sua agenda, equipe e caixa sem interrupcao. Pagamento por boleto ou Pix.',
+    cta: 'Assinar',
+  },
 }
 
 export default function BillingGuard({ children }: { children: ReactNode }) {
   const [blocked, setBlocked] = useState(false)
-  const [reason, setReason] = useState('BLOCKED_TRIAL_EXPIRED')
+  const [reason, setReason] = useState('VOLUNTARY')
 
   const check = useCallback(async () => {
     try {
@@ -57,7 +62,7 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
     function onBlocked(e: Event) {
       const detail = (e as CustomEvent).detail as { code?: string } | undefined
       setBlocked(true)
-      if (detail?.code && REASONS[detail.code]) setReason(detail.code)
+      setReason(detail?.code && REASONS[detail.code] ? detail.code : 'VOLUNTARY')
     }
     window.addEventListener('billing:blocked', onBlocked)
     return () => window.removeEventListener('billing:blocked', onBlocked)
