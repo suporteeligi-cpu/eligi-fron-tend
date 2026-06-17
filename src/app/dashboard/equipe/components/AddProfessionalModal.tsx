@@ -8,6 +8,33 @@ import { X, Mail, User } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, shadows } from '@/shared/theme'
 import { Professional } from '@/features/professionals/types'
+import ConfirmModal from './ConfirmModal'
+
+type SeatCode = 'UPGRADE_REQUIRED' | 'EXTRA_SEAT_REQUIRED'
+interface SeatPrompt { code: SeatCode; newValue: number; extraPrice?: number; newPlan?: string }
+
+function brl(n: number): string {
+  return n.toFixed(2).replace('.', ',')
+}
+
+/** Le um 409 de seat do back (sem any). Devolve null se nao for esse caso. */
+function readSeat409(err: unknown): SeatPrompt | null {
+  if (typeof err !== 'object' || err === null) return null
+  const resp = (err as { response?: unknown }).response
+  if (typeof resp !== 'object' || resp === null) return null
+  const r = resp as { status?: number; data?: unknown }
+  if (r.status !== 409) return null
+  if (typeof r.data !== 'object' || r.data === null) return null
+  const b = r.data as { error?: { code?: string }; data?: { newValue?: number; extraPrice?: number; newPlan?: string } }
+  const code = b.error?.code
+  if (code !== 'UPGRADE_REQUIRED' && code !== 'EXTRA_SEAT_REQUIRED') return null
+  return {
+    code,
+    newValue: b.data?.newValue ?? 0,
+    extraPrice: b.data?.extraPrice,
+    newPlan: b.data?.newPlan,
+  }
+}
 
 interface Props {
   isMobile:  boolean
@@ -21,6 +48,7 @@ export default function AddProfessionalModal({ isMobile, onCreated, onClose }: P
   const [email,  setEmail]  = useState('')
   const [role,   setRole]   = useState('')
   const [saving, setSaving] = useState<'' | 'saving' | 'error'>('')
+  const [seatPrompt, setSeatPrompt] = useState<SeatPrompt | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Foca input ao abrir (não-mobile evita teclado pular automático)
@@ -30,7 +58,7 @@ export default function AddProfessionalModal({ isMobile, onCreated, onClose }: P
     return () => clearTimeout(t)
   }, [isMobile])
 
-  async function handleCreate() {
+  async function handleCreate(acceptBilling = false) {
     if (!name.trim()) return
     try {
       setSaving('saving')
@@ -39,11 +67,19 @@ export default function AddProfessionalModal({ isMobile, onCreated, onClose }: P
         phone: phone || null,
         email: email || null,
         role:  role  || null,
+        ...(acceptBilling ? { acceptBilling: true } : {}),
       })
       const p = res.data?.data ?? res.data
       onCreated(p)
       onClose()
-    } catch {
+    } catch (err) {
+      const seat = !acceptBilling ? readSeat409(err) : null
+      if (seat) {
+        setSeatPrompt(seat)
+        setSaving('')
+        return
+      }
+      setSeatPrompt(null)
       setSaving('error')
     }
   }
@@ -268,7 +304,7 @@ export default function AddProfessionalModal({ isMobile, onCreated, onClose }: P
             Cancelar
           </button>
           <button
-            onClick={handleCreate}
+            onClick={() => handleCreate()}
             disabled={!canSubmit}
             style={{
               flex: 2, padding: '12px',
@@ -286,6 +322,21 @@ export default function AddProfessionalModal({ isMobile, onCreated, onClose }: P
           </button>
         </div>
       </div>
+      {seatPrompt && (
+        <ConfirmModal
+          isMobile={isMobile}
+          title={seatPrompt.code === 'UPGRADE_REQUIRED' ? 'Mudar para Estabelecimento?' : 'Adicionar profissional extra?'}
+          body={
+            seatPrompt.code === 'UPGRADE_REQUIRED'
+              ? `Adicionar outro profissional altera seu plano para Estabelecimento (R$ ${brl(seatPrompt.newValue)}/mês). A cobrança entra no próximo ciclo.`
+              : `Este profissional adiciona R$ ${brl(seatPrompt.extraPrice ?? 0)}/mês — novo total R$ ${brl(seatPrompt.newValue)}/mês, a partir do próximo ciclo.`
+          }
+          confirmLabel="Confirmar e adicionar"
+          confirming={saving === 'saving'}
+          onConfirm={() => handleCreate(true)}
+          onCancel={() => setSeatPrompt(null)}
+        />
+      )}
     </>,
     document.body
   )
