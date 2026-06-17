@@ -87,9 +87,11 @@ export default function PlanStep() {
         />
         <span>
           Li e aceito os{' '}
-          <a href="/termos" target="_blank" rel="noopener noreferrer">Termos de Uso</a>{' '}
-          e a{' '}
-          <a href="/privacidade" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>.
+          <a href="/termos" target="_blank" rel="noopener noreferrer">Termos de Uso</a>,{' '}
+          a{' '}
+          <a href="/privacidade" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>{' '}
+          e os{' '}
+          <a href="/termos-plano" target="_blank" rel="noopener noreferrer">Termos de Planos e Assinatura</a>.
         </span>
       </label>
 
