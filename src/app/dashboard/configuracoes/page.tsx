@@ -4,7 +4,7 @@
 import Link from 'next/link'
 import {
   Calendar, Building2, CreditCard, Users,
-  Sliders, Bell, Shield, ChevronRight, Scissors,
+  Sliders, Bell, Shield, ChevronRight, Scissors, Sparkles,
 } from 'lucide-react'
 
 const MODULES = [
@@ -61,6 +61,13 @@ const MODULES = [
   {
     group: 'Financeiro',
     items: [
+      {
+        href:        '/dashboard/configuracoes/assinatura',
+        icon:        Sparkles,
+        label:       'Sua Assinatura Eligi',
+        description: 'Seu plano, valor mensal e situacao da cobranca.',
+        available:   true,
+      },
       {
         href:        '/dashboard/configuracoes/pagamentos',
         icon:        CreditCard,

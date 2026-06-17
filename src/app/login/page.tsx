@@ -1,8 +1,8 @@
 import LoginForm from './LoginForm'
 
 export const metadata = {
-  title: 'Entrar — eligi',
-  description: 'Acesse sua conta eligi',
+  title: 'Entrar/Eligi-Sistemas',
+  description: 'Acesse sua conta para aproveitar os benefícios do Eligi-Sistemas.',
 }
 
 export default function LoginPage() {
