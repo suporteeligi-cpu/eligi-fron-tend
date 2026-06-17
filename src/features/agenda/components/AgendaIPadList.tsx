@@ -177,6 +177,7 @@ export default function AgendaIPadList({
   const onCardTouchStart = useCallback((
     e: React.TouchEvent, booking: AgendaBooking, profId: string, _cardTop: number, cardHeight: number,
   ) => {
+    if ((e.target as HTMLElement).closest('.ip-rh')) return
     const touch = e.touches[0]
     touchStartRef.current = { y: touch.clientY, x: touch.clientX, time: Date.now() }
     tapBookingRef.current = booking
@@ -218,8 +219,9 @@ export default function AgendaIPadList({
     tapBookingRef.current = null
   }, [openView])
 
-  const onResizeTouchStart = useCallback((e: React.TouchEvent, booking: AgendaBooking, cardHeight: number) => {
+  const onResizePointerDown = useCallback((e: React.PointerEvent, booking: AgendaBooking, cardHeight: number) => {
     e.stopPropagation()
+    e.preventDefault()
     // Cancela qualquer long-press pendente do card pai
     if (longPressRef.current) {
       clearTimeout(longPressRef.current)
@@ -227,6 +229,7 @@ export default function AgendaIPadList({
     }
     setLongPressId(null)
     tapBookingRef.current = null
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
 
     if (navigator.vibrate) navigator.vibrate(VIBRATE_RESIZE_MS)
     setDrag({
@@ -236,6 +239,39 @@ export default function AgendaIPadList({
       currentEnd:  booking.end,
     })
   }, [])
+
+  const onResizePointerMove = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current
+    if (!d || d.type !== 'resize') return
+    if (!scrollRef.current) return
+    const rect    = scrollRef.current.getBoundingClientRect()
+    const scrollT = scrollRef.current.scrollTop
+    const relY    = e.clientY - rect.top + scrollT - HEADER_H
+    const endMin  = Math.max(
+      toMinutes(d.booking.start) + MIN_DUR,
+      Math.min(snapToSlot(START_MIN + relY / PX_PER_MIN), END_HOUR * 60),
+    )
+    const h = Math.max((endMin - toMinutes(d.booking.start)) * PX_PER_MIN - 2, MIN_CARD_H_DESKTOP)
+    setDrag({ ...d, ghostHeight: h, currentEnd: minutesToTime(endMin) })
+  }, [START_MIN, END_HOUR])
+
+  const onResizePointerEnd = useCallback(() => {
+    const d = dragRef.current
+    if (!d || d.type !== 'resize') return
+    dragRef.current = null
+    setDragState(null)
+    if (d.currentEnd !== d.booking.end) {
+      setPendingAction({
+        type:'resize',
+        title: `Confirmar alteração de\n${d.booking.start}–${d.booking.end} para ${d.booking.start}–${d.currentEnd}?`,
+        confirmLabel: 'Salvar alteração',
+        onConfirm: () => {
+          setPendingAction(null)
+          doResize(d.booking.id, d.booking, d.currentEnd)
+        },
+      })
+    }
+  }, [doResize, setPendingAction])
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0]
@@ -271,20 +307,7 @@ export default function AgendaIPadList({
       setHoverSlot(minutesToTime(snapMin))
       return
     }
-
-    if (d.type === 'resize') {
-      if (!scrollRef.current) return
-      const rect    = scrollRef.current.getBoundingClientRect()
-      const scrollT = scrollRef.current.scrollTop
-      const relY    = touch.clientY - rect.top + scrollT - HEADER_H
-      const endMin  = Math.max(
-        toMinutes(d.booking.start) + MIN_DUR,
-        Math.min(snapToSlot(START_MIN + relY / PX_PER_MIN), END_HOUR * 60),
-      )
-      const h = Math.max((endMin - toMinutes(d.booking.start)) * PX_PER_MIN - 2, MIN_CARD_H_DESKTOP)
-      setDrag({ ...d, ghostHeight: h, currentEnd: minutesToTime(endMin) })
-    }
-  }, [professionals, snapFromTouch, colInfoFromTouch, START_MIN, END_HOUR])
+  }, [professionals, snapFromTouch, colInfoFromTouch, START_MIN])
 
   const onTouchEnd = useCallback(() => {
     if (longPressRef.current) {
@@ -310,18 +333,7 @@ export default function AgendaIPadList({
         },
       })
     }
-    if (d.type === 'resize' && d.currentEnd !== d.booking.end) {
-      setPendingAction({
-        type:'resize',
-        title: `Confirmar alteração de\n${d.booking.start}–${d.booking.end} para ${d.booking.start}–${d.currentEnd}?`,
-        confirmLabel: 'Salvar alteração',
-        onConfirm: () => {
-          setPendingAction(null)
-          doResize(d.booking.id, d.booking, d.currentEnd)
-        },
-      })
-    }
-  }, [doReschedule, doResize, setPendingAction])
+  }, [doReschedule, setPendingAction])
 
   const isMove   = drag?.type === 'move'
   const isResize = drag?.type === 'resize'
@@ -385,6 +397,10 @@ export default function AgendaIPadList({
           .ip-rh{position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:48px; height:18px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:4px; cursor:ns-resize; z-index:20; touch-action:none}
           .ip-rh::after{content:''; width:28px; height:5px; background:rgba(255,255,255,0.60); border-radius:3px; transition:all 0.15s ${EASE.smooth}}
           .ip-rh:active::after{background:rgba(255,255,255,0.98); width:34px; height:6px}
+          @media (any-pointer: coarse){
+            .ip-rh{width:84px; height:26px}
+            .ip-rh::after{width:36px; height:6px; background:rgba(255,255,255,0.92)}
+          }
           @keyframes ip-ring{from{outline-width:0px; outline-offset:0px; opacity:0} to{outline-width:3px; outline-offset:2px; opacity:1}}
           .ip-waiting{outline:3px solid ${colors.red.DEFAULT}; outline-offset:2px; border-radius:7px; animation:ip-ring ${LONG_PRESS_MS}ms ${EASE.smooth} forwards}
           @keyframes ip-pulse{0%{opacity:1} 50%{opacity:0.55} 100%{opacity:1}}
@@ -566,8 +582,14 @@ export default function AgendaIPadList({
                         </div>
                       )}
 
-                      {!isThisMove && height > 18 && (
-                        <div className="ip-rh" onTouchStart={e => onResizeTouchStart(e, b, baseH)} />
+                      {!isThisMove && (height > 18 || isThisResize) && (
+                        <div
+                          className="ip-rh"
+                          onPointerDown={e => onResizePointerDown(e, b, baseH)}
+                          onPointerMove={onResizePointerMove}
+                          onPointerUp={onResizePointerEnd}
+                          onPointerCancel={onResizePointerEnd}
+                        />
                       )}
 
                       {isThisResize && drag.type === 'resize' && (
