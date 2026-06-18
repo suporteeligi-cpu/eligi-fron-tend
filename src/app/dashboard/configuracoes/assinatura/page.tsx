@@ -24,6 +24,7 @@ const PLAN_LABEL: Record<'AUTONOMO' | 'ESTABELECIMENTO', string> = {
   AUTONOMO: 'Autonomo',
   ESTABELECIMENTO: 'Estabelecimento',
 }
+type ProfLite = { id: string; name: string; role?: string | null; avatarUrl?: string | null }
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -39,6 +40,9 @@ export default function AssinaturaPage() {
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [canceling, setCanceling] = useState(false)
   const [resuming, setResuming] = useState(false)
+  const [changingPlan, setChangingPlan] = useState(false)
+  const [seatProfs, setSeatProfs] = useState<ProfLite[] | null>(null)
+  const [keepId, setKeepId] = useState<string | null>(null)
   const [paidFlag] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pago') === '1')
 
   const load = useCallback(async () => {
@@ -86,9 +90,29 @@ export default function AssinaturaPage() {
       setResuming(false)
     }
   }
+  async function doChangePlan(target: 'AUTONOMO' | 'ESTABELECIMENTO', keepProfessionalIds?: string[]) {
+    setChangingPlan(true)
+    setError(null)
+    try {
+      await api.post('/billing/change-plan', { plan: target, ...(keepProfessionalIds ? { keepProfessionalIds } : {}) })
+      setSeatProfs(null)
+      await load()
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number; data?: { error?: { code?: string; message?: string }; data?: { professionals?: ProfLite[] } } } }
+      if (e.response?.status === 409 && e.response.data?.error?.code === 'SEAT_SELECTION_REQUIRED') {
+        setSeatProfs(e.response.data?.data?.professionals ?? [])
+        setKeepId(null)
+        return
+      }
+      setError(e.response?.data?.error?.message ?? 'Nao foi possivel trocar de plano')
+    } finally {
+      setChangingPlan(false)
+    }
+  }
 
   const status = data?.access.status
   const planLabel = data?.plan ? PLAN_LABEL[data.plan] : ''
+  const otherPlan: 'AUTONOMO' | 'ESTABELECIMENTO' = data?.plan === 'AUTONOMO' ? 'ESTABELECIMENTO' : 'AUTONOMO'
   const endLabel = data?.currentPeriodEnd ? fmtDate(data.currentPeriodEnd) : 'o fim do ciclo'
 
   return (
@@ -190,6 +214,44 @@ export default function AssinaturaPage() {
                   ) : null}
                 </div>
 
+                {data.plan && (
+                  <button
+                    onClick={() => doChangePlan(otherPlan)}
+                    disabled={changingPlan}
+                    style={{
+                      width: '100%', padding: '11px', marginBottom: 12,
+                      background: 'transparent', border: '1px solid #dc2626',
+                      borderRadius: 10, fontSize: 13.5, fontWeight: 600, color: '#dc2626',
+                      cursor: changingPlan ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {changingPlan ? 'Mudando...' : `Mudar para ${PLAN_LABEL[otherPlan]}`}
+                  </button>
+                )}
+                {seatProfs && (
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 1000000, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                    <div style={{ background: '#fff', borderRadius: 16, padding: '26px 24px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+                      <p style={{ fontSize: 17, fontWeight: 600, margin: '0 0 6px', color: '#18181b' }}>Escolha quem continua</p>
+                      <p style={{ fontSize: 13.5, color: '#71717a', margin: '0 0 16px', lineHeight: 1.5 }}>
+                        O Autonomo cobre 1 profissional. Quem ficar de fora sera desativado (da pra reativar ao voltar pro Estabelecimento).
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+                        {seatProfs.map((p) => (
+                          <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: keepId === p.id ? '1px solid #dc2626' : '1px solid rgba(0,0,0,0.12)', borderRadius: 10, cursor: 'pointer' }}>
+                            <input type="radio" name="keep-plan" checked={keepId === p.id} onChange={() => setKeepId(p.id)} />
+                            <span style={{ fontSize: 14, color: '#18181b' }}>{p.name}{p.role ? <span style={{ color: '#71717a' }}> · {p.role}</span> : null}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <button onClick={() => keepId && doChangePlan('AUTONOMO', [keepId])} disabled={changingPlan || !keepId} style={ctaStyle}>
+                        {changingPlan ? 'Aguarde...' : 'Confirmar mudanca'}
+                      </button>
+                      <button onClick={() => setSeatProfs(null)} disabled={changingPlan} style={{ width: '100%', marginTop: 8, padding: '11px', background: 'transparent', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 10, fontSize: 13, cursor: 'pointer', color: '#71717a' }}>
+                        Voltar
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div style={cancelArea}>
                   {!confirmCancel ? (
                     <button onClick={() => setConfirmCancel(true)} style={cancelLink}>Cancelar assinatura</button>
