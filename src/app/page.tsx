@@ -11,6 +11,7 @@ import VideoSection from './components/sections/VideoSection'
 import Ecosystem from './components/sections/Ecosystem'
 import AgendaSection from './components/sections/AgendaSection'
 import DashboardPreview from './components/sections/DashboardPreview'
+import OnlineBookingsSection from './components/sections/OnlineBookingsSection'
 import ProfessionalsSection from './components/sections/ProfessionalsSection'
 import PublicLinkSection from './components/sections/PublicLinkSection'
 import PricingSection from './components/sections/PricingSection'
@@ -43,6 +44,7 @@ export default function RootPage() {
         <Ecosystem />
         <AgendaSection />
         <DashboardPreview />
+        <OnlineBookingsSection />
         <ProfessionalsSection />
         <PublicLinkSection />
         <PricingSection />
