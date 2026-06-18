@@ -14,6 +14,8 @@ import ProfAvatar       from './shared/ProfAvatar'
 import OffHoursOverlay  from './shared/OffHoursOverlay'
 import CurrentTimeLine  from './shared/CurrentTimeLine'
 import PreviewGhost, { PreviewItem } from './shared/PreviewGhost'
+import ZoomControl  from './shared/ZoomControl'
+import HeatmapStrip from './shared/HeatmapStrip'
 import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
 import { colors, agendaLayout } from '@/shared/theme'
 import { useAgendaStore }   from '../hooks/useAgendaStore'
@@ -23,7 +25,7 @@ import { useBookingActions } from '../hooks/useBookingActions'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildSlots, computeGridRange } from '../utils/time'
 import { computeOverlapLayout, computeOffHoursOverlay, uniqueBookings } from '../utils/layout'
 import {
-  SLOT_STEP, SLOT_H, PX_PER_MIN, MIN_CARD_H_DESKTOP, MIN_DUR,
+  SLOT_STEP, MIN_CARD_H_DESKTOP, MIN_DUR, COLLAPSED_COL_W,
   DRAG_THRESHOLD_PX, DEFAULT_START_HOUR_DESKTOP, DEFAULT_END_HOUR_DESKTOP,
   EASE, Z,
 } from '../constants'
@@ -74,19 +76,29 @@ interface Props {
   onOpenBlockModal?:(time?: string, profId?: string) => void
   onDeleteBlock?:   (id: string) => void
   onUpdateBlock?:   (block: AgendaBlock) => void
-  focusedProfId?:   string | null
-  onFocusProf?:     (id: string | null) => void
+  collapsed:        string[]
+  onToggleCollapse: (id: string) => void
+  pxPerMin:         number
+  onZoomIn:         () => void
+  onZoomOut:        () => void
+  canZoomIn:        boolean
+  canZoomOut:       boolean
 }
 
 export default function AgendaGrid({
   professionals, bookings, blocks, workingHours,
   onOpenBlockModal, onDeleteBlock, onUpdateBlock,
-  focusedProfId, onFocusProf,
+  collapsed, onToggleCollapse,
+  pxPerMin, onZoomIn, onZoomOut, canZoomIn, canZoomOut,
 }: Props) {
   const openCreate    = useAgendaStore(s => s.openCreate)
   const openView      = useAgendaStore(s => s.openView)
   const selectedDate  = useAgendaStore(s => s.selectedDate)
   const preview       = useAgendaStore(s => s.preview)
+
+  // Densidade dinâmica (zoom): substitui as constantes SLOT_H/PX_PER_MIN.
+  const PX_PER_MIN = pxPerMin
+  const SLOT_H     = pxPerMin * SLOT_STEP
 
   const { savingId, pendingAction, setPendingAction, doReschedule, doResize } = useBookingActions(selectedDate)
 
@@ -96,23 +108,14 @@ export default function AgendaGrid({
 
 
   // ── Spotlight helpers ────────────────────────────────────────────────────
-  function handleProfClick(profId: string) {
-    if (!onFocusProf) return
-    // Toggle: clica no focado → desfoca; clica em outro → foca
-    onFocusProf(focusedProfId === profId ? null : profId)
-  }
+  const collapsedSet = useMemo(() => new Set(collapsed), [collapsed])
 
   function colStyle(profId: string): React.CSSProperties {
-    if (!focusedProfId) return { flex: 1, minWidth: MIN_COL_W }
-    if (profId === focusedProfId) return {
-      flex: 4, minWidth: MIN_COL_W,
+    if (collapsedSet.has(profId)) return {
+      flex: `0 0 ${COLLAPSED_COL_W}px`, width: COLLAPSED_COL_W, minWidth: COLLAPSED_COL_W, maxWidth: COLLAPSED_COL_W,
       transition: 'flex 260ms cubic-bezier(.4,0,.2,1)',
     }
-    return {
-      flex: 0, width: 56, minWidth: 56, maxWidth: 56,
-      opacity: 0.6,
-      transition: 'flex 260ms cubic-bezier(.4,0,.2,1), opacity 260ms ease',
-    }
+    return { flex: 1, minWidth: MIN_COL_W, transition: 'flex 260ms cubic-bezier(.4,0,.2,1)' }
   }
 
   // Scroll automático para a coluna do funcionário ao montar
@@ -169,17 +172,11 @@ export default function AgendaGrid({
   // ─── GEOMETRIA UNIFICADA ────────────────────────────────────────────────────
   // Fonte única de verdade: gridRef (largura REAL renderizada, inclui scroll).
   // Retorna a largura de cada coluna de profissional e a origem X (left do grid no viewport).
-  const getColumnGeometry = useCallback(() => {
+  const getColRects = useCallback((): DOMRect[] => {
     const grid = gridRef.current
-    if (!grid || professionals.length === 0) {
-      return { colW: MIN_COL_W, gridLeft: 0, gridTop: 0 }
-    }
-    const rect = grid.getBoundingClientRect()
-    // Largura total das colunas de profissional (descontando a coluna de tempo)
-    const profAreaW = rect.width - TIME_COL_W
-    const colW = profAreaW / professionals.length
-    return { colW, gridLeft: rect.left, gridTop: rect.top }
-  }, [professionals.length])
+    if (!grid) return []
+    return Array.from(grid.querySelectorAll<HTMLElement>('[data-prof-col]')).map(el => el.getBoundingClientRect())
+  }, [])
 
   // Converte clientY do mouse → minuto snapped na grade
   const yToSnappedMin = useCallback((clientY: number): number => {
@@ -190,21 +187,27 @@ export default function AgendaGrid({
     const relY = clientY - rect.top - HEADER_H
     const absMin = START_MIN + relY / PX_PER_MIN
     return Math.max(START_MIN, Math.min(snapToSlot(absMin), END_HOUR * 60 - SLOT_STEP))
-  }, [START_MIN, END_HOUR])
+  }, [START_MIN, END_HOUR, PX_PER_MIN])
 
   // Converte clientX do mouse → índice da coluna de profissional
   const xToColIdx = useCallback((clientX: number): number => {
-    const { colW, gridLeft } = getColumnGeometry()
-    const relX = clientX - gridLeft - TIME_COL_W
-    return Math.max(0, Math.min(Math.floor(relX / colW), professionals.length - 1))
-  }, [getColumnGeometry, professionals.length])
+    const rects = getColRects()
+    if (rects.length === 0) return 0
+    let idx = -1
+    for (let i = 0; i < rects.length; i++) {
+      if (clientX >= rects[i].left && clientX < rects[i].right) { idx = i; break }
+    }
+    if (idx < 0) idx = clientX < rects[0].left ? 0 : rects.length - 1
+    if (collapsedSet.has(professionals[idx]?.id)) return -1
+    return idx
+  }, [getColRects, collapsedSet, professionals])
 
   // ─── Scroll inicial / scroll para preview ──────────────────────────────────
   useEffect(() => {
     if (!preview?.active || !scrollRef.current) return
     const targetY = Math.max(0, (toMinutes(preview.time) - START_MIN - 60) * PX_PER_MIN)
     scrollRef.current.scrollTo({ top: targetY, behavior: 'smooth' })
-  }, [preview?.time, preview?.active, START_MIN])
+  }, [preview?.time, preview?.active, START_MIN, PX_PER_MIN])
 
   const didInitialScroll = useRef(false)
   useEffect(() => {
@@ -219,7 +222,7 @@ export default function AgendaGrid({
         ? Math.max(0, (toMinutes(workingHours.startTime) - START_MIN - 60) * PX_PER_MIN)
         : 0
     scrollRef.current.scrollTop = target
-  }, [currentY, workingHours, START_MIN])
+  }, [currentY, workingHours, START_MIN, PX_PER_MIN])
 
   // ─── Mousedown no card → inicia candidato a drag ────────────────────────────
   const onCardMouseDown = useCallback((
@@ -228,9 +231,10 @@ export default function AgendaGrid({
     e.preventDefault()
     e.stopPropagation()
 
-    const { colW, gridLeft } = getColumnGeometry()
     const profIdx   = professionals.findIndex(p => p.id === profId)
-    const ghostLeft = gridLeft + TIME_COL_W + profIdx * colW + 4
+    const colRect   = getColRects()[profIdx]
+    const colW      = colRect ? colRect.width : MIN_COL_W
+    const ghostLeft = (colRect ? colRect.left : 0) + 4
 
     // Top do card na tela = top do grid + header + posição do card - scroll
     const grid = gridRef.current
@@ -257,7 +261,7 @@ export default function AgendaGrid({
       startY: e.clientY,
       isActive: false,
     })
-  }, [professionals, getColumnGeometry])
+  }, [professionals, getColRects])
 
   const onCardClick = useCallback((e: React.MouseEvent, booking: AgendaBooking) => {
     e.stopPropagation()
@@ -293,7 +297,7 @@ export default function AgendaGrid({
     const next: ResizeDrag = { ...d, ghostHeight: h, currentEnd: minutesToTime(endMin) }
     dragRef.current = next
     setDragState(next)
-  }, [yToSnappedMin, END_HOUR])
+  }, [yToSnappedMin, END_HOUR, PX_PER_MIN])
 
   const onResizePointerEnd = useCallback(() => {
     const d = dragRef.current
@@ -329,16 +333,19 @@ export default function AgendaGrid({
         // Booking finalizado (COMPLETED/NO_SHOW) NÃO troca de coluna —
         // trava no profissional de origem pra proteger venda/comissão atreladas.
         const lockColumn = d.booking.status !== 'CONFIRMED'
-        const colIdx  = lockColumn
+        const rawIdx  = lockColumn
           ? professionals.findIndex(p => p.id === d.fromProfId)
           : xToColIdx(e.clientX)
-        const safeColIdx = colIdx < 0 ? 0 : colIdx
+        // rawIdx < 0 = sobre coluna recolhida (não é alvo) → mantém o alvo atual
+        const keepIdx = rawIdx < 0 ? professionals.findIndex(p => p.id === d.currentProfId) : rawIdx
+        const safeColIdx = keepIdx < 0 ? 0 : keepIdx
         const prof    = professionals[safeColIdx]
-        const { colW, gridLeft } = getColumnGeometry()
+        const colRect = getColRects()[safeColIdx]
+        const colW    = colRect ? colRect.width : MIN_COL_W
 
         const next: MoveDrag = {
           ...d,
-          ghostLeft:     gridLeft + TIME_COL_W + safeColIdx * colW + 4,
+          ghostLeft:     (colRect ? colRect.left : 0) + 4,
           ghostTop:      e.clientY - d.offsetY,
           ghostWidth:    colW - 8,
           currentProfId: prof?.id ?? d.currentProfId,
@@ -398,7 +405,7 @@ export default function AgendaGrid({
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup',   onMouseUp)
     }
-  }, [professionals, END_HOUR, doReschedule, doResize, setPendingAction, yToSnappedMin, xToColIdx, getColumnGeometry])
+  }, [professionals, END_HOUR, doReschedule, doResize, setPendingAction, yToSnappedMin, xToColIdx, getColRects])
 
   const isMove        = drag?.type === 'move'
   const isResize      = drag?.type === 'resize'
@@ -471,8 +478,16 @@ export default function AgendaGrid({
         >
           {/* Coluna horários */}
           <div style={{ display:'flex', flexDirection:'column' }}>
-            {/* Espaçador do header (alinha os slots com as colunas dos profissionais) */}
-            <div style={{ height: HEADER_H, flexShrink: 0 }} />
+            {/* Header da coluna de tempo — sticky, abriga o controle de zoom */}
+            <div style={{
+              height: HEADER_H, flexShrink: 0,
+              position: 'sticky', top: 0, zIndex: Z.headerSticky,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
+              borderBottom: `1px solid ${colors.gray.border}`,
+            }}>
+              <ZoomControl onZoomIn={onZoomIn} onZoomOut={onZoomOut} canIn={canZoomIn} canOut={canZoomOut} />
+            </div>
             <div style={{ position:'relative', zIndex:2, height: TOTAL_H }}>
             {SLOTS.map((time, i) => {
               const min = i * SLOT_STEP
@@ -516,48 +531,64 @@ export default function AgendaGrid({
                   : [])
               : []
 
-            const isFocused = focusedProfId === p.id
-            const isSlim    = Boolean(focusedProfId) && !isFocused
+            const isCollapsed = collapsedSet.has(p.id)
+            if (isCollapsed) return (
+              <div key={p.id} data-prof-col={p.id} onClick={() => onToggleCollapse(p.id)}
+                title={`Expandir ${p.name}`}
+                style={{
+                  ...colStyle(p.id),
+                  display: 'flex', flexDirection: 'column',
+                  borderLeft: `1px solid ${colors.gray.border}`,
+                  overflow: 'hidden', cursor: 'pointer',
+                }}>
+                <div style={{
+                  height: HEADER_H, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  position: 'sticky', top: 0, zIndex: Z.headerSticky,
+                  background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
+                  borderBottom: `1px solid ${colors.gray.border}`,
+                }}>
+                  <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={22} />
+                </div>
+                <div style={{ position: 'relative', height: TOTAL_H, flex: 1 }}>
+                  <HeatmapStrip bookings={profBookings} startMin={START_MIN} endHour={END_HOUR} totalH={TOTAL_H} pxPerMin={PX_PER_MIN} />
+                </div>
+              </div>
+            )
             return (
-              <div key={p.id} style={{
+              <div key={p.id} data-prof-col={p.id} style={{
                 ...colStyle(p.id),
                 display: 'flex', flexDirection: 'column',
                 borderLeft: `1px solid ${colors.gray.border}`,
                 overflow: 'visible',
               }}>
-                {/* ── Header do profissional ── */}
+                {/* ── Header do profissional (clique = recolher) ── */}
                 <div
-                  onClick={() => handleProfClick(p.id)}
+                  onClick={() => onToggleCollapse(p.id)}
+                  title={`Recolher ${p.name}`}
                   style={{
                     height: HEADER_H, flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     position: 'sticky', top: 0, zIndex: Z.headerSticky,
-                    background: isFocused
-                      ? 'rgba(220,38,38,0.06)'
-                      : isMovingReal && hoverProfId === p.id
-                        ? 'rgba(220,38,38,0.08)'
-                        : 'rgba(255,255,255,0.95)',
+                    background: isMovingReal && hoverProfId === p.id
+                      ? 'rgba(220,38,38,0.08)'
+                      : 'rgba(255,255,255,0.95)',
                     backdropFilter: 'blur(20px)',
-                    borderBottom: (isFocused || (isMovingReal && hoverProfId === p.id))
+                    borderBottom: (isMovingReal && hoverProfId === p.id)
                       ? `2px solid ${colors.red.DEFAULT}`
                       : `1px solid ${colors.gray.border}`,
-                    fontWeight: 600, fontSize: isSlim ? 11 : 13,
-                    color: isFocused ? colors.red.DEFAULT : colors.gray['900'],
-                    cursor: onFocusProf ? 'pointer' : 'default',
+                    fontWeight: 600, fontSize: 13,
+                    color: colors.gray['900'],
+                    cursor: 'pointer',
                     transition: 'background 0.15s ease, color 0.15s ease',
                     userSelect: 'none',
                     overflow: 'hidden',
                   }}
                 >
-                  <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={isFocused ? 32 : isSlim ? 22 : 28} />
-                  {!isSlim && (
-                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth: isFocused ? 140 : 80, transition: 'max-width 260ms ease' }}>
-                      {p.name}
-                    </span>
-                  )}
-                  {isFocused && (
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: colors.red.DEFAULT, marginLeft: 4, flexShrink: 0 }} />
-                  )}
+                  <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={28} />
+                  <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth: 80 }}>
+                    {p.name}
+                  </span>
                 </div>
                 {/* ── Body da coluna ── */}
                 <div style={{

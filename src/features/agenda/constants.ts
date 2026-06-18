@@ -7,8 +7,8 @@ export const SLOT_STEP   = 5                  // minutos por slot
 export const MIN_DUR     = 5                  // duração mínima de booking/resize
 
 // Desktop / iPad — slots de 5min com altura fixa
-export const SLOT_H      = 10                 // px por slot de 5min (desktop/iPad)
-export const PX_PER_MIN  = SLOT_H / SLOT_STEP // 2px/min
+export const SLOT_H = 6                 // px por slot de 5min (desktop/iPad)
+export const PX_PER_MIN  = SLOT_H / SLOT_STEP // 1.2px/min (compacto)
 
 // Mobile — slots maiores para toque confortável
 export const MOBILE_ROW_H       = 56          // px por meio-slot de 30min
@@ -53,3 +53,10 @@ export const EASE = {
   smooth:  'cubic-bezier(0.4, 0, 0.2, 1)',
   sheet:   'cubic-bezier(0.34, 1.2, 0.64, 1)',
 } as const
+
+// Densidade desktop/iPad — níveis de zoom (px por minuto). Default = 1.2 (compacto).
+export const AGENDA_PXMIN_LEVELS = [0.8, 1.0, 1.2, 1.5, 1.8, 2.2] as const
+export const AGENDA_PXMIN_DEFAULT_INDEX = 2
+
+// Largura da coluna recolhida (strip de heatmap) — desktop/iPad.
+export const COLLAPSED_COL_W = 34

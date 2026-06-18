@@ -18,7 +18,6 @@ import PreviewGhost, { PreviewItem } from './shared/PreviewGhost'
 import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
 import { colors, typography, radius, transitions } from '@/shared/theme'
 import { useAgendaStore }    from '../hooks/useAgendaStore'
-import { useAuth }            from '@/hooks/useAuth'
 import { useCurrentTimeY }   from '../hooks/useCurrentTimeY'
 import { useBookingActions } from '../hooks/useBookingActions'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildHalfSlots, computeGridRange } from '../utils/time'
@@ -148,14 +147,12 @@ interface Props {
   onDeleteBlock:    (id: string) => void
   onUpdateBlock:    (block: AgendaBlock) => void
   onOpenBlockModal?:(time?: string, profId?: string) => void
-  focusedProfId?:   string | null
-  onFocusProf?:     (id: string | null) => void
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function AgendaMobileList({
   professionals, bookings, blocks, workingHours,
-  onDeleteBlock, onUpdateBlock, onOpenBlockModal, focusedProfId,
+  onDeleteBlock, onUpdateBlock, onOpenBlockModal,
 }: Props) {
   const openCreate    = useAgendaStore(s => s.openCreate)
   const openView      = useAgendaStore(s => s.openView)

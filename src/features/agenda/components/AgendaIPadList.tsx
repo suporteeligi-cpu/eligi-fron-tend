@@ -15,6 +15,8 @@ import ProfAvatar       from './shared/ProfAvatar'
 import OffHoursOverlay  from './shared/OffHoursOverlay'
 import CurrentTimeLine  from './shared/CurrentTimeLine'
 import PreviewGhost, { PreviewItem } from './shared/PreviewGhost'
+import ZoomControl       from './shared/ZoomControl'
+import HeatmapStrip      from './shared/HeatmapStrip'
 
 import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
 import { colors, agendaLayout } from '@/shared/theme'
@@ -24,7 +26,7 @@ import { useBookingActions } from '../hooks/useBookingActions'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildSlots, computeGridRange } from '../utils/time'
 import { computeOverlapLayout, computeOffHoursOverlay, uniqueBookings } from '../utils/layout'
 import {
-  SLOT_STEP, SLOT_H, PX_PER_MIN, MIN_CARD_H_DESKTOP, MIN_DUR,
+  SLOT_STEP, MIN_CARD_H_DESKTOP, MIN_DUR, COLLAPSED_COL_W,
   TOUCH_CANCEL_PX, LONG_PRESS_MS, VIBRATE_DRAG_MS, VIBRATE_RESIZE_MS,
   DEFAULT_START_HOUR_DESKTOP, DEFAULT_END_HOUR_DESKTOP,
   EASE, Z,
@@ -69,18 +71,30 @@ interface Props {
   onOpenBlockModal?:(time?: string, profId?: string) => void
   onDeleteBlock?:   (id: string) => void
   onUpdateBlock?:   (block: AgendaBlock) => void
-  focusedProfId?:   string | null
-  onFocusProf?:     (id: string | null) => void
+  collapsed:        string[]
+  onToggleCollapse: (id: string) => void
+  pxPerMin:         number
+  onZoomIn:         () => void
+  onZoomOut:        () => void
+  canZoomIn:        boolean
+  canZoomOut:       boolean
 }
 
 export default function AgendaIPadList({
   professionals, bookings, blocks, workingHours,
   onOpenBlockModal, onDeleteBlock, onUpdateBlock,
+  pxPerMin, onZoomIn, onZoomOut, canZoomIn, canZoomOut,
+  collapsed, onToggleCollapse,
 }: Props) {
   const openCreate    = useAgendaStore(s => s.openCreate)
   const openView      = useAgendaStore(s => s.openView)
   const selectedDate  = useAgendaStore(s => s.selectedDate)
   const preview       = useAgendaStore(s => s.preview)
+
+  // Densidade dinâmica (zoom): substitui as constantes SLOT_H/PX_PER_MIN.
+  const PX_PER_MIN = pxPerMin
+  const SLOT_H     = pxPerMin * SLOT_STEP
+  const collapsedSet = useMemo(() => new Set(collapsed), [collapsed])
 
   const { savingId, pendingAction, setPendingAction, doReschedule, doResize } = useBookingActions(selectedDate)
 
@@ -146,13 +160,13 @@ export default function AgendaIPadList({
         ? Math.max(0, (toMinutes(workingHours.startTime) - START_MIN - 60) * PX_PER_MIN)
         : 0
     scrollRef.current.scrollTop = target
-  }, [currentY, workingHours, START_MIN])
+  }, [currentY, workingHours, START_MIN, PX_PER_MIN])
 
   useEffect(() => {
     if (!preview?.active || !scrollRef.current) return
     const targetY = Math.max(0, (toMinutes(preview.time) - START_MIN - 60) * PX_PER_MIN)
     scrollRef.current.scrollTo({ top: targetY, behavior: 'smooth' })
-  }, [preview?.time, preview?.active, START_MIN])
+  }, [preview?.time, preview?.active, START_MIN, PX_PER_MIN])
 
   // ─── Helpers (refs lidos só em event handlers) ─────────────────────────────
   const snapFromTouch = useCallback((clientY: number): number => {
@@ -161,17 +175,22 @@ export default function AgendaIPadList({
     const relY = clientY - rect.top + scrollRef.current.scrollTop - HEADER_H
     const absMin = START_MIN + relY / PX_PER_MIN
     return Math.max(START_MIN, Math.min(snapToSlot(absMin), END_HOUR * 60 - SLOT_STEP))
-  }, [START_MIN, END_HOUR])
+  }, [START_MIN, END_HOUR, PX_PER_MIN])
 
   const colInfoFromTouch = useCallback((clientX: number): { colIdx: number; colW: number; colLeft: number } => {
-    if (!scrollRef.current) return { colIdx: 0, colW: 0, colLeft: 0 }
-    const rect    = scrollRef.current.getBoundingClientRect()
-    const scrollL = scrollRef.current.scrollLeft
-    const relX    = clientX - rect.left + scrollL - TIME_COL_W
-    const colW    = (rect.width - TIME_COL_W) / Math.max(1, professionals.length)
-    const colIdx  = Math.max(0, Math.min(Math.floor(relX / colW), professionals.length - 1))
-    return { colIdx, colW, colLeft: rect.left + TIME_COL_W + colIdx * colW }
-  }, [professionals.length])
+    const grid = gridRef.current
+    if (!grid) return { colIdx: 0, colW: 0, colLeft: 0 }
+    const cols = Array.from(grid.querySelectorAll<HTMLElement>('[data-prof-col]'))
+    if (cols.length === 0) return { colIdx: 0, colW: 0, colLeft: 0 }
+    let idx = -1
+    for (let i = 0; i < cols.length; i++) {
+      const r = cols[i].getBoundingClientRect()
+      if (clientX >= r.left && clientX < r.right) { idx = i; break }
+    }
+    if (idx < 0) idx = clientX < cols[0].getBoundingClientRect().left ? 0 : cols.length - 1
+    const rect = cols[idx].getBoundingClientRect()
+    return { colIdx: idx, colW: rect.width, colLeft: rect.left }
+  }, [])
 
   // ─── Touch handlers ────────────────────────────────────────────────────────
   const onCardTouchStart = useCallback((
@@ -204,7 +223,7 @@ export default function AgendaIPadList({
         ghostTop: (snapMin - START_MIN) * PX_PER_MIN,
       })
     }, LONG_PRESS_MS)
-  }, [professionals, snapFromTouch, colInfoFromTouch, START_MIN])
+  }, [professionals, snapFromTouch, colInfoFromTouch, START_MIN, PX_PER_MIN])
 
   const onCardTouchEnd = useCallback(() => {
     if (longPressRef.current) {
@@ -253,7 +272,7 @@ export default function AgendaIPadList({
     )
     const h = Math.max((endMin - toMinutes(d.booking.start)) * PX_PER_MIN - 2, MIN_CARD_H_DESKTOP)
     setDrag({ ...d, ghostHeight: h, currentEnd: minutesToTime(endMin) })
-  }, [START_MIN, END_HOUR])
+  }, [START_MIN, END_HOUR, PX_PER_MIN])
 
   const onResizePointerEnd = useCallback(() => {
     const d = dragRef.current
@@ -294,20 +313,22 @@ export default function AgendaIPadList({
 
     if (d.type === 'move') {
       const snapMin = snapFromTouch(touch.clientY)
-      const { colIdx, colW, colLeft } = colInfoFromTouch(touch.clientX)
-      const prof = professionals[colIdx]
+      const info = colInfoFromTouch(touch.clientX)
+      const targetProf = professionals[info.colIdx]
+      // Coluna recolhida não é alvo de drop → mantém o alvo/posição atuais
+      const targetCollapsed = collapsedSet.has(targetProf?.id)
       setDrag({
         ...d,
-        colLeft:  colLeft + 4,
-        colWidth: colW - 8,
-        currentProfId: prof?.id ?? d.currentProfId,
+        colLeft:  targetCollapsed ? d.colLeft  : info.colLeft + 4,
+        colWidth: targetCollapsed ? d.colWidth : info.colW - 8,
+        currentProfId: targetCollapsed ? d.currentProfId : (targetProf?.id ?? d.currentProfId),
         currentTime:   minutesToTime(snapMin),
         ghostTop: (snapMin - START_MIN) * PX_PER_MIN,
       })
       setHoverSlot(minutesToTime(snapMin))
       return
     }
-  }, [professionals, snapFromTouch, colInfoFromTouch, START_MIN])
+  }, [professionals, snapFromTouch, colInfoFromTouch, START_MIN, PX_PER_MIN, collapsedSet])
 
   const onTouchEnd = useCallback(() => {
     if (longPressRef.current) {
@@ -411,34 +432,45 @@ export default function AgendaIPadList({
           ref={gridRef}
           style={{
             display:'grid',
-            gridTemplateColumns: `${TIME_COL_W}px repeat(${professionals.length}, minmax(${MIN_COL_W}px, 1fr))`,
-            minWidth: `${TIME_COL_W + professionals.length * MIN_COL_W}px`,
+            gridTemplateColumns: `${TIME_COL_W}px ${professionals.map(p => collapsedSet.has(p.id) ? `${COLLAPSED_COL_W}px` : `minmax(${MIN_COL_W}px, 1fr)`).join(' ')}`,
+            minWidth: `${TIME_COL_W + professionals.reduce((w, p) => w + (collapsedSet.has(p.id) ? COLLAPSED_COL_W : MIN_COL_W), 0)}px`,
           }}
         >
-          {/* Header canto */}
+          {/* Header canto — abriga o controle de zoom */}
           <div style={{
             height: HEADER_H, position:'sticky', top:0, zIndex: Z.headerSticky,
             background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)',
             borderBottom:`1px solid ${colors.gray.border}`,
             borderRight:`1px solid ${colors.gray.border}`,
-          }} />
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            <ZoomControl onZoomIn={onZoomIn} onZoomOut={onZoomOut} canIn={canZoomIn} canOut={canZoomOut} />
+          </div>
 
-          {/* Header profissionais */}
-          {professionals.map(p => (
-            <div key={p.id} style={{
+          {/* Header profissionais (clique = recolher/expandir) */}
+          {professionals.map(p => {
+            const isCollapsed = collapsedSet.has(p.id)
+            return (
+            <div key={p.id}
+              onClick={() => onToggleCollapse(p.id)}
+              title={isCollapsed ? `Expandir ${p.name}` : `Recolher ${p.name}`}
+              style={{
               height: HEADER_H, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               position:'sticky', top:0, zIndex: Z.headerSticky,
               background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)',
               borderBottom:`1px solid ${colors.gray.border}`,
               borderLeft:`1px solid ${colors.gray.border}`,
               fontWeight:600, fontSize:13, color:colors.gray['900'],
+              cursor:'pointer', userSelect:'none', overflow:'hidden',
             }}>
-              <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={30} />
-              <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:120 }}>
-                {p.name}
-              </span>
+              <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={isCollapsed ? 22 : 30} />
+              {!isCollapsed && (
+                <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:120 }}>
+                  {p.name}
+                </span>
+              )}
             </div>
-          ))}
+          )})}
 
           {/* Coluna horários */}
           <div style={{ position:'relative', zIndex:2, height: TOTAL_H }}>
@@ -492,8 +524,18 @@ export default function AgendaIPadList({
                   : [])
               : []
 
+            const isCollapsed = collapsedSet.has(p.id)
+            if (isCollapsed) return (
+              <div key={p.id} data-prof-col={p.id} onClick={() => onToggleCollapse(p.id)}
+                style={{
+                  position:'relative', borderLeft:`1px solid ${colors.gray.border}`,
+                  zIndex: Z.gridBase, height: TOTAL_H, cursor:'pointer', overflow:'hidden',
+                }}>
+                <HeatmapStrip bookings={profBookings} startMin={START_MIN} endHour={END_HOUR} totalH={TOTAL_H} pxPerMin={PX_PER_MIN} />
+              </div>
+            )
             return (
-              <div key={p.id} style={{
+              <div key={p.id} data-prof-col={p.id} style={{
                 position:'relative',
                 borderLeft:`1px solid ${colors.gray.border}`,
                 zIndex: Z.gridBase, height: TOTAL_H,

@@ -14,12 +14,12 @@ import BookingViewPanel  from '@/features/booking/components/BookingViewPanel'
 import BlockModal        from './BlockModal'
 
 import { useAgendaStore }  from '../hooks/useAgendaStore'
-import { useAuth }         from '@/hooks/useAuth'
 import { useAgendaSocket } from '../hooks/useAgendaSocket'
 import { useDeviceMode }   from '../hooks/useDeviceMode'
 import { AgendaProfessional, AgendaBlock } from '../types'
 import { colors } from '@/shared/theme'
 import api from '@/shared/lib/apiClient'
+import { AGENDA_PXMIN_LEVELS, AGENDA_PXMIN_DEFAULT_INDEX } from '../constants'
 
 export interface WorkingHours {
   open:      boolean
@@ -55,22 +55,51 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   const checkout           = useAgendaStore(s => s.checkout)
   const closeCheckout      = useAgendaStore(s => s.closeCheckout)
 
-  const focusedProfId  = useAgendaStore(s => s.focusedProfId)
-  const setFocusedProf = useAgendaStore(s => s.setFocusedProf)
-  const { user: authUser } = useAuth()
   const mode = useDeviceMode()
 
-  // Staff: foca automaticamente na própria coluna
-  // Owner/Manager: garante que não há foco forçado
+  // ── Zoom da grade (densidade desktop/iPad), persistido em localStorage ──
+  const [zoomIndex, setZoomIndex] = useState(AGENDA_PXMIN_DEFAULT_INDEX)
+  // Hidrata do localStorage após o mount (setTimeout evita setState síncrono no effect)
   useEffect(() => {
-    if (!authUser) return
-    const staffRoles = ['BASIC_STAFF', 'STAFF', 'RECEPTIONIST']
-    if (staffRoles.includes(authUser.role) && authUser.professionalId) {
-      setFocusedProf(authUser.professionalId)
-    } else if (!staffRoles.includes(authUser.role)) {
-      setFocusedProf(null)  // owner/manager começa sem foco
-    }
-  }, [authUser?.professionalId, authUser?.role, setFocusedProf])
+    const id = setTimeout(() => {
+      try {
+        const raw = localStorage.getItem('eligi-agenda-zoom')
+        const n = raw == null ? NaN : parseInt(raw, 10)
+        if (Number.isFinite(n)) {
+          const clamped = Math.max(0, Math.min(AGENDA_PXMIN_LEVELS.length - 1, n))
+          setZoomIndex(prev => (prev === clamped ? prev : clamped))
+        }
+      } catch { /* noop */ }
+    }, 0)
+    return () => clearTimeout(id)
+  }, [])
+  useEffect(() => {
+    try { localStorage.setItem('eligi-agenda-zoom', String(zoomIndex)) } catch { /* noop */ }
+  }, [zoomIndex])
+  const pxPerMin   = AGENDA_PXMIN_LEVELS[zoomIndex]
+  const canZoomIn  = zoomIndex < AGENDA_PXMIN_LEVELS.length - 1
+  const canZoomOut = zoomIndex > 0
+  const zoomIn     = useCallback(() => setZoomIndex(i => Math.min(AGENDA_PXMIN_LEVELS.length - 1, i + 1)), [])
+  const zoomOut    = useCallback(() => setZoomIndex(i => Math.max(0, i - 1)), [])
+
+  // ── Colunas recolhidas (decisão C), persistido em localStorage ──
+  const [collapsed, setCollapsed] = useState<string[]>([])
+  useEffect(() => {
+    const id = setTimeout(() => {
+      try {
+        const raw = localStorage.getItem('eligi-agenda-collapsed')
+        const arr = raw ? JSON.parse(raw) : null
+        if (Array.isArray(arr)) setCollapsed(arr.filter((x): x is string => typeof x === 'string'))
+      } catch { /* noop */ }
+    }, 0)
+    return () => clearTimeout(id)
+  }, [])
+  useEffect(() => {
+    try { localStorage.setItem('eligi-agenda-collapsed', JSON.stringify(collapsed)) } catch { /* noop */ }
+  }, [collapsed])
+  const toggleCollapse = useCallback((id: string) => {
+    setCollapsed(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
+  }, [])
 
   const [allHours,      setAllHours]      = useState<HourSlot[]>([])
   const [blockModal,    setBlockModal]    = useState(false)
@@ -203,8 +232,9 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
         <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column' }}>
           {mode === 'desktop' && (
             <AgendaGrid
+              pxPerMin={pxPerMin} onZoomIn={zoomIn} onZoomOut={zoomOut} canZoomIn={canZoomIn} canZoomOut={canZoomOut}
+              collapsed={collapsed} onToggleCollapse={toggleCollapse}
               professionals={professionals} bookings={bookings} blocks={blocks}
-                focusedProfId={focusedProfId} onFocusProf={setFocusedProf}
               workingHours={workingHours}
               onOpenBlockModal={openBlockModal}
               onDeleteBlock={handleDeleteBlock}
@@ -213,8 +243,9 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           )}
           {mode === 'ipad' && (
             <AgendaIPadList
+              pxPerMin={pxPerMin} onZoomIn={zoomIn} onZoomOut={zoomOut} canZoomIn={canZoomIn} canZoomOut={canZoomOut}
+              collapsed={collapsed} onToggleCollapse={toggleCollapse}
               professionals={professionals} bookings={bookings} blocks={blocks}
-                focusedProfId={focusedProfId} onFocusProf={setFocusedProf}
               workingHours={workingHours}
               onOpenBlockModal={openBlockModal}
               onDeleteBlock={handleDeleteBlock}
@@ -224,7 +255,6 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           {mode === 'mobile' && (
             <AgendaMobileList
               professionals={professionals} bookings={bookings} blocks={blocks}
-                focusedProfId={focusedProfId} onFocusProf={setFocusedProf}
               workingHours={workingHours}
               onDeleteBlock={handleDeleteBlock}
               onUpdateBlock={handleUpdateBlock}

@@ -38,6 +38,38 @@ const REASONS: Record<string, { title: string; sub: string; cta: string }> = {
   },
 }
 
+type ProfLite = { id: string; name: string; role?: string | null; avatarUrl?: string | null }
+type SeatGate =
+  | { kind: 'SELECT'; plan: Plan; professionals: ProfLite[] }
+  | { kind: 'CONFIRM'; plan: Plan; activeCount: number; value: number; extras: number; extraPrice: number }
+
+/** Le um 409 de seat na assinatura (sem any). */
+function readSeatGate(err: unknown, plan: Plan): SeatGate | null {
+  if (typeof err !== 'object' || err === null) return null
+  const resp = (err as { response?: unknown }).response
+  if (typeof resp !== 'object' || resp === null) return null
+  const r = resp as { status?: number; data?: unknown }
+  if (r.status !== 409) return null
+  if (typeof r.data !== 'object' || r.data === null) return null
+  const b = r.data as { error?: { code?: string }; data?: Record<string, unknown> }
+  const code = b.error?.code
+  const d = b.data ?? {}
+  if (code === 'SEAT_SELECTION_REQUIRED') {
+    const profs = Array.isArray(d.professionals) ? (d.professionals as ProfLite[]) : []
+    return { kind: 'SELECT', plan, professionals: profs }
+  }
+  if (code === 'SEAT_VALUE_CONFIRM') {
+    return {
+      kind: 'CONFIRM', plan,
+      activeCount: Number(d.activeCount ?? 0),
+      value: Number(d.value ?? 0),
+      extras: Number(d.extras ?? 0),
+      extraPrice: Number(d.extraPrice ?? 19.9),
+    }
+  }
+  return null
+}
+
 export default function BillingGuard({ children }: { children: ReactNode }) {
   const [blocked, setBlocked] = useState(false)
   const [reason, setReason] = useState('VOLUNTARY')
@@ -82,8 +114,10 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
   const [accepted, setAccepted] = useState(false)
   const [submitting, setSubmitting] = useState<Plan | null>(null)
   const [err, setErr] = useState('')
+  const [seatGate, setSeatGate] = useState<SeatGate | null>(null)
+  const [keepId, setKeepId] = useState<string | null>(null)
 
-  async function subscribe(plan: Plan) {
+  async function subscribe(plan: Plan, extra?: { keepProfessionalIds?: string[]; acceptBilling?: boolean }) {
     const digits = doc.replace(/\D/g, '')
     if (digits.length !== 11 && digits.length !== 14) {
       setErr('Informe um CPF ou CNPJ valido.')
@@ -98,15 +132,22 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
     try {
       const res = await api.post<{ data: { status: string; checkoutUrl: string | null } }>(
         '/billing/subscribe',
-        { plan, cpfCnpj: digits, acceptedTerms: true },
+        { plan, cpfCnpj: digits, acceptedTerms: true, ...extra },
       )
       const data = res.data?.data
       if (data?.checkoutUrl) {
         window.location.href = data.checkoutUrl
         return
       }
+      setSeatGate(null)
       onResolved()
     } catch (e) {
+      const gate = readSeatGate(e, plan)
+      if (gate) {
+        setSeatGate(gate)
+        setErr('')
+        return
+      }
       const msg = (e as { response?: { data?: { error?: { message?: string } } } })
         ?.response?.data?.error?.message
       setErr(msg ?? 'Nao foi possivel criar a assinatura.')
@@ -123,6 +164,7 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
   const busy = submitting !== null
 
   return (
+    <>
     <div style={overlay}>
       <div style={modal}>
         {reason === 'VOLUNTARY' && (
@@ -182,6 +224,56 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
         <button onClick={logout} style={signOut} disabled={busy}>Sair da conta</button>
       </div>
     </div>
+
+      {seatGate && (
+        <div style={{ ...overlay, zIndex: 1000000 }}>
+          <div style={{ ...modal, maxWidth: 440 }}>
+            {seatGate.kind === 'SELECT' ? (
+              <>
+                <p style={titleStyle}>Escolha quem continua</p>
+                <p style={subStyle}>
+                  O plano Autonomo cobre 1 profissional. Selecione quem fica ativo — os demais serao
+                  desativados (dados preservados; da pra reativar ao mudar de plano).
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left', marginBottom: 16 }}>
+                  {seatGate.professionals.map((p) => (
+                    <label
+                      key={p.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                        border: keepId === p.id ? '1px solid #dc2626' : '1px solid rgba(0,0,0,0.12)',
+                        borderRadius: 10, cursor: 'pointer',
+                      }}
+                    >
+                      <input type="radio" name="keep" checked={keepId === p.id} onChange={() => setKeepId(p.id)} />
+                      <span style={{ fontSize: 14, color: '#18181b' }}>
+                        {p.name}{p.role ? <span style={{ color: '#71717a' }}> · {p.role}</span> : null}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <button style={btnRed} disabled={busy || !keepId} onClick={() => keepId && subscribe(seatGate.plan, { keepProfessionalIds: [keepId] })}>
+                  {busy ? 'Aguarde...' : 'Confirmar e assinar'}
+                </button>
+              </>
+            ) : (
+              <>
+                <p style={titleStyle}>Confirmar valor</p>
+                <p style={subStyle}>
+                  Voce tem {seatGate.activeCount} profissionais ativos. O Estabelecimento inclui 3; os {seatGate.extras}
+                  {' '}extra(s) custam R$&nbsp;{seatGate.extraPrice.toFixed(2).replace('.', ',')}/mes cada. Total:{' '}
+                  <strong>R$&nbsp;{seatGate.value.toFixed(2).replace('.', ',')}/mes</strong>.
+                </p>
+                <button style={btnRed} disabled={busy} onClick={() => subscribe(seatGate.plan, { acceptBilling: true })}>
+                  {busy ? 'Aguarde...' : 'Confirmar e assinar'}
+                </button>
+              </>
+            )}
+            <button onClick={() => setSeatGate(null)} style={signOut} disabled={busy}>Voltar</button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
