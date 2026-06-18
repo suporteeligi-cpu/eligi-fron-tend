@@ -97,7 +97,7 @@ function generateTimeSlots(): string[] {
   return s
 }
 const TIME_SLOTS = generateTimeSlots()
-const ITEM_H = 36, VISIBLE = 3
+const ITEM_H = 28, VISIBLE = 3
 
 function addMinutes(time: string, min: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -749,13 +749,13 @@ export default function SideCheckoutPanel({
       date:           dateStr2,
       time:           first.startTime || '09:00',
       professionalId: first.profId,
-      duration:       first.service?.duration ?? 30,
+      duration:       first.endTime ? Math.max(5, toMin(first.endTime) - toMin(first.startTime)) : (first.service?.duration ?? 30),
       serviceName:    first.service?.name,
       clientName:     clientLabel,
       allItems:       validItems.map(it => ({
         startTime:   it.startTime,
         endTime:     it.endTime,
-        duration:    it.service?.duration ?? 30,
+        duration:    it.endTime ? Math.max(5, toMin(it.endTime) - toMin(it.startTime)) : (it.service?.duration ?? 30),
         serviceName: it.service?.name ?? '',
         profId:      it.profId,
         clientName:  clientLabel,
@@ -805,9 +805,14 @@ export default function SideCheckoutPanel({
   function updateItemTime(idx: number, field: 'startTime'|'endTime', val: string) {
     setItems(prev => {
       const next = prev.map(x => ({ ...x }))
-      next[idx]  = { ...next[idx], [field]: val }
-      if (field === 'startTime' && next[idx].service) {
-        next[idx].endTime = addMinutes(val, next[idx].service.duration)
+      if (field === 'startTime') {
+        next[idx] = { ...next[idx], startTime: val }
+        if (next[idx].service) next[idx].endTime = addMinutes(val, next[idx].service.duration)
+      } else {
+        // FIM manual (roleta do FIM): estica/retrai a duração.
+        // Garante fim > início (mín 1 slot = 5min).
+        const minEnd = addMinutes(next[idx].startTime, 5)
+        next[idx] = { ...next[idx], endTime: toMin(val) < toMin(minEnd) ? minEnd : val }
       }
       // Ajuste manual é "rei" para ESTE item; os itens seguintes (após idx)
       // re-snapeiam conforme seus modos.
@@ -852,11 +857,13 @@ export default function SideCheckoutPanel({
         // ── MODO EDIT: PATCH /bookings/:id (1 serviço por booking) ──────────
         const it = items[0]
         const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
+        const endAt   = it.endTime ? dayjs.tz(`${dateStr} ${it.endTime}`, 'America/Sao_Paulo').toISOString() : undefined
 
         await api.patch(`/bookings/${existingBooking.id}`, {
           serviceId:      it.service.id,
           professionalId: it.profId || null,
           startAt,
+          endAt,
           clientId:       selectedClient?.id ?? null,        // ⭐ NEW: linka com Client cadastrado
           clientName:     selectedClient?.name ?? 'Avulso', // ⭐ NEW: mantém nome mesmo com cliente linkado (pode ser editável futuramente)
           clientPhone:    selectedClient?.phone ?? undefined,
@@ -879,6 +886,7 @@ export default function SideCheckoutPanel({
           const snap = snapshotRef.current
           for (const it of items) {
             const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
+            const endAt   = it.endTime ? dayjs.tz(`${dateStr} ${it.endTime}`, 'America/Sao_Paulo').toISOString() : undefined
 
             if (it.bookingId) {
               // Item EXISTENTE: só faz PATCH se algo mudou (serviço/horário/prof).
@@ -892,6 +900,7 @@ export default function SideCheckoutPanel({
                   serviceId:      it.service.id,
                   professionalId: it.profId || null,
                   startAt,
+                  endAt,
                   allowOverlap,
                 })
               }
@@ -901,6 +910,7 @@ export default function SideCheckoutPanel({
                 serviceId:      it.service.id,
                 professionalId: it.profId || null,
                 startAt,
+                endAt,
                 allowOverlap,
               })
             }
@@ -913,6 +923,7 @@ export default function SideCheckoutPanel({
 
           await Promise.all(items.map(it => {
             const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
+            const endAt   = it.endTime ? dayjs.tz(`${dateStr} ${it.endTime}`, 'America/Sao_Paulo').toISOString() : undefined
             return api.post('/bookings/confirm', {
               clientId:       selectedClient?.id ?? null,
               clientName:     selectedClient?.name ?? 'Avulso',
@@ -920,6 +931,7 @@ export default function SideCheckoutPanel({
               professionalId: it.profId,
               serviceId:      it.service.id,
               startAt,
+              endAt,
               allowOverlap,
               groupId,
               internalNote:   internalNote || undefined,
@@ -1143,10 +1155,8 @@ export default function SideCheckoutPanel({
                         </div>
                         <div style={{flex:1,padding:'8px 12px'}}>
                           <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Fim</div>
-                          <div style={{height:ITEM_H*VISIBLE,border:`1px solid ${colors.gray.borderMd}`,borderRadius:8,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                            <span style={{fontSize:17,fontWeight:700,color:item.endTime?colors.gray[900]:colors.gray.dimTextLight,fontVariantNumeric:'tabular-nums'}}>
-                              {item.endTime||'--:--'}
-                            </span>
+                          <div style={{border:`1px solid ${colors.gray.borderMd}`,borderRadius:8,overflow:'hidden',background:'#fff',display:'flex'}}>
+                            <TimeWheel value={item.endTime||addMinutes(item.startTime||'09:00', item.service?.duration ?? 30)} onChange={v=>updateItemTime(idx,'endTime',v)}/>
                           </div>
                         </div>
                       </div>
