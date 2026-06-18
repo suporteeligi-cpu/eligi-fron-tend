@@ -38,6 +38,7 @@ export default function AssinaturaPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [canceling, setCanceling] = useState(false)
+  const [resuming, setResuming] = useState(false)
   const [paidFlag] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pago') === '1')
 
   const load = useCallback(async () => {
@@ -71,6 +72,18 @@ export default function AssinaturaPage() {
       setError(e.response?.data?.error?.message ?? 'Nao foi possivel cancelar a assinatura')
     } finally {
       setCanceling(false)
+    }
+  }
+  async function doResume() {
+    setResuming(true)
+    try {
+      await api.post('/billing/resume')
+      await load()
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: { message?: string } } } }
+      setError(e.response?.data?.error?.message ?? 'Nao foi possivel reativar a assinatura')
+    } finally {
+      setResuming(false)
     }
   }
 
@@ -203,7 +216,7 @@ export default function AssinaturaPage() {
               <>
                 <StateRow icon={<AlertTriangle size={18} color="#f59e0b" />} title="Assinatura cancelada"
                   desc={`Voce ainda tem acesso ate ${endLabel}. Depois disso o acesso sera bloqueado ate uma nova assinatura.`} />
-                <button onClick={openSubscribe} style={ctaStyle}>Reativar assinatura</button>
+                <button onClick={doResume} disabled={resuming} style={ctaStyle}>{resuming ? 'Reativando...' : 'Reativar assinatura'}</button>
               </>
             )}
 
