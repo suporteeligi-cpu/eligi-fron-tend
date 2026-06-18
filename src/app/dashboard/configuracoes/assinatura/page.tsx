@@ -18,11 +18,24 @@ interface SubscriptionView {
   value?: number | null
   currentPeriodEnd?: string | null
   extraSeats?: number
+  activeCount?: number
+  nextChange?: { delta: number; expectedValue: number; activeCount: number } | null
 }
 
 const PLAN_LABEL: Record<'AUTONOMO' | 'ESTABELECIMENTO', string> = {
   AUTONOMO: 'Autonomo',
   ESTABELECIMENTO: 'Estabelecimento',
+}
+const PLAN_BASE: Record<'AUTONOMO' | 'ESTABELECIMENTO', number> = { AUTONOMO: 59.9, ESTABELECIMENTO: 99.9 }
+const EXTRA_SEAT_PRICE = 19.9
+/** Chip de vencimento conforme a regua dos lembretes do sino (T-7/T-3/T-1). */
+function renewChip(iso: string): { label: string; bg: string; fg: string; border: string } | null {
+  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
+  if (days < 0) return null
+  if (days === 0 || days === 1) return { label: days === 0 ? 'vence hoje' : 'vence amanha', bg: 'rgba(220,38,38,0.1)', fg: '#991b1b', border: 'rgba(220,38,38,0.3)' }
+  if (days <= 3) return { label: `em ${days} dias`, bg: 'rgba(245,158,11,0.1)', fg: '#b45309', border: 'rgba(245,158,11,0.3)' }
+  if (days <= 7) return { label: `em ${days} dias`, bg: 'rgba(234,179,8,0.08)', fg: '#a16207', border: 'rgba(234,179,8,0.25)' }
+  return { label: `renova em ${days} dias`, bg: 'rgba(16,185,129,0.08)', fg: '#047857', border: 'rgba(16,185,129,0.25)' }
 }
 type ProfLite = { id: string; name: string; role?: string | null; avatarUrl?: string | null }
 
@@ -201,18 +214,70 @@ export default function AssinaturaPage() {
               </>
             )}
 
-            {status === 'ACTIVE' && (
+            {status === 'ACTIVE' && data.plan && (
               <>
-                <StateRow icon={<CheckCircle2 size={18} color="#10B981" />}
-                  title={`Plano ${planLabel} - ativo`}
-                  desc="Sua assinatura esta em dia." />
+                <style>{`@keyframes assinatura-flip{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}@keyframes assinatura-ring{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.18;transform:scale(1.06)}}@media (prefers-reduced-motion:reduce){.assinatura-globo,.assinatura-ring{animation:none}}`}</style>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 18, paddingBottom: 18, marginBottom: 16, borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+                  <div style={{ position: 'relative', width: 84, height: 84, flexShrink: 0, perspective: 600 }}>
+                    <div className="assinatura-ring" style={{ position: 'absolute', inset: 4, borderRadius: '50%', border: '1px solid rgba(220,38,38,0.3)', animation: 'assinatura-ring 4.5s ease-in-out infinite', pointerEvents: 'none' }} />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="assinatura-globo" src="/globo.png" alt="Eligi ativo" style={{ width: 76, height: 76, margin: 4, animation: 'assinatura-flip 9s linear infinite', display: 'block' }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 17, fontWeight: 500, color: '#18181b' }}>Plano {planLabel}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: 'rgba(16,185,129,0.1)', color: '#047857', border: '0.5px solid rgba(16,185,129,0.25)' }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10B981' }} />Ativo
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#71717a' }}>Sua assinatura esta em dia. Tudo funcionando.</div>
+                  </div>
+                </div>
                 <div style={infoGrid}>
                   <Info label="Valor mensal" value={data.value != null ? `R$ ${fmtBRL(data.value)}` : '-'} />
-                  <Info label="Proximo vencimento" value={data.currentPeriodEnd ? fmtDate(data.currentPeriodEnd) : '-'} />
-                  {data.extraSeats ? (
-                    <Info label="Profissionais extras" value={`${data.extraSeats} (+R$ ${fmtBRL(19.9 * data.extraSeats)})`} />
-                  ) : null}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11.5, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Proximo vencimento</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 14, fontWeight: 500, color: '#18181b' }}>{data.currentPeriodEnd ? fmtDate(data.currentPeriodEnd) : '-'}</span>
+                      {data.currentPeriodEnd && (() => {
+                        const chip = renewChip(data.currentPeriodEnd)
+                        return chip ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500, background: chip.bg, color: chip.fg, border: `0.5px solid ${chip.border}` }}>{chip.label}</span>
+                        ) : null
+                      })()}
+                    </span>
+                  </div>
+                  <Info label="Profissionais ativos" value={`${data.activeCount ?? 0}${data.plan === 'ESTABELECIMENTO' ? ` (3 inclusos${(data.activeCount ?? 0) > 3 ? ` + ${(data.activeCount ?? 0) - 3} extras` : ''})` : ''}`} />
                 </div>
+                {data.value != null && (
+                  <div style={{ background: 'rgba(220,38,38,0.04)', border: '0.5px solid rgba(220,38,38,0.1)', borderRadius: 10, padding: '12px 14px', marginTop: 16, fontSize: 12.5 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#525252' }}>
+                      <span>{planLabel} (base{data.plan === 'ESTABELECIMENTO' ? ', 3 profissionais' : ''})</span>
+                      <span>R$ {fmtBRL(PLAN_BASE[data.plan])}</span>
+                    </div>
+                    {data.plan === 'ESTABELECIMENTO' && (data.extraSeats ?? 0) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#525252' }}>
+                        <span>{data.extraSeats} × profissional extra</span>
+                        <span>R$ {fmtBRL(EXTRA_SEAT_PRICE * (data.extraSeats ?? 0))}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, marginTop: 6, borderTop: '0.5px solid rgba(220,38,38,0.15)', fontWeight: 500, color: '#18181b' }}>
+                      <span>Total mensal</span><span>R$ {fmtBRL(data.value)}</span>
+                    </div>
+                  </div>
+                )}
+                {data.nextChange && data.value != null && (
+                  <div style={{ background: data.nextChange.delta > 0 ? 'rgba(59,130,246,0.06)' : 'rgba(16,185,129,0.06)', border: `0.5px solid ${data.nextChange.delta > 0 ? 'rgba(59,130,246,0.2)' : 'rgba(16,185,129,0.25)'}`, borderRadius: 10, padding: '10px 12px', marginTop: 12, fontSize: 12.5, color: data.nextChange.delta > 0 ? '#1d4ed8' : '#047857' }}>
+                    <div style={{ fontWeight: 500, marginBottom: 2 }}>
+                      {data.nextChange.delta > 0
+                        ? 'Sua equipe cresceu — a proxima cobranca sobe.'
+                        : 'Sua equipe diminuiu — a proxima cobranca cai.'}
+                    </div>
+                    <div style={{ opacity: 0.85 }}>
+                      De R$ {fmtBRL(data.value)} para R$ {fmtBRL(data.nextChange.expectedValue)}/mes a partir do proximo ciclo.
+                    </div>
+                  </div>
+                )}
 
                 {data.plan && (
                   <button
