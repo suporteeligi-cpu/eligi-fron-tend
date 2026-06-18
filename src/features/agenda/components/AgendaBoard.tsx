@@ -2,7 +2,7 @@
 // src/features/agenda/components/AgendaBoard.tsx
 // Coordenador da agenda: detecta dispositivo, busca dados, gerencia painéis.
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import dayjs from 'dayjs'
 
 import AgendaToolbar     from './AgendaToolbar'
@@ -100,6 +100,32 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   const toggleCollapse = useCallback((id: string) => {
     setCollapsed(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
   }, [])
+
+  // ── Ordem das colunas (reorder), persistida em localStorage ──
+  const [colOrder, setColOrder] = useState<string[]>([])
+  useEffect(() => {
+    const id = setTimeout(() => {
+      try {
+        const raw = localStorage.getItem('eligi-agenda-col-order')
+        const arr = raw ? JSON.parse(raw) : null
+        if (Array.isArray(arr)) setColOrder(arr.filter((x): x is string => typeof x === 'string'))
+      } catch { /* noop */ }
+    }, 0)
+    return () => clearTimeout(id)
+  }, [])
+  const reorderColumns = useCallback((ids: string[]) => {
+    setColOrder(ids)
+    try { localStorage.setItem('eligi-agenda-col-order', JSON.stringify(ids)) } catch { /* noop */ }
+  }, [])
+  const orderedProfs = useMemo(() => {
+    if (colOrder.length === 0) return professionals
+    const pos = new Map(colOrder.map((id, i) => [id, i] as const))
+    return [...professionals].sort((a, b) => {
+      const ia = pos.has(a.id) ? pos.get(a.id)! : Infinity
+      const ib = pos.has(b.id) ? pos.get(b.id)! : Infinity
+      return ia - ib
+    })
+  }, [professionals, colOrder])
 
   const [allHours,      setAllHours]      = useState<HourSlot[]>([])
   const [blockModal,    setBlockModal]    = useState(false)
@@ -233,8 +259,8 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           {mode === 'desktop' && (
             <AgendaGrid
               pxPerMin={pxPerMin} onZoomIn={zoomIn} onZoomOut={zoomOut} canZoomIn={canZoomIn} canZoomOut={canZoomOut}
-              collapsed={collapsed} onToggleCollapse={toggleCollapse}
-              professionals={professionals} bookings={bookings} blocks={blocks}
+              collapsed={collapsed} onToggleCollapse={toggleCollapse} onReorderColumns={reorderColumns}
+              professionals={orderedProfs} bookings={bookings} blocks={blocks}
               workingHours={workingHours}
               onOpenBlockModal={openBlockModal}
               onDeleteBlock={handleDeleteBlock}
@@ -244,8 +270,8 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           {mode === 'ipad' && (
             <AgendaIPadList
               pxPerMin={pxPerMin} onZoomIn={zoomIn} onZoomOut={zoomOut} canZoomIn={canZoomIn} canZoomOut={canZoomOut}
-              collapsed={collapsed} onToggleCollapse={toggleCollapse}
-              professionals={professionals} bookings={bookings} blocks={blocks}
+              collapsed={collapsed} onToggleCollapse={toggleCollapse} onReorderColumns={reorderColumns}
+              professionals={orderedProfs} bookings={bookings} blocks={blocks}
               workingHours={workingHours}
               onOpenBlockModal={openBlockModal}
               onDeleteBlock={handleDeleteBlock}
@@ -254,7 +280,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           )}
           {mode === 'mobile' && (
             <AgendaMobileList
-              professionals={professionals} bookings={bookings} blocks={blocks}
+              professionals={orderedProfs} bookings={bookings} blocks={blocks}
               workingHours={workingHours}
               onDeleteBlock={handleDeleteBlock}
               onUpdateBlock={handleUpdateBlock}

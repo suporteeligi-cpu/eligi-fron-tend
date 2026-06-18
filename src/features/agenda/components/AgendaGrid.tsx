@@ -78,6 +78,7 @@ interface Props {
   onUpdateBlock?:   (block: AgendaBlock) => void
   collapsed:        string[]
   onToggleCollapse: (id: string) => void
+  onReorderColumns: (ids: string[]) => void
   pxPerMin:         number
   onZoomIn:         () => void
   onZoomOut:        () => void
@@ -88,7 +89,7 @@ interface Props {
 export default function AgendaGrid({
   professionals, bookings, blocks, workingHours,
   onOpenBlockModal, onDeleteBlock, onUpdateBlock,
-  collapsed, onToggleCollapse,
+  collapsed, onToggleCollapse, onReorderColumns,
   pxPerMin, onZoomIn, onZoomOut, canZoomIn, canZoomOut,
 }: Props) {
   const openCreate    = useAgendaStore(s => s.openCreate)
@@ -177,6 +178,62 @@ export default function AgendaGrid({
     if (!grid) return []
     return Array.from(grid.querySelectorAll<HTMLElement>('[data-prof-col]')).map(el => el.getBoundingClientRect())
   }, [])
+
+  // ── Reorder de coluna (modelo B; no desktop = arrasta o header direto) ──
+  const colDragRef = useRef<{ id: string; pointerId: number; startX: number; active: boolean; targetIdx: number } | null>(null)
+  const colClickSuppressRef = useRef(false)
+  const [colDrag, setColDrag] = useState<{
+    id: string; name: string; avatarUrl?: string
+    ghostX: number; ghostY: number; dropX: number; gridTop: number; gridH: number; targetIdx: number
+  } | null>(null)
+
+  const onColPointerDown = useCallback((e: React.PointerEvent, profId: string) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return
+    colDragRef.current = { id: profId, pointerId: e.pointerId, startX: e.clientX, active: false, targetIdx: 0 }
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
+  }, [])
+
+  const onColPointerMove = useCallback((e: React.PointerEvent) => {
+    const d = colDragRef.current
+    if (!d) return
+    if (!d.active && Math.abs(e.clientX - d.startX) <= DRAG_THRESHOLD_PX) return
+    e.preventDefault()
+    const grid = gridRef.current
+    const rects = getColRects()
+    if (!grid || rects.length === 0) return
+    d.active = true
+    let targetIdx = rects.length
+    for (let i = 0; i < rects.length; i++) {
+      if (e.clientX < rects[i].left + rects[i].width / 2) { targetIdx = i; break }
+    }
+    d.targetIdx = targetIdx
+    const dropX = targetIdx === 0 ? rects[0].left : rects[targetIdx - 1].right
+    const gr = grid.getBoundingClientRect()
+    const prof = professionals.find(p => p.id === d.id)
+    setColDrag({
+      id: d.id, name: prof?.name ?? '', avatarUrl: prof?.avatarUrl,
+      ghostX: e.clientX, ghostY: e.clientY, dropX, gridTop: gr.top, gridH: gr.height, targetIdx,
+    })
+  }, [getColRects, professionals])
+
+  const onColPointerUp = useCallback((e: React.PointerEvent) => {
+    const d = colDragRef.current
+    colDragRef.current = null
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    setColDrag(null)
+    if (!d || !d.active) return
+    colClickSuppressRef.current = true
+    setTimeout(() => { colClickSuppressRef.current = false }, 0)
+    const ids = professionals.map(p => p.id)
+    const from = ids.indexOf(d.id)
+    if (from < 0) return
+    ids.splice(from, 1)
+    let to = d.targetIdx
+    if (from < d.targetIdx) to -= 1
+    to = Math.max(0, Math.min(to, ids.length))
+    ids.splice(to, 0, d.id)
+    onReorderColumns(ids)
+  }, [professionals, onReorderColumns])
 
   // Converte clientY do mouse → minuto snapped na grade
   const yToSnappedMin = useCallback((clientY: number): number => {
@@ -533,8 +590,13 @@ export default function AgendaGrid({
 
             const isCollapsed = collapsedSet.has(p.id)
             if (isCollapsed) return (
-              <div key={p.id} data-prof-col={p.id} onClick={() => onToggleCollapse(p.id)}
-                title={`Expandir ${p.name}`}
+              <div key={p.id} data-prof-col={p.id}
+                onPointerDown={e => onColPointerDown(e, p.id)}
+                onPointerMove={onColPointerMove}
+                onPointerUp={onColPointerUp}
+                onPointerCancel={onColPointerUp}
+                onClick={() => { if (colClickSuppressRef.current) return; onToggleCollapse(p.id) }}
+                title={`Expandir ${p.name} · arraste pra reordenar`}
                 style={{
                   ...colStyle(p.id),
                   display: 'flex', flexDirection: 'column',
@@ -562,10 +624,14 @@ export default function AgendaGrid({
                 borderLeft: `1px solid ${colors.gray.border}`,
                 overflow: 'visible',
               }}>
-                {/* ── Header do profissional (clique = recolher) ── */}
+                {/* ── Header do profissional (clique = recolher; arrasta = reordena) ── */}
                 <div
-                  onClick={() => onToggleCollapse(p.id)}
-                  title={`Recolher ${p.name}`}
+                  onPointerDown={e => onColPointerDown(e, p.id)}
+                  onPointerMove={onColPointerMove}
+                  onPointerUp={onColPointerUp}
+                  onPointerCancel={onColPointerUp}
+                  onClick={() => { if (colClickSuppressRef.current) return; onToggleCollapse(p.id) }}
+                  title={`Recolher ${p.name} · arraste pra reordenar`}
                   style={{
                     height: HEADER_H, flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -743,6 +809,26 @@ export default function AgendaGrid({
               {drag.currentTime}
             </div>
           </div>
+        )}
+
+        {colDrag && (
+          <>
+            <div style={{
+              position:'fixed', left: colDrag.dropX - 1.5, top: colDrag.gridTop, height: colDrag.gridH,
+              width: 3, background: colors.red.DEFAULT, borderRadius: 2,
+              zIndex: Z.ghostFixed, pointerEvents:'none',
+            }} />
+            <div style={{
+              position:'fixed', left: colDrag.ghostX + 12, top: colDrag.ghostY - 14,
+              display:'flex', alignItems:'center', gap:6, padding:'5px 10px',
+              background:'rgba(255,255,255,0.97)', border:`1px solid ${colors.gray.border}`,
+              borderRadius: 8, zIndex: Z.ghostFixed, pointerEvents:'none',
+              fontSize:12, fontWeight:600, color: colors.gray['900'],
+            }}>
+              <ProfAvatar name={colDrag.name} avatarUrl={colDrag.avatarUrl} size={20} />
+              {colDrag.name}
+            </div>
+          </>
         )}
       </div>
     </>

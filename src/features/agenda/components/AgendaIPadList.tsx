@@ -73,6 +73,7 @@ interface Props {
   onUpdateBlock?:   (block: AgendaBlock) => void
   collapsed:        string[]
   onToggleCollapse: (id: string) => void
+  onReorderColumns: (ids: string[]) => void
   pxPerMin:         number
   onZoomIn:         () => void
   onZoomOut:        () => void
@@ -84,7 +85,7 @@ export default function AgendaIPadList({
   professionals, bookings, blocks, workingHours,
   onOpenBlockModal, onDeleteBlock, onUpdateBlock,
   pxPerMin, onZoomIn, onZoomOut, canZoomIn, canZoomOut,
-  collapsed, onToggleCollapse,
+  collapsed, onToggleCollapse, onReorderColumns,
 }: Props) {
   const openCreate    = useAgendaStore(s => s.openCreate)
   const openView      = useAgendaStore(s => s.openView)
@@ -191,6 +192,90 @@ export default function AgendaIPadList({
     const rect = cols[idx].getBoundingClientRect()
     return { colIdx: idx, colW: rect.width, colLeft: rect.left }
   }, [])
+
+  // ── Reorder de coluna (modelo B; no iPad = long-press no header) ──
+  const colDragRef = useRef<{ id: string; pointerId: number; startX: number; startY: number; armed: boolean; active: boolean; targetIdx: number } | null>(null)
+  const colLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const colClickSuppressRef = useRef(false)
+  const [colDrag, setColDrag] = useState<{
+    id: string; name: string; avatarUrl?: string
+    ghostX: number; ghostY: number; dropX: number; gridTop: number; gridH: number; targetIdx: number
+  } | null>(null)
+
+  const colGeomFromX = useCallback((clientX: number) => {
+    const grid = gridRef.current
+    if (!grid) return null
+    const rects = Array.from(grid.querySelectorAll<HTMLElement>('[data-prof-col]')).map(el => el.getBoundingClientRect())
+    if (rects.length === 0) return null
+    let targetIdx = rects.length
+    for (let i = 0; i < rects.length; i++) {
+      if (clientX < rects[i].left + rects[i].width / 2) { targetIdx = i; break }
+    }
+    const dropX = targetIdx === 0 ? rects[0].left : rects[targetIdx - 1].right
+    const gr = grid.getBoundingClientRect()
+    return { targetIdx, dropX, gridTop: gr.top, gridH: gr.height }
+  }, [])
+
+  const onColPointerDown = useCallback((e: React.PointerEvent, profId: string) => {
+    colDragRef.current = { id: profId, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, armed: false, active: false, targetIdx: 0 }
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
+    const startX = e.clientX, startY = e.clientY
+    if (colLongPressRef.current) clearTimeout(colLongPressRef.current)
+    colLongPressRef.current = setTimeout(() => {
+      const d = colDragRef.current
+      if (!d) return
+      d.armed = true
+      d.active = true
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(VIBRATE_DRAG_MS)
+      const g = colGeomFromX(startX)
+      const prof = professionals.find(p => p.id === d.id)
+      if (g) {
+        d.targetIdx = g.targetIdx
+        setColDrag({ id: d.id, name: prof?.name ?? '', avatarUrl: prof?.avatarUrl, ghostX: startX, ghostY: startY, dropX: g.dropX, gridTop: g.gridTop, gridH: g.gridH, targetIdx: g.targetIdx })
+      }
+    }, LONG_PRESS_MS)
+  }, [colGeomFromX, professionals])
+
+  const onColPointerMove = useCallback((e: React.PointerEvent) => {
+    const d = colDragRef.current
+    if (!d) return
+    if (!d.armed) {
+      if (Math.abs(e.clientX - d.startX) > TOUCH_CANCEL_PX || Math.abs(e.clientY - d.startY) > TOUCH_CANCEL_PX) {
+        if (colLongPressRef.current) { clearTimeout(colLongPressRef.current); colLongPressRef.current = null }
+        try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId) } catch { /* noop */ }
+        colDragRef.current = null
+        colClickSuppressRef.current = true
+        setTimeout(() => { colClickSuppressRef.current = false }, 0)
+      }
+      return
+    }
+    e.preventDefault()
+    const g = colGeomFromX(e.clientX)
+    if (!g) return
+    d.targetIdx = g.targetIdx
+    const prof = professionals.find(p => p.id === d.id)
+    setColDrag({ id: d.id, name: prof?.name ?? '', avatarUrl: prof?.avatarUrl, ghostX: e.clientX, ghostY: e.clientY, dropX: g.dropX, gridTop: g.gridTop, gridH: g.gridH, targetIdx: g.targetIdx })
+  }, [colGeomFromX, professionals])
+
+  const onColPointerUp = useCallback((e: React.PointerEvent) => {
+    if (colLongPressRef.current) { clearTimeout(colLongPressRef.current); colLongPressRef.current = null }
+    const d = colDragRef.current
+    colDragRef.current = null
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    setColDrag(null)
+    if (!d || !d.active) return
+    colClickSuppressRef.current = true
+    setTimeout(() => { colClickSuppressRef.current = false }, 0)
+    const ids = professionals.map(p => p.id)
+    const from = ids.indexOf(d.id)
+    if (from < 0) return
+    ids.splice(from, 1)
+    let to = d.targetIdx
+    if (from < d.targetIdx) to -= 1
+    to = Math.max(0, Math.min(to, ids.length))
+    ids.splice(to, 0, d.id)
+    onReorderColumns(ids)
+  }, [professionals, onReorderColumns])
 
   // ─── Touch handlers ────────────────────────────────────────────────────────
   const onCardTouchStart = useCallback((
@@ -447,15 +532,20 @@ export default function AgendaIPadList({
             <ZoomControl onZoomIn={onZoomIn} onZoomOut={onZoomOut} canIn={canZoomIn} canOut={canZoomOut} />
           </div>
 
-          {/* Header profissionais (clique = recolher/expandir) */}
+          {/* Header profissionais (clique = recolher/expandir; long-press = reordenar) */}
           {professionals.map(p => {
             const isCollapsed = collapsedSet.has(p.id)
             return (
             <div key={p.id}
-              onClick={() => onToggleCollapse(p.id)}
-              title={isCollapsed ? `Expandir ${p.name}` : `Recolher ${p.name}`}
+              onPointerDown={e => onColPointerDown(e, p.id)}
+              onPointerMove={onColPointerMove}
+              onPointerUp={onColPointerUp}
+              onPointerCancel={onColPointerUp}
+              onClick={() => { if (colClickSuppressRef.current) return; onToggleCollapse(p.id) }}
+              title={isCollapsed ? `Expandir ${p.name}` : `Recolher ${p.name} · segure pra reordenar`}
               style={{
               height: HEADER_H, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              touchAction:'none',
               position:'sticky', top:0, zIndex: Z.headerSticky,
               background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)',
               borderBottom:`1px solid ${colors.gray.border}`,
@@ -663,6 +753,26 @@ export default function AgendaIPadList({
           })}
         </div>
       </div>
+
+      {colDrag && (
+        <>
+          <div style={{
+            position:'fixed', left: colDrag.dropX - 1.5, top: colDrag.gridTop, height: colDrag.gridH,
+            width: 3, background: colors.red.DEFAULT, borderRadius: 2,
+            zIndex: Z.ghostTouch, pointerEvents:'none',
+          }} />
+          <div style={{
+            position:'fixed', left: colDrag.ghostX + 12, top: colDrag.ghostY - 16,
+            display:'flex', alignItems:'center', gap:6, padding:'6px 11px',
+            background:'rgba(255,255,255,0.97)', border:`1px solid ${colors.gray.border}`,
+            borderRadius: 8, zIndex: Z.ghostTouch, pointerEvents:'none',
+            fontSize:13, fontWeight:600, color: colors.gray['900'],
+          }}>
+            <ProfAvatar name={colDrag.name} avatarUrl={colDrag.avatarUrl} size={22} />
+            {colDrag.name}
+          </div>
+        </>
+      )}
     </>
   )
 }
