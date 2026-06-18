@@ -28,6 +28,25 @@ const MODULES = [
     ],
   },
   {
+    group: 'Financeiro',
+    items: [
+      {
+        href:        '/dashboard/configuracoes/assinatura',
+        icon:        Sparkles,
+        label:       'Sua Assinatura Eligi',
+        description: 'Seu plano, valor mensal e situacao da cobranca.',
+        available:   true,
+      },
+      {
+        href:        '/dashboard/configuracoes/pagamentos',
+        icon:        CreditCard,
+        label:       'Pagamentos e checkout',
+        description: 'Formas de pagamento aceitas e configurações de cobrança.',
+        available:   false,
+      },
+    ],
+  },
+  {
     group: 'Serviços',
     items: [
       {
@@ -54,25 +73,6 @@ const MODULES = [
         icon:        Users,
         label:       'Equipe e profissionais',
         description: 'Gerencie permissões e configurações individuais de cada profissional.',
-        available:   false,
-      },
-    ],
-  },
-  {
-    group: 'Financeiro',
-    items: [
-      {
-        href:        '/dashboard/configuracoes/assinatura',
-        icon:        Sparkles,
-        label:       'Sua Assinatura Eligi',
-        description: 'Seu plano, valor mensal e situacao da cobranca.',
-        available:   true,
-      },
-      {
-        href:        '/dashboard/configuracoes/pagamentos',
-        icon:        CreditCard,
-        label:       'Pagamentos e checkout',
-        description: 'Formas de pagamento aceitas e configurações de cobrança.',
         available:   false,
       },
     ],
