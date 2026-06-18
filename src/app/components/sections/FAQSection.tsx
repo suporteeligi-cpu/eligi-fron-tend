@@ -6,7 +6,7 @@ import styles from './FAQSection.module.css'
 const FAQS = [
   {
     question: 'Quais são os planos e valores do eligi?',
-    answer: <>O eligi tem dois planos: <strong>Autônomo</strong> por <strong>R$ 59,90/mês</strong> e <strong>Estabelecimento</strong> por <strong>R$ 99,90/mês</strong> (inclui 1 profissional, <strong>+R$ 10,00</strong> por profissional adicional). Sem fidelidade: cancele quando quiser, sem multas.</>,
+    answer: <>O eligi tem dois planos: <strong>Autônomo</strong> por <strong>R$ 59,90/mês</strong> e <strong>Estabelecimento</strong> por <strong>R$ 99,90/mês</strong> (inclui 1 profissional, <strong>+R$ 19,90</strong> por profissional adicional). Sem fidelidade: cancele quando quiser, sem multas.</>,
   },
   {
     question: 'Como funciona o teste grátis?',
