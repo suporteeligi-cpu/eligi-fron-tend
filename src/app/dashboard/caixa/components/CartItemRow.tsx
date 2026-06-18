@@ -4,7 +4,7 @@
 // Item do carrinho. Cobertura (R$0) por PACOTE (verde + Layers) ou ASSINATURA (verde + Ticket).
 // "Coberto" desabilita qty/prof e zera o preço. Cada cobertura tem seu próprio badge + remover.
 
-import { Minus, Plus, Trash2, Scissors, Package, Users, Layers, Ticket, XCircle } from 'lucide-react'
+import { Minus, Plus, Trash2, Scissors, Package, Layers, Ticket, XCircle } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { SaleItem, ProfLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -13,7 +13,6 @@ import ProfPicker from './ProfPicker'
 interface Props {
   item:           SaleItem
   professionals:  ProfLite[]
-  globalProfId:   string | null
   isMobile:       boolean
   onChangeQty:    (newQty: number) => void
   onChangeProf:   (profId: string | null) => void
@@ -26,7 +25,7 @@ interface Props {
 }
 
 export default function CartItemRow({
-  item, professionals, globalProfId, isMobile,
+  item, professionals, isMobile,
   onChangeQty, onChangeProf, onRemove, onRemovePackage, onRemoveMembership,
   suggestion, onUsePackage, disabled,
 }: Props) {
@@ -40,10 +39,6 @@ export default function CartItemRow({
              ?? item.service?.color
              ?? item.package?.color
              ?? colors.red.DEFAULT
-
-  const isOverride = item.professionalId != null &&
-                     globalProfId != null &&
-                     item.professionalId !== globalProfId
 
   // Coberturas (R$0)
   const hasPackageApplied    = item.appliedPackageCardId != null
@@ -381,23 +376,6 @@ export default function CartItemRow({
           />
         </div>
 
-        {isOverride && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            padding: '3px 7px',
-            background: 'rgba(245,158,11,0.10)',
-            border: '1px solid rgba(245,158,11,0.25)',
-            borderRadius: 6,
-            fontSize: 9, fontWeight: 700,
-            color: '#b45309',
-            letterSpacing: '.04em', textTransform: 'uppercase',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}>
-            <Users size={9} strokeWidth={2.5} />
-            Override
-          </div>
-        )}
       </div>
     </div>
   )

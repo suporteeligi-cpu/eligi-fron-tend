@@ -36,7 +36,6 @@ export default function CaixaPage() {
   const [tab,             setTab]             = useState<Tab>('open')
   const [openSales,       setOpenSales]       = useState<Sale[]>([])
   const [activeSaleId,    setActiveSaleId]    = useState<string | null>(null)
-  const [globalProfId,    setGlobalProfId]    = useState<string | null>(null)
   const [openLoading,     setOpenLoading]     = useState(true)
   const [creating,        setCreating]        = useState(false)
   const [confirmedRefresh, setConfirmedRefresh] = useState(0)
@@ -175,7 +174,6 @@ export default function CaixaPage() {
       const newSale: Sale = res.data?.data ?? res.data
       setOpenSales([newSale])
       setActiveSaleId(newSale.id)
-      setGlobalProfId(null)
     } catch {
       setToast({ message: 'Erro ao criar venda', kind: 'error' })
     } finally {
@@ -185,15 +183,6 @@ export default function CaixaPage() {
 
   function updateSaleInList(updated: Sale) {
     setOpenSales(prev => prev.map(s => s.id === updated.id ? updated : s))
-  }
-
-  async function refetchActiveSale() {
-    if (!activeSaleId) return
-    try {
-      const res = await api.get(`/sales/${activeSaleId}`)
-      const data = res.data?.data ?? res.data
-      updateSaleInList(data)
-    } catch { /* silencioso */ }
   }
 
   async function addProduct(product: CatalogProduct) {
@@ -206,7 +195,7 @@ export default function CaixaPage() {
         await addItemToSale(newSale.id, {
           type: 'PRODUCT',
           productId: product.id,
-          professionalId: globalProfId,
+          professionalId: null,
         })
       } catch {
         setToast({ message: 'Erro ao criar venda', kind: 'error' })
@@ -216,7 +205,7 @@ export default function CaixaPage() {
     await addItemToSale(activeSaleId, {
       type: 'PRODUCT',
       productId: product.id,
-      professionalId: globalProfId,
+      professionalId: activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId ?? null,
     })
   }
 
@@ -231,7 +220,7 @@ export default function CaixaPage() {
         await addItemToSale(newSale.id, {
           type: 'PACKAGE',
           packageId: pkg.id,
-          professionalId: globalProfId,
+          professionalId: null,
         })
       } catch {
         setToast({ message: 'Erro ao criar venda', kind: 'error' })
@@ -241,7 +230,7 @@ export default function CaixaPage() {
     await addItemToSale(activeSaleId, {
       type: 'PACKAGE',
       packageId: pkg.id,
-      professionalId: globalProfId,
+      professionalId: activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId ?? null,
     })
   }
 
@@ -256,7 +245,7 @@ export default function CaixaPage() {
         await addItemToSale(newSale.id, {
           type: 'MEMBERSHIP',
           membershipId: mem.id,
-          professionalId: globalProfId,
+          professionalId: null,
         })
       } catch {
         setToast({ message: 'Erro ao criar venda', kind: 'error' })
@@ -266,7 +255,7 @@ export default function CaixaPage() {
     await addItemToSale(activeSaleId, {
       type: 'MEMBERSHIP',
       membershipId: mem.id,
-      professionalId: globalProfId,
+      professionalId: activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId ?? null,
     })
   }
 
@@ -293,23 +282,6 @@ export default function CaixaPage() {
     }
   }
 
-  async function applyGlobalProfToAllItems() {
-    if (!activeSale || !globalProfId) return
-    try {
-      await Promise.all(
-        activeSale.items.map(item =>
-          api.patch(`/sales/${activeSale.id}/items/${item.id}`, {
-            professionalId: globalProfId,
-          }),
-        ),
-      )
-      await refetchActiveSale()
-      setToast({ message: 'Profissional aplicado a todos itens', kind: 'success' })
-    } catch {
-      setToast({ message: 'Erro ao aplicar profissional', kind: 'error' })
-    }
-  }
-
   function handleSaleClosed() {
     if (!activeSaleId) return
     const idx = openSales.findIndex(s => s.id === activeSaleId)
@@ -321,7 +293,6 @@ export default function CaixaPage() {
     } else {
       setActiveSaleId(null)
     }
-    setGlobalProfId(null)
     setConfirmedRefresh(k => k + 1)
     refetchSummary()
   }
@@ -468,7 +439,6 @@ export default function CaixaPage() {
             packages={packages}            /* ⭐ NOVO */
             memberships={memberships}      /* ⭐ Assinaturas */
             professionals={professionals}
-            globalProfId={globalProfId}
             openLoading={openLoading}
             catalogLoading={catalogLoading}
             creating={creating}
@@ -479,8 +449,6 @@ export default function CaixaPage() {
             onAddMembership={addMembership} /* ⭐ Assinaturas */
             onSaleUpdated={updateSaleInList}
             onSaleClosed={handleSaleClosed}
-            onProfChange={setGlobalProfId}
-            onApplyProfToAll={applyGlobalProfToAllItems}
           />
         )}
 
@@ -511,7 +479,6 @@ interface OpenTabProps {
   packages:        CatalogPackage[]      // ⭐ NOVO
   memberships:     CatalogMembership[]   // ⭐ Assinaturas
   professionals:   ProfLite[]
-  globalProfId:    string | null
   openLoading:     boolean
   catalogLoading:  boolean
   creating:        boolean
@@ -522,8 +489,6 @@ interface OpenTabProps {
   onAddMembership: (m: CatalogMembership) => void // ⭐ Assinaturas
   onSaleUpdated:   (s: Sale) => void
   onSaleClosed:    () => void
-  onProfChange:    (id: string | null) => void
-  onApplyProfToAll: () => void
 }
 
 function OpenTab(props: OpenTabProps) {
@@ -695,15 +660,12 @@ function OpenTab(props: OpenTabProps) {
                 <CartPanel
                   sale={props.activeSale}
                   professionals={props.professionals}
-                  globalProfId={props.globalProfId}
                   isMobile={props.isMobile}
                   onSaleUpdated={props.onSaleUpdated}
                   onSaleClosed={() => {
                     props.onSaleClosed()
                     setMobileView('catalog')
                   }}
-                  onProfChange={props.onProfChange}
-                  onApplyProfToAll={props.onApplyProfToAll}
                 />
               ) : (
                 <div style={{
@@ -765,12 +727,9 @@ function OpenTab(props: OpenTabProps) {
             <CartPanel
               sale={props.activeSale}
               professionals={props.professionals}
-              globalProfId={props.globalProfId}
               isMobile={props.isMobile}
               onSaleUpdated={props.onSaleUpdated}
               onSaleClosed={props.onSaleClosed}
-              onProfChange={props.onProfChange}
-              onApplyProfToAll={props.onApplyProfToAll}
             />
           ) : (
             <div style={{

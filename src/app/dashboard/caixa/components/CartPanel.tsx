@@ -12,7 +12,6 @@ import { colors, typography, transitions, radius } from '@/shared/theme'
 import { Sale, ProfLite, PackageCardLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
 import ClientPicker from './ClientPicker'
-import ProfPicker from './ProfPicker'
 import CartItemRow from './CartItemRow'
 import PaymentModal from './PaymentModal'
 import UsePackageModal from './UsePackageModal'
@@ -21,17 +20,14 @@ import UseMembershipModal, { MembershipCardLite } from './UseMembershipModal'
 interface Props {
   sale:           Sale
   professionals:  ProfLite[]
-  globalProfId:   string | null
   isMobile:       boolean
   onSaleUpdated:  (sale: Sale) => void
   onSaleClosed:   () => void
-  onProfChange:   (id: string | null) => void
-  onApplyProfToAll: () => void
 }
 
 export default function CartPanel({
-  sale, professionals, globalProfId, isMobile,
-  onSaleUpdated, onSaleClosed, onProfChange, onApplyProfToAll,
+  sale, professionals, isMobile,
+  onSaleUpdated, onSaleClosed,
 }: Props) {
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
   const [discount, setDiscount] = useState(sale.discount.toString())
@@ -242,12 +238,6 @@ export default function CartPanel({
   // ⭐ Venda 100% paga via pacote (ou desconto) — sem modal de pagamento
   const isFreeCheckout = canCheckout && sale.total === 0
 
-  const overrideCount = sale.items.filter(it =>
-    it.professionalId != null &&
-    globalProfId != null &&
-    it.professionalId !== globalProfId
-  ).length
-
   // ⭐ Mostra botão "Usar pacote" só se cliente vinculado E tem cards ativos
   const canUsePackage = sale.clientId != null && activeCards.length > 0
   const canUseMembership = sale.clientId != null && activeMemberships.length > 0
@@ -307,39 +297,6 @@ export default function CartPanel({
           }}
           onChange={updateClient}
         />
-
-        {/* Profissional global */}
-        <div>
-          <ProfPicker
-            professionals={professionals}
-            value={globalProfId}
-            onChange={onProfChange}
-            label="Profissional do carrinho"
-          />
-          {sale.items.length > 0 && globalProfId && (
-            <button
-              onClick={onApplyProfToAll}
-              type="button"
-              style={{
-                marginTop: 6,
-                padding: '4px 9px',
-                borderRadius: 6,
-                border: `1px solid ${colors.gray.borderMd}`,
-                background: 'transparent',
-                fontSize: 10,
-                fontWeight: 700,
-                color: colors.gray[700],
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                letterSpacing: '.04em',
-                textTransform: 'uppercase',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              ↻ Aplicar a todos os itens
-            </button>
-          )}
-        </div>
 
         {/* ⭐ Botão Usar Pacote */}
         {canUsePackage && (
@@ -486,7 +443,6 @@ export default function CartPanel({
                   <CartItemRow
                     item={item}
                     professionals={professionals}
-                    globalProfId={globalProfId}
                     isMobile={isMobile}
                     onChangeQty={qty => changeItemQty(item.id, qty)}
                     onChangeProf={pid => changeItemProf(item.id, pid)}
@@ -503,17 +459,6 @@ export default function CartPanel({
                 </div>
               ))}
 
-              {overrideCount > 0 && (
-                <div style={{
-                  fontSize: 10,
-                  color: colors.gray.dimText,
-                  textAlign: 'center',
-                  padding: '4px 0',
-                  fontStyle: 'italic',
-                }}>
-                  {overrideCount} {overrideCount === 1 ? 'item com' : 'itens com'} profissional diferente
-                </div>
-              )}
             </div>
           )}
         </div>
