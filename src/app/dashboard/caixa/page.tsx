@@ -131,7 +131,7 @@ export default function CaixaPage() {
         api.get('/products',         { signal }),
         api.get('/packages',         { params: { active: true }, signal }),  // ⭐ NOVO
         api.get('/memberships',      { params: { active: true }, signal }),  // ⭐ Assinaturas
-        api.get('/equipe',           { signal }),
+        isCheckoutOnly ? Promise.resolve({ data: { data: [] } }) : api.get('/equipe',           { signal }),
         api.get('/services',         { signal }),  // ⭐ Serviços (aba reinserida)
       ])
       if (signal?.aborted) return
@@ -164,7 +164,7 @@ export default function CaixaPage() {
     } finally {
       if (!signal?.aborted) setCatalogLoading(false)
     }
-  }, [])
+  }, [isCheckoutOnly])
 
   useEffect(() => {
     const ctrl = new AbortController()
