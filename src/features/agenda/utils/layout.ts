@@ -54,6 +54,30 @@ export function computeOffHoursOverlay(opts: {
 }
 
 /**
+ * Segmentos (em coords LOCAIS do card) onde o card invade o off-hours do
+ * profissional — usado pra marcar levemente que ele está atendendo fora do
+ * horário dele. Recebe a geometria já calculada por computeOffHoursOverlay.
+ */
+export function cardOffHoursSegments(opts: {
+  top: number; height: number; preH: number; postTop: number; closed: boolean
+}): { top: number; height: number }[] {
+  const { top, height, preH, postTop, closed } = opts
+  if (closed) return [{ top: 0, height }]
+  const segs: { top: number; height: number }[] = []
+  const bot = top + height
+  if (top < preH) {
+    const h = Math.min(bot, preH) - top
+    if (h > 0) segs.push({ top: 0, height: h })
+  }
+  if (bot > postTop) {
+    const segTop = Math.max(top, postTop) - top
+    const h = bot - Math.max(top, postTop)
+    if (h > 0) segs.push({ top: segTop, height: h })
+  }
+  return segs
+}
+
+/**
  * Deduplica bookings por id mantendo a primeira ocorrência.
  */
 export function uniqueBookings(bookings: AgendaBooking[]): AgendaBooking[] {

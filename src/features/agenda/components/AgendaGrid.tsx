@@ -23,7 +23,7 @@ import { useAuth }          from '@/hooks/useAuth'
 import { useCurrentTimeY }  from '../hooks/useCurrentTimeY'
 import { useBookingActions } from '../hooks/useBookingActions'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildSlots, computeGridRange } from '../utils/time'
-import { computeOverlapLayout, computeOffHoursOverlay, uniqueBookings } from '../utils/layout'
+import { computeOverlapLayout, computeOffHoursOverlay, cardOffHoursSegments, uniqueBookings } from '../utils/layout'
 import {
   SLOT_STEP, MIN_CARD_H_DESKTOP, MIN_DUR, COLLAPSED_COL_W,
   DRAG_THRESHOLD_PX, DEFAULT_START_HOUR_DESKTOP, DEFAULT_END_HOUR_DESKTOP,
@@ -577,7 +577,8 @@ export default function AgendaGrid({
             const profBookings = unique.filter(b => b.professionalId === p.id)
             const profBlocks   = blocks.filter(bl => bl.professionalId === p.id)
             const layout       = computeOverlapLayout(profBookings)
-            const offHours     = computeOffHoursOverlay({ workingHours, startMin: START_MIN, endHour: END_HOUR, totalH: TOTAL_H, pxPerMin: PX_PER_MIN })
+            const profHours    = p.workingHours ?? workingHours
+            const offHours     = computeOffHoursOverlay({ workingHours: profHours, startMin: START_MIN, endHour: END_HOUR, totalH: TOTAL_H, pxPerMin: PX_PER_MIN })
             const isColTarget  = isMovingReal && hoverProfId === p.id && hoverProfId !== drag?.fromProfId
 
             const previewItems: PreviewItem[] = preview?.active && preview.date === dateStr
@@ -765,6 +766,14 @@ export default function AgendaGrid({
                           {drag.currentEnd}
                         </div>
                       )}
+
+                      {cardOffHoursSegments({ top, height, preH: offHours.preH, postTop: offHours.postTop, closed: offHours.closed }).map((s, si) => (
+                        <div key={`oh-${si}`} style={{
+                          position:'absolute', left:0, right:0, top:s.top, height:s.height,
+                          zIndex: Z.offHoursAbove, pointerEvents:'none', borderRadius:6,
+                          background:'repeating-linear-gradient(-45deg,rgba(220,38,38,0.16) 0px,rgba(220,38,38,0.16) 4px,transparent 4px,transparent 11px)',
+                        }} />
+                      ))}
                     </div>
                   )
                 })}

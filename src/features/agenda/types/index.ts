@@ -4,6 +4,7 @@ export type AgendaProfessional = {
   id:        string
   name:      string
   avatarUrl?: string   // base64, color:gradient ou url
+  workingHours?: { open: boolean; startTime: string; endTime: string } | null   // horário do prof no dia; null/ausente = segue o estabelecimento
 }
 
 export type BookingStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW'

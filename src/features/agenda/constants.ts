@@ -39,6 +39,7 @@ export const Z = {
   block:           7,
   booking:         8,
   preview:         9,
+  offHoursAbove:   10,
   currentTime:     15,
   headerSticky:    20,
   ghostFixed:      9997,

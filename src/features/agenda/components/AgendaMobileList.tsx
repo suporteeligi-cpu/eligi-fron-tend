@@ -21,7 +21,7 @@ import { useAgendaStore }    from '../hooks/useAgendaStore'
 import { useCurrentTimeY }   from '../hooks/useCurrentTimeY'
 import { useBookingActions } from '../hooks/useBookingActions'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildHalfSlots, computeGridRange } from '../utils/time'
-import { computeOverlapLayout, computeOffHoursOverlay, uniqueBookings } from '../utils/layout'
+import { computeOverlapLayout, computeOffHoursOverlay, cardOffHoursSegments, uniqueBookings } from '../utils/layout'
 import {
   SLOT_STEP, MIN_CARD_H_MOBILE, MIN_DUR,
   TOUCH_CANCEL_PX, LONG_PRESS_MS, VIBRATE_DRAG_MS, VIBRATE_RESIZE_MS,
@@ -222,9 +222,10 @@ export default function AgendaMobileList({
   const profBookings = useMemo(() => unique.filter(b => b.professionalId === activeProfId), [unique, activeProfId])
   const profBlocks   = useMemo(() => blocks.filter(bl => bl.professionalId === activeProfId), [blocks, activeProfId])
   const layout       = useMemo(() => computeOverlapLayout(profBookings), [profBookings])
-  const offHours     = useMemo(() => computeOffHoursOverlay({
-    workingHours, startMin: START_MIN, endHour: END_HOUR, totalH: TOTAL_H, pxPerMin: PX_PER_MIN,
-  }), [workingHours, START_MIN, END_HOUR, TOTAL_H])
+  const offHours     = useMemo(() => {
+    const ph = professionals.find(p => p.id === activeProfId)?.workingHours ?? workingHours
+    return computeOffHoursOverlay({ workingHours: ph, startMin: START_MIN, endHour: END_HOUR, totalH: TOTAL_H, pxPerMin: PX_PER_MIN })
+  }, [professionals, activeProfId, workingHours, START_MIN, END_HOUR, TOTAL_H])
 
   const dateStr = dayjs(selectedDate).format('YYYY-MM-DD')
 
@@ -702,6 +703,14 @@ export default function AgendaMobileList({
                       {drag.currentEnd}
                     </div>
                   )}
+
+                  {!isThisMove && cardOffHoursSegments({ top, height, preH: offHours.preH, postTop: offHours.postTop, closed: offHours.closed }).map((s, si) => (
+                    <div key={`oh-${si}`} style={{
+                      position:'absolute', left:0, right:0, top:s.top, height:s.height,
+                      zIndex: Z.offHoursAbove, pointerEvents:'none', borderRadius:10,
+                      background:'repeating-linear-gradient(-45deg,rgba(220,38,38,0.16) 0px,rgba(220,38,38,0.16) 4px,transparent 4px,transparent 11px)',
+                    }} />
+                  ))}
                 </div>
               )
             })}
