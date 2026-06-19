@@ -11,7 +11,7 @@ interface Filters {
   itemType?: SaleItemType
 }
 
-export function useSalesSummary(filters: Filters = {}) {
+export function useSalesSummary(filters: Filters = {}, enabled = true) {
   const [summary, setSummary] = useState<SalesSummary | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -32,10 +32,11 @@ export function useSalesSummary(filters: Filters = {}) {
   }, [filters.dateFrom, filters.dateTo, filters.itemType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (!enabled) return
     const ctrl = new AbortController()
     fetchSummary(ctrl.signal)
     return () => ctrl.abort()
-  }, [fetchSummary])
+  }, [fetchSummary, enabled])
 
-  return { summary, loading, refetch: () => fetchSummary() }
+  return { summary, loading, refetch: () => { if (enabled) fetchSummary() } }
 }
