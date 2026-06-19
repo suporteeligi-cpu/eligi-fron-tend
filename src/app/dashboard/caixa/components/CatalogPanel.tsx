@@ -3,32 +3,35 @@
 
 import { useState, useMemo } from 'react'
 import {
-  Search, X, Package, AlertTriangle, Layers, Ticket, Infinity as InfinityIcon,
+  Search, X, Package, Scissors, AlertTriangle, Layers, Ticket, Infinity as InfinityIcon,
 } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { formatBRL } from '@/features/sales/utils/format'
-import { CatalogProduct, CatalogPackage, CatalogMembership } from '@/features/sales/types'
+import { CatalogProduct, CatalogService, CatalogPackage, CatalogMembership } from '@/features/sales/types'
 
-type Tab = 'product' | 'package' | 'membership'
+type Tab = 'product' | 'service' | 'package' | 'membership'
 
 interface Props {
   products: CatalogProduct[]
+  services: CatalogService[]
   packages: CatalogPackage[]
   memberships: CatalogMembership[]
   loading:  boolean
   isMobile: boolean
   onAddProduct: (product: CatalogProduct) => void
+  onAddService: (service: CatalogService) => void
   onAddPackage: (pkg: CatalogPackage) => void
   onAddMembership: (mem: CatalogMembership) => void
 }
 
 export default function CatalogPanel({
-  products, packages, memberships, loading, isMobile,
-  onAddProduct, onAddPackage, onAddMembership,
+  products, services, packages, memberships, loading, isMobile,
+  onAddProduct, onAddService, onAddPackage, onAddMembership,
 }: Props) {
   const [tab,   setTab]   = useState<Tab>('product')
   const [query, setQuery] = useState('')
   const activeProducts = useMemo(() => products.filter(p => p.active !== false), [products])
+  const activeServices = useMemo(() => services.filter(s => s.active !== false), [services])
   const activePackages = useMemo(() => packages.filter(p => p.active !== false), [packages])
   const activeMemberships = useMemo(() => memberships.filter(m => m.active !== false), [memberships])
 
@@ -48,18 +51,26 @@ export default function CatalogPanel({
         (p.description ?? '').toLowerCase().includes(q),
       )
     }
+    if (tab === 'service') {
+      if (!q) return activeServices
+      return activeServices.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        (s.category ?? '').toLowerCase().includes(q),
+      )
+    }
     if (!q) return activeProducts
     return activeProducts.filter(p =>
       p.name.toLowerCase().includes(q) ||
       (p.category ?? '').toLowerCase().includes(q) ||
       (p.sku ?? '').toLowerCase().includes(q),
     )
-  }, [tab, query, activeProducts, activePackages, activeMemberships])
+  }, [tab, query, activeProducts, activeServices, activePackages, activeMemberships])
 
   const tabs: Array<{ id: Tab; label: string; count: number; icon: typeof Package }> = [
-    { id: 'product',    label: 'Produtos',    count: activeProducts.length,    icon: Package },
-    { id: 'package',    label: 'Pacotes',     count: activePackages.length,    icon: Layers  },
-    { id: 'membership', label: 'Assinaturas', count: activeMemberships.length, icon: Ticket  },
+    { id: 'product',    label: 'Produtos',    count: activeProducts.length,    icon: Package  },
+    { id: 'service',    label: 'Serviços',    count: activeServices.length,    icon: Scissors },
+    { id: 'package',    label: 'Pacotes',     count: activePackages.length,    icon: Layers   },
+    { id: 'membership', label: 'Assinaturas', count: activeMemberships.length, icon: Ticket   },
   ]
 
   return (
@@ -135,6 +146,7 @@ export default function CatalogPanel({
           placeholder={
             tab === 'membership' ? 'Buscar assinatura...' :
             tab === 'package'    ? 'Buscar pacote...'     :
+            tab === 'service'    ? 'Buscar serviço...'    :
                                    'Buscar produto, SKU...'
           }
           inputMode="search"
@@ -178,14 +190,16 @@ export default function CatalogPanel({
             color: colors.gray.dimText, fontSize: 12,
           }}>
             {tab === 'membership'
-              ? <Ticket  size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+              ? <Ticket   size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
               : tab === 'package'
-              ? <Layers  size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
-              : <Package size={32} style={{ opacity: 0.3, marginBottom: 8 }} />}
+              ? <Layers   size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+              : tab === 'service'
+              ? <Scissors size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+              : <Package  size={32} style={{ opacity: 0.3, marginBottom: 8 }} />}
             <div>
               {(() => {
                 const fem  = tab === 'membership'
-                const noun = tab === 'membership' ? 'assinatura' : tab === 'package' ? 'pacote' : 'produto'
+                const noun = tab === 'membership' ? 'assinatura' : tab === 'package' ? 'pacote' : tab === 'service' ? 'serviço' : 'produto'
                 const art  = fem ? 'Nenhuma' : 'Nenhum'
                 const verb = fem ? (query ? 'encontrada' : 'cadastrada') : (query ? 'encontrado' : 'cadastrado')
                 return `${art} ${noun} ${verb}`
@@ -198,13 +212,20 @@ export default function CatalogPanel({
             gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(140px, 1fr))',
             gap: isMobile ? 10 : 8,
           }}>
-            {/* serviços não aparecem no caixa — vêm da agenda */}
             {tab === 'product' && filtered.map(item => (
               <ProductCard
                 key={item.id}
                 product={item as CatalogProduct}
                 isMobile={isMobile}
                 onClick={() => onAddProduct(item as CatalogProduct)}
+              />
+            ))}
+            {tab === 'service' && filtered.map(item => (
+              <ServiceCard
+                key={item.id}
+                service={item as CatalogService}
+                isMobile={isMobile}
+                onClick={() => onAddService(item as CatalogService)}
               />
             ))}
             {tab === 'package' && filtered.map(item => (
@@ -317,6 +338,82 @@ function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; 
           fontSize: isMobile ? 14 : 13, fontWeight: 700,
           color: colors.red.DEFAULT, fontVariantNumeric: 'tabular-nums',
         }}>{formatBRL(product.price)}</div>
+      </div>
+    </button>
+  )
+}
+
+function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; isMobile: boolean; onClick: () => void }) {
+  const dot = service.color ?? colors.red.DEFAULT
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: 0,
+        background: '#fff',
+        border: `1px solid ${colors.gray.border}`,
+        borderRadius: 11,
+        cursor: 'pointer',
+        textAlign: 'left', fontFamily: 'inherit',
+        transition: `all 0.15s ease`,
+        WebkitTapHighlightColor: 'transparent',
+        overflow: 'hidden',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = dot
+        e.currentTarget.style.transform = 'translateY(-1px)'
+        e.currentTarget.style.boxShadow = `0 4px 14px ${dot}30`
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = colors.gray.border
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = 'none'
+      }}
+    >
+      <div style={{
+        width: '100%',
+        padding: '14px 12px 12px',
+        background: dot,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative',
+      }}>
+        <Scissors size={26} color="#fff" strokeWidth={1.8} />
+        <div style={{
+          position: 'absolute', top: 6, right: 6,
+          padding: '2px 6px',
+          borderRadius: 5,
+          background: 'rgba(255,255,255,0.25)',
+          color: '#fff',
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: '.04em',
+        }}>
+          SERVIÇO
+        </div>
+      </div>
+      <div style={{ padding: isMobile ? '9px 10px 11px' : '8px 10px 10px', flex: 1 }}>
+        <div style={{
+          fontSize: isMobile ? 12 : 11, fontWeight: 700,
+          color: colors.gray[900],
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          marginBottom: 3,
+        }}>
+          {service.name}
+        </div>
+        <div style={{
+          fontSize: 9,
+          color: colors.gray.dimText,
+          marginBottom: 4,
+        }}>
+          {service.duration}min
+        </div>
+        <div style={{
+          fontSize: isMobile ? 14 : 13, fontWeight: 700,
+          color: dot, fontVariantNumeric: 'tabular-nums',
+        }}>
+          {formatBRL(service.price ?? 0)}
+        </div>
       </div>
     </button>
   )

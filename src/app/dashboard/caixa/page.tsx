@@ -9,7 +9,7 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  Sale, CatalogProduct, CatalogPackage, CatalogMembership, ProfLite, SaleItemType,
+  Sale, CatalogProduct, CatalogService, CatalogPackage, CatalogMembership, ProfLite, SaleItemType,
 } from '@/features/sales/types'
 import { useSalesSummary } from '@/features/sales/hooks/useSalesSummary'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -47,6 +47,7 @@ export default function CaixaPage() {
 
   // Catálogo
   const [products,        setProducts]        = useState<CatalogProduct[]>([])
+  const [services,        setServices]        = useState<CatalogService[]>([])  // ⭐ Serviços (aba reinserida)
   const [packages,        setPackages]        = useState<CatalogPackage[]>([])  // ⭐ NOVO
   const [memberships,     setMemberships]     = useState<CatalogMembership[]>([])  // ⭐ Assinaturas
   const [professionals,   setProfessionals]   = useState<ProfLite[]>([])
@@ -123,11 +124,12 @@ export default function CaixaPage() {
   // ⭐ Carrega catálogo: services + products + packages + professionals
   const fetchCatalog = useCallback(async (signal?: AbortSignal) => {
     try {
-      const [prdRes, pkgRes, memRes, profRes] = await Promise.all([
+      const [prdRes, pkgRes, memRes, profRes, svcRes] = await Promise.all([
         api.get('/products',         { signal }),
         api.get('/packages',         { params: { active: true }, signal }),  // ⭐ NOVO
         api.get('/memberships',      { params: { active: true }, signal }),  // ⭐ Assinaturas
         api.get('/equipe',           { signal }),
+        api.get('/services',         { signal }),  // ⭐ Serviços (aba reinserida)
       ])
       if (signal?.aborted) return
 
@@ -135,8 +137,10 @@ export default function CaixaPage() {
       const pkgData  = pkgRes.data?.data  ?? pkgRes.data
       const memData  = memRes.data?.data  ?? memRes.data
       const profData = profRes.data?.data ?? profRes.data
+      const svcData  = svcRes.data?.data  ?? svcRes.data
 
       setProducts(Array.isArray(prdData) ? prdData : prdData.products ?? [])
+      setServices(Array.isArray(svcData) ? svcData : svcData.services ?? [])  // ⭐ Serviços
       setPackages(Array.isArray(pkgData) ? pkgData : [])  // ⭐ NOVO
       setMemberships(Array.isArray(memData) ? memData : [])  // ⭐ Assinaturas
       setProfessionals(
@@ -149,6 +153,7 @@ export default function CaixaPage() {
     } catch {
       if (!signal?.aborted) {
         setProducts([])
+        setServices([])
         setPackages([])
         setMemberships([])
         setProfessionals([])
@@ -205,6 +210,31 @@ export default function CaixaPage() {
     await addItemToSale(activeSaleId, {
       type: 'PRODUCT',
       productId: product.id,
+      professionalId: activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId ?? null,
+    })
+  }
+
+  // ⭐ Serviços: adicionar ao carrinho (avulso) — herda prof do 1º serviço
+  async function addService(svc: CatalogService) {
+    if (!activeSaleId) {
+      try {
+        const res = await api.post('/sales', {})
+        const newSale: Sale = res.data?.data ?? res.data
+        setOpenSales([newSale])
+        setActiveSaleId(newSale.id)
+        await addItemToSale(newSale.id, {
+          type: 'SERVICE',
+          serviceId: svc.id,
+          professionalId: null,
+        })
+      } catch {
+        setToast({ message: 'Erro ao criar venda', kind: 'error' })
+      }
+      return
+    }
+    await addItemToSale(activeSaleId, {
+      type: 'SERVICE',
+      serviceId: svc.id,
       professionalId: activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId ?? null,
     })
   }
@@ -436,6 +466,7 @@ export default function CaixaPage() {
             openSales={openSales}
             activeSale={activeSale}
             products={products}
+            services={services}            /* ⭐ Serviços */
             packages={packages}            /* ⭐ NOVO */
             memberships={memberships}      /* ⭐ Assinaturas */
             professionals={professionals}
@@ -445,6 +476,7 @@ export default function CaixaPage() {
             isMobile={isMobile}
             onCreateNew={createNewSale}
             onAddProduct={addProduct}
+            onAddService={addService}      /* ⭐ Serviços */
             onAddPackage={addPackage}      /* ⭐ NOVO */
             onAddMembership={addMembership} /* ⭐ Assinaturas */
             onSaleUpdated={updateSaleInList}
@@ -476,6 +508,7 @@ interface OpenTabProps {
   openSales:       Sale[]
   activeSale:      Sale | null
   products:        CatalogProduct[]
+  services:        CatalogService[]      // ⭐ Serviços
   packages:        CatalogPackage[]      // ⭐ NOVO
   memberships:     CatalogMembership[]   // ⭐ Assinaturas
   professionals:   ProfLite[]
@@ -485,6 +518,7 @@ interface OpenTabProps {
   isMobile:        boolean
   onCreateNew:     () => void
   onAddProduct:    (p: CatalogProduct) => void
+  onAddService:    (s: CatalogService) => void   // ⭐ Serviços
   onAddPackage:    (p: CatalogPackage) => void   // ⭐ NOVO
   onAddMembership: (m: CatalogMembership) => void // ⭐ Assinaturas
   onSaleUpdated:   (s: Sale) => void
@@ -575,11 +609,13 @@ function OpenTab(props: OpenTabProps) {
             }}>
               <CatalogPanel
                 products={props.products}
+                services={props.services}             /* ⭐ Serviços */
                 packages={props.packages}             /* ⭐ NOVO */
                 memberships={props.memberships}       /* ⭐ Assinaturas */
                 loading={props.catalogLoading}
                 isMobile={props.isMobile}
                 onAddProduct={props.onAddProduct}
+                onAddService={props.onAddService}     /* ⭐ Serviços */
                 onAddPackage={props.onAddPackage}     /* ⭐ NOVO */
                 onAddMembership={props.onAddMembership} /* ⭐ Assinaturas */
               />
@@ -705,11 +741,13 @@ function OpenTab(props: OpenTabProps) {
         }}>
           <CatalogPanel
             products={props.products}
+            services={props.services}             /* ⭐ Serviços */
             packages={props.packages}             /* ⭐ NOVO */
             memberships={props.memberships}       /* ⭐ Assinaturas */
             loading={props.catalogLoading}
             isMobile={props.isMobile}
             onAddProduct={props.onAddProduct}
+            onAddService={props.onAddService}     /* ⭐ Serviços */
             onAddPackage={props.onAddPackage}     /* ⭐ NOVO */
             onAddMembership={props.onAddMembership} /* ⭐ Assinaturas */
           />
