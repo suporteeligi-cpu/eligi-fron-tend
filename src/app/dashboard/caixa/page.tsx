@@ -3,11 +3,12 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Receipt, TrendingUp, Loader2, ArrowLeft, ArrowRight } from 'lucide-react'
+import { ShoppingCart, Receipt, TrendingUp, Loader2, ArrowLeft, ArrowRight, Lock } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useAuth } from '@/hooks/useAuth'
 import {
   Sale, CatalogProduct, CatalogService, CatalogPackage, CatalogMembership, ProfLite, SaleItemType,
 } from '@/features/sales/types'
@@ -32,6 +33,8 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingCart }[] = [
 export default function CaixaPage() {
   const isMobile = useIsMobile(768)
   const router   = useRouter()
+  const { user } = useAuth()
+  const isCheckoutOnly = user?.role === 'STAFF' || user?.role === 'BASIC_STAFF'
 
   const [tab,             setTab]             = useState<Tab>('open')
   const [openSales,       setOpenSales]       = useState<Sale[]>([])
@@ -72,7 +75,7 @@ export default function CaixaPage() {
   const [summaryCategory, setSummaryCategory] = useState<SaleItemType | null>(null)
 
   const { summary, loading: summaryLoading, refetch: refetchSummary }
-    = useSalesSummary({ dateFrom: summaryFrom, dateTo: summaryTo, itemType: summaryCategory ?? undefined })
+    = useSalesSummary({ dateFrom: summaryFrom, dateTo: summaryTo, itemType: summaryCategory ?? undefined }, !!user && !isCheckoutOnly)
 
   const [initialActive] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
@@ -376,7 +379,7 @@ export default function CaixaPage() {
         />
       )}
 
-      {showCleanupModal && (
+      {showCleanupModal && !isCheckoutOnly && (
         <OpenSalesCleanupModal
           sales={cleanupSales}
           isMobile={isMobile}
@@ -421,11 +424,14 @@ export default function CaixaPage() {
         }}>
           {TABS.map(t => {
             const isActive = tab === t.id
-            const Icon = t.icon
+            const locked = isCheckoutOnly && t.id !== 'open'
+            const Icon = locked ? Lock : t.icon
             return (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => { if (!locked) setTab(t.id) }}
+                disabled={locked}
+                title={locked ? 'Sem permissão' : undefined}
                 style={{
                   flex: 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -433,7 +439,8 @@ export default function CaixaPage() {
                   borderRadius: 9,
                   border: 'none',
                   background: isActive ? '#fff' : 'transparent',
-                  cursor: 'pointer',
+                  cursor: locked ? 'not-allowed' : 'pointer',
+                  opacity: locked ? 0.45 : 1,
                   fontSize: 12,
                   fontWeight: isActive ? 700 : 600,
                   color: isActive ? colors.gray[900] : colors.gray.dimText,
@@ -484,11 +491,11 @@ export default function CaixaPage() {
           />
         )}
 
-        {tab === 'confirmed' && (
+        {tab === 'confirmed' && !isCheckoutOnly && (
           <ConfirmedSalesList refreshKey={confirmedRefresh} />
         )}
 
-        {tab === 'summary' && (
+        {tab === 'summary' && !isCheckoutOnly && (
           <SalesSummaryCards
             summary={summary}
             loading={summaryLoading}

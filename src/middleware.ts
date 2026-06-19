@@ -39,7 +39,7 @@ export function middleware(request: NextRequest) {
 
   // BASIC_STAFF: só agenda e comissões próprias (server-side)
   const userRole = request.cookies.get('userRole')?.value ?? ''
-  const BASIC_STAFF_ALLOWED = ['/dashboard/agenda', '/dashboard/financeiro/comissoes']
+  const BASIC_STAFF_ALLOWED = ['/dashboard/agenda', '/dashboard/financeiro/comissoes', '/dashboard/caixa']
   if (hasSession && userRole === 'BASIC_STAFF' && isProtected &&
       !BASIC_STAFF_ALLOWED.some(r => pathname.startsWith(r))) {
     return NextResponse.redirect(new URL('/dashboard/agenda', request.url))
