@@ -1,14 +1,15 @@
 'use client'
 // src/app/dashboard/financeiro/comissoes/components/MyCommissionsView.tsx
-// Visão somente leitura para STAFF / BASIC_STAFF / RECEPTIONIST
+// Visao somente leitura para STAFF / BASIC_STAFF / RECEPTIONIST
+// Direcao A (performance): hero + delta + KPIs + por dia + onde rende mais + detalhamento
 
-import { useState, useEffect, useCallback } from 'react'
-import { ChevronDown, ChevronRight, Check, Clock } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { ChevronDown, ChevronRight, Check, Clock, TrendingUp, TrendingDown } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
 import { methodLabel, fmtPayoutPeriod } from '@/features/payouts/utils/format'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types ---
 type Period = 'week' | 'last_week' | 'month'
 
 interface CommissionItem {
@@ -41,58 +42,102 @@ interface PaidPayout {
 }
 
 interface MyCommissions {
-  periodLabel:  string
-  periodStart:  string
-  periodEnd:    string
-  paymentDate:  string | null
-  serviceTotal: number
-  productTotal: number
-  total:        number
-  serviceCount: number
-  productCount: number
-  days:         CommissionDay[]
-  paidPayouts:  PaidPayout[]
+  periodLabel:    string
+  periodStart:    string
+  periodEnd:      string
+  paymentDate:    string | null
+  serviceTotal:   number
+  productTotal:   number
+  total:          number
+  previousTotal?: number
+  serviceCount:   number
+  productCount:   number
+  days:           CommissionDay[]
+  paidPayouts:    PaidPayout[]
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// --- Helpers ---
 function fmtBRL(v: number) {
-  return `R$ ${v.toFixed(2).replace('.', ',')}`
+  return `R$ ${(v ?? 0).toFixed(2).replace('.', ',')}`
 }
 
 function fmtDateBR(iso: string | null) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })
 }
 
 const PERIOD_LABELS: Record<Period, string> = {
   week:      'Esta semana',
   last_week: 'Semana passada',
-  month:     'Este mês',
+  month:     'Este mes',
 }
 
-// ─── Componente principal ─────────────────────────────────────────────────────
+const cardStyle: React.CSSProperties = {
+  background:'#fff',
+  border:`0.5px solid ${colors.gray.borderMd}`,
+  borderRadius:14,
+  marginBottom:10,
+  boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
+}
+
+function SecTitle({ children, bordered }: { children: React.ReactNode; bordered?: boolean }) {
+  return (
+    <div style={{
+      padding: bordered ? '12px 16px 8px' : '12px 18px 0',
+      fontSize:11, fontWeight:700, color:typography.color.muted,
+      textTransform:'uppercase', letterSpacing:'.06em',
+      borderBottom: bordered ? `0.5px solid ${colors.gray.border}` : 'none',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div style={{ background:colors.background?.page ?? '#f9fafb', borderRadius:10, padding:'10px 14px' }}>
+      <div style={{ fontSize:10, color:typography.color.muted, marginBottom:3, textTransform:'uppercase', letterSpacing:'.05em' }}>{label}</div>
+      <div style={{ fontSize:16, fontWeight:700, color:typography.color.primary }}>{value}</div>
+      {hint && <div style={{ fontSize:10, color:typography.color.muted, marginTop:2 }}>{hint}</div>}
+    </div>
+  )
+}
+
+// --- Componente principal ---
 export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
   const [period,    setPeriod]    = useState<Period>('week')
   const [data,      setData]      = useState<MyCommissions | null>(null)
-  const [loading,   setLoading]   = useState(true)
+  const [firstLoad, setFirstLoad] = useState(true)
   const [expanded,  setExpanded]  = useState<Set<string>>(new Set())
 
+  const cacheRef = useRef<Partial<Record<Period, MyCommissions>>>({})
+  const reqRef   = useRef(0)
+
+  // Render rapida: cache por periodo, troca otimista, token contra resposta tardia,
+  // spinner so no 1o load.
   const fetchData = useCallback(async (p: Period) => {
+    const token  = ++reqRef.current
+    const cached = cacheRef.current[p]
+    if (cached) {
+      setData(cached)
+      setExpanded(cached.days[0] ? new Set([cached.days[0].date]) : new Set())
+    }
     try {
-      setLoading(true)
       const res = await api.get('/payouts/my-commissions', { params: { period: p } })
-      const d   = res.data?.data ?? null
+      const d: MyCommissions | null = res.data?.data ?? null
+      if (token !== reqRef.current) return
+      if (d) cacheRef.current[p] = d
       setData(d)
-      // Auto-expande o primeiro dia (hoje)
-      if (d?.days?.[0]) setExpanded(new Set([d.days[0].date]))
+      setExpanded(d?.days?.[0] ? new Set([d.days[0].date]) : new Set())
     } catch {
-      setData(null)
+      if (token !== reqRef.current) return
+      if (!cached) setData(null)
     } finally {
-      setLoading(false)
+      if (token === reqRef.current) setFirstLoad(false)
     }
   }, [])
 
-  useEffect(() => { fetchData(period) }, [fetchData, period])
+  useEffect(() => { void fetchData(period) }, [fetchData, period])
 
   function toggleDay(date: string) {
     setExpanded(prev => {
@@ -109,28 +154,47 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
     animation:  'fadeUp 0.3s ease',
   }
 
-  if (loading) return (
+  if (firstLoad && !data) return (
     <div style={{ ...wrap, display:'flex', alignItems:'center', justifyContent:'center', padding:60 }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
       <div style={{ width:28, height:28, borderRadius:'50%', border:`3px solid rgba(220,38,38,0.15)`, borderTopColor:'#dc2626', animation:'spin 0.8s linear infinite' }} />
     </div>
   )
 
+  // --- Derivados (client-side, a partir do que o back ja devolve) ---
+  const atend = (data?.serviceCount ?? 0) + (data?.productCount ?? 0)
+  const avg   = atend ? ((data?.total ?? 0) / atend) : 0
+
+  let bestDay: CommissionDay | null = null
+  if (data) for (const d of data.days) { if (!bestDay || d.total > bestDay.total) bestDay = d }
+
+  const delta = (data?.previousTotal != null && data.previousTotal > 0)
+    ? Math.round((data.total - data.previousTotal) / data.previousTotal * 100)
+    : null
+
+  const ranking = (() => {
+    const m = new Map<string, number>()
+    data?.days.forEach(d => d.items.forEach(i => m.set(i.name, (m.get(i.name) ?? 0) + i.amount)))
+    const arr = Array.from(m, ([name, v]) => ({ name, v })).sort((a, b) => b.v - a.v).slice(0, 5)
+    const max = arr.length ? arr[0].v : 1
+    return arr.map(r => ({ name: r.name, v: r.v, w: Math.round(r.v / max * 100) }))
+  })()
+
   return (
     <div style={wrap}>
       <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div style={{ marginBottom:16 }}>
         <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight:700, color:typography.color.primary, margin:'0 0 4px', letterSpacing:'-0.02em' }}>
-          Minhas comissões
+          Minhas comissoes
         </h1>
         <p style={{ fontSize:13, color:typography.color.muted, margin:0 }}>
-          {data?.periodLabel ?? '—'}
+          {data?.periodLabel ?? '-'}
         </p>
       </div>
 
-      {/* ── Seletor de período ── */}
+      {/* Seletor de periodo */}
       <div style={{
         display:'flex', gap:6, marginBottom:16,
         background: colors.background?.page ?? '#f9fafb',
@@ -157,95 +221,101 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
         ))}
       </div>
 
-      {/* ── Hero total ── */}
+      {/* Hero total */}
       <div style={{
         background:'#fff',
         border:`0.5px solid ${colors.gray.borderMd}`,
         borderTop:`3px solid #16a34a`,
         borderRadius:14,
-        padding:'20px 24px',
         marginBottom:10,
         boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
       }}>
-        {/* Total principal */}
-        <div style={{ textAlign:'center', paddingBottom:16, borderBottom:`0.5px solid ${colors.gray.border}`, marginBottom:16 }}>
+        <div style={{ textAlign:'center', padding:'20px 24px 16px', borderBottom:`0.5px solid ${colors.gray.border}` }}>
           <div style={{ fontSize:11, color:typography.color.muted, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:6 }}>
             A receber
           </div>
-          <div style={{ fontSize: isMobile ? 36 : 48, fontWeight:700, color:'#16a34a', lineHeight:1, letterSpacing:'-1px' }}>
+          <div style={{ fontSize: isMobile ? 36 : 46, fontWeight:700, color:'#16a34a', lineHeight:1, letterSpacing:'-1px' }}>
             {fmtBRL(data?.total ?? 0)}
           </div>
-          <div style={{ fontSize:12, color:typography.color.muted, marginTop:8, display:'flex', alignItems:'center', justifyContent:'center', gap:10, flexWrap:'wrap' }}>
-            <span>{(data?.serviceCount ?? 0) + (data?.productCount ?? 0)} atendimentos</span>
+          <div style={{ fontSize:12, color:typography.color.muted, marginTop:10, display:'flex', alignItems:'center', justifyContent:'center', gap:8, flexWrap:'wrap' }}>
+            {delta != null && (
+              <span style={{
+                display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600,
+                color:      delta >= 0 ? '#166534' : '#991b1b',
+                background:  delta >= 0 ? '#f0fdf4' : '#fef2f2',
+                padding:'2px 8px', borderRadius:999,
+              }}>
+                {delta >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                {delta >= 0 ? '+' : ''}{delta}% vs anterior
+              </span>
+            )}
+            <span>{atend} atendimentos</span>
             {data?.paymentDate && (
-              <>
-                <span style={{ width:3, height:3, borderRadius:'50%', background:colors.gray.borderMd, display:'inline-block' }} />
-                <span style={{ display:'inline-flex', alignItems:'center', gap:4, color:'#854d0e', background:'#fef9c3', padding:'2px 8px', borderRadius:999, fontSize:11, fontWeight:600 }}>
-                  <Clock size={10} />
-                  Pagamento {data.paymentDate}
-                </span>
-              </>
+              <span style={{ display:'inline-flex', alignItems:'center', gap:4, color:'#854d0e', background:'#fef9c3', padding:'2px 8px', borderRadius:999, fontSize:11, fontWeight:600 }}>
+                <Clock size={10} />
+                Pgto {data.paymentDate}
+              </span>
             )}
           </div>
         </div>
 
-        {/* Barra de progresso semanal */}
-        {period === 'week' && (() => {
-          const totalDays = 7
-          const today = new Date()
-          const start = new Date(data?.periodStart ?? today)
-          const elapsed = Math.max(0, Math.min(7, Math.ceil((today.getTime() - start.getTime()) / (1000*60*60*24)) + 1))
-          const pct = Math.round((elapsed / totalDays) * 100)
-          const dayNames = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom']
-          return (
-            <div style={{ marginBottom:16 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5, fontSize:10, color:typography.color.muted }}>
-                <span>{dayNames[0]}</span>
-                <span style={{ color:'#16a34a', fontWeight:600 }}>Hoje · {pct}% da semana</span>
-                <span>{dayNames[6]}</span>
-              </div>
-              <div style={{ background:colors.background?.page ?? '#f3f4f6', borderRadius:999, height:6, overflow:'hidden' }}>
-                <div style={{ width:`${pct}%`, height:'100%', background:'#16a34a', borderRadius:999, transition:'width 600ms ease' }} />
-              </div>
-            </div>
-          )
-        })()}
-
-        {/* Mini KPIs */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-          <div style={{ background:colors.background?.page ?? '#f9fafb', borderRadius:10, padding:'10px 14px' }}>
-            <div style={{ fontSize:10, color:typography.color.muted, marginBottom:3, textTransform:'uppercase', letterSpacing:'.05em' }}>Serviços</div>
-            <div style={{ fontSize:16, fontWeight:700, color:typography.color.primary }}>{fmtBRL(data?.serviceTotal ?? 0)}</div>
-            <div style={{ fontSize:10, color:typography.color.muted, marginTop:2 }}>{data?.serviceCount ?? 0} atendimentos</div>
-          </div>
-          <div style={{ background:colors.background?.page ?? '#f9fafb', borderRadius:10, padding:'10px 14px' }}>
-            <div style={{ fontSize:10, color:typography.color.muted, marginBottom:3, textTransform:'uppercase', letterSpacing:'.05em' }}>Produtos</div>
-            <div style={{ fontSize:16, fontWeight:700, color:typography.color.primary }}>{fmtBRL(data?.productTotal ?? 0)}</div>
-            <div style={{ fontSize:10, color:typography.color.muted, marginTop:2 }}>{data?.productCount ?? 0} {data?.productCount === 1 ? 'item' : 'itens'}</div>
-          </div>
+        {/* Mini KPIs 2x2 */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, padding:'16px 24px' }}>
+          <Kpi label="Comissao media" value={fmtBRL(avg)} />
+          <Kpi label="Melhor dia" value={bestDay ? fmtBRL(bestDay.total) : '-'} hint={bestDay ? bestDay.label.replace('Hoje, ','').replace('Ontem, ','') : undefined} />
+          <Kpi label={`Servicos · ${data?.serviceCount ?? 0}`} value={fmtBRL(data?.serviceTotal ?? 0)} />
+          <Kpi label={`Produtos · ${data?.productCount ?? 0}`} value={fmtBRL(data?.productTotal ?? 0)} />
         </div>
       </div>
 
-      {/* ── Dias detalhados ── */}
+      {/* Por dia */}
       {data && data.days.length > 0 && (
-        <div style={{
-          background:'#fff',
-          border:`0.5px solid ${colors.gray.borderMd}`,
-          borderRadius:14,
-          overflow:'hidden',
-          marginBottom:10,
-          boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
-        }}>
-          <div style={{ padding:'12px 16px 8px', fontSize:11, fontWeight:700, color:typography.color.muted, textTransform:'uppercase', letterSpacing:'.06em', borderBottom:`0.5px solid ${colors.gray.border}` }}>
-            Detalhamento por dia
+        <div style={cardStyle}>
+          <SecTitle>Por dia</SecTitle>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:104, padding:'14px 18px 10px' }}>
+            {[...data.days].reverse().map(d => {
+              const h = Math.max(Math.round(d.total / (bestDay?.total || 1) * 100), 4)
+              const isBest = !!bestDay && d.date === bestDay.date
+              return (
+                <div key={d.date} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:5, minWidth:0 }}>
+                  <div title={fmtBRL(d.total)} style={{ width:'100%', height:`${h}%`, background:'#16a34a', opacity:isBest?1:0.75, borderRadius:'4px 4px 0 0', minHeight:3 }} />
+                  <div style={{ fontSize:10, color:typography.color.muted }}>{d.date.slice(8,10)}</div>
+                </div>
+              )
+            })}
           </div>
+        </div>
+      )}
 
+      {/* Onde rende mais */}
+      {ranking.length > 0 && (
+        <div style={cardStyle}>
+          <SecTitle>Onde rende mais</SecTitle>
+          <div style={{ display:'flex', flexDirection:'column', gap:10, padding:'12px 18px 16px' }}>
+            {ranking.map(r => (
+              <div key={r.name}>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, marginBottom:5, color:typography.color.primary }}>
+                  <span style={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{r.name}</span>
+                  <span style={{ color:typography.color.muted, flexShrink:0, marginLeft:8 }}>{fmtBRL(r.v)}</span>
+                </div>
+                <div style={{ height:7, borderRadius:999, background:colors.background?.page ?? '#f3f4f6', overflow:'hidden' }}>
+                  <div style={{ width:`${r.w}%`, height:'100%', background:colors.red.DEFAULT, borderRadius:999 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Detalhamento por dia */}
+      {data && data.days.length > 0 && (
+        <div style={{ ...cardStyle, overflow:'hidden' }}>
+          <SecTitle bordered>Detalhamento por dia</SecTitle>
           {data.days.map((day, idx) => {
             const isOpen = expanded.has(day.date)
             const isLast = idx === data.days.length - 1
             return (
               <div key={day.date} style={{ borderBottom: isLast ? 'none' : `0.5px solid ${colors.gray.border}` }}>
-                {/* Header do dia */}
                 <button
                   onClick={() => toggleDay(day.date)}
                   style={{
@@ -258,15 +328,12 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
                 >
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                     <div style={{ color:typography.color.muted }}>
-                      {isOpen
-                        ? <ChevronDown size={15} />
-                        : <ChevronRight size={15} />
-                      }
+                      {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                     </div>
                     <div style={{ textAlign:'left' }}>
                       <div style={{ fontSize:13, fontWeight:600, color:typography.color.primary }}>{day.label}</div>
                       <div style={{ fontSize:10, color:typography.color.muted, marginTop:1 }}>
-                        {day.serviceCount > 0 && `${day.serviceCount} serviço${day.serviceCount > 1 ? 's' : ''}`}
+                        {day.serviceCount > 0 && `${day.serviceCount} servico${day.serviceCount > 1 ? 's' : ''}`}
                         {day.serviceCount > 0 && day.productCount > 0 && ' · '}
                         {day.productCount > 0 && `${day.productCount} produto${day.productCount > 1 ? 's' : ''}`}
                       </div>
@@ -277,7 +344,6 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
                   </div>
                 </button>
 
-                {/* Items do dia */}
                 {isOpen && (
                   <div style={{ background:'#fff', borderTop:`0.5px solid ${colors.gray.border}` }}>
                     {day.items.map((item, iIdx) => (
@@ -315,19 +381,10 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
         </div>
       )}
 
-      {/* ── Já recebi ── */}
+      {/* Ja recebi */}
       {data && data.paidPayouts.length > 0 && (
-        <div style={{
-          background:'#fff',
-          border:`0.5px solid ${colors.gray.borderMd}`,
-          borderRadius:14,
-          overflow:'hidden',
-          marginBottom:10,
-          boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
-        }}>
-          <div style={{ padding:'12px 16px 8px', fontSize:11, fontWeight:700, color:typography.color.muted, textTransform:'uppercase', letterSpacing:'.06em', borderBottom:`0.5px solid ${colors.gray.border}` }}>
-            Já recebi
-          </div>
+        <div style={{ ...cardStyle, overflow:'hidden' }}>
+          <SecTitle bordered>Ja recebi</SecTitle>
           {data.paidPayouts.map((payout, idx) => (
             <div
               key={payout.id}
@@ -372,10 +429,10 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
         }}>
           <div style={{ fontSize:32, marginBottom:12 }}>💈</div>
           <div style={{ fontSize:15, fontWeight:600, color:typography.color.primary, marginBottom:4 }}>
-            Nenhuma comissão neste período
+            Nenhuma comissao neste periodo
           </div>
           <div style={{ fontSize:13, color:typography.color.muted }}>
-            As comissões aparecem aqui conforme os atendimentos são confirmados.
+            As comissoes aparecem aqui conforme os atendimentos sao confirmados.
           </div>
         </div>
       )}
