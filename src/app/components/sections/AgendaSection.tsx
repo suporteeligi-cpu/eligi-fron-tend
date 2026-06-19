@@ -4,6 +4,12 @@ import { useEffect, useRef } from 'react'
 import Image from 'next/image'
 import styles from './AgendaSection.module.css'
 
+const BENEFITS = [
+  'Agendamento online que cai direto na sua agenda',
+  'Seu dia inteiro em tempo real, de qualquer lugar',
+  'Arraste, remarque e bloqueie horários em segundos',
+]
+
 export default function AgendaSection() {
   const sectionRef = useRef<HTMLElement | null>(null)
 
@@ -11,7 +17,12 @@ export default function AgendaSection() {
     const section = sectionRef.current
     if (!section) return
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { section.classList.add(styles.visible); observer.disconnect() } },
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          section.classList.add(styles.visible)
+          observer.disconnect()
+        }
+      },
       { threshold: 0.2 }
     )
     observer.observe(section)
@@ -33,23 +44,37 @@ export default function AgendaSection() {
           </div>
 
           <h2 className={styles.title}>
-            Chega de perder tempo com ligações e mensagens
+            Chega de perder tempo com<br />ligações e mensagens
           </h2>
 
           <p className={styles.text}>
-            Seus clientes agendam sozinhos, a qualquer hora do dia.
-            Enquanto isso, você acompanha sua agenda em tempo real,
-            organiza sua rotina e trabalha com mais tranquilidade.
-            <strong> Mais comodidade para eles, mais controle para você.</strong>
+            Seus clientes agendam sozinhos, a qualquer hora. Você acompanha o dia
+            em tempo real, organiza a rotina e trabalha com mais tranquilidade —
+            mais comodidade para eles, mais controle para você.
           </p>
+
+          <ul className={styles.benefits}>
+            {BENEFITS.map(b => (
+              <li key={b}>
+                <span className={styles.check}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                {b}
+              </li>
+            ))}
+          </ul>
+
+          <a href="#video" className={styles.cta}>Ver demonstração</a>
         </div>
 
         <div className={styles.visual}>
           <Image
-            src="/images/agenda-preview.png"
-            alt="Agenda ELIGI"
-            width={420}
-            height={760}
+            src="/images/agenda-phone.png"
+            alt="Agenda do eligi no celular"
+            width={830}
+            height={1482}
             className={styles.image}
             priority
           />
