@@ -445,6 +445,8 @@ export default function AppNavbar() {
   const [refreshKey,  setRefreshKey]  = useState(0)
   const [avatarHover, setAvatarHover] = useState(false)
   const [shareHover,  setShareHover]  = useState(false)
+  const [themeNotice, setThemeNotice] = useState(false)
+  const [themeShake,  setThemeShake]  = useState(false)
 
   const businessId = auth?.user?.businessId ?? ''
 
@@ -541,6 +543,14 @@ export default function AppNavbar() {
     setDarkMode(next)
     localStorage.setItem('eligi-theme', next ? 'dark' : 'light')
   }
+  /** TEMPORARIO: modo escuro ainda em desenvolvimento. Bloqueia o clique
+   *  mantendo toggleTheme/darkMode intactos. Reativar = trocar onClick de volta. */
+  function denyTheme() {
+    setThemeShake(true)
+    setThemeNotice(true)
+    window.setTimeout(() => setThemeShake(false), 380)
+    window.setTimeout(() => setThemeNotice(false), 2600)
+  }
 
   const firstName = auth?.user?.name?.split(' ')[0] ?? ''
   const roleLabel = ROLE_LABEL[auth?.user?.role ?? ''] ?? ''
@@ -549,7 +559,38 @@ export default function AppNavbar() {
 
   return (
     <>
+      {themeNotice && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed', top: 70, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 999999,
+            padding: '10px 16px',
+            background: 'rgba(24,24,27,0.92)',
+            color: '#fff',
+            borderRadius: 12,
+            fontSize: 13, fontWeight: 500,
+            boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            animation: 'eligi-theme-toast-in 0.18s ease-out',
+          }}
+        >
+          Modo escuro em desenvolvimento. Volta em breve.
+        </div>
+      )}
       <style>{`
+        @keyframes eligi-shake {
+          0%, 100% { transform: translateX(0); }
+          15%, 55% { transform: translateX(-3px); }
+          30%, 70% { transform: translateX(3px); }
+          85%      { transform: translateX(-1px); }
+        }
+        .eligi-shake { animation: eligi-shake 0.38s ease-in-out; }
+        @keyframes eligi-theme-toast-in {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
         @keyframes eligi-pulse {
           0%   { transform:scale(1);   opacity:0.85; }
           65%  { transform:scale(2.6); opacity:0; }
@@ -697,8 +738,14 @@ export default function AppNavbar() {
               )}
             </button>
 
-            {/* Dark mode */}
-            <button className="eligi-icon-btn" onClick={toggleTheme} title={darkMode ? 'Modo claro' : 'Modo escuro'}>
+            {/* Dark mode - TEMPORARIAMENTE em desenvolvimento (denyTheme) */}
+            <button
+              className={`eligi-icon-btn${themeShake ? ' eligi-shake' : ''}`}
+              onClick={denyTheme}
+              title="Modo escuro em desenvolvimento"
+              aria-disabled="true"
+              style={{ opacity: 0.6, cursor: 'not-allowed' }}
+            >
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 

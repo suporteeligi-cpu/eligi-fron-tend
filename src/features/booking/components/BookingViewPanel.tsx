@@ -68,6 +68,7 @@ interface BookingDetail {
   } | null
   groupItems?: GroupItem[]
   groupTotal?: number
+  extraServices?: { id: string; name: string; price: number; professional?: { id: string; name: string } | null }[]
 }
 
 interface GroupItem {
@@ -391,8 +392,9 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
   const showAnticipated = isConfirmed && !bookingEnded && !hasOpenSale
 
   const isGroup    = !!(detail?.groupItems && detail.groupItems.length > 1)
+  const extras     = detail?.extraServices ?? []
   const price     = detail?.service.price ?? 0
-  const displayTotal = isGroup ? (detail?.groupTotal ?? 0) : price
+  const displayTotal = detail?.sale ? detail.sale.total : (isGroup ? (detail?.groupTotal ?? 0) : price)
   const profName  = detail?.professional?.name
   const dateLabel = dayjs(detail?.startAt ?? `${dateStr}T${bookingStart}:00`)
     .tz('America/Sao_Paulo').format('ddd, DD [de] MMM [de] YYYY').replace(/^\w/, c => c.toUpperCase())
@@ -679,8 +681,8 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
 
               {/* Card de serviços — lista o grupo quando há múltiplos (estilo Booksy) */}
               {(() => {
-                const group = detail?.groupItems && detail.groupItems.length > 1
-                  ? detail.groupItems
+                const group = detail && ((detail.groupItems?.length ?? 0) > 1 || extras.length > 0)
+                  ? (detail.groupItems ?? [])
                   : null
 
                 if (group) {
@@ -710,7 +712,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 700, color: '#0f0f14' }}>{dateLabel}</div>
                           <div style={{ fontSize: 12, color: colors.gray.dimText, marginTop: 2 }}>
-                            {group.length} serviços
+                            {group.length + extras.length} serviços
                           </div>
                         </div>
                       </div>
@@ -770,6 +772,63 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                           </div>
                         )
                       })}
+                      {extras.map((ex) => (
+                        <div key={ex.id} style={{
+                          padding: '14px 18px',
+                          display: 'flex', alignItems: 'flex-start', gap: 10,
+                          borderTop: '1px solid rgba(0,0,0,0.05)',
+                          background: 'rgba(0,0,0,0.015)',
+                        }}>
+                          <div style={{
+                            width: 4, height: 40, borderRadius: 2,
+                            background: colors.gray.borderMd,
+                            flexShrink: 0,
+                          }}/>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              display: 'flex', justifyContent: 'space-between',
+                              alignItems: 'baseline', gap: 8,
+                            }}>
+                              <span style={{
+                                fontSize: 14, fontWeight: 700, color: '#0f0f14',
+                                letterSpacing: '-0.01em',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                              }}>
+                                {ex.name}
+                              </span>
+                              {ex.price > 0 && (
+                                <span style={{
+                                  fontSize: 14, fontWeight: 800, color: '#0f0f14',
+                                  fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+                                }}>
+                                  R$ {ex.price.toFixed(2).replace('.',',')}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: 6,
+                              marginTop: 3, fontSize: 12, color: colors.gray.dimText,
+                            }}>
+                              <span style={{
+                                fontSize: 9, fontWeight: 700,
+                                color: '#b45309',
+                                background: 'rgba(245,158,11,0.12)',
+                                border: '1px solid rgba(245,158,11,0.25)',
+                                padding: '1px 6px', borderRadius: 5,
+                                letterSpacing: '.04em', textTransform: 'uppercase',
+                              }}>
+                                no caixa
+                              </span>
+                              {ex.professional?.name && (
+                                <>
+                                  <span style={{ opacity: 0.4 }}>·</span>
+                                  {ex.professional.name}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )
                 }
@@ -901,7 +960,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
               )}
 
               {/* Card total + status de venda */}
-              {(price > 0 || isGroup) && (
+              {(price > 0 || isGroup || !!detail?.sale) && (
                 <div style={{
                   background: '#fff',
                   borderRadius: 18,
