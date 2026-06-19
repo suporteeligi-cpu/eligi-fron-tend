@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
   ArrowLeft, Loader2, Package, Scissors, Users, FileX,
-  CheckCircle, Calendar, Phone,
+  CheckCircle, Calendar, Phone, Play
 } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
@@ -221,7 +221,7 @@ export default function SaleDetailPage() {
             Itens ({sale.items.length})
           </div>
           {sale.items.map((item, i) => {
-            const Icon = item.type === 'PRODUCT' ? Package : Scissors
+            const Icon = item.type === 'PRODUCT' ? Package : Play
             const color = item.product?.color ?? item.service?.color ?? colors.red.DEFAULT
             return (
               <div key={item.id} style={{
