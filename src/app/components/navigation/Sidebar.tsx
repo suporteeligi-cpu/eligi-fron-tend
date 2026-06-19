@@ -7,6 +7,7 @@ import { navigationByRole, NavItemType, getRoleLabel } from './navigation.config
 import { useAuth } from '@/hooks/useAuth'
 import NavItem from './NavItem'
 import { LogOut, MoreHorizontal, X } from 'lucide-react'
+import ConfirmDialog from '@/shared/components/ConfirmDialog'
 
 const NAVBAR_OFFSET = 104
 const BOTTOM_NAV_H  = 64 // height of the mobile bottom bar
@@ -340,6 +341,7 @@ function MobileBottomNav({
 ============================================================ */
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const [hovered,  setHovered]  = useState(false)
   const [isMobile, setIsMobile] = useState<boolean>(() =>
@@ -391,11 +393,22 @@ export default function Sidebar() {
   /* ── Mobile → bottom nav ── */
   if (isMobile) {
     return (
-      <MobileBottomNav
-        navItems={navItems}
-        user={user}
-        logout={logout}
-      />
+      <>
+        <MobileBottomNav
+          navItems={navItems}
+          user={user}
+          logout={() => setConfirmOpen(true)}
+        />
+        <ConfirmDialog
+          open={confirmOpen}
+          title="Sair da conta?"
+          message="Você precisará fazer login novamente."
+          confirmLabel="Sair"
+          cancelLabel="Cancelar"
+          onConfirm={() => { setConfirmOpen(false); logout() }}
+          onCancel={() => setConfirmOpen(false)}
+        />
+      </>
     )
   }
 
@@ -542,7 +555,7 @@ export default function Sidebar() {
 
           <button
             className={`eligi-logout-btn${expanded ? ' exp' : ''}`}
-            onClick={logout}
+            onClick={() => setConfirmOpen(true)}
             title="Sair da conta"
           >
             <LogOut size={18} style={{ flexShrink:0 }} />
@@ -554,6 +567,15 @@ export default function Sidebar() {
           </button>
         </div>
       </aside>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Sair da conta?"
+        message="Você precisará fazer login novamente."
+        confirmLabel="Sair"
+        cancelLabel="Cancelar"
+        onConfirm={() => { setConfirmOpen(false); logout() }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </>
   )
 }

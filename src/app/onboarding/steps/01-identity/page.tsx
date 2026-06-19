@@ -3,13 +3,15 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Scissors, Sparkles, Gem, Eye, Hand, Feather, Droplet, Palette, User, Users, ArrowRight,
+  Scissors, Sparkles, Gem, Eye, Hand, Feather, Droplet, Palette, User, Users, ArrowRight, LogOut,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { identitySchema, SEGMENTS, type Segment } from './schema';
 import { useOnboardingStore } from '../../store';
 import { api } from '@/lib/api';
+import { logoutRequest } from '@/lib/auth.api';
+import ConfirmDialog from '@/shared/components/ConfirmDialog';
 
 type JourneyType = 'BUSINESS' | 'SOLO';
 
@@ -40,6 +42,12 @@ export default function IdentityStep() {
   const [segment, setSegment] = useState<Segment | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmExit, setConfirmExit] = useState(false);
+
+  async function handleLogout() {
+    try { await logoutRequest(); } catch { /* segue pro login mesmo se falhar */ }
+    router.replace('/login');
+  }
 
   async function handleContinue() {
     if (loading) return;
@@ -133,6 +141,26 @@ export default function IdentityStep() {
           {loading ? 'Salvando...' : (<>Continuar <ArrowRight size={16} /></>)}
         </button>
       </div>
+
+      <div className="ob-anim" style={{ display: 'flex', justifyContent: 'center', marginTop: 16, animationDelay: '.35s' }}>
+        <button
+          type="button"
+          onClick={() => setConfirmExit(true)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 12.5, cursor: 'pointer', padding: 6 }}
+        >
+          <LogOut size={13} /> Sair da conta
+        </button>
+      </div>
+
+      <ConfirmDialog
+        open={confirmExit}
+        title="Sair da conta?"
+        message="Seu progresso fica salvo — você volta de onde parou no próximo login."
+        confirmLabel="Sair"
+        cancelLabel="Continuar aqui"
+        onConfirm={handleLogout}
+        onCancel={() => setConfirmExit(false)}
+      />
     </div>
   );
 }
