@@ -59,6 +59,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
 
   // ── Zoom da grade (densidade desktop/iPad), persistido em localStorage ──
   const [zoomIndex, setZoomIndex] = useState(AGENDA_PXMIN_DEFAULT_INDEX)
+  const zoomHydrated = useRef(false)
   // Hidrata do localStorage após o mount (setTimeout evita setState síncrono no effect)
   useEffect(() => {
     const id = setTimeout(() => {
@@ -70,10 +71,13 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           setZoomIndex(prev => (prev === clamped ? prev : clamped))
         }
       } catch { /* noop */ }
+      zoomHydrated.current = true
     }, 0)
     return () => clearTimeout(id)
   }, [])
   useEffect(() => {
+    // Só persiste após hidratar — senão o valor inicial sobrescreve o salvo no reload.
+    if (!zoomHydrated.current) return
     try { localStorage.setItem('eligi-agenda-zoom', String(zoomIndex)) } catch { /* noop */ }
   }, [zoomIndex])
   const pxPerMin   = AGENDA_PXMIN_LEVELS[zoomIndex]
@@ -84,6 +88,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
 
   // ── Colunas recolhidas (decisão C), persistido em localStorage ──
   const [collapsed, setCollapsed] = useState<string[]>([])
+  const collapsedHydrated = useRef(false)
   useEffect(() => {
     const id = setTimeout(() => {
       try {
@@ -91,10 +96,13 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
         const arr = raw ? JSON.parse(raw) : null
         if (Array.isArray(arr)) setCollapsed(arr.filter((x): x is string => typeof x === 'string'))
       } catch { /* noop */ }
+      collapsedHydrated.current = true
     }, 0)
     return () => clearTimeout(id)
   }, [])
   useEffect(() => {
+    // Só persiste após hidratar — senão o [] inicial sobrescreve o salvo no reload.
+    if (!collapsedHydrated.current) return
     try { localStorage.setItem('eligi-agenda-collapsed', JSON.stringify(collapsed)) } catch { /* noop */ }
   }, [collapsed])
   const toggleCollapse = useCallback((id: string) => {
