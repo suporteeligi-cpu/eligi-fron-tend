@@ -185,22 +185,22 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
             onClick={() => updatePayment(active, { method: m })}
             disabled={confirming}
             style={{
-              flex: '0 0 auto', minWidth: 82,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+              flex: '0 0 auto', minWidth: 74,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
               background: T.card,
               border: `1.5px solid ${sel ? mc : T.stroke}`,
               boxShadow: sel ? `0 0 0 1px ${mc} inset` : 'none',
-              borderRadius: 18, padding: '13px 14px',
-              color: T.text, fontWeight: 600, fontSize: 12.5,
+              borderRadius: 16, padding: '11px 11px',
+              color: T.text, fontWeight: 600, fontSize: 11.5,
               fontFamily: 'inherit', cursor: confirming ? 'not-allowed' : 'pointer',
             }}
           >
             <span style={{
-              width: 44, height: 44, borderRadius: 13,
+              width: 38, height: 38, borderRadius: 11,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: mc, background: tint(mc),
             }}>
-              <Icon size={22} strokeWidth={2} />
+              <Icon size={19} strokeWidth={2} />
             </span>
             {PAYMENT_METHOD_LABEL[m]}
           </button>
@@ -301,7 +301,7 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
   // Desconto + Valor (linha ativa)
   const valueRow = (
     <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-      <div style={{ flex: 1, background: T.card, border: `1px solid ${T.stroke}`, borderRadius: 13, padding: '10px 14px' }}>
+      <div style={{ flex: 1, minWidth: 0, background: T.card, border: `1px solid ${T.stroke}`, borderRadius: 13, padding: '10px 14px' }}>
         <small style={{ display: 'block', fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: T.faint, fontWeight: 700 }}>
           Desconto
         </small>
@@ -322,7 +322,7 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
           />
         </div>
       </div>
-      <div style={{ flex: 1, background: T.card, border: `1px solid ${T.brandRing}`, borderRadius: 13, padding: '10px 14px' }}>
+      <div style={{ flex: 1, minWidth: 0, background: T.card, border: `1px solid ${T.brandRing}`, borderRadius: 13, padding: '10px 14px' }}>
         <small style={{ display: 'block', fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: T.faint, fontWeight: 700 }}>
           {isSplit ? 'Valor (pagamento ativo)' : 'Valor recebido'}
         </small>
@@ -373,7 +373,7 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
           {caption}
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 7 }}>
         {NUM_KEYS.map(k => (
           <button
             key={k}
@@ -381,8 +381,8 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
             disabled={confirming}
             style={{
               border: `1px solid ${T.stroke}`, background: T.field, color: T.text,
-              fontFamily: 'inherit', fontSize: 19, fontWeight: 600, borderRadius: 12,
-              padding: '13px 0', cursor: confirming ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit', fontSize: 18, fontWeight: 600, borderRadius: 11,
+              padding: '11px 0', cursor: confirming ? 'not-allowed' : 'pointer',
               fontVariantNumeric: 'tabular-nums', WebkitTapHighlightColor: 'transparent',
             }}
           >
@@ -462,7 +462,7 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
         top: isMobile ? 'var(--navbar-h, 60px)' : 0,
         bottom: isMobile ? 'var(--bottom-nav-h, 0px)' : 0,
         margin: isMobile ? 0 : 'auto',
-        width: isMobile ? '100%' : 740,
+        width: isMobile ? '100%' : 780,
         maxWidth: isMobile ? '100%' : '94vw',
         maxHeight: isMobile ? 'auto' : '92vh',
         background: T.surface, backdropFilter: T.blur, WebkitBackdropFilter: T.blur,
@@ -526,7 +526,7 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
             <div style={{ fontSize: 14, color: T.muted }}>{formatBRL(effectiveTotal)} registrado</div>
           </div>
         ) : isMobile ? (
-          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 18px', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', WebkitOverflowScrolling: 'touch' }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: T.faint, margin: '0 0 8px' }}>
               Forma de pagamento
             </div>
@@ -541,15 +541,15 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
             {errorBlock}
           </div>
         ) : (
-          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, padding: '18px 24px', overflowY: 'auto' }}>
-            <div>
+          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16, padding: '16px 22px', overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: T.faint, margin: '0 0 8px' }}>
                 Forma de pagamento
               </div>
               {formCards}
               {divideBtn}
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               {splitBar}
               {valueRow}
               {refInput}
