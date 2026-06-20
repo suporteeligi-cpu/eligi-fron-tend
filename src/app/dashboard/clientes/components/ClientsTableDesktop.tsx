@@ -1,8 +1,9 @@
 'use client'
 // src/app/dashboard/clientes/components/ClientsTableDesktop.tsx
+// sel-massa v1
 
 import { useRouter } from 'next/navigation'
-import { Phone, ChevronRight } from 'lucide-react'
+import { Phone, ChevronRight, Check } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 
@@ -13,10 +14,13 @@ import { avatarColor, getInitials, formatPhone, fmtRevenue } from '@/features/cl
 dayjs.locale('pt-br')
 
 interface Props {
-  clients: ClientListItem[]
+  clients:         ClientListItem[]
+  selectedIds:     Set<string>
+  selectionActive: boolean
+  onToggle:        (id: string) => void
 }
 
-export default function ClientsTableDesktop({ clients }: Props) {
+export default function ClientsTableDesktop({ clients, selectedIds, selectionActive, onToggle }: Props) {
   const router = useRouter()
 
   return (
@@ -33,9 +37,24 @@ export default function ClientsTableDesktop({ clients }: Props) {
         .cl-row:hover{ background: ${colors.red.subtle} }
         .cl-row:hover .cl-arrow{ opacity: 1; transform: translateX(2px) }
         .cl-arrow{ opacity: 0; transition: all ${transitions.fast} }
+        .cl-row-sel{ background: rgba(220,38,38,0.09) }
+        .cl-row-sel:hover{ background: rgba(220,38,38,0.13) }
+        .cl-av-wrap{
+          position: relative; width: 42px; height: 42px;
+          flex-shrink: 0; cursor: pointer; border-radius: 50%;
+        }
+        .cl-av-check{
+          position: absolute; inset: 0; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(0,0,0,0.45);
+          opacity: 0; transition: opacity 0.15s ease;
+        }
+        .cl-selecting .cl-av-check{ opacity: 0.5 }
+        .cl-row:hover .cl-av-check{ opacity: 1 }
+        .cl-row-sel .cl-av-check{ opacity: 1; background: ${colors.red.DEFAULT} }
       `}</style>
 
-      <div style={{
+      <div className={selectionActive ? 'cl-table cl-selecting' : 'cl-table'} style={{
         background: glass.surface.default.background,
         backdropFilter: glass.surface.default.backdropFilter,
         borderRadius: radius.xl,
@@ -43,7 +62,7 @@ export default function ClientsTableDesktop({ clients }: Props) {
         boxShadow: shadows.sm,
         overflow: 'hidden',
       }}>
-        {/* Cabeçalho */}
+        {/* Cabecalho */}
         <div style={{
           padding: '9px 20px',
           borderBottom: `1px solid ${colors.gray.border}`,
@@ -56,26 +75,37 @@ export default function ClientsTableDesktop({ clients }: Props) {
           <div style={{ width: 70, textAlign: 'center', fontSize: typography.scale.xs, fontWeight: typography.weight.bold, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '.07em' }}>Concl.</div>
           <div style={{ width: 70, textAlign: 'center', fontSize: typography.scale.xs, fontWeight: typography.weight.bold, color: colors.gray.dimText, textTransform: 'uppercase', letterSpacing: '.07em' }}>Canc.</div>
           <div style={{ width: 110, textAlign: 'right', fontSize: typography.scale.xs, fontWeight: typography.weight.bold, color: colors.red.DEFAULT, textTransform: 'uppercase', letterSpacing: '.07em' }}>Receita</div>
-          <div style={{ width: 90, fontSize: typography.scale.xs, fontWeight: typography.weight.bold, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.07em' }}>Última visita</div>
+          <div style={{ width: 90, fontSize: typography.scale.xs, fontWeight: typography.weight.bold, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.07em' }}>Ultima visita</div>
           <div style={{ width: 16 }} />
         </div>
 
-        {clients.map(c => (
+        {clients.map(c => {
+          const sel = selectedIds.has(c.id)
+          return (
           <div
             key={c.id}
-            className="cl-row"
+            className={`cl-row${sel ? ' cl-row-sel' : ''}`}
             onClick={() => router.push(`/dashboard/clientes/${c.id}`)}
             role="button"
             aria-label={`Cliente ${c.name}`}
           >
-            <div style={{
-              width: 42, height: 42, borderRadius: radius.full,
-              background: avatarColor(c.name),
-              color: '#fff', fontSize: typography.scale.base, fontWeight: typography.weight.bold,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0, boxShadow: shadows.sm,
-            }}>
-              {getInitials(c.name)}
+            <div
+              className="cl-av-wrap"
+              onClick={(e) => { e.stopPropagation(); onToggle(c.id) }}
+              role="checkbox"
+              aria-checked={sel}
+              aria-label={`Selecionar ${c.name}`}
+            >
+              <div style={{
+                width: 42, height: 42, borderRadius: radius.full,
+                background: avatarColor(c.name),
+                color: '#fff', fontSize: typography.scale.base, fontWeight: typography.weight.bold,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: shadows.sm,
+              }}>
+                {getInitials(c.name)}
+              </div>
+              <span className="cl-av-check"><Check size={18} strokeWidth={3} color="#fff" /></span>
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -139,7 +169,8 @@ export default function ClientsTableDesktop({ clients }: Props) {
 
             <ChevronRight size={15} color={colors.gray.dimText} className="cl-arrow" />
           </div>
-        ))}
+          )
+        })}
       </div>
     </>
   )

@@ -1,8 +1,10 @@
 'use client'
 // src/app/dashboard/clientes/components/ClientsListMobile.tsx
+// sel-massa v1
 
+import { useRef, type TouchEvent as ReactTouchEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { Phone, ChevronRight } from 'lucide-react'
+import { Phone, ChevronRight, Check } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 
@@ -13,20 +15,55 @@ import { avatarColor, getInitials, formatPhone, fmtRevenue } from '@/features/cl
 dayjs.locale('pt-br')
 
 interface Props {
-  clients: ClientListItem[]
+  clients:         ClientListItem[]
+  selectedIds:     Set<string>
+  selectionActive: boolean
+  onToggle:        (id: string) => void
 }
 
 /**
  * Lista compacta de clientes para mobile.
- * Cada row: avatar 40px + nome + telefone, com KPI principal à direita.
- *
- * KPI hierarquia:
- * - Se tem receita > 0 → mostra receita destacada em vermelho
- * - Senão se tem última visita → mostra data
- * - Senão → "Sem histórico" em cinza
+ * Toque: abre o cliente. Segure (long-press 420ms): entra em selecao.
+ * Em modo selecao, toque alterna; toque-e-arraste (>8px) cancela o long-press.
  */
-export default function ClientsListMobile({ clients }: Props) {
+export default function ClientsListMobile({ clients, selectedIds, selectionActive, onToggle }: Props) {
   const router = useRouter()
+  const lp = useRef<{ timer: ReturnType<typeof setTimeout> | null; startY: number; moved: boolean; fired: boolean }>({
+    timer: null, startY: 0, moved: false, fired: false,
+  })
+
+  const handleTouchStart = (e: ReactTouchEvent<HTMLDivElement>, id: string) => {
+    const s = lp.current
+    s.startY = e.touches[0].clientY
+    s.moved = false
+    s.fired = false
+    s.timer = setTimeout(() => {
+      s.fired = true
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(40)
+      onToggle(id)
+      s.timer = null
+    }, 420)
+  }
+
+  const handleTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const s = lp.current
+    if (Math.abs(e.touches[0].clientY - s.startY) > 8) {
+      s.moved = true
+      if (s.timer) { clearTimeout(s.timer); s.timer = null }
+    }
+  }
+
+  const handleTouchEnd = () => {
+    const s = lp.current
+    if (s.timer) { clearTimeout(s.timer); s.timer = null }
+  }
+
+  const handleClick = (id: string) => {
+    const s = lp.current
+    if (s.fired) { s.fired = false; return }
+    if (selectionActive) { onToggle(id); return }
+    router.push(`/dashboard/clientes/${id}`)
+  }
 
   return (
     <>
@@ -50,7 +87,9 @@ export default function ClientsListMobile({ clients }: Props) {
         }
         .clm-row:last-child{ border-bottom: none }
         .clm-row:active{ background: ${colors.red.subtle} }
+        .clm-row-sel{ background: rgba(220,38,38,0.08) }
         .clm-avatar{
+          position: relative;
           width: 40px; height: 40px;
           border-radius: ${radius.full}px;
           color: #fff;
@@ -61,6 +100,14 @@ export default function ClientsListMobile({ clients }: Props) {
           box-shadow: ${shadows.sm};
           letter-spacing: -0.02em;
         }
+        .clm-check{
+          position: absolute; inset: 0;
+          border-radius: ${radius.full}px;
+          background: ${colors.red.DEFAULT};
+          display: flex; align-items: center; justify-content: center;
+          animation: clmPop 0.2s cubic-bezier(.34,1.56,.64,1);
+        }
+        @keyframes clmPop{ from{ transform: scale(0.5); opacity: 0 } to{ transform: scale(1); opacity: 1 } }
         .clm-body{
           flex: 1; min-width: 0;
           display: flex; flex-direction: column; gap: 2px;
@@ -100,11 +147,11 @@ export default function ClientsListMobile({ clients }: Props) {
 
       <div className="clm-list">
         {clients.map(c => {
+          const sel        = selectedIds.has(c.id)
           const hasRevenue = c.totalRevenue > 0
           const hasVisit   = c.lastVisit != null
 
-          // KPI principal — receita > visita > "sem histórico"
-          let kpiValue: string = 'Sem histórico'
+          let kpiValue: string = 'Sem historico'
           let kpiSub:   string | null = null
           let kpiColor: string = typography.color.muted
 
@@ -112,25 +159,33 @@ export default function ClientsListMobile({ clients }: Props) {
             kpiValue = fmtRevenue(c.totalRevenue)
             kpiColor = colors.red.DEFAULT
             kpiSub   = c.totalBookings > 0
-              ? `${c.completed} concluído${c.completed !== 1 ? 's' : ''}`
+              ? `${c.completed} concluido${c.completed !== 1 ? 's' : ''}`
               : null
           } else if (hasVisit) {
             kpiValue = dayjs(c.lastVisit).format('DD MMM')
             kpiColor = typography.color.primary
-            kpiSub   = 'última visita'
+            kpiSub   = 'ultima visita'
           }
 
           return (
             <div
               key={c.id}
-              className="clm-row"
-              onClick={() => router.push(`/dashboard/clientes/${c.id}`)}
+              className={`clm-row${sel ? ' clm-row-sel' : ''}`}
+              onClick={() => handleClick(c.id)}
+              onTouchStart={(e) => handleTouchStart(e, c.id)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
               role="button"
               aria-label={`Cliente ${c.name}`}
             >
               {/* Avatar */}
               <div className="clm-avatar" style={{ background: avatarColor(c.name) }}>
                 {getInitials(c.name)}
+                {sel && (
+                  <span className="clm-check">
+                    <Check size={16} strokeWidth={3} color="#fff" />
+                  </span>
+                )}
               </div>
 
               {/* Nome + telefone */}
@@ -152,7 +207,9 @@ export default function ClientsListMobile({ clients }: Props) {
                 )}
               </div>
 
-              <ChevronRight size={16} color={colors.gray.dimText} className="clm-chev" strokeWidth={2} />
+              {!selectionActive && (
+                <ChevronRight size={16} color={colors.gray.dimText} className="clm-chev" strokeWidth={2} />
+              )}
             </div>
           )
         })}

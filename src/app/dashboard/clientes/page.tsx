@@ -30,6 +30,7 @@ export default function ClientesPage() {
   const [sort,     setSort]     = useState('createdAt:desc')
   const [loading,  setLoading]  = useState(true)
   const [showImport, setShowImport] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(() => new Set<string>())
 
   const fetchClients = useCallback(async (q: string, p: number, s: string, signal?: AbortSignal) => {
     try {
@@ -42,6 +43,7 @@ export default function ClientesPage() {
       if (signal?.aborted) return
       const data = res.data?.data ?? res.data
       setClients(data.clients ?? [])
+      setSelected(new Set<string>())
       setTotal(data.total ?? 0)
       setTotalAll(data.stats?.totalClients ?? data.total ?? 0)
       setPage(data.page ?? 1)
@@ -88,11 +90,46 @@ export default function ClientesPage() {
     canceledPage:  clients.reduce((s, c) => s + c.canceled,     0),
   }), [clients])
 
+  const selectionActive = selected.size > 0
+  const allSelected     = clients.length > 0 && selected.size === clients.length
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback(() => {
+    setSelected(prev => prev.size === clients.length ? new Set<string>() : new Set(clients.map(c => c.id)))
+  }, [clients])
+
+  const clearSelection = useCallback(() => setSelected(new Set<string>()), [])
+
+  const exportCsv = useCallback(() => {
+    const rows = clients.filter(c => selected.has(c.id))
+    if (rows.length === 0) return
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
+    const csv = '\uFEFF' + ['Nome,Telefone', ...rows.map(c => `${esc(c.name)},${esc(c.phone)}`)].join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }, [clients, selected])
+
   return (
     <>
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)}}
         @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes selBarUp{from{opacity:0;transform:translateY(120%)} to{opacity:1;transform:translateY(0)}}
         .pg-btn{
           padding:7px 14px;
           border-radius:${radius.sm}px;
@@ -189,8 +226,8 @@ export default function ClientesPage() {
         ) : (
           <>
             {isMobile
-              ? <ClientsListMobile clients={clients} />
-              : <ClientsTableDesktop clients={clients} />
+              ? <ClientsListMobile clients={clients} selectedIds={selected} selectionActive={selectionActive} onToggle={toggleSelect} />
+              : <ClientsTableDesktop clients={clients} selectedIds={selected} selectionActive={selectionActive} onToggle={toggleSelect} />
             }
 
             {/* Paginação */}
@@ -222,6 +259,59 @@ export default function ClientesPage() {
           </>
         )}
       </div>
+
+      {selectionActive && (
+        <div style={{
+          position: 'fixed', left: 0, right: 0,
+          bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom))' : 24,
+          zIndex: 9990, display: 'flex', justifyContent: 'center',
+          padding: '0 16px', pointerEvents: 'none',
+        }}>
+          <div style={{
+            pointerEvents: 'auto', width: '100%', maxWidth: 520,
+            background: 'rgba(20,20,26,0.92)',
+            backdropFilter: 'blur(20px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+            color: '#fff', borderRadius: 18, padding: '11px 14px',
+            display: 'flex', alignItems: 'center', gap: 10,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.32)',
+            animation: 'selBarUp 0.34s cubic-bezier(.34,1.56,.64,1)',
+          }}>
+            <span style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap' }}>
+              {selected.size} selecionado{selected.size !== 1 ? 's' : ''}
+            </span>
+            <span style={{ flex: 1 }} />
+            <button
+              onClick={toggleSelectAll}
+              style={{
+                background: 'rgba(255,255,255,0.16)', border: 'none', color: '#fff',
+                borderRadius: 11, padding: '9px 13px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              {allSelected ? 'Limpar' : 'Todos'}
+            </button>
+            <button
+              onClick={exportCsv}
+              style={{
+                background: '#fff', border: 'none', color: '#1c1c1e',
+                borderRadius: 11, padding: '9px 15px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Exportar CSV
+            </button>
+            <button
+              onClick={clearSelection}
+              aria-label="Cancelar selecao"
+              style={{
+                background: 'rgba(255,255,255,0.16)', border: 'none', color: '#fff',
+                width: 34, height: 34, borderRadius: 10, fontSize: 18, cursor: 'pointer', lineHeight: 1,
+              }}
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
