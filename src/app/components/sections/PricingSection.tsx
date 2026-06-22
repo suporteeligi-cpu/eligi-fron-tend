@@ -47,7 +47,7 @@ export default function PricingSection() {
   }, [])
 
   return (
-    <section ref={sectionRef} className={styles.section}>
+    <section ref={sectionRef} id="planos" style={{ scrollMarginTop: '90px' }} className={styles.section}>
       <div className={styles.container}>
         <header className={styles.header}>
           <span className={styles.badge}>Preços</span>
@@ -66,6 +66,7 @@ export default function PricingSection() {
               <strong>59,90</strong>
               <span className={styles.period}>/mês</span>
             </div>
+            <span className={styles.discount}>40% OFF no plano anual</span>
             <ul className={styles.features}>
               {AUTONOMO_FEATURES.map(f => <li key={f}>{f}</li>)}
             </ul>
@@ -78,12 +79,14 @@ export default function PricingSection() {
           <div className={`${styles.card} ${styles.highlight}`}>
             <span className={styles.tagPrimary}>Melhor custo-benefício</span>
             <h3 className={styles.plan}>Estabelecimento</h3>
+            <p className={styles.description}>Para negócios com 2 ou mais profissionais</p>
             <div className={styles.price}>
               <span className={styles.currency}>R$</span>
               <strong>99,90</strong>
               <span className={styles.period}>/mês</span>
             </div>
-            <span className={styles.addon}>+ R$ 19,90 por profissional adicional (apartir do 3º)</span>
+            <span className={styles.addon}>+ R$ 10,00 por profissional adicional</span>
+            <span className={styles.discount}>40% OFF no plano anual</span>
             <ul className={styles.features}>
               {ESTABELECIMENTO_FEATURES.map(f => <li key={f}>{f}</li>)}
             </ul>

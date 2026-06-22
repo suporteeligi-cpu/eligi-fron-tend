@@ -49,7 +49,7 @@ export default function Ecosystem() {
   }, [])
 
   return (
-    <section ref={sectionRef} className={styles.section}>
+    <section ref={sectionRef} id="modulos" style={{ scrollMarginTop: '90px' }} className={styles.section}>
       <div className={styles.container}>
         <header className={styles.header}>
           <span className={styles.kicker}>Ecossistema eligi</span>
