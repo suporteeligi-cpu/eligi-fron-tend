@@ -66,7 +66,7 @@ export default function PricingSection() {
               <strong>59,90</strong>
               <span className={styles.period}>/mês</span>
             </div>
-            <span className={styles.discount}>40% OFF no plano anual</span>
+
             <ul className={styles.features}>
               {AUTONOMO_FEATURES.map(f => <li key={f}>{f}</li>)}
             </ul>
@@ -85,8 +85,7 @@ export default function PricingSection() {
               <strong>99,90</strong>
               <span className={styles.period}>/mês</span>
             </div>
-            <span className={styles.addon}>+ R$ 10,00 por profissional adicional</span>
-            <span className={styles.discount}>40% OFF no plano anual</span>
+            <span className={styles.addon}>+ R$ 19,90 por profissional adicional</span>
             <ul className={styles.features}>
               {ESTABELECIMENTO_FEATURES.map(f => <li key={f}>{f}</li>)}
             </ul>
