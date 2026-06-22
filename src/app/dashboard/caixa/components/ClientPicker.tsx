@@ -142,7 +142,7 @@ export default function ClientPicker({ value, onChange, disabled }: Props) {
               value={query}
               onChange={e => { setQuery(e.target.value); setOpen(true) }}
               onFocus={() => setOpen(true)}
-              placeholder="Cliente (opcional) — buscar por nome"
+              placeholder="Cliente — buscar por nome"
               disabled={disabled}
               style={{
                 flex: 1, border: 'none', outline: 'none',
