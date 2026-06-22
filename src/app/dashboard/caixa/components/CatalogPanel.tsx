@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react'
 import {
-  Search, X, Package, Scissors, AlertTriangle, Layers, Ticket, Infinity as InfinityIcon,
+  Search, X, Package, ShoppingBag, Scissors, AlertTriangle, Layers, Ticket, Infinity as InfinityIcon,
 } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -67,7 +67,7 @@ export default function CatalogPanel({
   }, [tab, query, activeProducts, activeServices, activePackages, activeMemberships])
 
   const tabs: Array<{ id: Tab; label: string; count: number; icon: typeof Package }> = [
-    { id: 'product',    label: 'Produtos',    count: activeProducts.length,    icon: Package  },
+    { id: 'product',    label: 'Produtos',    count: activeProducts.length,    icon: ShoppingBag  },
     { id: 'service',    label: 'Serviços',    count: activeServices.length,    icon: Scissors },
     { id: 'package',    label: 'Pacotes',     count: activePackages.length,    icon: Layers   },
     { id: 'membership', label: 'Assinaturas', count: activeMemberships.length, icon: Ticket   },
