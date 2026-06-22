@@ -11,7 +11,7 @@ export default function HeroSection() {
 
       <div className={styles.container}>
         <div className={styles.content}>
-          <span className={styles.badge}>Sistema para barbearias e salões</span>
+          <span className={styles.badge}>O sistema que cuida do seu negócio de ponta a ponta</span>
 
           <h1 className={styles.title}>
             Gerencie, cresça e

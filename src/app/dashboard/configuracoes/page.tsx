@@ -97,8 +97,8 @@ const MODULES: ModuleGroup[] = [
         href:        '/dashboard/configuracoes/notificacoes',
         icon:        Bell,
         label:       'Notificações',
-        description: 'Configure lembretes automáticos para clientes e profissionais.',
-        available:   false,
+        description: 'Escolha o que te avisa e como o pop-up aparece.',
+        available:   true,
       },
       {
         href:        '/dashboard/configuracoes/privacidade',

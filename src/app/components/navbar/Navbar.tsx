@@ -1,4 +1,3 @@
-// src/app/components/navbar/Navbar.tsx
 'use client'
 
 import Image from 'next/image'
@@ -11,7 +10,8 @@ import {
   Sun,
   Moon,
   LogIn,
-  Menu
+  Menu,
+  X,
 } from 'lucide-react'
 import styles from './Navbar.module.css'
 
@@ -34,7 +34,7 @@ export default function Navbar() {
 
   function toggleTheme() {
     const next = theme === 'light' ? 'dark' : 'light'
-    const html  = document.documentElement
+    const html = document.documentElement
 
     // Sync both systems: data-theme (landing) + class dark (dashboard tokens)
     html.setAttribute('data-theme', next)
@@ -42,7 +42,6 @@ export default function Navbar() {
       html.classList.add('dark')
     } else {
       html.classList.remove('dark')
-      // also clear eligi-theme so dashboard doesn't re-add it
       localStorage.removeItem('eligi-theme')
     }
     setTheme(next)
@@ -52,28 +51,34 @@ export default function Navbar() {
     setAuthLoading(true)
   }
 
+  const globeSrc = theme === 'dark' ? '/images/globe-dark.png' : '/images/globe-light.png'
+
   return (
     <header className={`${styles.navbar} ${scrolled ? styles.scrolled : ''}`}>
-      <div className={styles.container}>
-        {/* Logo */}
-        <Link href="/" className={styles.brand}>
+      <div className={styles.pill}>
+        <span className={styles.sheen} aria-hidden />
+
+        {/* Marca */}
+        <Link href="/" className={styles.brand} aria-label="eligi — início">
           <Image
-            src={theme === 'dark' ? '/images/globo-dark.png' : '/images/globo-light.png'}
-            alt="Logo ELIGI"
-            width={52}
-            height={34}
+            src={globeSrc}
+            alt="eligi"
+            width={56}
+            height={56}
             priority
+            className={styles.globe}
           />
+          <span className={styles.wordmark}>eligi</span>
         </Link>
 
-        {/* Desktop nav */}
+        {/* Nav central */}
         <nav className={styles.nav}>
-          <Link href="/barbearias"><Scissors size={18} />Barbearias</Link>
-          <Link href="/saloes"><Store size={18} />Salões</Link>
-          <Link href="/ads"><Megaphone size={18} />Anúncios</Link>
+          <Link href="/barbearias"><Scissors size={17} />Barbearias</Link>
+          <Link href="/saloes"><Store size={17} />Salões</Link>
+          <Link href="/ads"><Megaphone size={17} />Anúncios</Link>
         </nav>
 
-        {/* Actions */}
+        {/* Ações */}
         <div className={styles.actions}>
           <button
             type="button"
@@ -82,7 +87,7 @@ export default function Navbar() {
             className={styles.themeToggle}
             disabled={authLoading}
           >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
 
           <Link
@@ -90,7 +95,7 @@ export default function Navbar() {
             className={`${styles.login} ${authLoading ? styles.loading : ''}`}
             onClick={handleAuthClick}
           >
-            <LogIn size={18} />Entrar
+            Entrar
           </Link>
 
           <Link
@@ -105,33 +110,34 @@ export default function Navbar() {
             type="button"
             className={styles.menuToggle}
             onClick={() => setMenuOpen(v => !v)}
-            aria-label="Abrir menu"
+            aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+            aria-expanded={menuOpen}
             disabled={authLoading}
           >
-            <Menu size={22} />
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      <div className={`${styles.mobileMenu} ${menuOpen ? styles.mobileOpen : ''}`}>
+      {/* Menu mobile — folha de vidro */}
+      <div className={`${styles.sheet} ${menuOpen ? styles.sheetOpen : ''}`}>
         <Link href="/barbearias" onClick={() => setMenuOpen(false)}><Scissors size={18} />Barbearias</Link>
         <Link href="/saloes"     onClick={() => setMenuOpen(false)}><Store    size={18} />Salões</Link>
         <Link href="/ads"        onClick={() => setMenuOpen(false)}><Megaphone size={18} />Anúncios</Link>
 
-        <div className={styles.mobileDivider} />
+        <div className={styles.sheetDivider} />
 
         <Link
           href="/login"
-          onClick={() => { setMenuOpen(false); handleAuthClick() }}
           className={authLoading ? styles.loading : ''}
+          onClick={() => { setMenuOpen(false); handleAuthClick() }}
         >
           <LogIn size={18} />Entrar
         </Link>
 
         <Link
           href="/register"
-          className={`${styles.mobileCTA} ${authLoading ? styles.loading : ''}`}
+          className={`${styles.sheetCta} ${authLoading ? styles.loading : ''}`}
           onClick={() => { setMenuOpen(false); handleAuthClick() }}
         >
           Criar conta
