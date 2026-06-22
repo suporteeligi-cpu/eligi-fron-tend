@@ -68,7 +68,7 @@ export default function CatalogPanel({
 
   const tabs: Array<{ id: Tab; label: string; count: number; icon: typeof Package }> = [
     { id: 'product',    label: 'Produtos',    count: activeProducts.length,    icon: ShoppingBag  },
-    { id: 'service',    label: 'Serviços',    count: activeServices.length,    icon: Scissors },
+    { id: 'service',    label: 'Serviços',    count: activeServices.length,    icon: ShoppingBag  },
     { id: 'package',    label: 'Pacotes',     count: activePackages.length,    icon: Layers   },
     { id: 'membership', label: 'Assinaturas', count: activeMemberships.length, icon: Ticket   },
   ]
