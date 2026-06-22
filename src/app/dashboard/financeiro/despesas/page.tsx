@@ -2,7 +2,7 @@
 // src/app/dashboard/financeiro/despesas/page.tsx
 
 import { useState, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import { typography } from '@/shared/theme'
@@ -11,6 +11,7 @@ import { useExpenses }   from '@/features/expenses/hooks/useExpenses'
 import ExpenseKPIs       from '@/features/expenses/components/ExpenseKPIs'
 import ExpenseList       from '@/features/expenses/components/ExpenseList'
 import ExpenseModal      from '@/features/expenses/components/ExpenseModal'
+import ExpenseSettingsSheet from '@/features/expenses/components/ExpenseSettingsSheet'
 import type {
   Expense,
   ExpenseCategory,
@@ -43,6 +44,7 @@ export default function DespesasPage() {
 
   // ── Toast ────────────────────────────────────────────────────────────────
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   function showToast(msg: string) {
     setToastMsg(msg)
     setTimeout(() => setToastMsg(null), 3000)
@@ -132,27 +134,47 @@ export default function DespesasPage() {
             </p>
           </div>
 
-          <button
-            onClick={handleNew}
-            style={{
-              display:      'flex',
-              alignItems:   'center',
-              gap:          7,
-              padding:      isMobile ? '10px 18px' : '10px 20px',
-              borderRadius: 10,
-              border:       'none',
-              background:   'linear-gradient(135deg,#dc2626,#b91c1c)',
-              color:        '#fff',
-              fontSize:     14,
-              fontWeight:   700,
-              cursor:       'pointer',
-              whiteSpace:   'nowrap',
-              boxShadow:    '0 2px 8px rgba(220,38,38,0.25)',
-            }}
-          >
-            <Plus size={16} />
-            Nova despesa
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              title="Despesas automáticas"
+              aria-label="Configurações de despesas automáticas"
+              style={{
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                padding:        isMobile ? '10px' : '10px 12px',
+                borderRadius:   10,
+                border:         '1px solid var(--border, #e5e7eb)',
+                background:     'var(--card-bg, #fff)',
+                color:          typography.color.muted,
+                cursor:         'pointer',
+              }}
+            >
+              <Settings size={16} />
+            </button>
+            <button
+              onClick={handleNew}
+              style={{
+                display:      'flex',
+                alignItems:   'center',
+                gap:          7,
+                padding:      isMobile ? '10px 18px' : '10px 20px',
+                borderRadius: 10,
+                border:       'none',
+                background:   'linear-gradient(135deg,#dc2626,#b91c1c)',
+                color:        '#fff',
+                fontSize:     14,
+                fontWeight:   700,
+                cursor:       'pointer',
+                whiteSpace:   'nowrap',
+                boxShadow:    '0 2px 8px rgba(220,38,38,0.25)',
+              }}
+            >
+              <Plus size={16} />
+              Nova despesa
+            </button>
+          </div>
         </div>
 
         {/* ── Seletor de mês ────────────────────────────────────────────── */}
@@ -242,6 +264,12 @@ export default function DespesasPage() {
       </div>
 
       {/* ── Modal criar/editar ─────────────────────────────────────────── */}
+      {settingsOpen && (
+        <ExpenseSettingsSheet
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
       <ExpenseModal
         open={modalOpen}
         expense={editTarget}
