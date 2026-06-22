@@ -6,6 +6,8 @@ import { Gift, Zap, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
 
 import { useOnboardingStore } from '../../store';
 import { api } from '@/lib/api';
+import LegalModal from '@/shared/legal/LegalModal';
+
 
 type Plan = 'trial' | 'subscribe';
 
@@ -22,6 +24,8 @@ export default function PlanStep() {
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [legal, setLegal] = useState<null | 'termos' | 'privacidade' | 'termos-plano'>(null);
+  
 
   async function finish() {
     if (loading || !accepted) return;
@@ -87,11 +91,11 @@ export default function PlanStep() {
         />
         <span>
           Li e aceito os{' '}
-          <a href="/termos" target="_blank" rel="noopener noreferrer">Termos de Uso</a>,{' '}
+          <button type="button" onClick={() => setLegal('termos')} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: '#dc2626', textDecoration: 'underline', cursor: 'pointer' }}>Termos de Uso</button>,{' '}
           a{' '}
-          <a href="/privacidade" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>{' '}
+          <button type="button" onClick={() => setLegal('privacidade')} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: '#dc2626', textDecoration: 'underline', cursor: 'pointer' }}>Política de Privacidade</button>{' '}
           e os{' '}
-          <a href="/termos-plano" target="_blank" rel="noopener noreferrer">Termos de Planos e Assinatura</a>.
+          <button type="button" onClick={() => setLegal('termos-plano')} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: '#dc2626', textDecoration: 'underline', cursor: 'pointer' }}>Termos de Planos e Assinatura</button>.
         </span>
       </label>
 
@@ -123,6 +127,8 @@ export default function PlanStep() {
           <ArrowLeft size={16} /> Voltar
         </button>
       </div>
+      {legal && <LegalModal kind={legal} onClose={() => setLegal(null)} />}
+      {legal && <LegalModal kind={legal} onClose={() => setLegal(null)} />}
     </div>
   );
 }

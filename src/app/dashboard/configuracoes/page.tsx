@@ -2,12 +2,25 @@
 // src/app/(dashboard)/configuracoes/page.tsx
 
 import Link from 'next/link'
+import { useState } from 'react'
+import LegalModal from '@/shared/legal/LegalModal'
 import {
   Calendar, Building2, CreditCard, Users,
   Sliders, Bell, Shield, ChevronRight, Scissors, Sparkles,
+  FileText, Lock,
 } from 'lucide-react'
 
-const MODULES = [
+type ModuleItem = {
+  href?:       string
+  modal?:      'termos' | 'privacidade'
+  icon:        React.ElementType
+  label:       string
+  description: string
+  available:   boolean
+}
+type ModuleGroup = { group: string; items: ModuleItem[] }
+
+const MODULES: ModuleGroup[] = [
   {
     group: 'Agendamento',
     items: [
@@ -96,13 +109,34 @@ const MODULES = [
       },
     ],
   },
+  {
+    group: 'Legal',
+    items: [
+      {
+        modal:       'termos',
+        icon:        FileText,
+        label:       'Termos de Uso',
+        description: 'Condições de uso da plataforma, assinatura e responsabilidades.',
+        available:   true,
+      },
+      {
+        modal:       'privacidade',
+        icon:        Lock,
+        label:       'Política de Privacidade',
+        description: 'Como tratamos seus dados e os dados dos seus clientes (LGPD).',
+        available:   true,
+      },
+    ],
+  },
 ]
 
 function ModuleCard({
-  href, icon: Icon, label, description, available,
+  href, icon: Icon, label, description, available, modal, onOpenModal,
 }: {
-  href: string; icon: React.ElementType; label: string
+  href?: string; icon: React.ElementType; label: string
   description: string; available: boolean
+  modal?: 'termos' | 'privacidade'
+  onOpenModal?: (kind: 'termos' | 'privacidade') => void
 }) {
   const inner = (
     <div
@@ -171,14 +205,22 @@ function ModuleCard({
   )
 
   if (!available) return inner
+  if (modal) {
+    return (
+      <div onClick={() => onOpenModal?.(modal)} style={{ display: 'block', cursor: 'pointer' }}>
+        {inner}
+      </div>
+    )
+  }
   return (
-    <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>
+    <Link href={href!} style={{ textDecoration: 'none', display: 'block' }}>
       {inner}
     </Link>
   )
 }
 
 export default function ConfiguracoesPage() {
+  const [legal, setLegal] = useState<null | 'termos' | 'privacidade'>(null)
   return (
     <>
       <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }`}</style>
@@ -194,12 +236,15 @@ export default function ConfiguracoesPage() {
                 {group.group}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {group.items.map(item => <ModuleCard key={item.href} {...item} />)}
+                {group.items.map(item => (
+                  <ModuleCard key={item.href ?? item.modal ?? item.label} {...item} onOpenModal={setLegal} />
+                ))}
               </div>
             </div>
           ))}
         </div>
       </div>
+      {legal && <LegalModal kind={legal} onClose={() => setLegal(null)} />}
     </>
   )
 }

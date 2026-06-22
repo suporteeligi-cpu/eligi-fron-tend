@@ -108,7 +108,7 @@ export default function IdentityStep() {
           onChange={(e) => setDisplayName(e.target.value)}
           className="input-base"
           style={{ width: '100%' }}
-          placeholder="Ex: Barbearia do Eli"
+          placeholder="Ex: Salão da Ana"
         />
       </div>
 

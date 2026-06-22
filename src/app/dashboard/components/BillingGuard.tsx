@@ -6,6 +6,8 @@
 
 import { ReactNode, useState, useEffect, useCallback } from 'react'
 import api from '@/shared/lib/apiClient'
+import LegalModal from '@/shared/legal/LegalModal'
+
 
 type Plan = 'AUTONOMO' | 'ESTABELECIMENTO'
 
@@ -111,6 +113,7 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
 function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResolved: () => void; onClose: () => void }) {
   const r = REASONS[reason] ?? REASONS.BLOCKED_TRIAL_EXPIRED
   const [doc, setDoc] = useState('')
+  const [legal, setLegal] = useState<null | 'termos' | 'privacidade' | 'termos-plano'>(null)
   const [accepted, setAccepted] = useState(false)
   const [submitting, setSubmitting] = useState<Plan | null>(null)
   const [err, setErr] = useState('')
@@ -191,9 +194,9 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
           />
           <span style={termsText}>
             Li e aceito os{' '}
-            <a href="/termos-plano" target="_blank" rel="noopener noreferrer" style={termsLink}>
+            <button type="button" onClick={() => setLegal('termos-plano')} style={{ ...termsLink, background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}>
               Termos de Planos e Assinatura
-            </a>
+            </button>
             . O pagamento e por boleto ou Pix; a cobranca se repete todo mes ate o cancelamento.
           </span>
         </label>
@@ -273,6 +276,7 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
           </div>
         </div>
       )}
+      {legal && <LegalModal kind={legal} onClose={() => setLegal(null)} />}
     </>
   )
 }
