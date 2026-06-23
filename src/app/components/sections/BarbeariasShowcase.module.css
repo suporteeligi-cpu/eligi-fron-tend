@@ -1,0 +1,231 @@
+/* ============================================================
+   SEÇÃO /barbearias — vitrine do app + barbearia parceira
+   Fundo temático escuro (sempre dark) + slot pra foto real
+   ============================================================ */
+
+.section {
+  position: relative;
+  overflow: hidden;
+  padding: 96px 24px;
+  background: #0d0d11;
+  isolation: isolate;
+}
+
+/* ── Camadas de fundo ── */
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Foto real da barbearia (opcional).
+   Pra ligar: defina --barbearia-bg no .section, ex:
+   style={{ ['--barbearia-bg']: "url('/images/barbearia-interior.jpg')" }} */
+.bgPhoto {
+  background-image: var(--barbearia-bg, none);
+  background-size: cover;
+  background-position: center;
+  opacity: 0.30;
+  filter: grayscale(0.25) contrast(1.05);
+}
+
+.bgOverlay {
+  background: radial-gradient(120% 95% at 80% -10%, rgba(38, 38, 46, 0.78), rgba(13, 13, 17, 0.94) 58%);
+}
+
+.pattern { width: 100%; height: 100%; }
+
+.glow {
+  background: radial-gradient(48% 60% at 82% 8%, rgba(225, 37, 27, 0.22), transparent 70%);
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ── Cabeçalho ── */
+.head {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto 52px;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ff6a5e;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: #fff;
+  margin: 0 0 14px;
+}
+
+.subtitle {
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.66);
+  margin: 0 auto;
+  max-width: 600px;
+}
+
+/* ── Vitrine do app ── */
+.showcase {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.appVisual { position: relative; }
+
+.window {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+  background: #15151a;
+}
+
+.windowImg { width: 100%; height: auto; display: block; }
+
+.floatPhone {
+  position: absolute;
+  right: -5%;
+  bottom: -13%;
+  width: 33%;
+  filter: drop-shadow(0 22px 42px rgba(0, 0, 0, 0.55));
+}
+
+.phoneImg { width: 100%; height: auto; display: block; }
+
+/* ── Features ── */
+.features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.features li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.fi {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff6a5e;
+  background: rgba(225, 37, 27, 0.12);
+  border: 1px solid rgba(225, 37, 27, 0.25);
+}
+
+.features strong {
+  display: block;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.features p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.60);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+/* ── Barbearia parceira ── */
+.partner {
+  margin-top: 72px;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 32px;
+  align-items: center;
+  padding: 28px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.partnerLogo {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.partnerImg { width: 100%; height: auto; display: block; }
+
+.partnerTag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ff6a5e;
+  background: rgba(225, 37, 27, 0.12);
+  border: 1px solid rgba(225, 37, 27, 0.25);
+  border-radius: 999px;
+  padding: 5px 12px;
+  margin-bottom: 12px;
+}
+
+.partnerText p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.80);
+  font-size: 16.5px;
+  line-height: 1.6;
+}
+
+.partnerText strong { color: #fff; font-weight: 600; }
+
+/* ── Reveal on scroll ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.visible .reveal { opacity: 1; transform: none; }
+
+.visible .d1 { transition-delay: 0.05s; }
+.visible .d2 { transition-delay: 0.15s; }
+.visible .d3 { transition-delay: 0.25s; }
+
+/* ── Responsivo ── */
+@media (max-width: 900px) {
+  .showcase { grid-template-columns: 1fr; gap: 32px; }
+  .partner { grid-template-columns: 1fr; text-align: center; justify-items: center; }
+  .partnerLogo { max-width: 320px; }
+}
+
+@media (max-width: 600px) {
+  .section { padding: 72px 20px; }
+  .floatPhone { display: none; }
+  .features li { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { transition: none; opacity: 1; transform: none; }
+}
