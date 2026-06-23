@@ -6,7 +6,7 @@
 //   - cliente tem cartões ativos
 
 import { useState, useEffect, useCallback } from 'react'
-import { ShoppingCart, CreditCard, Loader2, XCircle, Layers, Ticket } from 'lucide-react'
+import { ShoppingCart, CreditCard, Loader2, XCircle, Layers, Ticket, Globe } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions, radius } from '@/shared/theme'
 import { Sale, ProfLite, PackageCardLite } from '@/features/sales/types'
@@ -16,6 +16,7 @@ import CartItemRow from './CartItemRow'
 import PaymentModal from './PaymentModal'
 import UsePackageModal from './UsePackageModal'
 import UseMembershipModal, { MembershipCardLite } from './UseMembershipModal'
+import UseClubModal, { ClubSubLite } from './UseClubModal'
 
 interface Props {
   sale:           Sale
@@ -43,6 +44,8 @@ export default function CartPanel({
   const [activeCards, setActiveCards] = useState<PackageCardLite[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
   const [activeMemberships, setActiveMemberships] = useState<MembershipCardLite[]>([])
+  const [showUseClub, setShowUseClub] = useState(false)
+  const [activeClubSubs, setActiveClubSubs] = useState<ClubSubLite[]>([])
 
   const refreshActiveCards = useCallback(() => {
     if (!sale.clientId) {
@@ -75,6 +78,19 @@ export default function CartPanel({
       .catch(() => setActiveMemberships([]))
   }, [sale.clientId])
 
+  const refreshActiveClubSubs = useCallback(() => {
+    if (!sale.clientId) {
+      setActiveClubSubs([])
+      return
+    }
+    api.get(`/club-subscriptions?clientId=${sale.clientId}&status=ACTIVE`)
+      .then(res => {
+        const data = res.data?.data ?? res.data
+        setActiveClubSubs(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setActiveClubSubs([]))
+  }, [sale.clientId])
+
   useEffect(() => {
     refreshActiveCards()
   }, [refreshActiveCards])
@@ -82,6 +98,10 @@ export default function CartPanel({
   useEffect(() => {
     refreshActiveMemberships()
   }, [refreshActiveMemberships])
+
+  useEffect(() => {
+    refreshActiveClubSubs()
+  }, [refreshActiveClubSubs])
 
   async function refetchSale() {
     try {
@@ -241,6 +261,7 @@ export default function CartPanel({
   // ⭐ Mostra botão "Usar pacote" só se cliente vinculado E tem cards ativos
   const canUsePackage = sale.clientId != null && activeCards.length > 0
   const canUseMembership = sale.clientId != null && activeMemberships.length > 0
+  const canUseClub = sale.clientId != null && activeClubSubs.length > 0
 
   return (
     <>
@@ -278,6 +299,18 @@ export default function CartPanel({
             refreshActiveMemberships()
           }}
           onClose={() => setShowUseMembership(false)}
+        />
+      )}
+
+      {showUseClub && (
+        <UseClubModal
+          sale={sale}
+          isMobile={isMobile}
+          onApplied={(updated) => {
+            onSaleUpdated(updated)
+            refreshActiveClubSubs()
+          }}
+          onClose={() => setShowUseClub(false)}
         />
       )}
 
@@ -392,6 +425,18 @@ export default function CartPanel({
               }}>
                 {activeMemberships.length} assinatura(s) ativa(s) do cliente
               </div>
+            </div>
+          </button>
+        )}
+
+        {canUseClub && (
+          <button onClick={() => setShowUseClub(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: `1px solid ${colors.red.border}`, background: 'linear-gradient(135deg, rgba(220,38,38,0.05), rgba(220,38,38,0.12))', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', WebkitTapHighlightColor: 'transparent', transition: `all ${transitions.fast}` }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: colors.red.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Globe size={16} color="#fff" strokeWidth={2} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: colors.red.DEFAULT, letterSpacing: '.04em', textTransform: 'uppercase' }}>Usar clube</div>
+              <div style={{ fontSize: 10, color: colors.gray[700], marginTop: 1 }}>{activeClubSubs.length} assinatura(s) de clube ativa(s)</div>
             </div>
           </button>
         )}
