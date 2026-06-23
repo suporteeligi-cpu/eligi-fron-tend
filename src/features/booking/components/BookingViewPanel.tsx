@@ -41,6 +41,7 @@ interface BookingDetail {
   endAt:          string
   clientName:     string
   clientPhone?:   string | null
+  clientPhoneMasked?: boolean
   clientEmail?:   string | null
   serviceId:      string
   professionalId?: string | null
@@ -644,14 +645,21 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                   {detail?.clientName ?? clientName}
                 </div>
-                {detail?.clientPhone && (
+                {detail?.clientPhone ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
                     <Phone size={11} color="rgba(255,255,255,0.7)" strokeWidth={2}/>
                     <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.80)', fontVariantNumeric: 'tabular-nums' }}>
                       {fmtPhone(detail.clientPhone)}
                     </span>
                   </div>
-                )}
+                ) : detail?.clientPhoneMasked ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                    <Phone size={11} color="rgba(255,255,255,0.7)" strokeWidth={2}/>
+                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em' }}>
+                      ••••••••
+                    </span>
+                  </div>
+                ) : null}
               </div>
               {detail?.clientPhone && (
                 <a
