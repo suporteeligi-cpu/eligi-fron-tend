@@ -200,6 +200,33 @@
 
 .partnerText strong { color: #fff; font-weight: 600; }
 
+/* ── Depoimento ── */
+.quote {
+  margin: 18px 0 0;
+  padding: 16px 18px;
+  border-left: 3px solid #e1251b;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0 12px 12px 0;
+  text-align: left;
+}
+
+.quote p {
+  margin: 0;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.quoteFooter {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.quoteName { color: #fff; font-weight: 600; font-size: 14px; }
+.quoteRole { color: rgba(255, 255, 255, 0.55); font-size: 12.5px; margin-top: 1px; }
+
 /* ── Reveal on scroll ── */
 .reveal {
   opacity: 0;

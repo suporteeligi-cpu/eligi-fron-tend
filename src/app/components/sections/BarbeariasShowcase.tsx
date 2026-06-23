@@ -132,6 +132,18 @@ export default function BarbeariasShowcase() {
               A <strong>Gil Barber</strong> — barba, cabelo e bigode — usa o Eligi
               no dia a dia pra cuidar da agenda, do caixa e das comissões.
             </p>
+
+            <blockquote className={styles.quote}>
+              <p>
+                &ldquo;Antes era caderninho e WhatsApp pra tudo. Com o Eligi a agenda
+                se organiza sozinha e no fim do dia eu já sei quanto cada barbeiro
+                fez — mudou a rotina aqui da barbearia.&rdquo;
+              </p>
+              <footer className={styles.quoteFooter}>
+                <span className={styles.quoteName}>Gilson Calixta</span>
+                <span className={styles.quoteRole}>Dono da Gil Barber</span>
+              </footer>
+            </blockquote>
           </div>
         </div>
       </div>
