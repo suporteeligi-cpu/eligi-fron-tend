@@ -13,6 +13,7 @@ import {
   Coins,
   BarChart3,
 } from 'lucide-react'
+import EligiClubIcon from './EligiClubIcon'
 
 export type Role =
   | 'BUSINESS_OWNER'
@@ -37,6 +38,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Clientes',      path: '/dashboard/clientes',      icon: Users,           section: 'principal'  },
     { label: 'Serviços',      path: '/dashboard/servicos',      icon: ShoppingBag,        section: 'principal'  },
     { label: 'Pacotes',       path: '/dashboard/pacotes',       icon: CreditCard,      section: 'principal'  },
+    { label: 'EligiClub',     path: '/dashboard/eligiclub',     icon: EligiClubIcon,   section: 'principal'  },
     { label: 'Equipe',        path: '/dashboard/equipe',        icon: UserCog,         section: 'principal'  },
     { label: 'Estoque',       path: '/dashboard/estoque',       icon: PackageOpen,     section: 'principal'  },
     { label: 'Caixa',         path: '/dashboard/caixa',         icon: ShoppingBag,     section: 'financeiro' },

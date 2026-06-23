@@ -220,7 +220,7 @@ export default function EligiClubPage() {
 
         {tab === 'planos' && <PlanosTab isMobile={isMobile} onToast={setToast} />}
         {tab === 'membros' && <MembrosTab isMobile={isMobile} onToast={setToast} />}
-        {tab === 'fechamento' && <FechamentoTab isMobile={isMobile} onToast={setToast} />}
+        {tab === 'fechamento' && <FechamentoTab onToast={setToast} />}
       </div>
     </>
   )
@@ -395,7 +395,7 @@ function MemberRow({ sub, isMobile, isLast, onClick }: { sub: ClubSubscription; 
 // ═══════════════════════════════════════════════════════════════════════════
 // ABA: Fechamento (peça central — pote + rateio)
 // ═══════════════════════════════════════════════════════════════════════════
-function FechamentoTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: string) => void }) {
+function FechamentoTab({ onToast }: { onToast: (m: string) => void }) {
   const [periodKey, setPeriodKey] = useState<string>(() => spMonthKey())
   const [preview, setPreview] = useState<SettlementPreview | null>(null)
   const [loading, setLoading] = useState(true)
@@ -525,7 +525,7 @@ function PotePanel({ preview }: { preview: SettlementPreview | null }) {
 
 function RateioPanel({ preview }: { preview: SettlementPreview | null }) {
   const barsRef = useRef<Record<string, HTMLDivElement | null>>({})
-  const items = preview?.items ?? []
+  const items = useMemo(() => preview?.items ?? [], [preview])
 
   // anima largura das barras por mutação de DOM
   useLayoutEffect(() => {
