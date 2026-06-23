@@ -976,7 +976,7 @@ export default function SideCheckoutPanel({
     display:'flex', flexDirection:'column' as const, fontFamily:typography.fontFamily,
     animation:'sheetUp 0.32s cubic-bezier(0.34,1.2,0.64,1)',
   } : {
-    position:'fixed' as const, top:0, right:0, bottom:0, width:400, maxWidth:'100vw',
+    position:'fixed' as const, top:0, right:0, bottom:0, width:460, maxWidth:'100vw',
     background:glass.surface.modal.background, backdropFilter:glass.surface.modal.backdropFilter,
     WebkitBackdropFilter:glass.surface.modal.backdropFilter,
     borderLeft:`1px solid ${colors.gray.borderMd}`,

@@ -24,6 +24,7 @@ import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 import ClubPlanEditorModal from './components/ClubPlanEditorModal'
 import ClubSubscriptionModal from './components/ClubSubscriptionModal'
+import ClubMemberDetailModal from './components/ClubMemberDetailModal'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Tipos (espelham os includes do back-end)
@@ -332,10 +333,15 @@ function PlanRow({ plan, isMobile, isLast, onClick }: { plan: ClubPlan; isMobile
 // ═══════════════════════════════════════════════════════════════════════════
 function MembrosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: string) => void }) {
   const [subs, setSubs] = useState<ClubSubscription[]>([])
+  const [detailSub, setDetailSub] = useState<ClubSubscription | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   function handleSaved(sub: ClubSubscription) {
     setSubs(prev => [sub, ...prev])
     onToast('Membro assinado')
+  }
+  function handleUpdated(updated: ClubSubscription) {
+    setSubs(prev => prev.map(s => s.id === updated.id ? updated : s))
+    setDetailSub(updated)
   }
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -387,6 +393,15 @@ function MembrosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: str
         />
       )}
 
+      {detailSub && (
+        <ClubMemberDetailModal
+          initialSub={detailSub}
+          isMobile={isMobile}
+          onUpdated={handleUpdated}
+          onClose={() => setDetailSub(null)}
+        />
+      )}
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 13 }}>
         <SearchBox query={query} setQuery={setQuery} placeholder="Buscar membro..." flex />
         <AddButton label={isMobile ? 'Assinar' : 'Assinar membro'} onClick={() => setModalOpen(true)} />
@@ -398,7 +413,7 @@ function MembrosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: str
         <EmptyState icon={<Search size={34} />} title="Nenhum membro encontrado" subtitle={`Nada corresponde a "${query}".`} />
       ) : (
         <ListShell>
-          {filtered.map((s, i) => <MemberRow key={s.id} sub={s} isMobile={isMobile} isLast={i === filtered.length - 1} onClick={() => onToast('Detalhe do membro chega no próximo lote 🚧')} />)}
+          {filtered.map((s, i) => <MemberRow key={s.id} sub={s} isMobile={isMobile} isLast={i === filtered.length - 1} onClick={() => setDetailSub(s)} />)}
         </ListShell>
       )}
     </section>

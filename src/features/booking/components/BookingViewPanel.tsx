@@ -9,6 +9,7 @@
 // - Botão No-show → PATCH /bookings/:id/no-show (novo)
 // - Se booking é COMPLETED: mostra link "Ver venda" pra /caixa/[saleId]
 // - Detecta Sale OPEN linkada → muda label CHECKOUT pra "CONTINUAR CHECKOUT"
+// - jun/2026: bump de legibilidade (nome cliente 18, serviço/data 15, meta 13)
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
@@ -455,7 +456,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
             }
           : {
               top: 0, right: 0, bottom: 0,
-              width: 420,
+              width: 468,
               animation: 'bvp-sheetIn 0.26s cubic-bezier(0.25,0.46,0.45,0.94)',
             }
         ),
@@ -640,7 +641,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                 {getInitials(detail?.clientName ?? clientName)}
               </div>
               <div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                   {detail?.clientName ?? clientName}
                 </div>
                 {detail?.clientPhone && (
@@ -742,8 +743,8 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                           <Calendar size={16} color={colors.red.DEFAULT} strokeWidth={2}/>
                         </div>
                         <div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: '#0f0f14' }}>{dateLabel}</div>
-                          <div style={{ fontSize: 12, color: colors.gray.dimText, marginTop: 2 }}>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: '#0f0f14' }}>{dateLabel}</div>
+                          <div style={{ fontSize: 13, color: colors.gray.dimText, marginTop: 2 }}>
                             {group.length + extras.length} serviços
                           </div>
                         </div>
@@ -771,7 +772,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                                 alignItems: 'baseline', gap: 8,
                               }}>
                                 <span style={{
-                                  fontSize: 14, fontWeight: 700, color: '#0f0f14',
+                                  fontSize: 15, fontWeight: 700, color: '#0f0f14',
                                   letterSpacing: '-0.01em',
                                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                 }}>
@@ -788,7 +789,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                               </div>
                               <div style={{
                                 display: 'flex', alignItems: 'center', gap: 6,
-                                marginTop: 3, fontSize: 12, color: colors.gray.dimText,
+                                marginTop: 3, fontSize: 13, color: colors.gray.dimText,
                                 fontVariantNumeric: 'tabular-nums',
                               }}>
                                 <Clock size={11} color={colors.gray.dimText} strokeWidth={2}/>
@@ -822,7 +823,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                               alignItems: 'baseline', gap: 8,
                             }}>
                               <span style={{
-                                fontSize: 14, fontWeight: 700, color: '#0f0f14',
+                                fontSize: 15, fontWeight: 700, color: '#0f0f14',
                                 letterSpacing: '-0.01em',
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                               }}>
@@ -839,7 +840,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                             </div>
                             <div style={{
                               display: 'flex', alignItems: 'center', gap: 6,
-                              marginTop: 3, fontSize: 12, color: colors.gray.dimText,
+                              marginTop: 3, fontSize: 13, color: colors.gray.dimText,
                             }}>
                               <span style={{
                                 fontSize: 9, fontWeight: 700,
@@ -897,7 +898,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
                             <Clock size={11} color={colors.gray.dimText} strokeWidth={2}/>
-                            <span style={{ fontSize: 12, color: colors.gray.dimText }}>
+                            <span style={{ fontSize: 13, color: colors.gray.dimText }}>
                               {detail?.service.duration ? `${detail.service.duration}min` : `${bookingStart}–${bookingEnd}`}
                             </span>
                           </div>
@@ -930,7 +931,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                         <Calendar size={16} color={colors.red.DEFAULT} strokeWidth={2}/>
                       </div>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f0f14' }}>{dateLabel}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: '#0f0f14' }}>{dateLabel}</div>
                         <div style={{
                           fontSize: 13, color: colors.gray.dimText, marginTop: 2,
                           fontVariantNumeric: 'tabular-nums',
