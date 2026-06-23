@@ -3,30 +3,41 @@
 // Tipado como LucideIcon (forwardRef) p/ encaixar no navigation.config como
 // qualquer ícone Lucide. Aceita size/color iguais a um Lucide; a metade
 // Europa/África usa fillOpacity 0.7 (efeito "acinzentado"), tingindo junto.
-import { forwardRef } from 'react'
+//
+// + Reflexo (sheen): uma faixa diagonal de luz corre por cima, SEMPRE
+//   (selecionado ou não), mascarada pelo próprio desenho do globo — mesmo
+//   efeito do pote no Fechamento. IDs únicos por instância (useId) p/ não
+//   colidir quando o ícone é renderizado mais de uma vez na mesma tela.
+//   Respeita prefers-reduced-motion.
+import { forwardRef, useId } from 'react'
 import type { LucideIcon, LucideProps } from 'lucide-react'
 
 const EligiClubIcon: LucideIcon = forwardRef<SVGSVGElement, LucideProps>(
-  ({ size = 24, color = 'currentColor', ...props }, ref) => (
-    <svg
-      ref={ref}
-      xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill={color}
-      aria-hidden="true"
-      {...props}
-    >
-      <g transform="translate(2.4,2.702) scale(0.013436)">
-        <g transform="translate(0,1384) scale(0.1,-0.1)">
-          <g>
-          <path d="M6725 13825 c-366 -23 -748 -73 -1040 -136 -179 -38 -266 -58 -274
+  ({ size = 24, color = 'currentColor', ...props }, ref) => {
+    const uid = useId().replace(/:/g, '')
+    const gradId  = `ec-grad-${uid}`
+    const maskId  = `ec-mask-${uid}`
+    const shapeId = `ec-shape-${uid}`
+    return (
+      <svg
+        ref={ref}
+        xmlns="http://www.w3.org/2000/svg"
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill={color}
+        aria-hidden="true"
+        {...props}
+      >
+        <g id={shapeId} transform="translate(2.4,2.702) scale(0.013436)">
+          <g transform="translate(0,1384) scale(0.1,-0.1)">
+            <g>
+            <path d="M6725 13825 c-366 -23 -748 -73 -1040 -136 -179 -38 -266 -58 -274
 -63 -4 -3 -16 -39 -26 -81 -59 -251 52 -447 263 -465 165 -15 211 -133 141
 -363 -116 -381 81 -798 445 -942 181 -71 348 -12 385 137 50 195 200 338 467
 445 31 12 141 47 339 108 125 39 275 104 341 149 120 81 221 223 266 374 43
 148 34 388 -23 616 -50 202 -35 182 -140 195 -289 37 -777 48 -1144 26z"/>
-          <path d="M4345 13271 c-1967 -846 -3457 -2510 -4055 -4526 -162 -550 -257
+            <path d="M4345 13271 c-1967 -846 -3457 -2510 -4055 -4526 -162 -550 -257
 -1075 -286 -1595 l-7 -115 31 -50 c17 -27 43 -70 58 -95 33 -54 135 -190 184
 -245 103 -115 132 -144 215 -210 114 -91 185 -137 299 -191 165 -77 227 -93
 512 -129 235 -29 310 -72 609 -340 184 -166 336 -273 455 -323 131 -55 163
@@ -52,9 +63,9 @@ const EligiClubIcon: LucideIcon = forwardRef<SVGSVGElement, LucideProps>(
 135 213 240 454 357 74 36 181 87 236 114 196 95 342 208 427 333 114 169 180
 191 289 99 152 -127 296 -146 471 -63 229 108 307 437 166 701 -37 70 -131
 175 -204 229 -43 32 -148 91 -157 89 -2 0 -52 -22 -113 -48z"/>
-          </g>
-          <g fillOpacity={0.7}>
-          <path d="M10624 12866 c-334 -106 -628 -388 -853 -818 -151 -289 -185 -472
+            </g>
+            <g fillOpacity={0.7}>
+            <path d="M10624 12866 c-334 -106 -628 -388 -853 -818 -151 -289 -185 -472
 -115 -628 43 -97 119 -159 247 -202 86 -30 425 -32 526 -4 185 51 225 106 226
 316 1 160 10 186 80 220 137 66 265 -66 265 -275 0 -260 -193 -503 -480 -605
 -134 -48 -234 -64 -478 -80 -339 -21 -404 -63 -547 -355 l-88 -179 -117 -121
@@ -87,18 +98,43 @@ c-123 -128 -160 -180 -185 -261 -19 -62 -19 -201 0 -279 29 -123 11 -204 -60
 99 -509 337 -554 354 -9 3 -47 -4 -86 -16z m1908 -3166 c99 -22 229 -78 272
 -118 73 -69 75 -202 4 -269 -98 -92 -356 -104 -768 -37 -187 30 -212 38 -256
 76 -71 62 -36 140 105 231 189 123 423 166 643 117z"/>
-          <path d="M8965 11576 c-90 -29 -149 -79 -186 -160 -23 -51 -25 -203 -4 -291 8
+            <path d="M8965 11576 c-90 -29 -149 -79 -186 -160 -23 -51 -25 -203 -4 -291 8
 -33 14 -100 15 -150 0 -105 -16 -148 -103 -273 -89 -130 -107 -186 -82 -262
 53 -160 242 -129 501 81 95 77 213 208 243 271 33 66 33 69 28 170 -5 107 -38
 232 -117 435 -37 98 -92 154 -173 178 -60 18 -69 18 -122 1z"/>
-          <path d="M8403 11195 c-75 -38 -170 -132 -178 -179 -9 -44 11 -103 64 -190 51
+            <path d="M8403 11195 c-75 -38 -170 -132 -178 -179 -9 -44 11 -103 64 -190 51
 -84 97 -118 166 -124 53 -4 56 -3 93 34 76 77 123 273 92 385 -26 92 -132 125
 -237 74z"/>
+            </g>
           </g>
         </g>
-      </g>
-    </svg>
-  ),
+
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0"   stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.85" />
+            <stop offset="1"   stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+          <mask id={maskId}>
+            <use href={`#${shapeId}`} fill="#ffffff" />
+          </mask>
+        </defs>
+
+        <rect
+          className="ec-sheen"
+          x="0" y="0" width="24" height="24"
+          fill={`url(#${gradId})`}
+          mask={`url(#${maskId})`}
+        />
+
+        <style>{`
+          @keyframes ec-sheen-kf { 0% { transform: translateX(-28px) } 55%, 100% { transform: translateX(28px) } }
+          .ec-sheen { transform: translateX(-28px); animation: ec-sheen-kf 3.6s ease-in-out 1s infinite; pointer-events: none; }
+          @media (prefers-reduced-motion: reduce) { .ec-sheen { animation: none; opacity: 0; } }
+        `}</style>
+      </svg>
+    )
+  },
 )
 EligiClubIcon.displayName = 'EligiClubIcon'
 

@@ -537,14 +537,14 @@ function PotePanel({ preview }: { preview: SettlementPreview | null }) {
   }, [target])
 
   return (
-    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, padding: '26px 26px 24px', marginBottom: 16, background: 'linear-gradient(135deg,#16161C 0%,#0E0E12 100%)', color: '#fff', boxShadow: '0 18px 48px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.04) inset' }}>
+    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, padding: '26px 26px 24px', marginBottom: 16, background: 'linear-gradient(135deg,#16161C 0%,#0E0E12 100%)', color: '#fff', boxShadow: '0 18px 48px rgba(255, 255, 255, 0.28), 0 0 0 1px rgba(255,255,255,0.04) inset' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(115deg,transparent 30%,rgba(255,255,255,0.10) 48%,transparent 62%)', transform: 'translateX(-120%)', animation: 'club-sheen 3.6s ease-in-out 1s infinite', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', width: 220, height: 220, opacity: 0.06, pointerEvents: 'none' }}>
         <EligiClubIcon size={220} color="#fff" />
       </div>
       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', position: 'relative' }}>Pote do período</div>
       <div ref={numRef} style={{ fontSize: 46, fontWeight: 820, letterSpacing: '-0.035em', margin: '6px 0 4px', fontVariantNumeric: 'tabular-nums', position: 'relative', background: 'linear-gradient(135deg,#fff 0%,#FFD9D6 120%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{fmtBRL(0)}</div>
-      <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.92)', position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.totalFichas ?? 0}</b> fichas acumuladas</span>
         <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.4)' }} />
         <span><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.paymentsCount ?? 0}</b> mensalidade{(preview?.paymentsCount ?? 0) !== 1 ? 's' : ''}</span>
