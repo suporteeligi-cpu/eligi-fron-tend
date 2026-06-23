@@ -105,6 +105,11 @@ function fmtPhone(p: string) {
   if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
   return p
 }
+function waLink(p: string) {
+  let d = p.replace(/\D/g, '')
+  if (d.length <= 11) d = `55${d}` // nacional (DDD+numero) -> adiciona DDI Brasil
+  return `https://wa.me/${d}`
+}
 
 const STATUS_CFG: Record<BookingStatus, { label: string; gradient: string; icon: typeof CheckCircle }> = {
   CONFIRMED: { label: 'CONFIRMADO', gradient: 'linear-gradient(135deg,#16a34a,#15803d)', icon: CheckCircle },
@@ -407,6 +412,10 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
         @keyframes bvp-spin    { to { transform: rotate(360deg) } }
         .bvp-alter-btn:hover { background: rgba(255,255,255,0.28) !important }
         .bvp-drop-item:hover { background: rgba(0,0,0,0.04) !important }
+        @keyframes bvp-waRing { 0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.5) } 70% { box-shadow: 0 0 0 9px rgba(37,211,102,0) } 100% { box-shadow: 0 0 0 0 rgba(37,211,102,0) } }
+        .bvp-wa-pulse { animation: bvp-waRing 2.1s ease-out 3 }
+        .bvp-wa:active { transform: scale(0.92) }
+        @media (prefers-reduced-motion: reduce) { .bvp-wa-pulse { animation: none } }
       `}</style>
 
       {confirm === 'cancel' && (
@@ -643,6 +652,29 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                   </div>
                 )}
               </div>
+              {detail?.clientPhone && (
+                <a
+                  href={waLink(detail.clientPhone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Abrir conversa no WhatsApp"
+                  className={`bvp-wa${status === 'CANCELED' ? '' : ' bvp-wa-pulse'}`}
+                  style={{
+                    marginLeft: 'auto',
+                    width: 46, height: 46, borderRadius: '50%',
+                    background: '#fff', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+                    color: '#1ebe5a', textDecoration: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <svg width={24} height={24} viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm5.8 14.06c-.25.69-1.45 1.32-1.99 1.4-.51.08-1.16.11-1.87-.12-.43-.14-.99-.32-1.7-.63-2.99-1.29-4.94-4.3-5.09-4.5-.15-.2-1.22-1.62-1.22-3.09 0-1.47.77-2.19 1.04-2.49.27-.3.59-.37.79-.37.2 0 .39 0 .57.01.18.01.43-.07.67.51.25.6.84 2.07.91 2.22.07.15.12.32.02.52-.1.2-.15.32-.3.5-.15.18-.31.4-.45.53-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.03 1.12 1 2.07 1.31 2.37 1.46.3.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.71.81 2 .96.3.15.5.22.57.35.07.12.07.72-.18 1.41Z"/>
+                  </svg>
+                </a>
+              )}
             </div>
           )}
         </div>
