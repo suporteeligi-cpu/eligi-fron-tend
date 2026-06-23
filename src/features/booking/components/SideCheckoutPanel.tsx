@@ -63,6 +63,11 @@ function ConfirmModal({ title, confirmLabel, onConfirm, onCancel, isMobile }: {
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Service = { id: string; name: string; duration: number; price?: number }
 type Client  = { id: string; name: string; phone: string }
+function waLink(p: string) {
+  let d = p.replace(/\D/g, '')
+  if (d.length <= 11) d = `55${d}` // nacional (DDD+numero) -> adiciona DDI Brasil
+  return `https://wa.me/${d}`
+}
 
 interface ServiceItem {
   service:   Service
@@ -986,6 +991,10 @@ export default function SideCheckoutPanel({
         @keyframes sheetIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
         @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
         @keyframes scp-spin{to{transform:rotate(360deg)}}
+        @keyframes scp-waRing{0%{box-shadow:0 0 0 0 rgba(37,211,102,0.5)}70%{box-shadow:0 0 0 8px rgba(37,211,102,0)}100%{box-shadow:0 0 0 0 rgba(37,211,102,0)}}
+        .scp-wa-pulse{animation:scp-waRing 2.1s ease-out 3}
+        .scp-wa:active{transform:scale(0.92)}
+        @media(prefers-reduced-motion:reduce){.scp-wa-pulse{animation:none}}
         .cp-tab{flex:1;padding:12px 8px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${colors.gray.dimText};border-bottom:2px solid transparent;transition:all ${transitions.fast};font-family:${typography.fontFamily};letter-spacing:.04em}
         .cp-tab.active{color:${colors.red.DEFAULT};border-bottom-color:${colors.red.DEFAULT}}
         .cp-lbl{display:block;font-size:11px;font-weight:700;color:${colors.gray.dimText};text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
@@ -1065,24 +1074,39 @@ export default function SideCheckoutPanel({
           </div>
 
           {/* Seleção de cliente */}
-          <button onClick={()=>setShowClientSheet(true)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 20px 14px',border:'none',background:'transparent',cursor:'pointer',textAlign:'left'}}>
-            <div style={{width:40,height:40,borderRadius:'50%',border:`1.5px dashed ${selectedClient?'transparent':colors.gray.borderMd}`,background:selectedClient?colors.red.gradient:colors.background.page,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,fontWeight:700,color:selectedClient?'#fff':colors.gray.dimText,boxShadow:selectedClient?`0 2px 8px ${colors.red.glow}`:'none',transition:`all ${transitions.spring}`}}>
-              {selectedClient ? getInitials(selectedClient.name) : <User size={16} color={colors.gray.dimText} strokeWidth={1.8}/>}
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              {selectedClient ? (
-                <>
-                  <div style={{fontSize:14,fontWeight:700,color:colors.gray[900],whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{selectedClient.name}</div>
-                  {selectedClient.phone&&<div style={{fontSize:12,color:colors.gray.dimText}}>{fmtPhone(selectedClient.phone)}</div>}
-                </>
-              ) : (
-                <span style={{fontSize:13,color:colors.gray.dimText}}>Selecione um cliente ou deixe em branco para chegada</span>
-              )}
-            </div>
-            <div style={{width:28,height:28,borderRadius:'50%',border:`1px solid ${colors.gray.borderMd}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <div style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 20px 14px'}}>
+            <button onClick={()=>setShowClientSheet(true)} style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:12,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',padding:0}}>
+              <div style={{width:40,height:40,borderRadius:'50%',border:`1.5px dashed ${selectedClient?'transparent':colors.gray.borderMd}`,background:selectedClient?colors.red.gradient:colors.background.page,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,fontWeight:700,color:selectedClient?'#fff':colors.gray.dimText,boxShadow:selectedClient?`0 2px 8px ${colors.red.glow}`:'none',transition:`all ${transitions.spring}`}}>
+                {selectedClient ? getInitials(selectedClient.name) : <User size={16} color={colors.gray.dimText} strokeWidth={1.8}/>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                {selectedClient ? (
+                  <>
+                    <div style={{fontSize:14,fontWeight:700,color:colors.gray[900],whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{selectedClient.name}</div>
+                    {selectedClient.phone&&<div style={{fontSize:12,color:colors.gray.dimText}}>{fmtPhone(selectedClient.phone)}</div>}
+                  </>
+                ) : (
+                  <span style={{fontSize:13,color:colors.gray.dimText}}>Selecione um cliente ou deixe em branco para chegada</span>
+                )}
+              </div>
+            </button>
+            {selectedClient?.phone && (
+              <a
+                href={waLink(selectedClient.phone)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e)=>e.stopPropagation()}
+                aria-label="Abrir conversa no WhatsApp"
+                className="scp-wa scp-wa-pulse"
+                style={{width:40,height:40,borderRadius:'50%',background:'#fff',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 14px rgba(0,0,0,0.18)',color:'#1ebe5a',textDecoration:'none',WebkitTapHighlightColor:'transparent'}}
+              >
+                <svg width={22} height={22} viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm5.8 14.06c-.25.69-1.45 1.32-1.99 1.4-.51.08-1.16.11-1.87-.12-.43-.14-.99-.32-1.7-.63-2.99-1.29-4.94-4.3-5.09-4.5-.15-.2-1.22-1.62-1.22-3.09 0-1.47.77-2.19 1.04-2.49.27-.3.59-.37.79-.37.2 0 .39 0 .57.01.18.01.43-.07.67.51.25.6.84 2.07.91 2.22.07.15.12.32.02.52-.1.2-.15.32-.3.5-.15.18-.31.4-.45.53-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.03 1.12 1 2.07 1.31 2.37 1.46.3.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.71.81 2 .96.3.15.5.22.57.35.07.12.07.72-.18 1.41Z"/></svg>
+              </a>
+            )}
+            <button onClick={()=>setShowClientSheet(true)} aria-label="Trocar cliente" style={{width:28,height:28,borderRadius:'50%',border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
               <Plus size={14} color={colors.gray.dimText} strokeWidth={2.5}/>
-            </div>
-          </button>
+            </button>
+          </div>
 
           {/* Tabs */}
           <div style={{display:'flex',borderTop:`1px solid ${colors.gray.border}`}}>

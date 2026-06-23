@@ -177,6 +177,8 @@ export default function EligiClubPage() {
         @keyframes club-panel   { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:translateY(0) } }
         @keyframes club-spin     { to { transform: rotate(360deg) } }
         @keyframes club-sheen    { 0% { transform:translateX(-120%) } 55%,100% { transform:translateX(120%) } }
+        .ec-pote-meta { color: rgba(255,255,255,0.92) !important; -webkit-text-fill-color: rgba(255,255,255,0.92) !important; }
+        .ec-pote-meta b { color: #FF6B6B !important; -webkit-text-fill-color: #FF6B6B !important; }
         @keyframes club-pulse    { 0% { box-shadow:0 0 0 0 ${colors.red.glow} } 70% { box-shadow:0 0 0 12px transparent } 100% { box-shadow:0 0 0 0 transparent } }
       `}</style>
 
@@ -545,9 +547,9 @@ function PotePanel({ preview }: { preview: SettlementPreview | null }) {
       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', position: 'relative' }}>Pote do período</div>
       <div ref={numRef} style={{ fontSize: 46, fontWeight: 820, letterSpacing: '-0.035em', margin: '6px 0 4px', fontVariantNumeric: 'tabular-nums', position: 'relative', background: 'linear-gradient(135deg,#fff 0%,#FFD9D6 120%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{fmtBRL(0)}</div>
       <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.92)', position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.totalFichas ?? 0}</b> fichas acumuladas</span>
+        <span className="ec-pote-meta"><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.totalFichas ?? 0}</b> fichas acumuladas</span>
         <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.4)' }} />
-        <span><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.paymentsCount ?? 0}</b> mensalidade{(preview?.paymentsCount ?? 0) !== 1 ? 's' : ''}</span>
+        <span className="ec-pote-meta"><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.paymentsCount ?? 0}</b> mensalidade{(preview?.paymentsCount ?? 0) !== 1 ? 's' : ''}</span>
         {preview?.alreadySettled && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, letterSpacing: '.04em', color: '#34D399', background: 'rgba(52,211,153,0.12)', borderRadius: 6, padding: '2px 8px' }}>
             <CheckCircle2 size={11} strokeWidth={2.6} />FECHADO
