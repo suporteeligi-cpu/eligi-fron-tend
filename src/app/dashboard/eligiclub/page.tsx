@@ -22,6 +22,8 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
+import ClubPlanEditorModal from './components/ClubPlanEditorModal'
+import ClubSubscriptionModal from './components/ClubSubscriptionModal'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Tipos (espelham os includes do back-end)
@@ -231,6 +233,17 @@ export default function EligiClubPage() {
 // ═══════════════════════════════════════════════════════════════════════════
 function PlanosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: string) => void }) {
   const [plans, setPlans] = useState<ClubPlan[]>([])
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<ClubPlan | null>(null)
+  function handleAdd() { setEditing(null); setModalOpen(true) }
+  function handleEdit(p: ClubPlan) { setEditing(p); setModalOpen(true) }
+  function handleSaved(saved: ClubPlan) {
+    setPlans(prev => {
+      const exists = prev.find(p => p.id === saved.id)
+      return exists ? prev.map(p => p.id === saved.id ? saved : p) : [saved, ...prev]
+    })
+    onToast(editing ? 'Plano atualizado' : 'Plano criado')
+  }
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
@@ -261,9 +274,18 @@ function PlanosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: stri
 
   return (
     <section style={{ animation: 'club-panel .4s cubic-bezier(.22,1,.36,1) both' }}>
+      {modalOpen && (
+        <ClubPlanEditorModal
+          plan={editing}
+          isMobile={isMobile}
+          onSaved={handleSaved}
+          onClose={() => { setModalOpen(false); setTimeout(() => setEditing(null), 200) }}
+        />
+      )}
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 13 }}>
         <SearchBox query={query} setQuery={setQuery} placeholder="Buscar plano de clube..." flex />
-        <AddButton label={isMobile ? 'Novo' : 'Novo plano'} onClick={() => onToast('Criar plano chega no próximo lote 🚧')} />
+        <AddButton label={isMobile ? 'Novo' : 'Novo plano'} onClick={handleAdd} />
       </div>
 
       {loading ? <LoadingState /> : plans.length === 0 ? (
@@ -272,7 +294,7 @@ function PlanosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: stri
         <EmptyState icon={<Search size={34} />} title="Nenhum plano encontrado" subtitle={`Nada corresponde a "${query}".`} />
       ) : (
         <ListShell>
-          {filtered.map((p, i) => <PlanRow key={p.id} plan={p} isMobile={isMobile} isLast={i === filtered.length - 1} onClick={() => onToast('Editar plano chega no próximo lote 🚧')} />)}
+          {filtered.map((p, i) => <PlanRow key={p.id} plan={p} isMobile={isMobile} isLast={i === filtered.length - 1} onClick={() => handleEdit(p)} />)}
         </ListShell>
       )}
     </section>
@@ -308,6 +330,11 @@ function PlanRow({ plan, isMobile, isLast, onClick }: { plan: ClubPlan; isMobile
 // ═══════════════════════════════════════════════════════════════════════════
 function MembrosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: string) => void }) {
   const [subs, setSubs] = useState<ClubSubscription[]>([])
+  const [modalOpen, setModalOpen] = useState(false)
+  function handleSaved(sub: ClubSubscription) {
+    setSubs(prev => [sub, ...prev])
+    onToast('Membro assinado')
+  }
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
@@ -350,9 +377,17 @@ function MembrosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: str
         <StatCard k="Total de assinaturas" v={String(stats.total)} />
       </div>
 
+      {modalOpen && (
+        <ClubSubscriptionModal
+          isMobile={isMobile}
+          onSaved={handleSaved}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 13 }}>
         <SearchBox query={query} setQuery={setQuery} placeholder="Buscar membro..." flex />
-        <AddButton label={isMobile ? 'Assinar' : 'Assinar membro'} onClick={() => onToast('Assinar membro chega no próximo lote 🚧')} />
+        <AddButton label={isMobile ? 'Assinar' : 'Assinar membro'} onClick={() => setModalOpen(true)} />
       </div>
 
       {loading ? <LoadingState /> : subs.length === 0 ? (
