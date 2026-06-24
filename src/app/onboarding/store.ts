@@ -19,6 +19,7 @@ interface OnboardingData {
   segment?: string; // valor canônico (ver SEGMENTS no backend)
 
   // 02 — localização
+  serviceMode?: 'FIXED' | 'MOBILE'; // FIXED = local fixo | MOBILE = a domicilio
   cep?: string;
   address?: string;
   city?: string;
@@ -47,6 +48,7 @@ const EMPTY: OnboardingData = {
   journeyType: undefined,
   displayName: undefined,
   segment: undefined,
+  serviceMode: undefined,
   cep: undefined,
   address: undefined,
   city: undefined,
