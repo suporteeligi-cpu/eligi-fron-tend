@@ -301,15 +301,16 @@ function ModeCard({
       style={{
         flex: 1,
         textAlign: 'left',
-        padding: '12px 14px',
-        borderRadius: 12,
-        border: active ? '1.5px solid var(--eligi-red, #dc2626)' : '1px solid rgba(0,0,0,0.1)',
-        background: active ? 'rgba(220,38,38,0.04)' : '#fff',
+        padding: '14px 16px',
+        borderRadius: 14,
+        border: active ? '1.5px solid #dc2626' : '1px solid rgba(255,255,255,0.12)',
+        background: active ? '#dc2626' : 'rgba(255,255,255,0.04)',
+        boxShadow: active ? '0 8px 20px rgba(220,38,38,0.3)' : 'none',
         cursor: 'pointer',
         transition: 'all 0.18s ease',
         display: 'flex',
         flexDirection: 'column',
-        gap: 4,
+        gap: 5,
       }}
     >
       <span
@@ -317,7 +318,7 @@ function ModeCard({
           display: 'inline-flex',
           alignItems: 'center',
           gap: 8,
-          color: active ? 'var(--eligi-red, #dc2626)' : '#52525b',
+          color: active ? '#fff' : 'rgba(255,255,255,0.92)',
           fontWeight: 600,
           fontSize: 13.5,
         }}
@@ -325,7 +326,7 @@ function ModeCard({
         {icon}
         {title}
       </span>
-      <span style={{ fontSize: 12, color: 'var(--text-secondary, #71717a)' }}>{desc}</span>
+      <span style={{ fontSize: 12, color: active ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)' }}>{desc}</span>
     </button>
   );
 }
