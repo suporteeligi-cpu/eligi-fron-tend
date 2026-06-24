@@ -338,6 +338,14 @@ export default function AgendaMobileList({
     const moved   = t ? Math.hypot(t.clientX - start.x, t.clientY - start.y) : 0
     const elapsed = Date.now() - start.time
     if (moved <= TAP_MOVE_MAX && elapsed < LONG_PRESS_MS) {
+      // [tapfix2] Engole o burst de mouse sintetico (mousedown/mouseup/click) que o
+      // browser dispara apos o touchEnd na MESMA coordenada do toque. Sem isso ele
+      // cai no backdrop do BookingView recem-montado e fecha na hora. Capture no
+      // window roda antes de tudo; once + timeout limpam o que sobrar (~500ms).
+      const swallow = (ev: Event) => { ev.stopPropagation(); ev.preventDefault() }
+      const ghostEvents = ['mousedown', 'mouseup', 'click'] as const
+      ghostEvents.forEach(t => window.addEventListener(t, swallow, { capture: true, once: true }))
+      window.setTimeout(() => ghostEvents.forEach(t => window.removeEventListener(t, swallow, true)), 500)
       openView(booking)
     }
   }, [openView])
