@@ -27,7 +27,7 @@ import { toMinutes, minutesToTime, snapToSlot, addMin, buildSlots, computeGridRa
 import { computeOverlapLayout, computeOffHoursOverlay, cardOffHoursSegments, uniqueBookings } from '../utils/layout'
 import {
   SLOT_STEP, MIN_CARD_H_DESKTOP, MIN_DUR, COLLAPSED_COL_W,
-  TOUCH_CANCEL_PX, LONG_PRESS_MS, VIBRATE_DRAG_MS, VIBRATE_RESIZE_MS,
+  TOUCH_CANCEL_PX, TAP_MOVE_MAX, LONG_PRESS_MS, VIBRATE_DRAG_MS, VIBRATE_RESIZE_MS,
   DEFAULT_START_HOUR_DESKTOP, DEFAULT_END_HOUR_DESKTOP,
   EASE, Z,
 } from '../constants'
@@ -282,6 +282,10 @@ export default function AgendaIPadList({
     e: React.TouchEvent, booking: AgendaBooking, profId: string, _cardTop: number, cardHeight: number,
   ) => {
     if ((e.target as HTMLElement).closest('.ip-rh')) return
+
+    // [tapfix] limpa qualquer arming anterior (2o dedo num multitouch) p/ nao vazar timer virando drag-fantasma
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null }
+
     const touch = e.touches[0]
     touchStartRef.current = { y: touch.clientY, x: touch.clientX, time: Date.now() }
     tapBookingRef.current = booking
@@ -310,17 +314,37 @@ export default function AgendaIPadList({
     }, LONG_PRESS_MS)
   }, [professionals, snapFromTouch, colInfoFromTouch, START_MIN, PX_PER_MIN])
 
-  const onCardTouchEnd = useCallback(() => {
+  const onCardTouchEnd = useCallback((e: React.TouchEvent) => {
     if (longPressRef.current) {
       clearTimeout(longPressRef.current)
       longPressRef.current = null
     }
     setLongPressId(null)
-    // Tap rápido (sem drag, sem cancelamento) → abre painel
-    if (!dragRef.current && tapBookingRef.current) {
-      openView(tapBookingRef.current)
-    }
+
+    const start   = touchStartRef.current
+    const booking = tapBookingRef.current
     tapBookingRef.current = null
+
+    // Drag em andamento -> o commit e do onTouchEnd do container; nao abre painel.
+    if (dragRef.current || !start || !booking) return
+
+    // [tapfix] veredito de tap medido AGORA (nao dependemos do touchMove ter zerado o ref):
+    // 1 dedo, rapido (< LONG_PRESS_MS) e com deslocamento total pequeno.
+    // Scroll move muito mais que TAP_MOVE_MAX; o jitter de tap no Android cabe dentro.
+    const t       = e.changedTouches[0]
+    const moved   = t ? Math.hypot(t.clientX - start.x, t.clientY - start.y) : 0
+    const elapsed = Date.now() - start.time
+    if (moved <= TAP_MOVE_MAX && elapsed < LONG_PRESS_MS) {
+      // [tapfix2] Engole o burst de mouse sintetico (mousedown/mouseup/click) que o
+      // browser dispara apos o touchEnd na MESMA coordenada do toque. Sem isso ele
+      // cai no backdrop do BookingView recem-montado e fecha na hora. Capture no
+      // window roda antes de tudo; once + timeout limpam o que sobrar (~500ms).
+      const swallow = (ev: Event) => { ev.stopPropagation(); ev.preventDefault() }
+      const ghostEvents = ['mousedown', 'mouseup', 'click'] as const
+      ghostEvents.forEach(t2 => window.addEventListener(t2, swallow, { capture: true, once: true }))
+      window.setTimeout(() => ghostEvents.forEach(t2 => window.removeEventListener(t2, swallow, true)), 500)
+      openView(booking)
+    }
   }, [openView])
 
   const onResizePointerDown = useCallback((e: React.PointerEvent, booking: AgendaBooking, cardHeight: number) => {
@@ -385,10 +409,12 @@ export default function AgendaIPadList({
       const dx = Math.abs(touch.clientX - touchStartRef.current.x)
       const dy = Math.abs(touch.clientY - touchStartRef.current.y)
       if (dx > TOUCH_CANCEL_PX || dy > TOUCH_CANCEL_PX) {
+        // [tapfix] movimento curto so DESARMA o long-press (drag). O tap nao e mais
+        // cancelado aqui; o veredito "foi tap?" vai pro touchEnd medindo o
+        // deslocamento total start->fim (Android gera jitter > 8px ate em tap parado).
         clearTimeout(longPressRef.current)
         longPressRef.current = null
         setLongPressId(null)
-        tapBookingRef.current = null // FIX #7: não abre painel se foi scroll
       }
     }
 
