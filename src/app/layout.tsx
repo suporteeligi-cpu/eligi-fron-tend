@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Providers } from './providers'
+import { ServiceWorkerRegister } from './sw-register'
+import { InstallAppBar } from './components/InstallAppBar'
 import '../styles/globals.css'
 
 export const viewport: Viewport = {
@@ -116,6 +118,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <Providers>{children}</Providers>
+        <ServiceWorkerRegister />
+        <InstallAppBar />
       </body>
     </html>
   )
