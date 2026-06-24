@@ -34,6 +34,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return
     }
 
+    // Gate retroativo: SOLO que concluiu mas nunca decidiu fixo/domicilio
+    if (!loading && user && user.role === 'BUSINESS_OWNER' && user.onboardingDone &&
+        user.journeyType === 'SOLO' && user.serviceMode == null &&
+        pathname !== '/onboarding/service-mode') {
+      router.replace('/onboarding/service-mode')
+      return
+    }
+
     // BASIC_STAFF: só agenda e comissões próprias
     const basicStaffAllowed = ['/dashboard/agenda', '/dashboard/financeiro/comissoes', '/dashboard/caixa']
     if (!loading && user && user.role === 'BASIC_STAFF' &&

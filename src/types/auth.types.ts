@@ -23,4 +23,6 @@ export interface AuthUser {
   // Onboarding (vem do BusinessProfile no /auth/me)
   onboardingDone?: boolean
   onboardingStep?: number
+  journeyType?: 'BUSINESS' | 'SOLO' | 'PERSONAL' | 'AFFILIATE' | null
+  serviceMode?: 'FIXED' | 'MOBILE' | null
 }
