@@ -54,16 +54,16 @@
 
 /* ===== cabecalho do step ===== */
 .ob-eyebrow { display: none; }
-.ob-title { font-size: 21px; font-weight: 600; margin: 0 0 6px; color: #fff; letter-spacing: -.01em; }
-.ob-subtitle { font-size: 13.5px; color: rgba(255,255,255,0.55); margin: 0 0 22px; line-height: 1.5; }
+.ob-title { font-size: clamp(24px, 6vw, 30px); font-weight: 600; margin: 0 0 8px; color: #fff; letter-spacing: -.015em; line-height: 1.2; }
+.ob-subtitle { font-size: clamp(14px, 4vw, 15.5px); color: rgba(255,255,255,0.58); margin: 0 0 26px; line-height: 1.55; }
 
 /* ===== entrada (stagger dos campos) ===== */
 @keyframes ob-up { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 .ob-anim { animation: ob-up .42s cubic-bezier(0.34,1.05,0.64,1) both; }
 
 /* ===== campos / form ===== */
-.ob-field { margin-bottom: 20px; }
-.ob-label { display: block; font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,0.78); margin-bottom: 7px; }
+.ob-field { margin-bottom: 24px; }
+.ob-label { display: block; font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.82); margin-bottom: 9px; }
 .ob-label-hint { color: rgba(255,255,255,0.4); font-weight: 400; }
 .ob-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
@@ -71,9 +71,13 @@
 .ob-root .input-base {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 11px;
+  border-radius: 13px;
   color: #f4f4f7;
   outline: none;
+  padding: 15px 16px;
+  min-height: 54px;
+  font-size: clamp(15px, 4vw, 16px);
+  line-height: 1.4;
   transition: border-color .15s, background .15s;
 }
 .ob-root .input-base:focus { border-color: var(--ob-red); background: rgba(220,38,38,0.06); }
@@ -102,12 +106,12 @@
 /* ===== acoes / navegacao ===== */
 .ob-actions { display: flex; justify-content: flex-end; padding-top: 6px; }
 .ob-nav { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; }
-.ob-btn-next { display: inline-flex; align-items: center; gap: 8px; background: var(--ob-red); color: #fff; border: none; font-size: 14px; font-weight: 500; padding: 12px 22px; border-radius: 12px; cursor: pointer; transition: transform .12s ease, filter .15s ease; }
+.ob-btn-next { display: inline-flex; align-items: center; gap: 8px; background: var(--ob-red); color: #fff; border: none; font-size: clamp(15px, 4vw, 16px); font-weight: 600; padding: 15px 28px; min-height: 54px; border-radius: 13px; cursor: pointer; transition: transform .12s ease, filter .15s ease; }
 .ob-btn-next:hover { filter: brightness(1.08); }
 .ob-btn-next:active { transform: scale(.985); }
 .ob-btn-next:disabled { opacity: .45; cursor: default; transform: none; filter: none; }
-.ob-btn-next--block { width: 100%; justify-content: center; padding: 14px; font-size: 15px; }
-.ob-btn-back { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; color: rgba(255,255,255,0.55); font-size: 14px; cursor: pointer; transition: color .15s; }
+.ob-btn-next--block { width: 100%; justify-content: center; padding: 16px; font-size: clamp(15px, 4vw, 16px); }
+.ob-btn-back { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; color: rgba(255,255,255,0.6); font-size: 15px; padding: 12px 4px; cursor: pointer; transition: color .15s; }
 .ob-btn-back:hover { color: #fff; }
 
 /* ===== step 03 - dias / switch ===== */
