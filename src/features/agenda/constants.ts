@@ -21,8 +21,9 @@ export const HEADER_H_FALLBACK  = 56          // se theme não estiver disponív
 
 // ─── Interação ────────────────────────────────────────────────────────────────
 export const DRAG_THRESHOLD_PX  = 4           // mouse movimento mínimo p/ ser "drag"
-export const TOUCH_CANCEL_PX    = 8           // touch movimento que cancela long-press / tap
+export const TOUCH_CANCEL_PX    = 8           // movimento que so desarma o long-press (drag) no arming
 export const LONG_PRESS_MS      = 420         // tempo de long-press p/ ativar drag
+export const TAP_MOVE_MAX       = 14          // [tapfix] deslocamento max (start->end) p/ contar como tap no touchEnd; folgado p/ jitter Android
 export const VIBRATE_DRAG_MS    = 40          // duração da vibração ao iniciar drag
 export const VIBRATE_RESIZE_MS  = 30          // duração da vibração ao iniciar resize
 

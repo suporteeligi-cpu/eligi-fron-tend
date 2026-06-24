@@ -24,7 +24,7 @@ import { toMinutes, minutesToTime, snapToSlot, addMin, buildHalfSlots, computeGr
 import { computeOverlapLayout, computeOffHoursOverlay, cardOffHoursSegments, uniqueBookings } from '../utils/layout'
 import {
   SLOT_STEP, MIN_CARD_H_MOBILE, MIN_DUR,
-  TOUCH_CANCEL_PX, LONG_PRESS_MS, VIBRATE_DRAG_MS, VIBRATE_RESIZE_MS,
+  TOUCH_CANCEL_PX, TAP_MOVE_MAX, LONG_PRESS_MS, VIBRATE_DRAG_MS, VIBRATE_RESIZE_MS,
   MOBILE_ROW_H, MOBILE_PX_PER_MIN,
   DEFAULT_START_HOUR_MOBILE, DEFAULT_END_HOUR_MOBILE,
   EASE, Z,
@@ -289,6 +289,9 @@ export default function AgendaMobileList({
   const onCardTouchStart = useCallback((
     e: React.TouchEvent, booking: AgendaBooking, _cardTop: number, cardHeight: number,
   ) => {
+    // [tapfix] limpa qualquer arming anterior (2o dedo num multitouch) p/ nao vazar timer virando drag-fantasma
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null }
+
     const touch = e.touches[0]
     touchStartRef.current = { y: touch.clientY, x: touch.clientX, time: Date.now() }
     tapBookingRef.current = booking
@@ -314,17 +317,29 @@ export default function AgendaMobileList({
     }, LONG_PRESS_MS)
   }, [activeProfId, START_MIN, snapFromClientY])
 
-  const onCardTouchEnd = useCallback(() => {
+  const onCardTouchEnd = useCallback((e: React.TouchEvent) => {
     if (longPressRef.current) {
       clearTimeout(longPressRef.current)
       longPressRef.current = null
     }
     setLongPressId(null)
-    // Tap rápido (sem drag e sem cancelamento por movimento) → abre painel
-    if (!dragRef.current && tapBookingRef.current) {
-      openView(tapBookingRef.current)
-    }
+
+    const start   = touchStartRef.current
+    const booking = tapBookingRef.current
     tapBookingRef.current = null
+
+    // Drag em andamento -> o commit e do onTouchEnd do container; nao abre painel.
+    if (dragRef.current || !start || !booking) return
+
+    // [tapfix] veredito de tap medido AGORA (nao dependemos do touchMove ter zerado o ref):
+    // 1 dedo, rapido (< LONG_PRESS_MS) e com deslocamento total pequeno.
+    // Scroll move muito mais que TAP_MOVE_MAX; o jitter de tap no Android cabe dentro.
+    const t       = e.changedTouches[0]
+    const moved   = t ? Math.hypot(t.clientX - start.x, t.clientY - start.y) : 0
+    const elapsed = Date.now() - start.time
+    if (moved <= TAP_MOVE_MAX && elapsed < LONG_PRESS_MS) {
+      openView(booking)
+    }
   }, [openView])
 
   // ─── Resize ────────────────────────────────────────────────────────────────
@@ -354,11 +369,12 @@ export default function AgendaMobileList({
       const dx = Math.abs(touch.clientX - touchStartRef.current.x)
       const dy = Math.abs(touch.clientY - touchStartRef.current.y)
       if (dx > TOUCH_CANCEL_PX || dy > TOUCH_CANCEL_PX) {
+        // [tapfix] movimento curto so DESARMA o long-press (drag). O tap nao e mais
+        // cancelado aqui; o veredito "foi tap?" vai pro touchEnd medindo o
+        // deslocamento total start->fim (Android gera jitter > 8px ate em tap parado).
         clearTimeout(longPressRef.current)
         longPressRef.current = null
         setLongPressId(null)
-        // FIX BUG #7: se mexeu sem ativar drag, NÃO abre painel no touchEnd
-        tapBookingRef.current = null
       }
     }
 
