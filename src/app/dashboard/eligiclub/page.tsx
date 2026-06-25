@@ -243,7 +243,7 @@ export default function EligiClubPage() {
 
         {tab === 'planos' && <PlanosTab isMobile={isMobile} onToast={setToast} />}
         {tab === 'membros' && <MembrosTab isMobile={isMobile} onToast={setToast} />}
-        {tab === 'fechamento' && <FechamentoTab onToast={setToast} />}
+        {tab === 'fechamento' && <FechamentoTab onToast={setToast} isMobile={isMobile} />}
       </div>
     </>
   )
@@ -465,7 +465,7 @@ function MemberRow({ sub, isMobile, isLast, onClick }: { sub: ClubSubscription; 
 // ═══════════════════════════════════════════════════════════════════════════
 // ABA: Fechamento (peça central — pote + rateio)
 // ═══════════════════════════════════════════════════════════════════════════
-function FechamentoTab({ onToast }: { onToast: (m: string) => void }) {
+function FechamentoTab({ onToast, isMobile }: { onToast: (m: string) => void; isMobile: boolean }) {
   const [periodKey, setPeriodKey] = useState<string>(() => spMonthKey())
   const [preview, setPreview] = useState<SettlementPreview | null>(null)
   const [loading, setLoading] = useState(true)
@@ -540,7 +540,7 @@ function FechamentoTab({ onToast }: { onToast: (m: string) => void }) {
 
       {loading ? <LoadingState /> : (
         <>
-          <PotePanel preview={preview} />
+          <PotePanel preview={preview} isMobile={isMobile} />
           <RateioPanel preview={preview} />
           <ClosePanel preview={preview} canClose={canClose} closing={closing} onClose={handleClose} />
           <HistoryList rows={history} currentKey={periodKey} onPick={setPeriodKey} />
@@ -550,7 +550,7 @@ function FechamentoTab({ onToast }: { onToast: (m: string) => void }) {
   )
 }
 
-function PotePanel({ preview }: { preview: SettlementPreview | null }) {
+function PotePanel({ preview, isMobile }: { preview: SettlementPreview | null; isMobile: boolean }) {
   const numRef = useRef<HTMLDivElement>(null)
   const layersRef = useRef<Record<string, HTMLDivElement | null>>({})
   const target = preview?.poolTotal ?? 0
@@ -590,47 +590,54 @@ function PotePanel({ preview }: { preview: SettlementPreview | null }) {
     }
   }, [stacked])
 
-  return (
-    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, padding: '26px 26px 22px', marginBottom: 16, background: 'linear-gradient(135deg,#16161C 0%,#0E0E12 100%)', color: '#fff', boxShadow: '0 18px 48px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.04) inset' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(115deg,transparent 30%,rgba(255,255,255,0.10) 48%,transparent 62%)', transform: 'translateX(-120%)', animation: 'club-sheen 3.6s ease-in-out 1s infinite', pointerEvents: 'none' }} />
-      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', position: 'relative' }}>Pote do período</div>
-      <div ref={numRef} style={{ fontSize: 44, fontWeight: 820, letterSpacing: '-0.035em', margin: '6px 0 4px', fontVariantNumeric: 'tabular-nums', position: 'relative', background: 'linear-gradient(135deg,#fff 0%,#FFD9D6 120%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{fmtBRL(0)}</div>
-      <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.92)', position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span className="ec-pote-meta"><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.totalFichas ?? 0}</b> fichas acumuladas</span>
-        <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.4)' }} />
-        <span className="ec-pote-meta"><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.paymentsCount ?? 0}</b> mensalidade{(preview?.paymentsCount ?? 0) !== 1 ? 's' : ''}</span>
-        {preview?.alreadySettled && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, letterSpacing: '.04em', color: '#34D399', background: 'rgba(52,211,153,0.12)', borderRadius: 6, padding: '2px 8px' }}>
-            <CheckCircle2 size={11} strokeWidth={2.6} />FECHADO
-          </span>
-        )}
-      </div>
+  const jarW = isMobile ? 150 : 158
+  const jarH = isMobile ? 188 : 196
 
-      {/* Pote estratificado — cada camada é a parte de um profissional (proporcional às fichas) */}
-      <div style={{ position: 'relative', width: 190, height: 230, margin: '20px auto 2px', border: '2px solid rgba(255,255,255,0.18)', borderTop: 'none', borderRadius: '20px 20px 36px 36px / 16px 16px 56px 56px', overflow: 'hidden', background: 'linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))', boxShadow: 'inset 0 0 34px rgba(0,0,0,0.5)' }}>
-        {items.length === 0 ? (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,0.4)' }}>
-            <Coins size={28} strokeWidth={1.8} /><span style={{ fontSize: 11 }}>sem fichas no período</span>
+  return (
+    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, padding: isMobile ? '22px 20px 20px' : '24px 26px', marginBottom: 16, background: 'linear-gradient(135deg,#16161C 0%,#0E0E12 100%)', color: '#fff', boxShadow: '0 18px 48px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.04) inset' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(115deg,transparent 30%,rgba(255,255,255,0.10) 48%,transparent 62%)', transform: 'translateX(-120%)', animation: 'club-sheen 3.6s ease-in-out 1s infinite', pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: isMobile ? 'flex-start' : 'space-between', gap: isMobile ? 16 : 24 }}>
+        <div style={{ flex: isMobile ? 'none' : 1, minWidth: 0, width: isMobile ? '100%' : 'auto', textAlign: isMobile ? 'center' : 'left' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)' }}>Pote do período</div>
+          <div ref={numRef} style={{ fontSize: isMobile ? 32 : 40, fontWeight: 820, letterSpacing: '-0.035em', margin: '6px 0 4px', fontVariantNumeric: 'tabular-nums', background: 'linear-gradient(135deg,#fff 0%,#FFD9D6 120%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{fmtBRL(0)}</div>
+          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+            <span className="ec-pote-meta"><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.totalFichas ?? 0}</b> fichas acumuladas</span>
+            <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.4)' }} />
+            <span className="ec-pote-meta"><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.paymentsCount ?? 0}</b> mensalidade{(preview?.paymentsCount ?? 0) !== 1 ? 's' : ''}</span>
+            {preview?.alreadySettled && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, letterSpacing: '.04em', color: '#34D399', background: 'rgba(52,211,153,0.12)', borderRadius: 6, padding: '2px 8px' }}>
+                <CheckCircle2 size={11} strokeWidth={2.6} />FECHADO
+              </span>
+            )}
           </div>
-        ) : stacked.map(({ it, bottom }, idx) => {
-          const [c1, c2] = avatarColors(it.professionalId)
-          const isTop = idx === stacked.length - 1
-          return (
-            <div key={it.professionalId} ref={el => { layersRef.current[it.professionalId] = el }}
-              style={{ position: 'absolute', left: 0, right: 0, bottom: `${bottom}%`, height: '0%', overflow: 'hidden', background: `linear-gradient(180deg,${c1},${c2})`, transition: 'height 1s cubic-bezier(.34,1.05,.5,1)', transitionDelay: `${0.15 + idx * 0.22}s`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {idx > 0 && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'rgba(255,255,255,0.42)' }} />}
-              {isTop && <div style={{ position: 'absolute', top: 0, left: 0, width: '200%', height: 13, animation: 'ec-wave 5s linear infinite' }}>{POTE_WAVE(c1)}{POTE_WAVE(c1)}</div>}
-              <div style={{ position: 'relative', zIndex: 3, display: 'flex', alignItems: 'center', gap: 7, textShadow: '0 1px 3px rgba(0,0,0,0.55)', padding: '0 8px', maxWidth: '100%' }}>
-                <ProfBubble id={it.professionalId} name={it.professionalName} avatarUrl={it.professionalAvatar} size={22} border="1.5px solid rgba(255,255,255,0.75)" />
-                <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.professionalName}</span>
-                <span style={{ fontSize: 11.5, fontWeight: 850, color: '#fff', flexShrink: 0 }}>{fmtBRL(it.amount)}</span>
-              </div>
+        </div>
+
+        {/* Pote estratificado — cada camada é a parte de um profissional (proporcional às fichas) */}
+        <div style={{ flexShrink: 0, position: 'relative', width: jarW, height: jarH, border: '2px solid rgba(255,255,255,0.18)', borderTop: 'none', borderRadius: '20px 20px 36px 36px / 16px 16px 56px 56px', overflow: 'hidden', background: 'linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))', boxShadow: 'inset 0 0 34px rgba(0,0,0,0.5)' }}>
+          {items.length === 0 ? (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,0.4)' }}>
+              <Coins size={26} strokeWidth={1.8} /><span style={{ fontSize: 11 }}>sem fichas no período</span>
             </div>
-          )
-        })}
-        <div style={{ position: 'absolute', left: '30%', bottom: '4%', width: 5, height: 5, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%,rgba(255,255,255,0.85),rgba(255,255,255,0.2))', animation: 'ec-bubble 6s ease-in 1s infinite', zIndex: 5, pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', left: '62%', bottom: '4%', width: 4, height: 4, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%,rgba(255,255,255,0.85),rgba(255,255,255,0.2))', animation: 'ec-bubble 7.5s ease-in 3s infinite', zIndex: 5, pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', zIndex: 7, background: 'linear-gradient(125deg,rgba(255,255,255,0.13),transparent 30%,transparent 82%,rgba(255,255,255,0.05))' }} />
+          ) : stacked.map(({ it, bottom }, idx) => {
+            const [c1, c2] = avatarColors(it.professionalId)
+            const isTop = idx === stacked.length - 1
+            return (
+              <div key={it.professionalId} ref={el => { layersRef.current[it.professionalId] = el }}
+                style={{ position: 'absolute', left: 0, right: 0, bottom: `${bottom}%`, height: '0%', overflow: 'hidden', background: `linear-gradient(180deg,${c1},${c2})`, transition: 'height 1s cubic-bezier(.34,1.05,.5,1)', transitionDelay: `${0.15 + idx * 0.22}s`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {idx > 0 && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'rgba(255,255,255,0.42)' }} />}
+                {isTop && <div style={{ position: 'absolute', top: 0, left: 0, width: '200%', height: 13, animation: 'ec-wave 5s linear infinite' }}>{POTE_WAVE(c1)}{POTE_WAVE(c1)}</div>}
+                <div style={{ position: 'relative', zIndex: 3, display: 'flex', alignItems: 'center', gap: 6, textShadow: '0 1px 3px rgba(0,0,0,0.55)', padding: '0 7px', maxWidth: '100%' }}>
+                  <ProfBubble id={it.professionalId} name={it.professionalName} avatarUrl={it.professionalAvatar} size={20} border="1.5px solid rgba(255,255,255,0.75)" />
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.professionalName}</span>
+                  <span style={{ fontSize: 11, fontWeight: 850, color: '#fff', flexShrink: 0 }}>{fmtBRL(it.amount)}</span>
+                </div>
+              </div>
+            )
+          })}
+          <div style={{ position: 'absolute', left: '30%', bottom: '4%', width: 5, height: 5, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%,rgba(255,255,255,0.85),rgba(255,255,255,0.2))', animation: 'ec-bubble 6s ease-in 1s infinite', zIndex: 5, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '62%', bottom: '4%', width: 4, height: 4, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%,rgba(255,255,255,0.85),rgba(255,255,255,0.2))', animation: 'ec-bubble 7.5s ease-in 3s infinite', zIndex: 5, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', zIndex: 7, background: 'linear-gradient(125deg,rgba(255,255,255,0.13),transparent 30%,transparent 82%,rgba(255,255,255,0.05))' }} />
+        </div>
       </div>
     </div>
   )
