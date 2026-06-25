@@ -12,6 +12,7 @@ import { colors, typography, radius, shadows, transitions, glass } from '@/share
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import { getInitials, formatPhone, maskPhone, fmtRevenue } from '@/features/clients/utils/format'
 
+import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 import EditableField from './components/EditableField'
 import DeleteModal   from './components/DeleteModal'
 import BookingRow, { BookingItem } from './components/BookingRow'
@@ -32,6 +33,16 @@ interface Metrics {
   avgMonthly:      number
 }
 
+interface ClubInfo {
+  planName:         string
+  planColor:        string | null
+  status:           string
+  value:            number | null
+  startedAt:        string
+  currentPeriodEnd: string | null
+  fichas:           number
+}
+
 interface ClientProfile {
   id:        string
   name:      string
@@ -41,6 +52,52 @@ interface ClientProfile {
   createdAt: string
   metrics:   Metrics
   bookings:  BookingItem[]
+  club:      ClubInfo | null
+}
+
+// ─── EligiClub: selo do avatar + bloco do clube (componentes de módulo, fora do render) ──
+function ClubSeal({ size = 24, icon = 13 }: { size?: number; icon?: number }) {
+  return (
+    <span style={{ position: 'absolute', bottom: -1, right: -2, width: size, height: size, borderRadius: '50%', background: '#0E0E12', border: '3px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
+      <EligiClubIcon size={icon} color="#F4F2EC" />
+    </span>
+  )
+}
+
+function ClubBlock({ c, mob }: { c: ClubInfo; mob: boolean }) {
+  const fmtMonth = (d: string) => dayjs(d).format('MMM/YY')
+  const fmtDay   = (d: string) => dayjs(d).format('DD/MMM')
+  const info: { v: React.ReactNode; l: string }[] = [
+    { v: <>R$ {(c.value ?? 0).toFixed(0)}<span style={{ fontSize: 9, fontWeight: 600, opacity: 0.6 }}>/mês</span></>, l: 'Mensalidade' },
+    { v: <><span style={{ color: '#FF6B6B' }}>{c.fichas}</span> fichas</>, l: 'Acumuladas' },
+    { v: fmtMonth(c.startedAt), l: 'Membro desde' },
+    { v: c.currentPeriodEnd ? fmtDay(c.currentPeriodEnd) : '—', l: 'Próx. cobrança' },
+  ]
+  return (
+    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 14, padding: '15px 16px', marginBottom: mob ? 14 : 20, background: 'linear-gradient(135deg,#16161C 0%,#0E0E12 100%)', color: '#fff', boxShadow: shadows.sm }}>
+      <div style={{ position: 'absolute', right: -14, top: -8, width: 80, height: 80, opacity: 0.06, pointerEvents: 'none' }}>
+        <EligiClubIcon size={80} color="#F4F2EC" />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 13, position: 'relative' }}>
+        <span style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <EligiClubIcon size={16} color="#F4F2EC" />
+        </span>
+        <div>
+          <div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>EligiClub</div>
+          <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.01em' }}>{c.planName}</div>
+        </div>
+        <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 800, letterSpacing: '.04em', color: '#34D399', background: 'rgba(52,211,153,0.13)', borderRadius: 5, padding: '3px 8px' }}>● ATIVO</span>
+      </div>
+      <div style={{ position: 'relative', ...(mob ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 10px' } : { display: 'flex', gap: 20 }) }}>
+        {info.map((it, i) => (
+          <div key={i}>
+            <div style={{ fontSize: 11.5, fontWeight: 850, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{it.v}</div>
+            <div style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '.04em', marginTop: 2 }}>{it.l}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -136,7 +193,7 @@ export default function ClientProfilePage() {
     </div>
   )
 
-  const { metrics, bookings } = client
+  const { metrics, bookings, club } = client
 
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
@@ -249,6 +306,7 @@ export default function ClientProfilePage() {
               marginBottom: 16, textAlign: 'center', gap: 6,
             }}>
               <div style={{
+                position: 'relative',
                 width: 64, height: 64, borderRadius: radius.full,
                 background: colors.red.gradient,
                 color: '#fff',
@@ -258,6 +316,7 @@ export default function ClientProfilePage() {
                 letterSpacing: '-0.02em',
               }}>
                 {getInitials(client.name)}
+                {club && <ClubSeal size={24} icon={13} />}
               </div>
 
               <h2 style={{
@@ -311,6 +370,7 @@ export default function ClientProfilePage() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
               <div style={{
+                position: 'relative',
                 width: 60, height: 60, borderRadius: radius.full,
                 background: colors.red.gradient,
                 color: '#fff',
@@ -320,6 +380,7 @@ export default function ClientProfilePage() {
                 boxShadow: shadows.redMd,
               }}>
                 {getInitials(client.name)}
+                {club && <ClubSeal size={23} icon={12} />}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 style={{
@@ -371,6 +432,9 @@ export default function ClientProfilePage() {
             </button>
           </div>
         )}
+
+        {/* ═══════════════════════ CLUBE ═══════════════════════ */}
+        {club && <ClubBlock c={club} mob={isMobile} />}
 
         {/* ═══════════════════════ MÉTRICAS ═══════════════════════ */}
         {isMobile ? (

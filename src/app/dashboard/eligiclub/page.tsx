@@ -678,7 +678,7 @@ function RateioPanel({ preview }: { preview: SettlementPreview | null }) {
               <div style={{ fontSize: 10.5, color: colors.gray.dimText, marginTop: 1 }}>{it.fichas} ficha{it.fichas !== 1 ? 's' : ''}</div>
             </div>
           </div>
-          <div style={{ flex: 1, height: 9, borderRadius: 999, background: 'rgba(17,17,20,0.06)', overflow: 'hidden', minWidth: 40 }}>
+          <div style={{ flex: 1, height: 9, borderRadius: 999, background: 'rgba(255, 255, 255, 0.89)', overflow: 'hidden', minWidth: 40 }}>
             <div ref={el => { barsRef.current[it.professionalId] = el }} style={{ height: '100%', width: '0%', borderRadius: 999, background: colors.red.gradient, transition: 'width 1s cubic-bezier(.3,1,.4,1)' }} />
           </div>
           <div style={{ width: 116, flexShrink: 0, textAlign: 'right' }}>
