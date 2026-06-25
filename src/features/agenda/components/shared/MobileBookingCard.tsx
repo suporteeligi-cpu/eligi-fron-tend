@@ -71,6 +71,7 @@ function MobileBookingCard({ booking, height, isDragging = false }: Props) {
         isPaid={booking.isPaid}
         fromOnline={booking.fromOnline}
         professionalPreference={booking.professionalPreference}
+        hasClub={booking.hasClub}
         isNoShow={isNoShow}
         hidden={sealsHidden}
         cardHeight={height}

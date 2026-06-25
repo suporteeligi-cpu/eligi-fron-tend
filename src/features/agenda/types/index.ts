@@ -20,7 +20,8 @@ export type AgendaBooking = {
   status:         BookingStatus
   isPaid?:        boolean  // tem venda CONFIRMED ligada (checkout completo)
   fromOnline?:             boolean  // veio do link público (selo 🚀)
-  professionalPreference?: boolean  // cliente escolheu o profissional (selo ❤️)
+  professionalPreference?: boolean  // cliente escolheu o profissional
+  hasClub?:                boolean  // cliente tem EligiClub ativo (selo globo) (selo ❤️)
 }
 
 export type AgendaBlock = {

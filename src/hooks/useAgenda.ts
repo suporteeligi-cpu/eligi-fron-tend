@@ -22,6 +22,7 @@ interface ApiBooking {
   isPaid?:   boolean
   fromOnline?:             boolean   // ← veio do link público (🚀)
   professionalPreference?: boolean   // ← cliente escolheu o profissional (❤️)
+  hasClub?:                boolean   // ← cliente tem EligiClub ativo (globo)
   // legado
   time?:     string
   duration?: number
@@ -66,6 +67,7 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
     isPaid:                 b.isPaid ?? false,
     fromOnline:             b.fromOnline ?? false,
     professionalPreference: b.professionalPreference ?? false,
+    hasClub:                b.hasClub ?? false,
   }
 }
 
