@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronDown, ChevronRight, Check, Clock, TrendingUp, TrendingDown } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
+import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 import { colors, typography } from '@/shared/theme'
 import { methodLabel, fmtPayoutPeriod } from '@/features/payouts/utils/format'
 
@@ -103,9 +104,86 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
   )
 }
 
+// --- Aba Clube (EligiClub): fatia do barbeiro por periodo. Componente de modulo. ---
+interface ClubStaffPeriod { periodKey: string; poolTotal: number; totalFichas: number; settledAt: string; myFichas: number; myPct: number; myAmount: number }
+interface ClubStaffResp { scope: 'staff'; totalAmount: number; totalFichas: number; periods: ClubStaffPeriod[] }
+
+function clubPeriodLabel(periodKey: string) {
+  const [y, m] = periodKey.split('-')
+  const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+  return `${months[Number(m) - 1] ?? m} ${y}`
+}
+
+function ClubTab({ isMobile }: { isMobile: boolean }) {
+  const [data, setData] = useState<ClubStaffResp | null>(null)
+  const [loading, setLoading] = useState(true)
+  const reqRef = useRef(0)
+
+  const fetchClub = useCallback(async () => {
+    const token = ++reqRef.current
+    try {
+      const res = await api.get('/club-settlements/commissions')
+      const d = (res.data?.data ?? null) as ClubStaffResp | null
+      if (token !== reqRef.current) return
+      setData(d)
+    } catch {
+      if (token === reqRef.current) setData(null)
+    } finally {
+      if (token === reqRef.current) setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void fetchClub() }, [fetchClub])
+
+  const card: React.CSSProperties = { background: '#fff', border: `0.5px solid ${colors.gray.borderMd}`, borderRadius: 14, marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: typography.color.muted, fontSize: 13 }}>Carregando…</div>
+
+  if (!data || data.periods.length === 0) return (
+    <div style={{ ...card, padding: '48px 24px', textAlign: 'center' }}>
+      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><EligiClubIcon size={32} color="#0E0E12" /></div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: typography.color.primary, marginBottom: 4 }}>Você ainda não tem comissões do EligiClub.</div>
+      <div style={{ fontSize: 13, color: typography.color.muted }}>Sua parte do pote aparece aqui quando um período for fechado.</div>
+    </div>
+  )
+
+  return (
+    <>
+      <div style={{ ...card, borderTop: '3px solid #0E0E12', padding: '18px 22px', textAlign: 'center' }}>
+        <div style={{ fontSize: 10.5, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.07em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 6 }}>
+          <EligiClubIcon size={13} color="#0E0E12" /> Recebido do clube (total)
+        </div>
+        <div style={{ fontSize: isMobile ? 30 : 34, fontWeight: 780, color: '#16a34a', lineHeight: 1, letterSpacing: '-1px' }}>{fmtBRL(data.totalAmount)}</div>
+        <div style={{ fontSize: 11, color: typography.color.muted, marginTop: 8 }}>
+          em {data.periods.length} período{data.periods.length !== 1 ? 's' : ''} fechado{data.periods.length !== 1 ? 's' : ''} · {data.totalFichas} fichas suas
+        </div>
+      </div>
+      <div style={{ ...card, overflow: 'hidden' }}>
+        <div style={{ padding: '12px 16px 8px', fontSize: 11, fontWeight: 700, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.06em', borderBottom: `0.5px solid ${colors.gray.border}` }}>Por período</div>
+        {data.periods.map((p, idx) => (
+          <div key={p.periodKey} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderBottom: idx < data.periods.length - 1 ? `0.5px solid ${colors.gray.border}` : 'none' }}>
+            <span style={{ width: 34, height: 34, borderRadius: 9, background: '#0E0E12', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <EligiClubIcon size={18} color="#F4F2EC" />
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 680, color: typography.color.primary }}>{clubPeriodLabel(p.periodKey)}</div>
+              <div style={{ fontSize: 10.5, color: typography.color.muted, marginTop: 1 }}>{p.myFichas} fichas · {p.myPct}% do pote</div>
+            </div>
+            <div style={{ marginLeft: 'auto', textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 780, color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(p.myAmount)}</div>
+              <div style={{ fontSize: 9, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.05em' }}>sua parte</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
 // --- Componente principal ---
 export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
   const [period,    setPeriod]    = useState<Period>('week')
+  const [tab,       setTab]       = useState<'mine' | 'club'>('mine')
   const [data,      setData]      = useState<MyCommissions | null>(null)
   const [firstLoad, setFirstLoad] = useState(true)
   const [expanded,  setExpanded]  = useState<Set<string>>(new Set())
@@ -194,6 +272,18 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
         </p>
       </div>
 
+      {/* Abas: Minhas comissoes | Clube */}
+      <div style={{ display:'flex', gap:6, marginBottom:16, borderBottom:`1px solid ${colors.gray.border}` }}>
+        <button onClick={() => setTab('mine')} style={{ padding:'10px 14px', marginBottom:-1, border:'none', background:'transparent', cursor:'pointer', fontFamily:'inherit', fontSize:14, fontWeight:600, color: tab === 'mine' ? colors.red.DEFAULT : typography.color.muted, borderBottom:`2px solid ${tab === 'mine' ? colors.red.DEFAULT : 'transparent'}`, transition:'all 0.15s ease', WebkitTapHighlightColor:'transparent' }}>
+          Minhas comissões
+        </button>
+        <button onClick={() => setTab('club')} style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 14px', marginBottom:-1, border:'none', background:'transparent', cursor:'pointer', fontFamily:'inherit', fontSize:14, fontWeight:600, color: tab === 'club' ? colors.red.DEFAULT : typography.color.muted, borderBottom:`2px solid ${tab === 'club' ? colors.red.DEFAULT : 'transparent'}`, transition:'all 0.15s ease', WebkitTapHighlightColor:'transparent' }}>
+          <EligiClubIcon size={14} color={tab === 'club' ? colors.red.DEFAULT : typography.color.muted} /> Clube
+        </button>
+      </div>
+
+      {tab === 'club' ? <ClubTab isMobile={isMobile} /> : (
+      <>
       {/* Seletor de periodo */}
       <div style={{
         display:'flex', gap:6, marginBottom:16,
@@ -435,6 +525,8 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
             As comissoes aparecem aqui conforme os atendimentos sao confirmados.
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   )
