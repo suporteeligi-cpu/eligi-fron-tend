@@ -62,6 +62,7 @@ interface ClubSubscription {
 interface SettlementItem {
   professionalId: string
   professionalName: string
+  professionalAvatar: string | null
   fichas: number
   pct: number
   amount: number
@@ -114,12 +115,27 @@ const AVATARS: [string, string][] = [
   ['#F87171', '#DC2626'], ['#A78BFA', '#7C3AED'], ['#60A5FA', '#2563EB'],
   ['#34D399', '#059669'], ['#FBBF24', '#D97706'], ['#F472B6', '#DB2777'],
 ]
-function avatarGrad(seed: string): string {
+function avatarColors(seed: string): [string, string] {
   let h = 0
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
-  const [a, b] = AVATARS[h % AVATARS.length]
+  return AVATARS[h % AVATARS.length]
+}
+function avatarGrad(seed: string): string {
+  const [a, b] = avatarColors(seed)
   return `linear-gradient(135deg,${a},${b})`
 }
+// avatarUrl pode ser foto (url/base64) ou um placeholder de cor — só renderiza <img> se for foto
+function isPhotoAvatar(url?: string | null): boolean {
+  return !!url && (url.startsWith('http') || url.startsWith('data:') || url.startsWith('/'))
+}
+// Avatar do profissional: foto quando houver, senão gradiente + iniciais (mesmo do resto do app)
+function ProfBubble({ id, name, avatarUrl, size, border }: { id: string; name: string; avatarUrl?: string | null; size: number; border?: string }) {
+  const common: React.CSSProperties = { width: size, height: size, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: border ?? 'none', boxSizing: 'border-box' }
+  if (isPhotoAvatar(avatarUrl)) return <span style={common}><img src={avatarUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></span>
+  return <span style={{ ...common, background: avatarGrad(id), color: '#fff', fontSize: Math.round(size * 0.4), fontWeight: 760, letterSpacing: '-0.02em' }}>{initials(name)}</span>
+}
+// onda de superfície do líquido (topo da camada superior)
+const POTE_WAVE = (c: string) => (<svg viewBox="0 0 120 14" preserveAspectRatio="none" style={{ width: '50%', height: '100%', display: 'block', float: 'left' }}><path d="M0 8 Q15 2 30 8 T60 8 T90 8 T120 8 V14 H0Z" fill={c} /></svg>)
 
 const SUB_STATUS: Record<SubStatus, { label: string; fg: string; bg: string }> = {
   ACTIVE:   { label: 'Ativo',     fg: '#15803D', bg: 'rgba(22,163,74,.12)' },
@@ -181,6 +197,8 @@ export default function EligiClubPage() {
         .ec-pote-meta { color: rgba(255,255,255,0.92) !important; -webkit-text-fill-color: rgba(255,255,255,0.92) !important; }
         .ec-pote-meta b { color: #FF6B6B !important; -webkit-text-fill-color: #FF6B6B !important; }
         @keyframes club-pulse    { 0% { box-shadow:0 0 0 0 ${colors.red.glow} } 70% { box-shadow:0 0 0 12px transparent } 100% { box-shadow:0 0 0 0 transparent } }
+        @keyframes ec-wave   { from { transform:translateX(0) } to { transform:translateX(-50%) } }
+        @keyframes ec-bubble { 0% { transform:translateY(0); opacity:0 } 15% { opacity:.7 } 90% { opacity:.4 } 100% { transform:translateY(-210px); opacity:0 } }
       `}</style>
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
@@ -534,7 +552,18 @@ function FechamentoTab({ onToast }: { onToast: (m: string) => void }) {
 
 function PotePanel({ preview }: { preview: SettlementPreview | null }) {
   const numRef = useRef<HTMLDivElement>(null)
+  const layersRef = useRef<Record<string, HTMLDivElement | null>>({})
   const target = preview?.poolTotal ?? 0
+  const items = useMemo(() => preview?.items ?? [], [preview])
+
+  // empilha do maior na base (items vem ordenado por amount desc)
+  // reduce carrega o acumulado no retorno — sem reatribuir variavel no render (React Compiler)
+  const stacked = useMemo(() =>
+    items.reduce<{ rows: { it: SettlementItem; bottom: number }[]; acc: number }>(
+      (s, it) => { s.rows.push({ it, bottom: s.acc }); return { rows: s.rows, acc: s.acc + it.pct } },
+      { rows: [], acc: 0 },
+    ).rows,
+  [items])
 
   // count-up por mutação de DOM (sem setState por frame)
   useEffect(() => {
@@ -553,14 +582,19 @@ function PotePanel({ preview }: { preview: SettlementPreview | null }) {
     return () => cancelAnimationFrame(raf)
   }, [target])
 
+  // enche as camadas (0% -> pct), sequencial via transitionDelay
+  useLayoutEffect(() => {
+    for (const { it } of stacked) {
+      const el = layersRef.current[it.professionalId]
+      if (el) { el.style.height = '0%'; requestAnimationFrame(() => { el.style.height = `${it.pct}%` }) }
+    }
+  }, [stacked])
+
   return (
-    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, padding: '26px 26px 24px', marginBottom: 16, background: 'linear-gradient(135deg,#16161C 0%,#0E0E12 100%)', color: '#fff', boxShadow: '0 18px 48px rgba(255, 255, 255, 0.28), 0 0 0 1px rgba(255,255,255,0.04) inset' }}>
+    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, padding: '26px 26px 22px', marginBottom: 16, background: 'linear-gradient(135deg,#16161C 0%,#0E0E12 100%)', color: '#fff', boxShadow: '0 18px 48px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.04) inset' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(115deg,transparent 30%,rgba(255,255,255,0.10) 48%,transparent 62%)', transform: 'translateX(-120%)', animation: 'club-sheen 3.6s ease-in-out 1s infinite', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', width: 220, height: 220, opacity: 0.06, pointerEvents: 'none' }}>
-        <EligiClubIcon size={220} color="#fff" />
-      </div>
       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', position: 'relative' }}>Pote do período</div>
-      <div ref={numRef} style={{ fontSize: 46, fontWeight: 820, letterSpacing: '-0.035em', margin: '6px 0 4px', fontVariantNumeric: 'tabular-nums', position: 'relative', background: 'linear-gradient(135deg,#fff 0%,#FFD9D6 120%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{fmtBRL(0)}</div>
+      <div ref={numRef} style={{ fontSize: 44, fontWeight: 820, letterSpacing: '-0.035em', margin: '6px 0 4px', fontVariantNumeric: 'tabular-nums', position: 'relative', background: 'linear-gradient(135deg,#fff 0%,#FFD9D6 120%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{fmtBRL(0)}</div>
       <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.92)', position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span className="ec-pote-meta"><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.totalFichas ?? 0}</b> fichas acumuladas</span>
         <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.4)' }} />
@@ -570,6 +604,33 @@ function PotePanel({ preview }: { preview: SettlementPreview | null }) {
             <CheckCircle2 size={11} strokeWidth={2.6} />FECHADO
           </span>
         )}
+      </div>
+
+      {/* Pote estratificado — cada camada é a parte de um profissional (proporcional às fichas) */}
+      <div style={{ position: 'relative', width: 190, height: 230, margin: '20px auto 2px', border: '2px solid rgba(255,255,255,0.18)', borderTop: 'none', borderRadius: '20px 20px 36px 36px / 16px 16px 56px 56px', overflow: 'hidden', background: 'linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))', boxShadow: 'inset 0 0 34px rgba(0,0,0,0.5)' }}>
+        {items.length === 0 ? (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,0.4)' }}>
+            <Coins size={28} strokeWidth={1.8} /><span style={{ fontSize: 11 }}>sem fichas no período</span>
+          </div>
+        ) : stacked.map(({ it, bottom }, idx) => {
+          const [c1, c2] = avatarColors(it.professionalId)
+          const isTop = idx === stacked.length - 1
+          return (
+            <div key={it.professionalId} ref={el => { layersRef.current[it.professionalId] = el }}
+              style={{ position: 'absolute', left: 0, right: 0, bottom: `${bottom}%`, height: '0%', overflow: 'hidden', background: `linear-gradient(180deg,${c1},${c2})`, transition: 'height 1s cubic-bezier(.34,1.05,.5,1)', transitionDelay: `${0.15 + idx * 0.22}s`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {idx > 0 && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'rgba(255,255,255,0.42)' }} />}
+              {isTop && <div style={{ position: 'absolute', top: 0, left: 0, width: '200%', height: 13, animation: 'ec-wave 5s linear infinite' }}>{POTE_WAVE(c1)}{POTE_WAVE(c1)}</div>}
+              <div style={{ position: 'relative', zIndex: 3, display: 'flex', alignItems: 'center', gap: 7, textShadow: '0 1px 3px rgba(0,0,0,0.55)', padding: '0 8px', maxWidth: '100%' }}>
+                <ProfBubble id={it.professionalId} name={it.professionalName} avatarUrl={it.professionalAvatar} size={22} border="1.5px solid rgba(255,255,255,0.75)" />
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.professionalName}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 850, color: '#fff', flexShrink: 0 }}>{fmtBRL(it.amount)}</span>
+              </div>
+            </div>
+          )
+        })}
+        <div style={{ position: 'absolute', left: '30%', bottom: '4%', width: 5, height: 5, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%,rgba(255,255,255,0.85),rgba(255,255,255,0.2))', animation: 'ec-bubble 6s ease-in 1s infinite', zIndex: 5, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', left: '62%', bottom: '4%', width: 4, height: 4, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%,rgba(255,255,255,0.85),rgba(255,255,255,0.2))', animation: 'ec-bubble 7.5s ease-in 3s infinite', zIndex: 5, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', zIndex: 7, background: 'linear-gradient(125deg,rgba(255,255,255,0.13),transparent 30%,transparent 82%,rgba(255,255,255,0.05))' }} />
       </div>
     </div>
   )
@@ -604,7 +665,7 @@ function RateioPanel({ preview }: { preview: SettlementPreview | null }) {
       {items.map((it, i) => (
         <div key={it.professionalId} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 0', borderBottom: i === items.length - 1 ? 'none' : `1px solid ${colors.gray.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, width: 168, flexShrink: 0, minWidth: 0 }}>
-            <span style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 760, color: '#fff', background: avatarGrad(it.professionalId) }}>{initials(it.professionalName)}</span>
+            <ProfBubble id={it.professionalId} name={it.professionalName} avatarUrl={it.professionalAvatar} size={34} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 680, letterSpacing: '-0.01em', color: colors.gray[900], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.professionalName}</div>
               <div style={{ fontSize: 10.5, color: colors.gray.dimText, marginTop: 1 }}>{it.fichas} ficha{it.fichas !== 1 ? 's' : ''}</div>
