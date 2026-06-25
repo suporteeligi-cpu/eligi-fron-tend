@@ -10,6 +10,7 @@ import 'dayjs/locale/pt-br'
 import { colors, typography, radius, shadows, transitions, glass } from '@/shared/theme'
 import { ClientListItem } from '@/features/clients/types'
 import { avatarColor, getInitials, formatPhone, fmtRevenue } from '@/features/clients/utils/format'
+import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 
 dayjs.locale('pt-br')
 
@@ -106,6 +107,11 @@ export default function ClientsTableDesktop({ clients, selectedIds, selectionAct
                 {getInitials(c.name)}
               </div>
               <span className="cl-av-check"><Check size={18} strokeWidth={3} color="#fff" /></span>
+              {!sel && (c as ClientListItem & { hasClub?: boolean }).hasClub && (
+                <span style={{ position: 'absolute', bottom: -2, right: -3, width: 18, height: 18, borderRadius: '50%', background: '#0E0E12', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
+                <EligiClubIcon size={10} color="#F4F2EC" />
+              </span>
+              )}
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
