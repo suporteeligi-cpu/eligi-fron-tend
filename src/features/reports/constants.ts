@@ -1,7 +1,7 @@
 // src/features/reports/constants.ts
 
 import type { TabDef } from './types'
-import { Rocket } from 'lucide-react'
+import { Rocket, Globe } from 'lucide-react'
 
 /** Vermelho eligi — trocar por token do theme.ts se preferir centralizar */
 export const ACCENT = '#dc2626'
@@ -33,6 +33,7 @@ export const TABS: TabDef[] = [
   { id: 'estoque', label: 'Estoque' },
   { id: 'equipe', label: 'Equipe' },
   { id: 'marketing', label: 'Link online', icon: Rocket },
+  { id: 'club', label: 'Clube', icon: Globe },
 ]
 
 export const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']

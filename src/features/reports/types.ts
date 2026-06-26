@@ -14,6 +14,7 @@ export type ReportTab =
   | 'estoque'
   | 'equipe'
   | 'marketing'
+  | 'club'
 
 export interface TabDef {
   id: ReportTab
@@ -134,4 +135,13 @@ export interface ReceitaData {
   porPagamento: { label: string; valor: number; pct: number; cor: string }[]
   topServicos: { nome: string; valor: number }[]
   topProdutos: { nome: string; valor: number }[]
+}
+
+export interface ClubReportData {
+  periodo: string
+  kpis: { membrosAtivos: number; mrr: number; novos: number; cancelados: number }
+  evolucaoPote: { mes: string; valor: number }[]
+  receitaPorPlano: { label: string; valor: number; pct: number; cor: string }[]
+  membros: { id: string; nome: string; plano: string; planoCor: string | null; desde: string; fichas: number }[]
+  resumo: { ticketMedio: number; poteMesAtual: number; rateadoHistorico: number }
 }
