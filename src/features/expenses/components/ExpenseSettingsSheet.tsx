@@ -1,7 +1,7 @@
 // src/features/expenses/components/ExpenseSettingsSheet.tsx
 'use client'
 
-import { X, Users, Package, Info } from 'lucide-react'
+import { X, Users, Package, Info, CreditCard } from 'lucide-react'
 import { typography } from '@/shared/theme'
 import { useExpenseSettings } from '../hooks/useExpenseSettings'
 
@@ -66,15 +66,79 @@ function ToggleRow({ icon, accent, name, desc, value, onChange }: ToggleRowProps
 
 // Renderizado SÓ quando aberto (o pai faz {open && <ExpenseSettingsSheet/>}),
 // então o fetch na montagem do hook roda a cada abertura.
+const METHOD_META: { method: string; label: string; color: string; hint?: string }[] = [
+  { method: 'CREDIT',   label: 'Crédito',        color: '#185FA5' },
+  { method: 'DEBIT',    label: 'Débito',         color: '#7F77DD' },
+  { method: 'PIX',      label: 'Pix',            color: '#00B8A9', hint: 'via maquininha' },
+  { method: 'TRANSFER', label: 'Transferência',  color: '#EF9F27' },
+  { method: 'CASH',     label: 'Dinheiro',       color: '#888780' },
+  { method: 'OTHER',    label: 'Outros',         color: '#888780' },
+]
+
+function CardFeeGrid({
+  cardFees, setCardFee,
+}: {
+  cardFees: { method: string; percent: string }[]
+  setCardFee: (method: string, percent: string) => void
+}) {
+  return (
+    <div style={{ marginTop: 10, paddingTop: 4, borderTop: '1px solid var(--border, #f1f5f9)' }}>
+      {METHOD_META.map((m, i) => {
+        const draft = cardFees.find((c) => c.method === m.method)
+        const percent = draft?.percent ?? '0'
+        return (
+          <div
+            key={m.method}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '9px 4px',
+              borderTop: i === 0 ? 'none' : '1px solid var(--border, #f1f5f9)',
+            }}
+          >
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: typography.color.primary }}>
+              {m.label}
+              {m.hint && (
+                <span style={{ fontSize: 11, color: typography.color.muted, marginLeft: 6 }}>{m.hint}</span>
+              )}
+            </div>
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                background: 'var(--card-bg-secondary, #f8fafc)',
+                border: '1px solid var(--border, #e5e7eb)',
+                borderRadius: 10, padding: '0 10px', height: 40, width: 96, flexShrink: 0,
+              }}
+            >
+              <input
+                inputMode="decimal"
+                value={percent}
+                onChange={(e) => setCardFee(m.method, e.target.value.replace(/[^\d,.]/g, ''))}
+                placeholder="0"
+                style={{
+                  flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+                  textAlign: 'right', fontSize: 16, fontWeight: 600, color: typography.color.primary,
+                }}
+              />
+              <span style={{ fontSize: 14, color: typography.color.muted, fontWeight: 500 }}>%</span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function ExpenseSettingsSheet({ onClose, onSaved }: Props) {
   const {
     autoCommission, setAutoCommission,
     autoStock,      setAutoStock,
+    autoCardFee,    setAutoCardFee,
+    cardFees,       setCardFee,
     loading, saving, save,
   } = useExpenseSettings()
 
   async function handleSave() {
-    const ok = await save({ autoCommission, autoStock })
+    const ok = await save({ autoCommission, autoStock, autoCardFee, cardFees })
     if (ok) {
       onSaved?.()
       onClose()
@@ -140,6 +204,15 @@ export default function ExpenseSettingsSheet({ onClose, onSaved }: Props) {
                 value={autoStock}
                 onChange={setAutoStock}
               />
+              <ToggleRow
+                icon={<CreditCard size={17} color="#0e7490" />}
+                accent="rgba(0,184,169,0.14)"
+                name="Taxa de máquina de cartão"
+                desc="Calcula o custo da adquirente em cada venda e lança como despesa."
+                value={autoCardFee}
+                onChange={setAutoCardFee}
+              />
+              {autoCardFee && <CardFeeGrid cardFees={cardFees} setCardFee={setCardFee} />}
 
               <div style={{
                 display: 'flex', alignItems: 'flex-start', gap: 7,
