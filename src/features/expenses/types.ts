@@ -1,7 +1,7 @@
 // src/features/expenses/types.ts
 
-export type ExpenseCategory = 'OPERACIONAL' | 'MARKETING' | 'COMISSAO' | 'ESTOQUE' | 'OUTROS'
-export type ExpenseOrigin   = 'MANUAL' | 'AUTO_COMISSAO' | 'AUTO_ESTOQUE'
+export type ExpenseCategory = 'OPERACIONAL' | 'MARKETING' | 'COMISSAO' | 'ESTOQUE' | 'TAXA_CARTAO' | 'OUTROS'
+export type ExpenseOrigin   = 'MANUAL' | 'AUTO_COMISSAO' | 'AUTO_ESTOQUE' | 'AUTO_CLUBE' | 'AUTO_TAXA_CARTAO'
 
 export interface Expense {
   id:             string
@@ -81,6 +81,13 @@ export const CATEGORY_META: Record<ExpenseCategory, CategoryMeta> = {
     textColor: '#d97706',
     dotColor:  '#d97706',
     iconName:  'Package',
+  },
+  TAXA_CARTAO: {
+    label:     'Taxa de cartão',
+    color:     'rgba(0,184,169,0.15)',
+    textColor: '#00B8A9',
+    dotColor:  '#00B8A9',
+    iconName:  'Tag',
   },
   OUTROS: {
     label:     'Outros',
