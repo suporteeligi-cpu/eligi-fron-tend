@@ -1,0 +1,37 @@
+/* Primitivos compartilhados das seções da home (direção C) */
+
+.section { padding: 90px 24px; position: relative; }
+.tight { padding: 64px 24px; }
+.inner { max-width: 1200px; margin: 0 auto; }
+.head { max-width: 640px; margin: 0 auto 48px; text-align: center; }
+.headLeft { max-width: 640px; margin: 0 0 48px; text-align: left; }
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--brand, #dc2626);
+  font-size: 13px;
+  font-weight: 600;
+}
+.eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand, #dc2626);
+}
+:root[data-theme='dark'] .eyebrow { background: rgba(220, 38, 38, 0.14); }
+
+.h2 {
+  font-family: 'Space Grotesk', 'DM Sans', sans-serif;
+  font-size: clamp(28px, 4.2vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--text-main, #111827);
+  margin: 14px 0;
+}
+.lead { color: var(--text-muted, #6b7280); font-size: 17px; line-height: 1.55; }
