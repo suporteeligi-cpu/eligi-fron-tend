@@ -3,10 +3,9 @@ import Image from 'next/image'
 import styles from './Footer.module.css'
 
 const NAV = [
-  { label: 'Funcionalidades', href: '/#modulos' },
-  { label: 'Planos',          href: '/#planos'  },
-  { label: 'Barbearias',      href: '/barbearias' },
-  { label: 'Salões',          href: '/saloes'   },
+  { label: 'Funcionalidades', href: '/#recursos' },
+  { label: 'Preços',          href: '/#precos'  },
+  { label: 'Perguntas',       href: '/#faq'     },
   { label: 'Entrar',          href: '/login'    },
   { label: 'Criar conta',     href: '/register' },
 ]

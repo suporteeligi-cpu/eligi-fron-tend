@@ -4,9 +4,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import {
-  Scissors,
-  Store,
-  Megaphone,
   Sun,
   Moon,
   LogIn,
@@ -73,9 +70,9 @@ export default function Navbar() {
 
         {/* Nav central */}
         <nav className={styles.nav}>
-          <Link href="/barbearias"><Scissors size={17} />Barbearias</Link>
-          <Link href="/saloes"><Store size={17} />Salões</Link>
-          <Link href="/ads"><Megaphone size={17} />Anúncios</Link>
+          <Link href="/#recursos">Funcionalidades</Link>
+          <Link href="/#precos">Preços</Link>
+          <Link href="/#faq">Perguntas</Link>
         </nav>
 
         {/* Ações */}
@@ -121,9 +118,9 @@ export default function Navbar() {
 
       {/* Menu mobile — folha de vidro */}
       <div className={`${styles.sheet} ${menuOpen ? styles.sheetOpen : ''}`}>
-        <Link href="/barbearias" onClick={() => setMenuOpen(false)}><Scissors size={18} />Barbearias</Link>
-        <Link href="/saloes"     onClick={() => setMenuOpen(false)}><Store    size={18} />Salões</Link>
-        <Link href="/ads"        onClick={() => setMenuOpen(false)}><Megaphone size={18} />Anúncios</Link>
+        <Link href="/#recursos" onClick={() => setMenuOpen(false)}>Funcionalidades</Link>
+        <Link href="/#precos" onClick={() => setMenuOpen(false)}>Preços</Link>
+        <Link href="/#faq" onClick={() => setMenuOpen(false)}>Perguntas</Link>
 
         <div className={styles.sheetDivider} />
 
