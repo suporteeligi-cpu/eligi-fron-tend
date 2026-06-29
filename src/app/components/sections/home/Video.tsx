@@ -24,9 +24,9 @@ export default function Video() {
     <section ref={ref} id="video" className={`${s.section} ${s.tight} reveal-on`}>
       <div className={s.inner}>
         <div className={s.head}>
-          <span className={s.eyebrow}>Quem está por trás</span>
+          <span className={s.eyebrow}>Bastidores</span>
           <h2 className={s.h2}>A ideia por trás do Eligi.</h2>
-          <p className={s.lead}>Conheça quem criou o sistema — e por quê.</p>
+          <p className={s.lead}>Conheça o sistema que transforma a maneira como você lida com seu negócio.</p>
         </div>
 
         <div className={styles.frame}>
