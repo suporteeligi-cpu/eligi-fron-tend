@@ -17,6 +17,8 @@ import PaymentModal from './PaymentModal'
 import UsePackageModal from './UsePackageModal'
 import UseMembershipModal, { MembershipCardLite } from './UseMembershipModal'
 import UseClubModal, { ClubSubLite } from './UseClubModal'
+import { useRouter } from 'next/navigation'
+import SaleReceiptModal from '@/features/sales/components/SaleReceiptModal'
 
 interface Props {
   sale:           Sale
@@ -39,6 +41,8 @@ export default function CartPanel({
   const [cancelling,  setCancelling]  = useState(false)
   const [confirmingFree, setConfirmingFree] = useState(false)
   const [error,       setError]       = useState<string | null>(null)
+  const router = useRouter()
+  const [receiptSale, setReceiptSale] = useState<Sale | null>(null)
 
   // ⭐ Cartões ativos do cliente atual (pra decidir se mostra botão "Usar pacote")
   const [activeCards, setActiveCards] = useState<PackageCardLite[]>([])
@@ -245,7 +249,7 @@ export default function CartPanel({
       const res = await api.post(`/sales/${sale.id}/confirm`, {})
       const confirmed = res.data?.data ?? res.data
       onSaleUpdated(confirmed)
-      onSaleClosed()
+      setReceiptSale(confirmed)
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
       setError(e.response?.data?.error ?? 'Erro ao confirmar venda')
@@ -273,7 +277,7 @@ export default function CartPanel({
           onPaid={(confirmed) => {
             onSaleUpdated(confirmed)
             setShowPayment(false)
-            onSaleClosed()
+            setReceiptSale(confirmed)
           }}
         />
       )}
@@ -311,6 +315,16 @@ export default function CartPanel({
             refreshActiveClubSubs()
           }}
           onClose={() => setShowUseClub(false)}
+        />
+      )}
+
+      {receiptSale && (
+        <SaleReceiptModal
+          sale={receiptSale}
+          mode="full"
+          isMobile={isMobile}
+          onClose={() => { setReceiptSale(null); onSaleClosed() }}
+          onGoToAgenda={() => { setReceiptSale(null); onSaleClosed(); router.push('/dashboard/agenda') }}
         />
       )}
 

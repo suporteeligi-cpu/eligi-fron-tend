@@ -22,6 +22,8 @@ import { AgendaBooking } from '@/features/agenda/types'
 import { colors, typography } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAgendaStore'
+import { Sale } from '@/features/sales/types'
+import SaleReceiptModal from '@/features/sales/components/SaleReceiptModal'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc from 'dayjs/plugin/utc'
@@ -208,6 +210,8 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState<string | null>(null)
   const [creatingSale, setCreatingSale] = useState(false)
+  const [receiptSale, setReceiptSale] = useState<Sale | null>(null)
+  const [loadingReceipt, setLoadingReceipt] = useState(false)
 
   const bookingId    = booking.id
   const bookingStart = booking.start
@@ -369,6 +373,21 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
     }
   }
 
+  async function openReceipt() {
+    if (!detail?.sale || loadingReceipt) return
+    const saleId = detail.sale.id
+    try {
+      setLoadingReceipt(true)
+      const res = await api.get(`/sales/${saleId}`)
+      setReceiptSale(res.data?.data ?? res.data)
+    } catch {
+      onClose()
+      router.push(`/dashboard/caixa/${saleId}`)
+    } finally {
+      setLoadingReceipt(false)
+    }
+  }
+
   function handleViewSale() {
     if (!detail?.sale) return
     onClose()
@@ -408,6 +427,14 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
 
   const panel = (
     <>
+      {receiptSale && (
+        <SaleReceiptModal
+          sale={receiptSale}
+          mode="send"
+          isMobile={isMobile}
+          onClose={() => setReceiptSale(null)}
+        />
+      )}
       <style>{`
         @keyframes bvp-sheetIn { from { transform: translateX(100%); opacity: 0 } to { transform: translateX(0); opacity: 1 } }
         @keyframes bvp-sheetUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
@@ -1002,12 +1029,15 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
 
               {/* Card total + status de venda */}
               {(price > 0 || isGroup || !!detail?.sale) && (
-                <div style={{
+                <div
+                  onClick={isCompleted && detail?.sale?.confirmedAt ? openReceipt : undefined}
+                  style={{
                   background: '#fff',
                   borderRadius: 18,
                   padding: '18px',
                   boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
                   border: '1px solid rgba(0,0,0,0.06)',
+                  cursor: isCompleted && detail?.sale?.confirmedAt ? 'pointer' : 'default',
                 }}>
                   <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -1044,6 +1074,13 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                           fontVariantNumeric: 'tabular-nums',
                         }}>
                           {dayjs(detail.sale.confirmedAt).tz('America/Sao_Paulo').format('DD/MM HH:mm')}
+                        </div>
+                        <div style={{
+                          marginTop: 8, fontSize: 11, fontWeight: 700,
+                          color: colors.red.DEFAULT,
+                          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4,
+                        }}>
+                          Ver recibo ›
                         </div>
                       </div>
                     ) : hasOpenSale ? (
