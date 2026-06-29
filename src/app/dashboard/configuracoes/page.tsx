@@ -7,7 +7,7 @@ import LegalModal from '@/shared/legal/LegalModal'
 import {
   Calendar, Building2, CreditCard, Users,
   Sliders, Bell, Shield, ChevronRight, Scissors, Sparkles,
-  FileText, Lock,
+  FileText, Lock, Globe,
 } from 'lucide-react'
 
 type ModuleItem = {
@@ -48,6 +48,13 @@ const MODULES: ModuleGroup[] = [
         icon:        Sparkles,
         label:       'Sua Assinatura Eligi',
         description: 'Seu plano, valor mensal e situacao da cobranca.',
+        available:   true,
+      },
+      {
+        href:        '/dashboard/configuracoes/eligiclub',
+        icon:        Globe,
+        label:       'EligiClub — Cobrança recorrente',
+        description: 'Conecte sua conta Asaas para cobrar as mensalidades do clube automaticamente.',
         available:   true,
       },
       {
