@@ -6,14 +6,11 @@ import { useAuth } from '@/hooks/useAuth'
 import { AuthCard }         from '../components/auth/AuthCard'
 import { AuthInput }        from '../components/auth/AuthInput'
 import { AuthButton }       from '../components/auth/AuthButton'
-import { AuthRoleSelect }   from '../components/auth/AuthRoleSelect'
 import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
 import { mapAuthError }     from '@/lib/auth.error.map'
 import styles from './Register.module.css'
 
 /* ── Types ── */
-type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
-
 interface ApiError {
   code?: string
   field?: 'name' | 'email' | 'password'
@@ -48,7 +45,6 @@ export default function RegisterForm() {
   const [name,     setName]     = useState('')
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [role,     setRole]     = useState<Role>('BUSINESS_OWNER')
   const [loading,  setLoading]  = useState(false)
   const [errors,   setErrors]   = useState<{
     name?: string; email?: string; password?: string; general?: string
@@ -109,7 +105,7 @@ export default function RegisterForm() {
     setErrors({})
 
     try {
-      await register(name.trim(), email.trim(), password, role)
+      await register(name.trim(), email.trim(), password, 'BUSINESS_OWNER')
     } catch (error: unknown) {
       const e = (error && typeof error === 'object') ? (error as ApiError) : ({} as ApiError)
       const mapped = mapAuthError(e.code ?? 'UNKNOWN', e.message)
@@ -151,12 +147,6 @@ export default function RegisterForm() {
           disabled={loading}
           autoComplete="name"
           required
-        />
-
-        <AuthRoleSelect
-          value={role}
-          onChange={setRole}
-          disabled={loading}
         />
 
         <AuthInput
