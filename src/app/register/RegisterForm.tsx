@@ -7,7 +7,9 @@ import { AuthCard }         from '../components/auth/AuthCard'
 import { AuthInput }        from '../components/auth/AuthInput'
 import { AuthButton }       from '../components/auth/AuthButton'
 import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
+import { PasswordChecklist } from '../components/auth/PasswordChecklist'
 import { mapAuthError }     from '@/lib/auth.error.map'
+import { firstPasswordError } from '@/lib/passwordRules'
 import styles from './Register.module.css'
 
 /* ── Types ── */
@@ -92,9 +94,8 @@ export default function RegisterForm() {
     const nextErrors: typeof errors = {}
     if (!name.trim())                 nextErrors.name     = 'Informe seu nome.'
     if (!email.trim())                nextErrors.email    = 'Informe o e-mail.'
-    if (password.length < 8)          nextErrors.password = 'Mínimo 8 caracteres.'
-    else if (!/[A-Z]/.test(password)) nextErrors.password = 'Inclua 1 letra maiúscula.'
-    else if (!/[0-9]/.test(password)) nextErrors.password = 'Inclua 1 número.'
+    const pwError = firstPasswordError(password)
+    if (pwError)                      nextErrors.password = pwError
 
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors)
@@ -170,6 +171,8 @@ export default function RegisterForm() {
           autoComplete="new-password"
           required
         />
+
+        <PasswordChecklist password={password} />
 
         <AuthButton type="submit" loading={loading} disabled={loading}>
           Criar conta
