@@ -171,13 +171,13 @@ function ClubEmDesenvolvimento() {
           <EligiClubIcon size={22} color="#F4F2EC" />
         </span>
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: colors.text }}>EligiClub</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: '#0f0f14' }}>EligiClub</h2>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 600, color: '#92600a', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 20, padding: '3px 9px', marginTop: 7 }}>
             <Pencil size={11} /> Em desenvolvimento
           </span>
         </div>
       </div>
-      <p style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.55, margin: '16px 0 26px', maxWidth: 440 }}>
+      <p style={{ fontSize: 13, color: 'rgba(0,0,0,0.5)', lineHeight: 1.55, margin: '16px 0 26px', maxWidth: 440 }}>
         O clube de assinatura do seu negócio está sendo construído. Em breve seus clientes poderão assinar um plano mensal — uma renda recorrente, parte revertida pra sua equipe.
       </p>
       <div style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 16, padding: '8px 0' }}>
@@ -254,7 +254,7 @@ export default function EligiClubPage() {
   }, [])
 
   if (isento === null) {
-    return <div style={{ padding: 40, textAlign: 'center', color: colors.textSecondary }}>Carregando…</div>
+    return <div style={{ padding: 40, textAlign: 'center', color: 'rgba(0,0,0,0.4)' }}>Carregando…</div>
   }
   if (!isento) return <ClubEmDesenvolvimento />
 
