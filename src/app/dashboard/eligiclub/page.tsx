@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } fr
 import {
   Search, X, Plus, ChevronRight, ChevronLeft, Loader2, Layers, Users, PiggyBank,
   Coins, CheckCircle2, CalendarClock, Hash, type LucideIcon,
+  User, RefreshCw, Wallet, Scissors, Bell, Pencil,
 } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
@@ -154,6 +155,53 @@ const TABS: { id: Tab; label: string; Icon: LucideIcon }[] = [
 // ═══════════════════════════════════════════════════════════════════════════
 // Página
 // ═══════════════════════════════════════════════════════════════════════════
+// Tela "em desenvolvimento" — mostrada a quem NAO esta isento do clube (lojista comum).
+// Fora do render (regra do React Compiler).
+function ClubEmDesenvolvimento() {
+  const steps = [
+    { Icon: User,      t: 'O cliente assina',    d: 'Escolhe um plano e vira assinante do seu negócio' },
+    { Icon: RefreshCw, t: 'Paga a mensalidade',  d: 'Cobrança automática todo mês, sem correr atrás' },
+    { Icon: Wallet,    t: 'Vira um pote',        d: 'Parte da mensalidade é separada pra equipe' },
+    { Icon: Scissors,  t: 'Rateia pra equipe',   d: 'Dividido entre os profissionais conforme os atendimentos' },
+  ]
+  return (
+    <div style={{ maxWidth: 520, fontFamily: '-apple-system,system-ui,sans-serif', animation: 'club-fade-up 0.3s ease' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+        <span style={{ width: 42, height: 42, borderRadius: 12, background: '#0E0E12', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <EligiClubIcon size={22} color="#F4F2EC" />
+        </span>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: colors.text }}>EligiClub</h2>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 600, color: '#92600a', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 20, padding: '3px 9px', marginTop: 7 }}>
+            <Pencil size={11} /> Em desenvolvimento
+          </span>
+        </div>
+      </div>
+      <p style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.55, margin: '16px 0 26px', maxWidth: 440 }}>
+        O clube de assinatura do seu negócio está sendo construído. Em breve seus clientes poderão assinar um plano mensal — uma renda recorrente, parte revertida pra sua equipe.
+      </p>
+      <div style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 16, padding: '8px 0' }}>
+        {steps.map((s, idx) => (
+          <div key={s.t} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '16px 22px', borderBottom: idx < steps.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none' }}>
+            <span style={{ color: '#6b7280', flexShrink: 0, display: 'flex' }}><s.Icon size={20} strokeWidth={1.7} /></span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1c1c1e' }}>{s.t}</div>
+              <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', lineHeight: 1.45, marginTop: 2 }}>{s.d}</div>
+            </div>
+            {idx < steps.length - 1 && (
+              <span style={{ color: 'rgba(0,0,0,0.18)', flexShrink: 0, display: 'flex' }}><ChevronRight size={16} /></span>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(0,0,0,0.4)', marginTop: 20, lineHeight: 1.5 }}>
+        <span style={{ color: 'rgba(0,0,0,0.3)', flexShrink: 0, display: 'flex' }}><Bell size={14} /></span>
+        Avisaremos assim que estiver disponível. Nenhuma ação é necessária agora.
+      </div>
+    </div>
+  )
+}
+
 export default function EligiClubPage() {
   const mode = useDeviceMode()
   const isMobile = mode === 'mobile'
@@ -186,6 +234,29 @@ export default function EligiClubPage() {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [positionInd])
+
+  // GATE: enquanto o EligiClub esta em desenvolvimento, so contas isentas (modo teste)
+  // veem o modulo. Lojista comum (isento=false) ve a tela "em desenvolvimento".
+  const [isento, setIsento] = useState<boolean | null>(null)
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      try {
+        const res = await api.get('/club-subscriptions/asaas/status')
+        const v = (res.data?.data as { isento?: boolean } | null)?.isento ?? false
+        if (alive) setIsento(v)
+      } catch {
+        if (alive) setIsento(false)
+      }
+    }
+    void run()
+    return () => { alive = false }
+  }, [])
+
+  if (isento === null) {
+    return <div style={{ padding: 40, textAlign: 'center', color: colors.textSecondary }}>Carregando…</div>
+  }
+  if (!isento) return <ClubEmDesenvolvimento />
 
   return (
     <>
