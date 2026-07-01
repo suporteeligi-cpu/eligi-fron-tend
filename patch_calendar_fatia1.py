@@ -1,4 +1,15 @@
-'use client'
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# eligi-codeflow / Fatia 1 — CalendarPicker (modo dia): alinhamento + Denso Preciso + glass.
+# Rode na raiz do front-end:  python3 patch_calendar_fatia1.py
+# Read/write so no arquivo alvo. Backup automatico em .backup/<ts>/. Idempotente.
+
+import os, sys, shutil, datetime
+
+TARGET = sys.argv[1] if len(sys.argv) > 1 else 'src/shared/components/CalendarPicker.tsx'
+MARKER = '[fatia1-grid7-alinhado]'
+
+NEW = """'use client'
 // src/shared/components/CalendarPicker.tsx
 // Calendário eligi COMPARTILHADO (Agenda, Caixa, Pacotes) — modo dia.
 // [fatia1-grid7-alinhado] Header e grade dividem o MESMO grid repeat(7,1fr).
@@ -21,6 +32,7 @@ const MONTHS_PT   = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
 
 const EASE_SPRING = 'cubic-bezier(0.34,1.56,0.64,1)'
 const EASE_SHEET  = 'cubic-bezier(0.34,1.2,0.64,1)'
+const EASE_SMOOTH = 'cubic-bezier(0.4,0,0.2,1)'
 
 interface Props {
   date:      dayjs.Dayjs
@@ -247,7 +259,7 @@ export default function CalendarPicker({
                     <button key={-n} className="calp-jump-btn" disabled={dis}
                       onClick={() => { if (!dis) { onSelect(target); onClose() } }}
                       style={{ color: colors.gray.dimText, opacity: dis ? 0.35 : 1, cursor: dis ? 'not-allowed' : 'pointer' }}
-                    >{'\u2212'}{n}</button>
+                    >{'\\u2212'}{n}</button>
                   )
                 })}
               </div>
@@ -267,3 +279,26 @@ export default function CalendarPicker({
 
   return createPortal(content, document.body)
 }
+"""
+
+def main():
+    if not os.path.isfile(TARGET):
+        print(f'False  arquivo nao encontrado: {TARGET}')
+        print('       rode na raiz do front-end, ou passe o caminho como argumento.')
+        sys.exit(1)
+    cur = open(TARGET, encoding='utf-8').read()
+    if MARKER in cur:
+        print(f'True   ja aplicado (idempotente): {TARGET}')
+        return
+    ts = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    bdir = os.path.join('.backup', ts)
+    os.makedirs(bdir, exist_ok=True)
+    bpath = os.path.join(bdir, 'CalendarPicker.tsx')
+    shutil.copy2(TARGET, bpath)
+    print(f'backup -> {bpath}')
+    with open(TARGET, 'w', encoding='utf-8') as f:
+        f.write(NEW)
+    ok = (open(TARGET, encoding='utf-8').read() == NEW) and (MARKER in NEW)
+    print(f'{ok}   escrito: {TARGET}')
+
+main()
