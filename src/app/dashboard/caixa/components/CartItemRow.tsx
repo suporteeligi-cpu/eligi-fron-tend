@@ -4,7 +4,7 @@
 // Item do carrinho. Cobertura (R$0) por PACOTE (verde + Layers) ou ASSINATURA (verde + Ticket).
 // "Coberto" desabilita qty/prof e zera o preço. Cada cobertura tem seu próprio badge + remover.
 
-import { Minus, Plus, Trash2, Scissors, Package, Layers, Ticket, XCircle } from 'lucide-react'
+import { Minus, Plus, Trash2, Tag, Package, Layers, Ticket, XCircle } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { SaleItem, ProfLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -33,7 +33,7 @@ export default function CartItemRow({
     item.type === 'PRODUCT'    ? Package :
     item.type === 'PACKAGE'    ? Layers  :
     item.type === 'MEMBERSHIP' ? Ticket  :
-                                 Scissors
+                                 Tag
 
   const color = item.product?.color
              ?? item.service?.color

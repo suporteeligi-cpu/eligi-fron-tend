@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react'
 import {
-  Search, X, Package, ShoppingBag, Scissors, AlertTriangle, Layers, Ticket, Infinity as InfinityIcon,
+  Search, X, Package, ShoppingBag, Tag, AlertTriangle, Layers, Ticket, Infinity as InfinityIcon,
 } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -194,7 +194,7 @@ export default function CatalogPanel({
               : tab === 'package'
               ? <Layers   size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
               : tab === 'service'
-              ? <Scissors size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+              ? <Tag size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
               : <Package  size={32} style={{ opacity: 0.3, marginBottom: 8 }} />}
             <div>
               {(() => {
@@ -378,7 +378,7 @@ function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; 
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative',
       }}>
-        <Scissors size={26} color="#fff" strokeWidth={1.8} />
+        <Tag size={26} color="#fff" strokeWidth={1.8} />
         <div style={{
           position: 'absolute', top: 6, right: 6,
           padding: '2px 6px',
