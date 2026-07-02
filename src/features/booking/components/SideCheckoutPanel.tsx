@@ -770,8 +770,13 @@ export default function SideCheckoutPanel({
 
   function handleDateSelect(d: dayjs.Dayjs) {
     setDate(d)
-    setSelectedDate(d.toDate())
-    onDateChange?.(d.toDate())
+    // Em edit NÃO navegar a grade ao escolher a data: mudar selectedDate
+    // re-dispara o effect de reset (selectedDate está nas deps) e zera `items`,
+    // desabilitando o save. Em create, manter a grade sincronizada.
+    if (mode === 'create') {
+      setSelectedDate(d.toDate())
+      onDateChange?.(d.toDate())
+    }
   }
 
   function handleServiceSelect(svc: Service) {
@@ -878,7 +883,13 @@ export default function SideCheckoutPanel({
         setPreview(null)
         setSuccess(true)
         setPendingOverlap(false)
-        setTimeout(() => onClose(), 1400)
+        // Cross-day: leva a grade pra data (possivelmente nova) do booking,
+        // pra o card remarcado ficar visível ao fechar.
+        setTimeout(() => {
+          setSelectedDate(date.toDate())
+          onDateChange?.(date.toDate())
+          onClose()
+        }, 1400)
       } else {
         // ── MODO CREATE: POST /bookings/confirm (múltiplos serviços) ────────
         // Se há mais de 1 serviço, gera um groupId comum pra vinculá-los
