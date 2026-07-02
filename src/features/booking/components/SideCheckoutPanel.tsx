@@ -568,7 +568,7 @@ export default function SideCheckoutPanel({
   const [items, setItems] = useState<ServiceItem[]>([])
   // Snapshot dos itens EXISTENTES (por bookingId) no momento da abertura,
   // pra detectar o que mudou no save (diff: PATCH só os alterados).
-  const snapshotRef = useRef<Record<string, { serviceId: string; startTime: string; profId: string }>>({})
+  const snapshotRef = useRef<Record<string, { serviceId: string; startTime: string; profId: string; dateStr: string }>>({})
   const firstItem = items[0]
   const total     = items.reduce((acc, it) => acc + (it.service?.price ?? 0), 0)
 
@@ -622,9 +622,10 @@ export default function SideCheckoutPanel({
         }))
         setItems(existing)
         // Guarda o estado original de cada existente pra comparar no save.
-        const snap: Record<string, { serviceId: string; startTime: string; profId: string }> = {}
+        const snap: Record<string, { serviceId: string; startTime: string; profId: string; dateStr: string }> = {}
+        const origDateStr = dayjs(selectedDate).format('YYYY-MM-DD')
         existing.forEach(e => {
-          if (e.bookingId) snap[e.bookingId] = { serviceId: e.service.id, startTime: e.startTime, profId: e.profId }
+          if (e.bookingId) snap[e.bookingId] = { serviceId: e.service.id, startTime: e.startTime, profId: e.profId, dateStr: origDateStr }
         })
         snapshotRef.current = snap
       } else {
@@ -770,10 +771,11 @@ export default function SideCheckoutPanel({
 
   function handleDateSelect(d: dayjs.Dayjs) {
     setDate(d)
-    // Em edit NÃO navegar a grade ao escolher a data: mudar selectedDate
-    // re-dispara o effect de reset (selectedDate está nas deps) e zera `items`,
-    // desabilitando o save. Em create, manter a grade sincronizada.
-    if (mode === 'create') {
+    // NÃO navegar a grade ao escolher a data em edit NEM no editor de grupo:
+    // mudar selectedDate re-dispara o effect de reset (selectedDate está nas
+    // deps) e zera/repopula `items`, desabilitando o save ou perdendo ajustes.
+    // Só o create "puro" (sem addToGroupRefId) sincroniza a grade ao vivo.
+    if (mode === 'create' && !addToGroupRefId) {
       setSelectedDate(d.toDate())
       onDateChange?.(d.toDate())
     }
@@ -911,6 +913,7 @@ export default function SideCheckoutPanel({
                 || orig.serviceId !== it.service.id
                 || orig.startTime !== it.startTime
                 || orig.profId    !== it.profId
+                || orig.dateStr   !== dateStr
               if (mudou) {
                 await api.patch(`/bookings/${it.bookingId}`, {
                   serviceId:      it.service.id,
@@ -1151,6 +1154,25 @@ export default function SideCheckoutPanel({
                       <ChevronDown size={14} color={colors.gray.dimText}/>
                     </button>
                   </div>
+
+                  {/* Aviso de migração de data (editor de grupo) — Fatia 2.
+                      Só quando a data selecionada difere da original do grupo. */}
+                  {addToGroupRefId && (() => {
+                    const origBookingId = items.find(it => it.bookingId)?.bookingId
+                    const origDateStr   = origBookingId ? snapshotRef.current[origBookingId]?.dateStr : undefined
+                    const curDateStr    = date.format('YYYY-MM-DD')
+                    if (!origDateStr || origDateStr === curDateStr) return null
+                    const n = items.filter(it => it.bookingId).length
+                    const fmt = (s: string) => dayjs(s).format('DD/MMM')
+                    return (
+                      <div style={{display:'flex',gap:8,alignItems:'flex-start',padding:'9px 12px',borderRadius:radius.sm,background:'rgba(245,158,11,0.10)',border:'1px solid rgba(245,158,11,0.25)'}}>
+                        <Calendar size={15} color="#b45309" strokeWidth={2} style={{marginTop:1,flexShrink:0}}/>
+                        <span style={{fontSize:13,color:'#92400e',lineHeight:1.5}}>
+                          {n} {n === 1 ? 'serviço vai' : 'serviços vão'} migrar de <b style={{fontWeight:700}}>{fmt(origDateStr)}</b> para <b style={{fontWeight:700}}>{fmt(curDateStr)}</b>. Horários preservados.
+                        </span>
+                      </div>
+                    )
+                  })()}
 
                   {/* Serviços */}
                   {items.map((item, idx) => (

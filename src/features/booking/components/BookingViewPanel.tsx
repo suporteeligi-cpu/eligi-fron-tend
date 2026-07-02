@@ -15,7 +15,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, Clock, User, Calendar, AlertTriangle, CheckCircle, Ban, Phone,
-  Edit3, ShoppingBag, Receipt, ChevronDown, Loader2, AlertCircle, Plus } from 'lucide-react'
+  ShoppingBag, Receipt, ChevronDown, Loader2, AlertCircle, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import api from '@/shared/lib/apiClient'
 import { AgendaBooking } from '@/features/agenda/types'
@@ -200,7 +200,7 @@ function ConfirmModal({
 export default function BookingViewPanel({ booking, date, open, onClose }: Props) {
   const router   = useRouter()
   const isMobile = useIsMobile()
-  const { removeBooking, openEdit, updateBooking, openAddService } = useAgendaStore()
+  const { removeBooking, updateBooking, openAddService } = useAgendaStore()
   const dateStr  = dayjs(date).format('YYYY-MM-DD')
 
   const [detail,    setDetail]    = useState<BookingDetail | null>(null)
@@ -294,14 +294,6 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
       setError(e.response?.data?.error ?? 'Erro ao marcar não compareceu')
       setSaving(false)
     }
-  }
-
-  function handleEdit() {
-    onClose()
-    // Pequeno delay pra animação de fechar terminar antes de abrir o SideCheckoutPanel
-    setTimeout(() => {
-      openEdit(booking)
-    }, 200)
   }
 
   function handleAddService() {
@@ -568,33 +560,6 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                         overflow: 'hidden',
                         border: '1px solid rgba(0,0,0,0.06)',
                       }}>
-                        <button className="bvp-drop-item"
-                          onClick={() => { setShowAlter(false); handleEdit() }}
-                          style={{
-                            width: '100%',
-                            display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '14px 18px',
-                            border: 'none',
-                            borderBottom: '1px solid rgba(0,0,0,0.06)',
-                            background: 'transparent',
-                            cursor: 'pointer', textAlign: 'left',
-                            color: '#0f0f14',
-                            fontSize: 14, fontWeight: 600,
-                            fontFamily: typography.fontFamily,
-                            transition: 'background 0.12s',
-                          }}
-                          disabled={hasOpenSale}
-                        >
-                          <Edit3 size={14} strokeWidth={2}/>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div>Editar agendamento</div>
-                            {hasOpenSale && (
-                              <div style={{ fontSize: 10, color: colors.gray.dimText, fontWeight: 500, marginTop: 2 }}>
-                                Cancele o checkout primeiro
-                              </div>
-                            )}
-                          </div>
-                        </button>
                         {bookingEnded && (
                           <button className="bvp-drop-item"
                             onClick={() => { setShowAlter(false); setConfirm('noshow') }}
