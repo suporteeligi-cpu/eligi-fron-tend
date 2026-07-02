@@ -1,9 +1,13 @@
 'use client'
 // src/app/dashboard/financeiro/vendas/components/FiltersBar.tsx
+// [fatia2-range-trigger] os dois <input type="date"> viraram UM gatilho que abre
+// o CalendarPicker em mode='range'. Converte dayjs -> 'YYYY-MM-DD' na borda.
 
 import { useState, useEffect } from 'react'
-import { Search, X } from 'lucide-react'
+import { Search, X, Calendar } from 'lucide-react'
+import dayjs from 'dayjs'
 import api from '@/shared/lib/apiClient'
+import CalendarPicker from '@/shared/components/CalendarPicker'
 import { colors, typography, radius } from '@/shared/theme'
 import { SalesReportFilters, SaleReportStatus, PaymentMethod, SaleItemType } from '@/features/sales-report/types'
 
@@ -40,6 +44,7 @@ const ITEM_TYPE_OPTS: Array<{ value: SaleItemType | ''; label: string }> = [
 export default function FiltersBar({ filters, onChange, isMobile }: Props) {
   const [professionals, setProfessionals] = useState<ProfLite[]>([])
   const [clientInput, setClientInput] = useState(filters.clientSearch ?? '')
+  const [calOpen, setCalOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -70,6 +75,13 @@ export default function FiltersBar({ filters, onChange, isMobile }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientInput])
 
+  const rangeStart = filters.dateFrom ? dayjs(filters.dateFrom) : null
+  const rangeEnd   = filters.dateTo   ? dayjs(filters.dateTo)   : null
+  const hasRange   = !!(filters.dateFrom || filters.dateTo)
+  const rangeLabel = hasRange
+    ? `${filters.dateFrom ? dayjs(filters.dateFrom).format('DD/MM/YY') : '…'} – ${filters.dateTo ? dayjs(filters.dateTo).format('DD/MM/YY') : '…'}`
+    : 'Período'
+
   const selectStyle: React.CSSProperties = {
     padding: '8px 10px',
     borderRadius: radius.sm,
@@ -91,30 +103,36 @@ export default function FiltersBar({ filters, onChange, isMobile }: Props) {
       marginBottom: 16,
       fontFamily: typography.fontFamily,
     }}>
-      {/* Linha 1: datas */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr 1fr' : 'auto auto 1fr',
-        gap: 8,
-        alignItems: 'center',
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <label style={miniLabel}>De</label>
-          <input
-            type="date"
-            value={filters.dateFrom ?? ''}
-            onChange={e => onChange({ dateFrom: e.target.value || undefined, page: 1 })}
-            style={selectStyle}
-          />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <label style={miniLabel}>Até</label>
-          <input
-            type="date"
-            value={filters.dateTo ?? ''}
-            onChange={e => onChange({ dateTo: e.target.value || undefined, page: 1 })}
-            style={selectStyle}
-          />
+      {/* Linha 1: período (range) */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr', gap: 8, alignItems: 'center' }}>
+        <div style={{ position: 'relative', display: 'inline-flex' }}>
+          <button
+            onClick={() => setCalOpen(true)}
+            style={{
+              ...selectStyle,
+              display: 'flex', alignItems: 'center', gap: 8,
+              width: isMobile ? '100%' : 'auto',
+              paddingRight: hasRange ? 30 : 12,
+              color: hasRange ? typography.color.primary : colors.gray.dimText,
+              fontWeight: hasRange ? 600 : 400,
+              justifyContent: 'flex-start',
+            }}
+          >
+            <Calendar size={14} color={colors.red.DEFAULT} />
+            {rangeLabel}
+          </button>
+          {hasRange && (
+            <button
+              onClick={e => { e.stopPropagation(); onChange({ dateFrom: undefined, dateTo: undefined, page: 1 }) }}
+              style={{
+                position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                background: 'transparent', border: 'none', cursor: 'pointer', padding: 2, display: 'flex',
+              }}
+              aria-label="Limpar período"
+            >
+              <X size={13} color={colors.gray.dimText} />
+            </button>
+          )}
         </div>
         {!isMobile && <div />}
       </div>
@@ -196,15 +214,22 @@ export default function FiltersBar({ filters, onChange, isMobile }: Props) {
           )}
         </div>
       </div>
+
+      {calOpen && (
+        <CalendarPicker
+          mode="range"
+          date={rangeStart ?? dayjs()}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          isMobile={isMobile}
+          onSelect={() => {}}
+          onClose={() => setCalOpen(false)}
+          onApplyRange={(start, end) => {
+            onChange({ dateFrom: start.format('YYYY-MM-DD'), dateTo: end.format('YYYY-MM-DD'), page: 1 })
+            setCalOpen(false)
+          }}
+        />
+      )}
     </div>
   )
-}
-
-const miniLabel: React.CSSProperties = {
-  fontSize: 9,
-  fontWeight: 700,
-  color: 'rgba(0,0,0,0.40)',
-  textTransform: 'uppercase',
-  letterSpacing: '.06em',
-  paddingLeft: 2,
 }
