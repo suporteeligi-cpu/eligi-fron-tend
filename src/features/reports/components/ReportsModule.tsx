@@ -5,6 +5,7 @@ import { useState } from 'react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import CalendarPicker from '@/shared/components/CalendarPicker'  // [fatia3-month-trigger]
 
 import { TABS, ACCENT } from '../constants'
 import type { ReportTab } from '../types'
@@ -34,6 +35,7 @@ export default function ReportsModule() {
   const [tab, setTab] = useState<ReportTab>('painel')
   // primitivo na state (regra React Compiler); dayjs sempre dentro do callback
   const [period, setPeriod] = useState<string>(CURRENT)
+  const [monthOpen, setMonthOpen] = useState(false)
 
   const isCurrent = period >= CURRENT
   const label = cap(dayjs(`${period}-01`).format('MMM YYYY')) // ex: "Jun 2026"
@@ -77,15 +79,30 @@ export default function ReportsModule() {
           >
             <ChevronLeft size={18} />
           </button>
-          <div
+          <button
+            type="button"
+            onClick={() => setMonthOpen(true)}
             style={{
               minWidth: 116, textAlign: 'center', fontSize: 14, fontWeight: 600,
               color: '#0c0c12', border: '0.5px solid rgba(0,0,0,0.12)',
               borderRadius: 10, padding: '8px 14px', background: 'rgba(255,255,255,0.7)',
+              cursor: 'pointer',
             }}
           >
             {label}
-          </div>
+          </button>
+          {monthOpen && (
+            <CalendarPicker
+              mode="month"
+              date={dayjs(`${period}-01`)}
+              isMobile={false}
+              monthValue={period}
+              maxMonth={CURRENT}
+              onSelect={() => {}}
+              onClose={() => setMonthOpen(false)}
+              onSelectMonth={(m) => { setPeriod(m); setMonthOpen(false) }}
+            />
+          )}
           <button
             type="button"
             aria-label="Próximo mês"

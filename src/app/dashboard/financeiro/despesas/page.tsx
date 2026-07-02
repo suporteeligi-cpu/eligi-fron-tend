@@ -6,6 +6,7 @@ import { Plus, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import { typography } from '@/shared/theme'
+import CalendarPicker from '@/shared/components/CalendarPicker'  // [fatia3-month-trigger]
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import { useExpenses }   from '@/features/expenses/hooks/useExpenses'
 import ExpenseKPIs       from '@/features/expenses/components/ExpenseKPIs'
@@ -33,6 +34,7 @@ export default function DespesasPage() {
 
   // ── Filtro por categoria (controlado pelos mini-cards da V3) ─────────────
   const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | ''>('')
+  const [monthOpen, setMonthOpen] = useState(false)
 
   // ── Modal criar/editar ───────────────────────────────────────────────────
   const [modalOpen,    setModalOpen]    = useState(false)
@@ -205,15 +207,22 @@ export default function DespesasPage() {
               <ChevronLeft size={15} />
             </button>
 
-            <span style={{
-              fontSize:      13,
-              fontWeight:    600,
-              color:         typography.color.primary,
-              padding:       '0 8px',
-              minWidth:      isMobile ? 118 : 148,
-              textAlign:     'center',
-              textTransform: 'capitalize',
-            }}>
+            <button
+              onClick={() => setMonthOpen(true)}
+              style={{
+                fontSize:      13,
+                fontWeight:    600,
+                color:         typography.color.primary,
+                padding:       '0 8px',
+                minWidth:      isMobile ? 118 : 148,
+                textAlign:     'center',
+                textTransform: 'capitalize',
+                background:    'transparent',
+                border:        'none',
+                cursor:        'pointer',
+                lineHeight:    'inherit',
+              }}
+            >
               {monthLabel}
               {isCurrentMonth && (
                 <span style={{
@@ -228,7 +237,7 @@ export default function DespesasPage() {
                   atual
                 </span>
               )}
-            </span>
+            </button>
 
             <button
               onClick={goNext}
@@ -262,6 +271,19 @@ export default function DespesasPage() {
           onDelete={e => setDeleteTarget(e)}
         />
       </div>
+
+      {monthOpen && (
+        <CalendarPicker
+          mode="month"
+          date={dayjs(`${currentMonth}-01`)}
+          isMobile={isMobile}
+          monthValue={currentMonth}
+          maxMonth={dayjs().format('YYYY-MM')}
+          onSelect={() => {}}
+          onClose={() => setMonthOpen(false)}
+          onSelectMonth={(m) => { setCurrentMonth(m); setMonthOpen(false) }}
+        />
+      )}
 
       {/* ── Modal criar/editar ─────────────────────────────────────────── */}
       {settingsOpen && (

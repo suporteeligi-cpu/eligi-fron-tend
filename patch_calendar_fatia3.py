@@ -1,4 +1,18 @@
-'use client'
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# eligi-codeflow / Fatia 3 — modo 'month' no CalendarPicker + gatilhos em Relatorios e Despesas.
+# Rode na raiz do front-end: python3 patch_calendar_fatia3.py
+# CalendarPicker: reescrita completa (day/range intactos + novo early-return month).
+# ReportsModule e despesas: patch por ancora (str.replace, 1 match), backup + True/False.
+
+import os, sys, shutil, datetime
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1) CalendarPicker.tsx — arquivo completo (marker [fatia3-month])
+# ─────────────────────────────────────────────────────────────────────────────
+CAL_MARKER = '[fatia3-month]'
+CAL_TARGET = 'src/shared/components/CalendarPicker.tsx'
+CAL_NEW = """'use client'
 // src/shared/components/CalendarPicker.tsx
 // Calendário eligi COMPARTILHADO — dia (Agenda/Caixa/Pacotes) + range (Financeiro/Vendas) + month (Relatorios/Despesas).
 // [fatia1-grid7-alinhado] header e grade dividem o MESMO grid repeat(7,1fr).
@@ -396,7 +410,7 @@ export default function CalendarPicker({
                   const target = date.subtract(n, 'week')
                   const dis = isDisabled(target)
                   return (
-                    <button key={-n} className="calp-jump-btn" disabled={dis} onClick={() => { if (!dis) { onSelect(target); onClose() } }} style={{ color: colors.gray.dimText, opacity: dis ? 0.35 : 1, cursor: dis ? 'not-allowed' : 'pointer' }}>{'\u2212'}{n}</button>
+                    <button key={-n} className="calp-jump-btn" disabled={dis} onClick={() => { if (!dis) { onSelect(target); onClose() } }} style={{ color: colors.gray.dimText, opacity: dis ? 0.35 : 1, cursor: dis ? 'not-allowed' : 'pointer' }}>{'\\u2212'}{n}</button>
                   )
                 })}
               </div>
@@ -421,3 +435,196 @@ export default function CalendarPicker({
 
   return createPortal(content, document.body)
 }
+"""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2) ReportsModule.tsx — liga o gatilho no label (ancoras)
+# ─────────────────────────────────────────────────────────────────────────────
+RM_TARGET = 'src/features/reports/components/ReportsModule.tsx'
+RM_MARKER = '[fatia3-month-trigger]'
+
+RM_IMPORT_ANCHOR = "import { ChevronLeft, ChevronRight } from 'lucide-react'\n"
+RM_IMPORT_NEW = ("import { ChevronLeft, ChevronRight } from 'lucide-react'\n"
+                 "import CalendarPicker from '@/shared/components/CalendarPicker'  // [fatia3-month-trigger]\n")
+
+RM_STATE_ANCHOR = "  const [period, setPeriod] = useState<string>(CURRENT)\n"
+RM_STATE_NEW = ("  const [period, setPeriod] = useState<string>(CURRENT)\n"
+                "  const [monthOpen, setMonthOpen] = useState(false)\n")
+
+RM_LABEL_ANCHOR = """          <div
+            style={{
+              minWidth: 116, textAlign: 'center', fontSize: 14, fontWeight: 600,
+              color: '#0c0c12', border: '0.5px solid rgba(0,0,0,0.12)',
+              borderRadius: 10, padding: '8px 14px', background: 'rgba(255,255,255,0.7)',
+            }}
+          >
+            {label}
+          </div>"""
+RM_LABEL_NEW = """          <button
+            type="button"
+            onClick={() => setMonthOpen(true)}
+            style={{
+              minWidth: 116, textAlign: 'center', fontSize: 14, fontWeight: 600,
+              color: '#0c0c12', border: '0.5px solid rgba(0,0,0,0.12)',
+              borderRadius: 10, padding: '8px 14px', background: 'rgba(255,255,255,0.7)',
+              cursor: 'pointer',
+            }}
+          >
+            {label}
+          </button>
+          {monthOpen && (
+            <CalendarPicker
+              mode="month"
+              date={dayjs(`${period}-01`)}
+              isMobile={false}
+              monthValue={period}
+              maxMonth={CURRENT}
+              onSelect={() => {}}
+              onClose={() => setMonthOpen(false)}
+              onSelectMonth={(m) => { setPeriod(m); setMonthOpen(false) }}
+            />
+          )}"""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3) despesas/page.tsx — liga o gatilho no span do monthLabel (ancoras)
+# ─────────────────────────────────────────────────────────────────────────────
+DP_TARGET = 'src/app/dashboard/financeiro/despesas/page.tsx'
+DP_MARKER = '[fatia3-month-trigger]'
+
+DP_IMPORT_ANCHOR = "import { typography } from '@/shared/theme'\n"
+DP_IMPORT_NEW = ("import { typography } from '@/shared/theme'\n"
+                 "import CalendarPicker from '@/shared/components/CalendarPicker'  // [fatia3-month-trigger]\n")
+
+DP_STATE_ANCHOR = "  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | ''>('')\n"
+DP_STATE_NEW = ("  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | ''>('')\n"
+                "  const [monthOpen, setMonthOpen] = useState(false)\n")
+
+DP_SPAN_ANCHOR = """            <span style={{
+              fontSize:      13,
+              fontWeight:    600,
+              color:         typography.color.primary,
+              padding:       '0 8px',
+              minWidth:      isMobile ? 118 : 148,
+              textAlign:     'center',
+              textTransform: 'capitalize',
+            }}>
+              {monthLabel}
+              {isCurrentMonth && (
+                <span style={{
+                  fontSize:     10,
+                  fontWeight:   600,
+                  color:        '#dc2626',
+                  marginLeft:   6,
+                  background:   'rgba(220,38,38,0.1)',
+                  padding:      '1px 6px',
+                  borderRadius: 10,
+                }}>
+                  atual
+                </span>
+              )}
+            </span>"""
+DP_SPAN_NEW = """            <button
+              onClick={() => setMonthOpen(true)}
+              style={{
+                fontSize:      13,
+                fontWeight:    600,
+                color:         typography.color.primary,
+                padding:       '0 8px',
+                minWidth:      isMobile ? 118 : 148,
+                textAlign:     'center',
+                textTransform: 'capitalize',
+                background:    'transparent',
+                border:        'none',
+                cursor:        'pointer',
+                lineHeight:    'inherit',
+              }}
+            >
+              {monthLabel}
+              {isCurrentMonth && (
+                <span style={{
+                  fontSize:     10,
+                  fontWeight:   600,
+                  color:        '#dc2626',
+                  marginLeft:   6,
+                  background:   'rgba(220,38,38,0.1)',
+                  padding:      '1px 6px',
+                  borderRadius: 10,
+                }}>
+                  atual
+                </span>
+              )}
+            </button>"""
+
+DP_PICKER_ANCHOR = "      {/* ── Modal criar/editar ─────────────────────────────────────────── */}\n"
+DP_PICKER_NEW = ("      {monthOpen && (\n"
+                 "        <CalendarPicker\n"
+                 "          mode=\"month\"\n"
+                 "          date={dayjs(`${currentMonth}-01`)}\n"
+                 "          isMobile={isMobile}\n"
+                 "          monthValue={currentMonth}\n"
+                 "          maxMonth={dayjs().format('YYYY-MM')}\n"
+                 "          onSelect={() => {}}\n"
+                 "          onClose={() => setMonthOpen(false)}\n"
+                 "          onSelectMonth={(m) => { setCurrentMonth(m); setMonthOpen(false) }}\n"
+                 "        />\n"
+                 "      )}\n\n"
+                 "      {/* ── Modal criar/editar ─────────────────────────────────────────── */}\n")
+
+# ─────────────────────────────────────────────────────────────────────────────
+def backup(target, bdir):
+    os.makedirs(bdir, exist_ok=True)
+    bpath = os.path.join(bdir, os.path.basename(target))
+    shutil.copy2(target, bpath)
+    print(f'backup -> {bpath}')
+
+def write_full(target, marker, new, bdir):
+    if not os.path.isfile(target):
+        print(f'False  ausente: {target}'); return
+    cur = open(target, encoding='utf-8').read()
+    if marker in cur:
+        print(f'True   ja aplicado: {target}'); return
+    backup(target, bdir)
+    with open(target, 'w', encoding='utf-8') as f: f.write(new)
+    ok = (open(target, encoding='utf-8').read() == new) and (marker in new)
+    print(f'{ok}   escrito: {target}')
+
+def patch_anchors(target, marker, edits, bdir):
+    if not os.path.isfile(target):
+        print(f'False  ausente: {target}'); return
+    cur = open(target, encoding='utf-8').read()
+    if marker in cur:
+        print(f'True   ja aplicado: {target}'); return
+    # valida todas as ancoras (exatamente 1 match) ANTES de escrever
+    for anchor, _ in edits:
+        n = cur.count(anchor)
+        if n != 1:
+            print(f'False  ancora {n}x (esperado 1) em {target} — abortado, nada escrito')
+            print(f'       >> {anchor.splitlines()[0][:70]}')
+            return
+    backup(target, bdir)
+    for anchor, repl in edits:
+        cur = cur.replace(anchor, repl, 1)
+    with open(target, 'w', encoding='utf-8') as f: f.write(cur)
+    ok = marker in open(target, encoding='utf-8').read()
+    print(f'{ok}   patched: {target}')
+
+def main():
+    ts = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    bdir = os.path.join('.backup', ts)
+
+    write_full(CAL_TARGET, CAL_MARKER, CAL_NEW, bdir)
+
+    patch_anchors(RM_TARGET, RM_MARKER, [
+        (RM_IMPORT_ANCHOR, RM_IMPORT_NEW),
+        (RM_STATE_ANCHOR,  RM_STATE_NEW),
+        (RM_LABEL_ANCHOR,  RM_LABEL_NEW),
+    ], bdir)
+
+    patch_anchors(DP_TARGET, DP_MARKER, [
+        (DP_IMPORT_ANCHOR, DP_IMPORT_NEW),
+        (DP_STATE_ANCHOR,  DP_STATE_NEW),
+        (DP_SPAN_ANCHOR,   DP_SPAN_NEW),
+        (DP_PICKER_ANCHOR, DP_PICKER_NEW),
+    ], bdir)
+
+main()
