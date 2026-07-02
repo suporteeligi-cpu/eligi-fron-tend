@@ -1023,7 +1023,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                   }}
                 >
                   <Plus size={15} strokeWidth={2.5}/>
-                  ADICIONAR MAIS SERVIÇOS
+                  ADICIONAR / EDITAR SERVIÇO
                 </button>
               )}
 
