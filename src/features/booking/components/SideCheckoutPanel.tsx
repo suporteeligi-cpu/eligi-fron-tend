@@ -786,11 +786,12 @@ export default function SideCheckoutPanel({
 
   function handleDateSelect(d: dayjs.Dayjs) {
     setDate(d)
-    // NÃO navegar a grade ao escolher a data em edit NEM no editor de grupo:
-    // mudar selectedDate re-dispara o effect de reset (selectedDate está nas
-    // deps) e zera/repopula `items`, desabilitando o save ou perdendo ajustes.
-    // Só o create "puro" (sem addToGroupRefId) sincroniza a grade ao vivo.
-    if (mode === 'create' && !addToGroupRefId) {
+    // Navega a grade ao vivo em create E no editor de grupo (addToGroupRefId):
+    // a grade pula pro dia novo e o ghost segue em tempo real. É seguro porque o
+    // effect de reset agora é gateado por initedRef (sub-fatia 1) — trocar
+    // selectedDate com o painel aberto NÃO re-inicializa `items`.
+    // EDIT fica de fora: navega só no save (comportamento da Fatia 1).
+    if (mode === 'create') {
       setSelectedDate(d.toDate())
       onDateChange?.(d.toDate())
     }
