@@ -607,6 +607,10 @@ export default function SideCheckoutPanel({
   // (senão zera `items`). Re-arma quando a identidade do conteúdo muda.
   const initedRef    = useRef(false)
   const contentKeyRef = useRef<string>('')
+  // Gate do fetch de detalhe (edit): busca 1x por abertura de um mesmo booking.
+  // Sem isto, re-renders re-disparam o fetch e o setSelectedClient(null) apaga
+  // o cliente recém-escolhido -> booking "permanece avulso" ao salvar.
+  const fetchedBookingRef = useRef<string | null>(null)
   const firstItem = items[0]
   const total     = items.reduce((acc, it) => acc + (it.service?.price ?? 0), 0)
 
@@ -713,8 +717,12 @@ export default function SideCheckoutPanel({
 
   // ── Busca detalhe do booking (modo edit) ──────────────────────────────────
   useEffect(() => {
-    if (!open || mode !== 'edit' || !existingBooking) return
+    if (!open || mode !== 'edit' || !existingBooking) { fetchedBookingRef.current = null; return }
 
+    // Gate: já buscou ESTE booking nesta abertura? Não re-busca — o re-run
+    // dispara setSelectedClient(null) e apaga o cliente escolhido (bug avulso).
+    if (fetchedBookingRef.current === existingBooking.id) return
+    fetchedBookingRef.current = existingBooking.id
     let cancelled = false
 
     const tLoad = setTimeout(async () => {
