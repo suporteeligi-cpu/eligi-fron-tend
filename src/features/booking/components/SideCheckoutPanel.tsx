@@ -490,15 +490,30 @@ function CreateClientSheet({ onCreated, onClose }: {
   const [name,  setName]  = useState('')
   const [phone, setPhone] = useState('')
   const [saving,setSaving]= useState('')
+  const [showNoPhoneWarn, setShowNoPhoneWarn] = useState(false)
+  const phoneRef = useRef<HTMLInputElement>(null)
 
-  async function handleSave() {
+  // Cria de fato (chamado direto quando há telefone, ou pelo "Agora não" do aviso).
+  async function doCreate() {
     if (!name.trim()) return
     try {
+      setShowNoPhoneWarn(false)
       setSaving('saving')
-      const res = await api.post('/clients',{name:name.trim(),phone:phone.trim()})
-      const c   = res.data?.data??res.data
-      onCreated({id:c.id,name:c.name,phone:c.phone??''})
+      const trimmedPhone = phone.trim()
+      const res = await api.post('/clients', {
+        name:  name.trim(),
+        phone: trimmedPhone || undefined,   // vazio -> undefined; back grava null
+      })
+      const c = res.data?.data ?? res.data
+      onCreated({ id: c.id, name: c.name, phone: c.phone ?? '' })
     } catch { setSaving('error') }
+  }
+
+  function handleSave() {
+    if (!name.trim()) return
+    // Sem telefone -> avisa antes (perder notificação / contato / no-show).
+    if (!phone.trim()) { setShowNoPhoneWarn(true); return }
+    doCreate()
   }
 
   const style = isMobile ? {
@@ -517,6 +532,24 @@ function CreateClientSheet({ onCreated, onClose }: {
 
   return createPortal(
     <>
+      {showNoPhoneWarn && (
+        <>
+          <div onClick={()=>setShowNoPhoneWarn(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',backdropFilter:'blur(8px)',zIndex:11001}}/>
+          <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:360,maxWidth:'88vw',background:'#fff',borderRadius:20,boxShadow:'0 32px 72px rgba(0,0,0,0.22)',zIndex:11002,padding:'26px 24px 20px',fontFamily:typography.fontFamily,animation:'cmIn 0.22s cubic-bezier(0.34,1.56,0.64,1)'}}>
+            <h3 style={{margin:'0 0 8px',fontSize:17,fontWeight:800,color:'#0f0f14',letterSpacing:'-0.02em'}}>Adicionar número de telefone</h3>
+            <p style={{margin:'0 0 14px',fontSize:13,color:colors.gray.dimText,lineHeight:1.5}}>Por que obter o telefone do cliente?</p>
+            <ul style={{margin:'0 0 22px',padding:0,listStyle:'none',display:'flex',flexDirection:'column',gap:9}}>
+              {['Para o cliente receber notificações de agendamento','Para você poder contatá-lo no futuro','Para proteger seu faturamento contra não comparecimento'].map((t,i)=>(
+                <li key={i} style={{display:'flex',gap:9,alignItems:'flex-start',fontSize:13,color:colors.gray[700],lineHeight:1.45}}>
+                  <span style={{color:colors.red.DEFAULT,fontWeight:800,flexShrink:0,marginTop:1}}>•</span>{t}
+                </li>
+              ))}
+            </ul>
+            <button onClick={()=>{setShowNoPhoneWarn(false);setTimeout(()=>phoneRef.current?.focus(),60)}} style={{width:'100%',padding:'14px',marginBottom:10,background:colors.red.gradient,color:'#fff',border:'none',borderRadius:13,fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'0.02em',boxShadow:'0 4px 16px rgba(220,38,38,0.28)'}}>Adicionar</button>
+            <button onClick={doCreate} style={{width:'100%',padding:'13px',background:'transparent',border:`1px solid ${colors.gray.borderMd}`,borderRadius:13,fontSize:14,cursor:'pointer',color:colors.gray.dimText,fontWeight:600}}>Agora não</button>
+          </div>
+        </>
+      )}
       <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.25)',backdropFilter:'blur(6px)',zIndex:10999}}/>
       <div style={style}>
         <style>{`@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes cmIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}`}</style>
@@ -533,8 +566,8 @@ function CreateClientSheet({ onCreated, onClose }: {
             <input value={name} onChange={e=>setName(e.target.value)} placeholder="Nome completo" style={{width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${colors.gray.borderMd}`,fontSize:14,outline:'none',fontFamily:typography.fontFamily,boxSizing:'border-box'}}/>
           </div>
           <div>
-            <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6}}>Telefone</div>
-            <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="(11) 99999-9999" style={{width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${colors.gray.borderMd}`,fontSize:14,outline:'none',fontFamily:typography.fontFamily,boxSizing:'border-box'}}/>
+            <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6}}>Telefone <span style={{fontWeight:500,textTransform:'none',letterSpacing:0}}>(opcional)</span></div>
+            <input ref={phoneRef} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="(11) 99999-9999" style={{width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${colors.gray.borderMd}`,fontSize:14,outline:'none',fontFamily:typography.fontFamily,boxSizing:'border-box'}}/>
           </div>
           {saving==='error'&&<div style={{fontSize:12,color:colors.red.DEFAULT}}>Erro ao criar cliente. Tente novamente.</div>}
         </div>
