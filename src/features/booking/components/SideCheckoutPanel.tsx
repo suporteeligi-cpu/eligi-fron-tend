@@ -651,7 +651,7 @@ export default function SideCheckoutPanel({
       // mode === 'edit': aguardando fetch do detalhe (logo abaixo)
       setItems([])
     }
-  }, [open, mode, time, professionalId, professionals, selectedDate, prefillClient, prefillItems])
+  }, [open, mode, time, professionalId, professionals, selectedDate, prefillClient, prefillItems, existingBooking?.id, addToGroupRefId])
 
   // ── Busca serviços ao abrir ───────────────────────────────────────────────
   useEffect(() => {
