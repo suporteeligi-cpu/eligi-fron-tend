@@ -3,7 +3,7 @@
 export interface ClientListItem {
   id:            string
   name:          string
-  phone:         string
+  phone:         string | null | null
   email:         string | null
   cpf:           string | null
   createdAt:     string

@@ -112,7 +112,7 @@ export default function ClientesPage() {
     const rows = clients.filter(c => selected.has(c.id))
     if (rows.length === 0) return
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
-    const csv = '\uFEFF' + ['Nome,Telefone', ...rows.map(c => `${esc(c.name)},${esc(c.phone)}`)].join('\r\n')
+    const csv = '\uFEFF' + ['Nome,Telefone', ...rows.map(c => `${esc(c.name)},${esc(c.phone ?? '')}`)].join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')

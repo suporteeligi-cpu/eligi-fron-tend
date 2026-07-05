@@ -22,8 +22,10 @@ export function getInitials(name: string): string {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 }
 
-/** Formata telefone brasileiro: "11999998888" → "(11) 99999-8888" */
-export function formatPhone(p: string): string {
+/** Formata telefone brasileiro: "11999998888" → "(11) 99999-8888".
+ *  Telefone é opcional no cadastro — null/undefined/'' retornam ''. */
+export function formatPhone(p: string | null | undefined): string {
+  if (!p) return ''
   const d = p.replace(/\D/g, '')
   if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
   if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
@@ -31,8 +33,8 @@ export function formatPhone(p: string): string {
 }
 
 /** Mascara progressivamente enquanto digita (para inputs) */
-export function maskPhone(v: string): string {
-  const d = v.replace(/\D/g, '').slice(0, 11)
+export function maskPhone(v: string | null | undefined): string {
+  const d = (v ?? '').replace(/\D/g, '').slice(0, 11)
   if (d.length <= 2) return `(${d}`
   if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
