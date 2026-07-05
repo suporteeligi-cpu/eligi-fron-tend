@@ -569,6 +569,11 @@ export default function SideCheckoutPanel({
   // Snapshot dos itens EXISTENTES (por bookingId) no momento da abertura,
   // pra detectar o que mudou no save (diff: PATCH só os alterados).
   const snapshotRef = useRef<Record<string, { serviceId: string; startTime: string; profId: string; dateStr: string }>>({})
+  // Gate de inicialização do reset: o corpo do effect de reset só roda uma vez
+  // por ABERTURA. Trocar selectedDate com o painel aberto NÃO re-inicializa
+  // (senão zera `items`). Re-arma quando a identidade do conteúdo muda.
+  const initedRef    = useRef(false)
+  const contentKeyRef = useRef<string>('')
   const firstItem = items[0]
   const total     = items.reduce((acc, it) => acc + (it.service?.price ?? 0), 0)
 
@@ -597,7 +602,17 @@ export default function SideCheckoutPanel({
 
   // ── Reset ao abrir ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!open) return
+    if (!open) { initedRef.current = false; return }
+    // Identidade do conteúdo: edição de outro booking / outro grupo = nova init,
+    // mesmo sem fechar o painel (blindagem — não deve ocorrer hoje).
+    const contentKey = `${mode}|${existingBooking?.id ?? ''}|${addToGroupRefId ?? ''}`
+    if (contentKeyRef.current !== contentKey) {
+      contentKeyRef.current = contentKey
+      initedRef.current = false
+    }
+    // Já inicializado nesta abertura → NÃO re-roda (trocar selectedDate cai aqui).
+    if (initedRef.current) return
+    initedRef.current = true
     setTab('booking')
     setSuccess(false); setError(null); setPendingOverlap(false)
     setInternalNote(''); setClientMessage('')
