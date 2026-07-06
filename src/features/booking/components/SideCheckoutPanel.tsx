@@ -611,6 +611,9 @@ export default function SideCheckoutPanel({
   // Sem isto, re-renders re-disparam o fetch e o setSelectedClient(null) apaga
   // o cliente recém-escolhido -> booking "permanece avulso" ao salvar.
   const fetchedBookingRef = useRef<string | null>(null)
+  // Cliente ORIGINAL do grupo/booking (capturado no fetch). Usado pra detectar
+  // troca de cliente no save do editor de grupo — cliente é do booking, não do item.
+  const originalClientIdRef = useRef<string | null>(null)
   const firstItem = items[0]
   const total     = items.reduce((acc, it) => acc + (it.service?.price ?? 0), 0)
 
@@ -735,6 +738,7 @@ export default function SideCheckoutPanel({
 
         // Popula cliente (se houver)
         if (data.client) {
+          originalClientIdRef.current = data.client.id
           setSelectedClient({
             id:    data.client.id,
             name:  data.client.name,
@@ -742,6 +746,7 @@ export default function SideCheckoutPanel({
           })
         } else if (data.clientName) {
           // Cliente "Avulso" (sem id, só nome no booking)
+          originalClientIdRef.current = null
           setSelectedClient(null)
         }
 
@@ -966,17 +971,23 @@ export default function SideCheckoutPanel({
             if (it.bookingId) {
               // Item EXISTENTE: só faz PATCH se algo mudou (serviço/horário/prof).
               const orig = snap[it.bookingId]
+              const curClientId  = selectedClient?.id ?? null
+              const clienteMudou = originalClientIdRef.current !== curClientId
               const mudou = !orig
                 || orig.serviceId !== it.service.id
                 || orig.startTime !== it.startTime
                 || orig.profId    !== it.profId
                 || orig.dateStr   !== dateStr
+                || clienteMudou                    // troca de cliente do grupo também dispara
               if (mudou) {
                 await api.patch(`/bookings/${it.bookingId}`, {
                   serviceId:      it.service.id,
                   professionalId: it.profId || null,
                   startAt,
                   endAt,
+                  clientId:       curClientId,               // linka/desvincula o cliente
+                  clientName:     selectedClient?.name ?? 'Avulso',
+                  clientPhone:    selectedClient?.phone ?? undefined,
                   allowOverlap,
                 })
               }
