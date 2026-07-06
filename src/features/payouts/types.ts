@@ -32,6 +32,36 @@ export interface PendingProfessional {
   oldestEarnedAt:  string | null
 }
 
+export interface ClosedPeriodInfo {
+  start:        string
+  end:          string
+  scheduledFor: string
+}
+
+export interface PendingProfessionalSplit {
+  professional: {
+    id:        string
+    name:      string
+    avatarUrl: string | null
+  }
+  closedTotal:         number
+  closedServiceTotal:  number
+  closedProductTotal:  number
+  closedCount:         number
+  currentTotal:        number
+  currentServiceTotal: number
+  currentProductTotal: number
+  currentCount:        number
+  total:               number
+  itemsCount:          number
+  oldestEarnedAt:      string | null
+}
+
+export interface PendingSummaryResponse {
+  closedPeriod:  ClosedPeriodInfo | null
+  professionals: PendingProfessionalSplit[]
+}
+
 export interface PayoutListItem {
   id:              string
   businessId:      string
