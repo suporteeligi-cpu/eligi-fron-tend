@@ -18,10 +18,11 @@ interface Props {
   selectedCategory: ExpenseCategory | ''
   onEdit:           (e: Expense) => void
   onDelete:         (e: Expense) => void
+  onMenu:           (e: Expense) => void
 }
 
 export default function ExpenseList({
-  expenses, loading, isMobile, selectedCategory, onEdit, onDelete,
+  expenses, loading, isMobile, selectedCategory, onEdit, onDelete, onMenu,
 }: Props) {
 
   // ── Skeleton ─────────────────────────────────────────────────────────────
@@ -133,6 +134,7 @@ export default function ExpenseList({
           isMobile={isMobile}
           onEdit={onEdit}
           onDelete={onDelete}
+          onMenu={onMenu}
         />
       ))}
     </div>

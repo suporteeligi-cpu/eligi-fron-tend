@@ -1,7 +1,7 @@
 // src/features/expenses/components/ExpenseRow.tsx
 'use client'
 
-import { Pencil, Trash2, RefreshCw, Zap } from 'lucide-react'
+import { Pencil, Trash2, RefreshCw, Zap, MoreHorizontal } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import { typography } from '@/shared/theme'
@@ -19,11 +19,21 @@ interface Props {
   isMobile:  boolean
   onEdit:    (e: Expense) => void
   onDelete:  (e: Expense) => void
+  onMenu:    (e: Expense) => void
 }
 
-export default function ExpenseRow({ expense, isMobile, onEdit, onDelete }: Props) {
+export default function ExpenseRow({ expense, isMobile, onEdit, onDelete, onMenu }: Props) {
   const isAuto = expense.origin !== 'MANUAL'
   const meta   = CATEGORY_META[expense.category]
+
+  // 3 estados de ação:
+  //  MANUAL     -> editar + excluir (lixeira direta)
+  //  RECURRING  -> menu (pular este mês / parar recorrência)
+  //  AUTO_*     -> read-only (sem ação)
+  const actionKind: 'edit' | 'menu' | 'none' =
+    expense.origin === 'MANUAL' ? 'edit'
+    : expense.origin === 'RECURRING' ? 'menu'
+    : 'none'
 
   return (
     <div
@@ -145,8 +155,24 @@ export default function ExpenseRow({ expense, isMobile, onEdit, onDelete }: Prop
         {fmtBRL(expense.amount)}
       </div>
 
-      {/* Ações (só MANUAL) */}
-      {!isAuto ? (
+      {/* Ações — 3 estados (edit / menu / none) */}
+      {actionKind === 'menu' && (
+        <button
+          onClick={() => onMenu(expense)}
+          aria-label="Ações da recorrência"
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            padding: 6, borderRadius: 7, flexShrink: 0,
+            color: typography.color.muted, lineHeight: 0, transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          <MoreHorizontal size={16} />
+        </button>
+      )}
+
+      {actionKind === 'edit' ? (
         <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
           <button
             onClick={() => onEdit(expense)}
@@ -179,9 +205,9 @@ export default function ExpenseRow({ expense, isMobile, onEdit, onDelete }: Prop
             <Trash2 size={13} />
           </button>
         </div>
-      ) : (
+      ) : actionKind === 'none' ? (
         <div style={{ width: 52 }} />
-      )}
+      ) : null}
     </div>
   )
 }

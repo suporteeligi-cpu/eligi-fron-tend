@@ -1,7 +1,7 @@
 // src/features/expenses/types.ts
 
 export type ExpenseCategory = 'OPERACIONAL' | 'MARKETING' | 'COMISSAO' | 'ESTOQUE' | 'TAXA_CARTAO' | 'OUTROS'
-export type ExpenseOrigin   = 'MANUAL' | 'AUTO_COMISSAO' | 'AUTO_ESTOQUE' | 'AUTO_CLUBE' | 'AUTO_TAXA_CARTAO'
+export type ExpenseOrigin   = 'MANUAL' | 'RECURRING' | 'RECURRING_SKIPPED' | 'AUTO_COMISSAO' | 'AUTO_ESTOQUE' | 'AUTO_CLUBE' | 'AUTO_TAXA_CARTAO'
 
 export interface Expense {
   id:             string
@@ -15,6 +15,8 @@ export interface Expense {
   productId:      string | null
   saleId:         string | null
   isRecurring:    boolean
+  recurrenceId:   string | null
+  competence:     string | null
   recurringDay:   number | null
   createdAt:      string
   updatedAt:      string

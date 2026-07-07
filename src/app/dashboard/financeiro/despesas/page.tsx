@@ -13,6 +13,7 @@ import ExpenseKPIs       from '@/features/expenses/components/ExpenseKPIs'
 import ExpenseList       from '@/features/expenses/components/ExpenseList'
 import ExpenseModal      from '@/features/expenses/components/ExpenseModal'
 import ExpenseSettingsSheet from '@/features/expenses/components/ExpenseSettingsSheet'
+import ExpenseActionSheet   from '@/features/expenses/components/ExpenseActionSheet'
 import type {
   Expense,
   ExpenseCategory,
@@ -47,13 +48,16 @@ export default function DespesasPage() {
   // ── Toast ────────────────────────────────────────────────────────────────
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [menuTarget, setMenuTarget] = useState<Expense | null>(null)
+  const [stopTarget, setStopTarget] = useState<Expense | null>(null)
+  const [stopping,   setStopping]   = useState(false)
   function showToast(msg: string) {
     setToastMsg(msg)
     setTimeout(() => setToastMsg(null), 3000)
   }
 
   // ── Dados ────────────────────────────────────────────────────────────────
-  const { expenses, kpis, loading, create, update, remove } = useExpenses({
+  const { expenses, kpis, loading, create, update, remove, skipOccurrence, stopRecurrence } = useExpenses({
     month:    currentMonth,
     category: selectedCategory || undefined,
   })
@@ -77,7 +81,32 @@ export default function DespesasPage() {
     }
   }
 
-  async function handleConfirmDelete() {
+  async function handleSkip(e: Expense) {
+    setMenuTarget(null)
+    try {
+      await skipOccurrence(e.id)
+      showToast('Despesa pulada neste mês')
+    } catch {
+      showToast('Erro ao pular a despesa')
+    }
+  }
+
+  async function handleConfirmStop() {
+    if (!stopTarget?.recurrenceId) { setStopTarget(null); return }
+    setStopping(true)
+    try {
+      await stopRecurrence(stopTarget.recurrenceId)
+      showToast('Recorrência parada')
+      setStopTarget(null)
+    } catch {
+      showToast('Erro ao parar a recorrência')
+    } finally {
+      setStopping(false)
+    }
+  }
+
+    
+async function handleConfirmDelete() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
@@ -269,6 +298,7 @@ export default function DespesasPage() {
           selectedCategory={selectedCategory}
           onEdit={handleEdit}
           onDelete={e => setDeleteTarget(e)}
+          onMenu={e => setMenuTarget(e)}
         />
       </div>
 
@@ -289,6 +319,15 @@ export default function DespesasPage() {
       {settingsOpen && (
         <ExpenseSettingsSheet
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {menuTarget && (
+        <ExpenseActionSheet
+          expense={menuTarget}
+          onSkip={handleSkip}
+          onStop={(e) => { setMenuTarget(null); setStopTarget(e) }}
+          onClose={() => setMenuTarget(null)}
         />
       )}
 
@@ -375,6 +414,61 @@ export default function DespesasPage() {
       )}
 
       {/* ── Toast ─────────────────────────────────────────────────────── */}
+      {stopTarget && (
+        <>
+          <div
+            onClick={() => !stopping && setStopTarget(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9997 }}
+          />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 9998, background: 'var(--card-bg,#fff)', borderRadius: 16,
+            padding: '24px 28px', width: 'min(380px, 90vw)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            animation: 'fadeUp 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+          }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 12,
+              background: 'linear-gradient(135deg,#dc2626,#b91c1c)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: 14, fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'serif',
+            }}>e</div>
+            <div style={{ fontSize: 16, fontWeight: typography.weight.bold, color: typography.color.primary, marginBottom: 6 }}>
+              Parar recorrência?
+            </div>
+            <div style={{ fontSize: 13, color: typography.color.muted, marginBottom: 20 }}>
+              &quot;<strong>{stopTarget.description}</strong>&quot; não será mais lançada a partir do próximo mês.
+              As despesas já lançadas continuam no histórico.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setStopTarget(null)}
+                disabled={stopping}
+                style={{
+                  flex: 1, padding: '10px 0', borderRadius: 10,
+                  border: '1.5px solid var(--border,#e5e7eb)', background: 'transparent',
+                  cursor: 'pointer', fontSize: 14, fontWeight: 600, color: typography.color.muted,
+                }}
+              >
+                Voltar
+              </button>
+              <button
+                onClick={handleConfirmStop}
+                disabled={stopping}
+                style={{
+                  flex: 2, padding: '10px 0', borderRadius: 10, border: 'none',
+                  background: stopping ? '#94a3b8' : 'linear-gradient(135deg,#dc2626,#b91c1c)',
+                  cursor: stopping ? 'not-allowed' : 'pointer',
+                  fontSize: 14, fontWeight: 700, color: '#fff', letterSpacing: '0.04em',
+                }}
+              >
+                {stopping ? 'PARANDO…' : 'PARAR'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {toastMsg && (
         <div style={{
           position:     'fixed',

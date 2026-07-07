@@ -77,5 +77,21 @@ export function useExpenses({ month, category }: UseExpensesOptions) {
     await fetch()
   }, [fetch])
 
-  return { expenses, kpis, loading, error, refetch: fetch, create, update, remove }
+  // Pular ocorrência recorrente: o backend faz soft-delete (RECURRING_SKIPPED)
+  // e a competência ocupada impede o materializador de recriar. No front é
+  // idêntico ao remove — some da lista + reconcilia KPIs via fetch.
+  const skipOccurrence = useCallback(async (id: string) => {
+    await api.delete(`/expenses/${id}`)
+    setExpenses(prev => prev.filter(e => e.id !== id))
+    await fetch()
+  }, [fetch])
+
+  // Parar recorrência: desativa o template. NÃO remove ocorrência já
+  // materializada (Opção C) — só reconcilia pra refletir que não nasce mês novo.
+  const stopRecurrence = useCallback(async (recurrenceId: string) => {
+    await api.patch(`/expenses/recurrences/${recurrenceId}/stop`)
+    await fetch()
+  }, [fetch])
+
+  return { expenses, kpis, loading, error, refetch: fetch, create, update, remove, skipOccurrence, stopRecurrence }
 }
