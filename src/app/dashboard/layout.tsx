@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 
 import AppNavbar from '@/app/components/navigation/AppNavbar'
 import { DASHBOARD_ROLES } from '@/app/components/navigation/navigation.config'
+import { resolveAccessRedirect } from '@/app/components/navigation/routeAccess'
 import Sidebar from '@/app/components/navigation/Sidebar'
 import CommandPalette from '@/app/components/search/CommandPalette'
 import { DashboardProvider } from '@/app/dashboard/DashboardContext'
@@ -42,18 +43,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return
     }
 
-    // BASIC_STAFF: só agenda e comissões próprias
-    const basicStaffAllowed = ['/dashboard/agenda', '/dashboard/financeiro/comissoes', '/dashboard/caixa']
-    if (!loading && user && user.role === 'BASIC_STAFF' &&
-        !basicStaffAllowed.some(r => pathname.startsWith(r))) {
-      router.replace('/dashboard/agenda')
-      return
-    }
-    // Demais funcionários: só /dashboard raiz vai pra /agenda
-    const staffRoles = ['MANAGER', 'RECEPTIONIST', 'STAFF']
-    if (!loading && user && staffRoles.includes(user.role) &&
-        pathname === '/dashboard') {
-      router.replace('/dashboard/agenda')
+    // Autorização por cargo (SSOT em routeAccess) — cobre TODOS os cargos, não só BASIC_STAFF.
+    // Rota proibida → "Acesso negado" (com a origem); /dashboard raiz → agenda (landing).
+    if (!loading && user) {
+      const redirect = resolveAccessRedirect(user.role, pathname)
+      if (redirect) {
+        router.replace(redirect)
+        return
+      }
     }
   }, [user, loading, router, pathname])
 
@@ -62,10 +59,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return () => { document.body.classList.remove('eligi-dashboard') }
   }, [])
 
-  // BASIC_STAFF: retorna null enquanto redireciona (sem flash)
-  const basicStaffAllowed = ['/dashboard/agenda', '/dashboard/financeiro/comissoes', '/dashboard/caixa']
-  const isAgendaOnly = user ? user.role === 'BASIC_STAFF' : false
-  if (loading || (isAgendaOnly && !basicStaffAllowed.some(r => pathname.startsWith(r)))) {
+  // Anti-flash: enquanto redireciona por falta de acesso, não pinta o dashboard.
+  if (loading || (user && resolveAccessRedirect(user.role, pathname) !== null)) {
     return null
   }
 
