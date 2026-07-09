@@ -115,12 +115,6 @@ export default function UsePackageModal({ sale, isMobile, onApplied, onClose }: 
         eligibleItems.push({ item, balance, reason: `Saldo insuficiente: ${remaining} restante(s)` })
         continue
       }
-      // Trava de profissional
-      if (selectedCard.package?.lockProfessionalId && item.professionalId &&
-          selectedCard.package.lockProfessionalId !== item.professionalId) {
-        eligibleItems.push({ item, balance, reason: 'Profissional do item não bate com pacote' })
-        continue
-      }
       eligibleItems.push({ item, balance })
     }
   }

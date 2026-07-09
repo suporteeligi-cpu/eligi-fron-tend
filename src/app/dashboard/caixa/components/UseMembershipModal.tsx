@@ -121,11 +121,6 @@ export default function UseMembershipModal({ sale, isMobile, onApplied, onClose 
         eligibleItems.push({ item, eligible: false, reason: 'Serviço não incluso na assinatura' })
         continue
       }
-      if (plan?.lockProfessionalId && item.professionalId &&
-          plan.lockProfessionalId !== item.professionalId) {
-        eligibleItems.push({ item, eligible: false, reason: 'Profissional do item não bate com a assinatura' })
-        continue
-      }
       eligibleItems.push({ item, eligible: true })
     }
   }
