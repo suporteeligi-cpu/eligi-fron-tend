@@ -9,7 +9,7 @@ import {
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions, radius } from '@/shared/theme'
-import { MembershipPlan, MServiceLite, ProfLite, ValidityType } from '@/features/memberships/types'
+import { MembershipPlan, MServiceLite, ValidityType } from '@/features/memberships/types'
 import { VALIDITY_OPTIONS } from '@/features/memberships/format'
 
 interface Props {
@@ -32,11 +32,9 @@ export default function MembershipEditorModal({ membership_, isMobile, onSaved, 
   const [allServices,      setAllServices]      = useState(membership_?.allServices ?? true)
   const [selectedIds,      setSelectedIds]      = useState<string[]>(() => membership_?.services?.map(s => s.serviceId) ?? [])
   const [active,           setActive]           = useState(membership_?.active ?? true)
-  const [lockProfId,       setLockProfId]       = useState<string | null>(membership_?.lockProfessionalId ?? null)
   const [earnsCommission,  setEarnsCommission]  = useState(membership_?.earnsCommission ?? false)
 
   const [services,      setServices]      = useState<MServiceLite[]>([])
-  const [professionals, setProfessionals] = useState<ProfLite[]>([])
 
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState<string | null>(null)
@@ -59,21 +57,6 @@ export default function MembershipEditorModal({ membership_, isMobile, onSaved, 
         }))
       setServices(list)
     }).catch(() => {})
-
-    // Profissionais: tenta /equipe, cai pra /professionals (nome varia por instalação)
-    ;(async () => {
-      for (const ep of ['/equipe', '/professionals']) {
-        try {
-          const res = await api.get(ep)
-          const d = res.data?.data ?? res.data
-          const raw = Array.isArray(d) ? d : (d.professionals ?? d.team ?? [])
-          const list: ProfLite[] = raw
-            .filter((p: { id?: string; active?: boolean }) => p.id != null && p.active !== false)
-            .map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }))
-          if (!cancelled && list.length) { setProfessionals(list); break }
-        } catch { /* tenta o próximo endpoint */ }
-      }
-    })()
 
     return () => { cancelled = true }
   }, [])
@@ -121,7 +104,6 @@ export default function MembershipEditorModal({ membership_, isMobile, onSaved, 
         allServices,
         serviceIds:         allServices ? undefined : selectedIds,
         active,
-        lockProfessionalId: lockProfId,
         earnsCommission,
       }
       const res = isEditing
@@ -136,7 +118,7 @@ export default function MembershipEditorModal({ membership_, isMobile, onSaved, 
       setSaving(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, priceNum, taxRateStr, validityType, validityValueStr, needsValue, recurring, allServices, selectedIds, active, lockProfId, earnsCommission, isEditing])
+  }, [name, description, priceNum, taxRateStr, validityType, validityValueStr, needsValue, recurring, allServices, selectedIds, active, earnsCommission, isEditing])
 
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 700,
@@ -289,20 +271,6 @@ export default function MembershipEditorModal({ membership_, isMobile, onSaved, 
                 />
               </div>
 
-              <div>
-                <label style={labelStyle}>Profissional vinculado (opcional)</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={lockProfId ?? ''}
-                    onChange={e => setLockProfId(e.target.value || null)}
-                    style={{ ...inputStyle, appearance: 'none', paddingRight: 32, cursor: 'pointer' }}
-                  >
-                    <option value="">Qualquer profissional</option>
-                    {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                  <ChevronDown size={14} color={colors.gray.dimText} style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                </div>
-              </div>
             </div>
 
             {/* COLUNA 2 — cobertura + toggles */}

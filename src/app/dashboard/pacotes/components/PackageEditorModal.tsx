@@ -59,16 +59,12 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
     return () => clearTimeout(t)
   }, [])
 
-  // Fetch services + profissionais
+  // Fetch services
   useEffect(() => {
     let cancelled = false
-    Promise.all([
-      api.get('/services'),
-      api.get('/equipe'),
-    ]).then(([svcRes, profRes]) => {
+    api.get('/services').then(svcRes => {
       if (cancelled) return
       const svcData = svcRes.data?.data ?? svcRes.data
-      const profData = profRes.data?.data ?? profRes.data
 
       const svcList: PackageService[] = (Array.isArray(svcData) ? svcData : svcData.services ?? [])
         .map((s: { id: string; name: string; color?: string | null; duration: number; price?: number | null }) => ({
@@ -77,10 +73,6 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
         }))
       setServices(svcList)
 
-      const profList: ProfLite[] = (Array.isArray(profData) ? profData : [])
-        .filter((p: { id?: string; active?: boolean }) => p.id != null && p.active !== false)
-        .map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }))
-      setProfessionals(profList)
     }).catch(() => {})
     return () => { cancelled = true }
   }, [])
@@ -139,7 +131,6 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
         validityType,
         validityValue: needsValue ? parseInt(validityValueStr, 10) : null,
         active,
-        lockProfessionalId: lockProfId,
         earnsCommission,
         items: items.map(it => ({
           serviceId: it.serviceId,
@@ -161,7 +152,7 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
       setSaving(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, priceNum, taxRateStr, validityType, validityValueStr, needsValue, active, lockProfId, earnsCommission, items, isEditing])
+  }, [name, description, priceNum, taxRateStr, validityType, validityValueStr, needsValue, active, earnsCommission, items, isEditing])
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
@@ -349,27 +340,6 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
                   inputMode="decimal"
                   style={inputStyle}
                 />
-              </div>
-
-              {/* Profissional travado */}
-              <div>
-                <label style={labelStyle}>Profissional vinculado (opcional)</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={lockProfId ?? ''}
-                    onChange={e => setLockProfId(e.target.value || null)}
-                    style={{ ...inputStyle, appearance: 'none', paddingRight: 32, cursor: 'pointer' }}
-                  >
-                    <option value="">Qualquer profissional</option>
-                    {professionals.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} color={colors.gray.dimText} style={{
-                    position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)',
-                    pointerEvents: 'none',
-                  }} />
-                </div>
               </div>
 
               {/* Toggles */}
