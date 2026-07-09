@@ -10,7 +10,7 @@ import {
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions, radius } from '@/shared/theme'
 import {
-  ServicePackage, PackageService, ProfLite, ValidityType,
+  ServicePackage, PackageService, ValidityType,
 } from '@/features/packages/types'
 import { fmtBRL, VALIDITY_OPTIONS, calcItemsSum } from '@/features/packages/utils/format'
 
@@ -38,7 +38,6 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
   const [validityType,    setValidityType]    = useState<ValidityType>(package_?.validityType ?? 'DAYS')
   const [validityValueStr, setValidityValueStr] = useState(package_?.validityValue != null ? String(package_.validityValue) : '30')
   const [active,          setActive]          = useState(package_?.active ?? true)
-  const [lockProfId,      setLockProfId]      = useState<string | null>(package_?.lockProfessionalId ?? null)
   const [earnsCommission, setEarnsCommission] = useState(package_?.earnsCommission ?? false)
   const [items, setItems] = useState<ItemDraft[]>(() =>
     package_?.items.map(i => ({
@@ -49,7 +48,6 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
   )
 
   const [services, setServices] = useState<PackageService[]>([])
-  const [professionals, setProfessionals] = useState<ProfLite[]>([])
   const [showAddService, setShowAddService] = useState(false)
 
   const [saving, setSaving] = useState(false)
