@@ -9,6 +9,7 @@ import { colors, typography, transitions } from '@/shared/theme'
 import { SaleItem, ProfLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
 import ProfPicker from './ProfPicker'
+import { useAuth } from '@/hooks/useAuth'
 
 interface Props {
   item:           SaleItem
@@ -29,6 +30,9 @@ export default function CartItemRow({
   onChangeQty, onChangeProf, onRemove, onRemovePackage, onRemoveMembership,
   suggestion, onUsePackage, disabled,
 }: Props) {
+  const { user } = useAuth()
+  const isCheckoutOnly = user?.role === 'STAFF' || user?.role === 'BASIC_STAFF'
+
   const Icon =
     item.type === 'PRODUCT'    ? Package :
     item.type === 'PACKAGE'    ? Layers  :
@@ -372,6 +376,7 @@ export default function CartItemRow({
             onChange={onChangeProf}
             label="Profissional do item"
             disabled={disabled || isCovered}
+            allowNone={!isCheckoutOnly}
             compact
           />
         </div>

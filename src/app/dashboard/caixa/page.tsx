@@ -193,6 +193,17 @@ export default function CaixaPage() {
     setOpenSales(prev => prev.map(s => s.id === updated.id ? updated : s))
   }
 
+  // Default de profissional p/ item avulso no caixa.
+  // Prioridade: prof herdado do 1º SERVICE do carrinho → senão, se STAFF/BASIC_STAFF,
+  // o próprio funcionário logado → senão null (owner/manager escolhem à mão).
+  // Item vindo de booking de OUTRO prof já chega com professionalId próprio e não passa aqui.
+  function resolveDefaultProfId(): string | null {
+    const inherited = activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId
+    if (inherited) return inherited
+    if (isCheckoutOnly && user?.professionalId) return user.professionalId
+    return null
+  }
+
   async function addProduct(product: CatalogProduct) {
     if (!activeSaleId) {
       try {
@@ -213,7 +224,7 @@ export default function CaixaPage() {
     await addItemToSale(activeSaleId, {
       type: 'PRODUCT',
       productId: product.id,
-      professionalId: activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId ?? null,
+      professionalId: resolveDefaultProfId(),
     })
   }
 
@@ -238,7 +249,7 @@ export default function CaixaPage() {
     await addItemToSale(activeSaleId, {
       type: 'SERVICE',
       serviceId: svc.id,
-      professionalId: activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId ?? null,
+      professionalId: resolveDefaultProfId(),
     })
   }
 
@@ -263,7 +274,7 @@ export default function CaixaPage() {
     await addItemToSale(activeSaleId, {
       type: 'PACKAGE',
       packageId: pkg.id,
-      professionalId: activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId ?? null,
+      professionalId: resolveDefaultProfId(),
     })
   }
 
@@ -288,7 +299,7 @@ export default function CaixaPage() {
     await addItemToSale(activeSaleId, {
       type: 'MEMBERSHIP',
       membershipId: mem.id,
-      professionalId: activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId ?? null,
+      professionalId: resolveDefaultProfId(),
     })
   }
 
