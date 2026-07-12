@@ -57,6 +57,7 @@ export default function AssinaturaPage() {
   const [seatProfs, setSeatProfs] = useState<ProfLite[] | null>(null)
   const [keepId, setKeepId] = useState<string | null>(null)
   const [paidFlag] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pago') === '1')
+  const [invoice, setInvoice] = useState<{ available: boolean; invoiceUrl?: string; dueDate?: string | null } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -72,6 +73,25 @@ export default function AssinaturaPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Busca a fatura do proximo ciclo so quando faz sentido: ACTIVE e faltam <=3 dias.
+  // O back e a autoridade do gate; aqui so evitamos request inutil nos outros dias.
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (data?.access.status !== 'ACTIVE' || !data.currentPeriodEnd) return
+      const days = Math.ceil((new Date(data.currentPeriodEnd).getTime() - Date.now()) / 86_400_000)
+      if (days > 3) return
+      try {
+        const res = await api.get('/billing/next-invoice')
+        if (alive) setInvoice(res.data?.data ?? null)
+      } catch {
+        if (alive) setInvoice(null)
+      }
+    }
+    void run()
+    return () => { alive = false }
+  }, [data])
 
   function openSubscribe() {
     // reusa o overlay de assinatura do BillingGuard
@@ -245,6 +265,17 @@ export default function AssinaturaPage() {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500, background: chip.bg, color: chip.fg, border: `0.5px solid ${chip.border}` }}>{chip.label}</span>
                         ) : null
                       })()}
+                      {data.access.status === 'ACTIVE' && invoice?.available && invoice.invoiceUrl && (
+                        <a
+                          href={invoice.invoiceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12.5, fontWeight: 500, color: '#18181b', background: '#fafafa', border: '0.5px solid #d4d4d8', textDecoration: 'none' }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                          Pagar agora
+                        </a>
+                      )}
                     </span>
                   </div>
                   <Info label="Profissionais ativos" value={`${data.activeCount ?? 0}${data.plan === 'ESTABELECIMENTO' ? ` (3 inclusos${(data.activeCount ?? 0) > 3 ? ` + ${(data.activeCount ?? 0) - 3} extras` : ''})` : ''}`} />
