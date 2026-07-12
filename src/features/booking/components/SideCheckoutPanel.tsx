@@ -386,7 +386,7 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
         const res  = await api.get('/clients',{params:{search:query||undefined,limit:30}})
         const data = res.data?.data??res.data
         setClients(data.clients??[])
-      } catch { setClients([]) }
+      } catch (err) { setClients([]); console.error('[ClientSearch] GET /clients falhou:', err) }
       finally  { setLoading(false) }
     }, 300)
     return () => clearTimeout(t)

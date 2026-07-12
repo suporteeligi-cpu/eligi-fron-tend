@@ -68,7 +68,6 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
   ],
   STAFF: [
     { label: 'Agenda',    path: '/dashboard/agenda',   icon: Calendar,    section: 'principal'  },
-    { label: 'Clientes',  path: '/dashboard/clientes', icon: Users,       section: 'principal'  },
     { label: 'Caixa',     path: '/dashboard/caixa',    icon: ShoppingBag, section: 'financeiro' },
     { label: 'Comissões', path: '/dashboard/financeiro/comissoes', icon: Coins, section: 'financeiro' },
   ],

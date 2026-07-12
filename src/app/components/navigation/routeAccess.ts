@@ -37,7 +37,6 @@ export const ROUTE_ACCESS_BY_ROLE: Record<Role, readonly string[]> = {
   ],
   STAFF: [
     '/dashboard/agenda',
-    '/dashboard/clientes',
     '/dashboard/caixa',
     '/dashboard/financeiro/comissoes',
   ],
