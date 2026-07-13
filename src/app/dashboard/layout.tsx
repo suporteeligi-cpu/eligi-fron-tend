@@ -12,6 +12,7 @@ import Sidebar from '@/app/components/navigation/Sidebar'
 import CommandPalette from '@/app/components/search/CommandPalette'
 import { DashboardProvider } from '@/app/dashboard/DashboardContext'
 import BillingGuard from './components/BillingGuard'
+import AnnouncementModal from './components/AnnouncementModal' // @eligi:announcement-module
 
 const NAVBAR_HEIGHT = 104
 
@@ -110,6 +111,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <BillingGuard>
       <DashboardProvider>
+      <AnnouncementModal />{/* @eligi:announcement-module */}
         <AppNavbar />
         <Sidebar />
 
