@@ -175,6 +175,33 @@ export default function CaixaPage() {
 
   const activeSale = openSales.find(s => s.id === activeSaleId) ?? null
 
+  // @eligi:checkout-prof-list
+  // Lista de profissionais visível no ProfPicker.
+  // Owner/manager: lista completa (de /equipe). Checkout-only (STAFF/BASIC_STAFF):
+  // apenas o próprio funcionário + os donos dos itens já presentes na venda (dedup),
+  // pois o /equipe não é buscado para esses cargos. Sem request extra.
+  const visibleProfessionals = useMemo<ProfLite[]>(() => {
+    if (!isCheckoutOnly) return professionals
+    const map = new Map<string, ProfLite>()
+    if (user?.professionalId) {
+      map.set(user.professionalId, {
+        id: user.professionalId,
+        name: user.name,
+        avatarUrl: user.avatarUrl ?? null,
+      })
+    }
+    for (const it of activeSale?.items ?? []) {
+      if (it.professional) {
+        map.set(it.professional.id, {
+          id: it.professional.id,
+          name: it.professional.name,
+          avatarUrl: it.professional.avatarUrl ?? null,
+        })
+      }
+    }
+    return [...map.values()]
+  }, [isCheckoutOnly, professionals, user, activeSale])
+
   async function createNewSale() {
     try {
       setCreating(true)
@@ -487,7 +514,7 @@ export default function CaixaPage() {
             services={services}            /* ⭐ Serviços */
             packages={packages}            /* ⭐ NOVO */
             memberships={memberships}      /* ⭐ Assinaturas */
-            professionals={professionals}
+            professionals={visibleProfessionals}
             openLoading={openLoading}
             catalogLoading={catalogLoading}
             creating={creating}
