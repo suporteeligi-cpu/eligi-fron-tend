@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Receipt, TrendingUp, Loader2, LayoutGrid, ChevronUp, Lock } from 'lucide-react'
+import { ShoppingCart, Receipt, TrendingUp, Loader2, ChevronUp, Lock } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
@@ -13,7 +13,6 @@ import {
   Sale, CatalogProduct, CatalogService, CatalogPackage, CatalogMembership, ProfLite, SaleItemType,
 } from '@/features/sales/types'
 import { useSalesSummary } from '@/features/sales/hooks/useSalesSummary'
-import { formatBRL } from '@/features/sales/utils/format'
 
 import CatalogPanel       from './components/CatalogPanel'
 import CatalogStrip       from './components/CatalogStrip'
@@ -430,7 +429,8 @@ export default function CaixaPage() {
 
       <div style={{
         /* @eligi:caixa-mobile-height */
-        padding: isMobile ? '0 12px' : 0,
+        /* @eligi:caixa-fullbleed */
+        padding: 0,
         animation: 'pos-fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both',
         fontFamily: typography.fontFamily,
         display: 'flex',
@@ -442,7 +442,7 @@ export default function CaixaPage() {
           minHeight: '100%',
         }),
       }}>
-        <div style={{ marginBottom: isMobile ? 14 : 18 }}>
+        <div style={{ marginBottom: isMobile ? 14 : 18, padding: isMobile ? '0 14px' : 0 }}>
           <h2 style={{
             fontSize: isMobile ? 22 : typography.scale['2xl'],
             fontWeight: 700,
@@ -464,7 +464,7 @@ export default function CaixaPage() {
           padding: 4,
           background: 'rgba(0,0,0,0.05)',
           borderRadius: 12,
-          marginBottom: 18,
+          margin: isMobile ? '0 14px 14px' : '0 0 18px',
           flexShrink: 0,
         }}>
           {TABS.map(t => {
@@ -641,8 +641,6 @@ function OpenTab(props: OpenTabProps) {
     )
   }
 
-  const cartItemCount = props.activeSale?.items.reduce((sum, it) => sum + (it.quantity ?? 1), 0) ?? 0
-  const cartTotal     = props.activeSale?.total ?? 0
 
   if (props.isMobile) {
     // @eligi:caixa-strip — Fatia 2: tira (colapsado) ↔ grade (expandido).
@@ -650,9 +648,8 @@ function OpenTab(props: OpenTabProps) {
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative' }}>
         <div style={{
           background: '#fff',
-          borderRadius: 14,
-          border: `1px solid ${colors.gray.border}`,
-          padding: 12,
+          borderBottom: `1px solid ${colors.gray.border}`,
+          padding: '10px 14px 12px',
           flexShrink: 0, minHeight: 0,
           maxHeight: catalogExpanded ? '58%' : undefined,
           display: 'flex', flexDirection: 'column',
@@ -702,10 +699,7 @@ function OpenTab(props: OpenTabProps) {
         </div>
         <div style={{
           background: '#fff',
-          borderRadius: 14,
-          border: `1px solid ${colors.gray.border}`,
-          padding: 12,
-          marginTop: 10,
+          padding: '10px 14px 0',
           flex: 1, minHeight: 0,
           display: 'flex', flexDirection: 'column',
         }}>
