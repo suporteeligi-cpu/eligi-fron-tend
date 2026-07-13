@@ -471,7 +471,7 @@ export default function CartPanel({
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
           minHeight: 0,
-          paddingBottom: isMobile ? 170 : 0,
+          paddingBottom: 0,
         }}>
           {sale.items.length === 0 ? (
             <div style={{
@@ -594,17 +594,11 @@ export default function CartPanel({
         )}
         </div>{/* @eligi:desconto-no-scroll:end */}
 
-        {/* @eligi:cart-footer-fixed — mobile: rodapé fixo acima da bottom-nav; desktop: display:contents (layout idêntico) */}
+        {/* @eligi:cart-footer-flex — rodapé no fluxo (flexbox); cola no fim da zona do carrinho */}
         <div style={isMobile ? {
-          position: 'fixed',
-          left: 0, right: 0,
-          bottom: 'calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom))',
-          zIndex: 9990,
-          background: 'rgba(255,255,255,0.97)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
+          flexShrink: 0,
           borderTop: `1px solid ${colors.gray.border}`,
-          padding: '10px 14px 12px',
+          paddingTop: 10,
           display: 'flex', flexDirection: 'column', gap: 8,
         } : { display: 'contents' }}>
         {/* Total */}
