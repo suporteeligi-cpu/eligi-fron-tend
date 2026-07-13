@@ -571,7 +571,6 @@ interface OpenTabProps {
 }
 
 function OpenTab(props: OpenTabProps) {
-  const [mobileView, setMobileView] = useState<'catalog' | 'cart'>('catalog')
 
   if (props.openLoading) {
     return (
@@ -632,133 +631,59 @@ function OpenTab(props: OpenTabProps) {
   const cartTotal     = props.activeSale?.total ?? 0
 
   if (props.isMobile) {
+    // @eligi:caixa-mobile-zonas — Fatia 1: uma tela só (fim do toggle catálogo↔carrinho).
+    // Zonas: catálogo (44%) sobre carrinho (flex). Rodapé de total/finalizar é
+    // fixado pelo próprio CartPanel (wrapper adaptativo).
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative' }}>
-        {mobileView === 'catalog' ? (
-          <div
-            key="catalog"
-            style={{
-              display: 'flex', flexDirection: 'column',
-              flex: 1, minHeight: 0,
-              animation: 'pos-slide-in 0.25s ease',
-            }}
-          >
-            <div style={{
-              background: '#fff',
-              borderRadius: 14,
-              border: `1px solid ${colors.gray.border}`,
-              padding: 14,
-              flex: 1, minHeight: 0,
-              display: 'flex', flexDirection: 'column',
-              marginBottom: 12,
-            }}>
-              <CatalogPanel
-                products={props.products}
-                services={props.services}             /* ⭐ Serviços */
-                packages={props.packages}             /* ⭐ NOVO */
-                memberships={props.memberships}       /* ⭐ Assinaturas */
-                loading={props.catalogLoading}
-                isMobile={props.isMobile}
-                onAddProduct={props.onAddProduct}
-                onAddService={props.onAddService}     /* ⭐ Serviços */
-                onAddPackage={props.onAddPackage}     /* ⭐ NOVO */
-                onAddMembership={props.onAddMembership} /* ⭐ Assinaturas */
-              />
-            </div>
+        <div style={{
+          background: '#fff',
+          borderRadius: 14,
+          border: `1px solid ${colors.gray.border}`,
+          padding: 12,
+          flexBasis: '44%', flexShrink: 0, minHeight: 0,
+          display: 'flex', flexDirection: 'column',
+        }}>
+          <CatalogPanel
+            products={props.products}
+            services={props.services}
+            packages={props.packages}
+            memberships={props.memberships}
+            loading={props.catalogLoading}
+            isMobile={props.isMobile}
+            onAddProduct={props.onAddProduct}
+            onAddService={props.onAddService}
+            onAddPackage={props.onAddPackage}
+            onAddMembership={props.onAddMembership}
+          />
+        </div>
 
-            <button
-              onClick={() => setMobileView('cart')}
-              style={{
-                flexShrink: 0,
-                width: '100%',
-                background: cartItemCount > 0 ? colors.red.gradient : 'rgba(0,0,0,0.06)',
-                color: cartItemCount > 0 ? '#fff' : colors.gray.dimText,
-                border: 'none',
-                borderRadius: 14,
-                padding: '15px 18px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                boxShadow: cartItemCount > 0 ? `0 6px 20px ${colors.red.glow}` : 'none',
-                transition: `all ${transitions.spring}`,
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                <ShoppingCart size={18} strokeWidth={2.2} />
-                <span style={{ fontSize: 14, fontWeight: 700 }}>
-                  {cartItemCount > 0
-                    ? `${cartItemCount} ${cartItemCount === 1 ? 'item' : 'itens'} · ${formatBRL(cartTotal)}`
-                    : 'Carrinho vazio'}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700 }}>
-                Ver carrinho
-                <ArrowRight size={16} strokeWidth={2.4} />
-              </div>
-            </button>
-          </div>
-        ) : (
-          <div
-            key="cart"
-            style={{
-              display: 'flex', flexDirection: 'column',
-              flex: 1, minHeight: 0,
-              animation: 'pos-slide-in 0.25s ease',
-            }}
-          >
-            <button
-              onClick={() => setMobileView('catalog')}
-              style={{
-                flexShrink: 0,
-                display: 'flex', alignItems: 'center', gap: 7,
-                background: '#fff',
-                border: `1px solid ${colors.gray.border}`,
-                borderRadius: 12,
-                padding: '12px 16px',
-                marginBottom: 12,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontSize: 13,
-                fontWeight: 700,
-                color: colors.gray[900],
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              <ArrowLeft size={16} strokeWidth={2.4} />
-              Voltar ao catálogo
-            </button>
-
+        <div style={{
+          background: '#fff',
+          borderRadius: 14,
+          border: `1px solid ${colors.gray.border}`,
+          padding: 12,
+          marginTop: 10,
+          flex: 1, minHeight: 0,
+          display: 'flex', flexDirection: 'column',
+        }}>
+          {props.activeSale ? (
+            <CartPanel
+              sale={props.activeSale}
+              professionals={props.professionals}
+              isMobile={props.isMobile}
+              onSaleUpdated={props.onSaleUpdated}
+              onSaleClosed={props.onSaleClosed}
+            />
+          ) : (
             <div style={{
-              background: '#fff',
-              borderRadius: 14,
-              border: `1px solid ${colors.gray.border}`,
-              padding: 14,
-              flex: 1, minHeight: 0,
-              display: 'flex', flexDirection: 'column',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flex: 1, color: colors.gray.dimText, fontSize: 12,
             }}>
-              {props.activeSale ? (
-                <CartPanel
-                  sale={props.activeSale}
-                  professionals={props.professionals}
-                  isMobile={props.isMobile}
-                  onSaleUpdated={props.onSaleUpdated}
-                  onSaleClosed={() => {
-                    props.onSaleClosed()
-                    setMobileView('catalog')
-                  }}
-                />
-              ) : (
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flex: 1, color: colors.gray.dimText, fontSize: 12,
-                }}>
-                  Nenhuma venda ativa
-                </div>
-              )}
+              Nenhuma venda ativa
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     )
   }

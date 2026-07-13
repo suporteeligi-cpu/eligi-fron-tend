@@ -465,11 +465,13 @@ export default function CartPanel({
         )}
 
         {/* Itens */}
+        {/* @eligi:cart-items-pad — folga p/ rodapé fixo mobile */}
         <div style={{
           flex: 1,
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
           minHeight: 0,
+          paddingBottom: isMobile ? 170 : 0,
         }}>
           {sale.items.length === 0 ? (
             <div style={{
@@ -592,6 +594,19 @@ export default function CartPanel({
           </div>
         )}
 
+        {/* @eligi:cart-footer-fixed — mobile: rodapé fixo acima da bottom-nav; desktop: display:contents (layout idêntico) */}
+        <div style={isMobile ? {
+          position: 'fixed',
+          left: 0, right: 0,
+          bottom: 'calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom))',
+          zIndex: 9990,
+          background: 'rgba(255,255,255,0.97)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderTop: `1px solid ${colors.gray.border}`,
+          padding: '10px 14px 12px',
+          display: 'flex', flexDirection: 'column', gap: 8,
+        } : { display: 'contents' }}>
         {/* Total */}
         {sale.items.length > 0 && (
           <div style={{
@@ -715,6 +730,7 @@ export default function CartPanel({
               ? `Confirmar venda · ${formatBRL(sale.total)}`
               : `Confirmar · ${formatBRL(sale.total)}`}
           </button>
+        </div>
         </div>
         <style>{`@keyframes pos-spin { to { transform: rotate(360deg) } }`}</style>
       </div>
