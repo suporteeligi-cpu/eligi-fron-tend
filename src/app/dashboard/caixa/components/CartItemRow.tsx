@@ -10,7 +10,6 @@ import { SaleItem, ProfLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
 import ProfPicker from './ProfPicker'
 import { useAuth } from '@/hooks/useAuth'
-import { useAuth } from '@/hooks/useAuth'
 
 interface Props {
   item:           SaleItem
