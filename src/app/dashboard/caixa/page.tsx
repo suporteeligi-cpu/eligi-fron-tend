@@ -428,12 +428,18 @@ export default function CaixaPage() {
       )}
 
       <div style={{
+        /* @eligi:caixa-mobile-height */
         padding: isMobile ? '0 12px' : 0,
         animation: 'pos-fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both',
         fontFamily: typography.fontFamily,
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '100%',
+        ...(isMobile ? {
+          height: 'calc(100dvh - var(--navbar-h, 104px) - var(--bottom-nav-h, 64px) - env(safe-area-inset-bottom))',
+          overflow: 'hidden',
+        } : {
+          minHeight: '100%',
+        }),
       }}>
         <div style={{ marginBottom: isMobile ? 14 : 18 }}>
           <h2 style={{
