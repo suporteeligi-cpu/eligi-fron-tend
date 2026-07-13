@@ -522,8 +522,7 @@ export default function CartPanel({
 
             </div>
           )}
-        </div>
-
+        {/* @eligi:desconto-no-scroll */}
         {/* Desconto + notas */}
         {sale.items.length > 0 && (
           <div style={{
@@ -593,6 +592,7 @@ export default function CartPanel({
             />
           </div>
         )}
+        </div>{/* @eligi:desconto-no-scroll:end */}
 
         {/* @eligi:cart-footer-fixed — mobile: rodapé fixo acima da bottom-nav; desktop: display:contents (layout idêntico) */}
         <div style={isMobile ? {
