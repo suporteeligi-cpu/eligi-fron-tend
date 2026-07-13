@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Receipt, TrendingUp, Loader2, ArrowLeft, ArrowRight, Lock } from 'lucide-react'
+import { ShoppingCart, Receipt, TrendingUp, Loader2, LayoutGrid, ChevronUp, Lock } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
@@ -16,6 +16,7 @@ import { useSalesSummary } from '@/features/sales/hooks/useSalesSummary'
 import { formatBRL } from '@/features/sales/utils/format'
 
 import CatalogPanel       from './components/CatalogPanel'
+import CatalogStrip       from './components/CatalogStrip'
 import CartPanel          from './components/CartPanel'
 import ConfirmedSalesList from './components/ConfirmedSalesList'
 import SalesSummaryCards  from './components/SalesSummaryCards'
@@ -577,6 +578,13 @@ interface OpenTabProps {
 }
 
 function OpenTab(props: OpenTabProps) {
+  const [catalogExpanded, setCatalogExpanded] = useState(false)
+  // Colapsa a grade DEPOIS de adicionar (aguarda o async pra não perder o item).
+  const addAndCollapse = <T,>(fn: (arg: T) => void | Promise<void>) => async (arg: T) => {
+    await fn(arg)
+    setCatalogExpanded(false)
+  }
+
 
   if (props.openLoading) {
     return (
@@ -637,9 +645,7 @@ function OpenTab(props: OpenTabProps) {
   const cartTotal     = props.activeSale?.total ?? 0
 
   if (props.isMobile) {
-    // @eligi:caixa-mobile-zonas — Fatia 1: uma tela só (fim do toggle catálogo↔carrinho).
-    // Zonas: catálogo (44%) sobre carrinho (flex). Rodapé de total/finalizar é
-    // fixado pelo próprio CartPanel (wrapper adaptativo).
+    // @eligi:caixa-strip — Fatia 2: tira (colapsado) ↔ grade (expandido).
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative' }}>
         <div style={{
@@ -647,23 +653,53 @@ function OpenTab(props: OpenTabProps) {
           borderRadius: 14,
           border: `1px solid ${colors.gray.border}`,
           padding: 12,
-          flexBasis: '44%', flexShrink: 0, minHeight: 0,
+          flexShrink: 0, minHeight: 0,
+          maxHeight: catalogExpanded ? '58%' : undefined,
           display: 'flex', flexDirection: 'column',
         }}>
-          <CatalogPanel
-            products={props.products}
-            services={props.services}
-            packages={props.packages}
-            memberships={props.memberships}
-            loading={props.catalogLoading}
-            isMobile={props.isMobile}
-            onAddProduct={props.onAddProduct}
-            onAddService={props.onAddService}
-            onAddPackage={props.onAddPackage}
-            onAddMembership={props.onAddMembership}
-          />
+          {catalogExpanded ? (
+            <>
+              <button
+                onClick={() => setCatalogExpanded(false)}
+                style={{
+                  flexShrink: 0, alignSelf: 'flex-end',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: colors.gray.dimText, fontSize: 12, fontWeight: 700,
+                  fontFamily: 'inherit', padding: '2px 4px 8px',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                Recolher <ChevronUp size={15} strokeWidth={2.4} />
+              </button>
+              <CatalogPanel
+                products={props.products}
+                services={props.services}
+                packages={props.packages}
+                memberships={props.memberships}
+                loading={props.catalogLoading}
+                isMobile={props.isMobile}
+                onAddProduct={addAndCollapse(props.onAddProduct)}
+                onAddService={addAndCollapse(props.onAddService)}
+                onAddPackage={addAndCollapse(props.onAddPackage)}
+                onAddMembership={addAndCollapse(props.onAddMembership)}
+              />
+            </>
+          ) : (
+            <CatalogStrip
+              products={props.products}
+              services={props.services}
+              packages={props.packages}
+              memberships={props.memberships}
+              loading={props.catalogLoading}
+              onExpand={() => setCatalogExpanded(true)}
+              onAddProduct={props.onAddProduct}
+              onAddService={props.onAddService}
+              onAddPackage={props.onAddPackage}
+              onAddMembership={props.onAddMembership}
+            />
+          )}
         </div>
-
         <div style={{
           background: '#fff',
           borderRadius: 14,
