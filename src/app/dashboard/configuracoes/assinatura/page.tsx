@@ -37,6 +37,12 @@ function renewChip(iso: string): { label: string; bg: string; fg: string; border
   if (days <= 7) return { label: `em ${days} dias`, bg: 'rgba(234,179,8,0.08)', fg: '#a16207', border: 'rgba(234,179,8,0.25)' }
   return { label: `renova em ${days} dias`, bg: 'rgba(16,185,129,0.08)', fg: '#047857', border: 'rgba(16,185,129,0.25)' }
 }
+/** Dentro da janela de adiantamento (<=3 dias pro vencimento)? Recomputado no render. */
+function inRenewWindow(iso: string): boolean {
+  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
+  return days >= 0 && days <= 3
+}
+
 type ProfLite = { id: string; name: string; role?: string | null; avatarUrl?: string | null }
 
 const fmtBRL = (v: number) =>
@@ -58,6 +64,7 @@ export default function AssinaturaPage() {
   const [keepId, setKeepId] = useState<string | null>(null)
   const [paidFlag] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pago') === '1')
   const [invoice, setInvoice] = useState<{ available: boolean; invoiceUrl?: string; dueDate?: string | null } | null>(null)
+  const [renewed, setRenewed] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -73,6 +80,35 @@ export default function AssinaturaPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Reconhecimento de pagamento: ao voltar pra aba (ex: pagou no Asaas),
+  // refaz o fetch em silencio. Se o ciclo avancou, mostra o banner e limpa a fatura.
+  const currentEnd = data?.currentPeriodEnd ?? null
+  useEffect(() => {
+    function onFocus() {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      void (async () => {
+        try {
+          const res = await api.get('/billing/subscription')
+          const fresh = res.data?.data ?? null
+          if (
+            fresh?.currentPeriodEnd && currentEnd &&
+            new Date(fresh.currentPeriodEnd).getTime() > new Date(currentEnd).getTime()
+          ) {
+            setRenewed(true)
+            setInvoice(null)
+          }
+          if (fresh) setData(fresh)
+        } catch { /* silencioso: mantem o estado atual */ }
+      })()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [currentEnd])
 
   // Busca a fatura do proximo ciclo so quando faz sentido: ACTIVE e faltam <=3 dias.
   // O back e a autoridade do gate; aqui so evitamos request inutil nos outros dias.
@@ -199,6 +235,19 @@ export default function AssinaturaPage() {
             Pagamento recebido. Estamos confirmando com o provedor de pagamento - pode levar alguns instantes. Atualize a pagina em breve.
           </div>
         )}
+        {renewed && !loading && (
+          <div style={{
+            padding: '12px 16px', borderRadius: 12, fontSize: 13, marginBottom: 16,
+            background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', color: '#047857',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+            <span>
+              Pagamento confirmado.
+              {data?.currentPeriodEnd ? ` Proximo vencimento: ${fmtDate(data.currentPeriodEnd)}.` : ''}
+            </span>
+          </div>
+        )}
         {loading && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 40, color: 'rgba(0,0,0,0.4)' }}>
             <Loader2 size={18} style={{ animation: 'a-spin 0.8s linear infinite' }} /> Carregando...
@@ -265,7 +314,7 @@ export default function AssinaturaPage() {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500, background: chip.bg, color: chip.fg, border: `0.5px solid ${chip.border}` }}>{chip.label}</span>
                         ) : null
                       })()}
-                      {data.access.status === 'ACTIVE' && invoice?.available && invoice.invoiceUrl && (
+                      {data.access.status === 'ACTIVE' && invoice?.available && invoice.invoiceUrl && data.currentPeriodEnd && inRenewWindow(data.currentPeriodEnd) && (
                         <a
                           href={invoice.invoiceUrl}
                           target="_blank"
