@@ -73,6 +73,82 @@ interface BookingDetail {
   groupItems?: GroupItem[]
   groupTotal?: number
   extraServices?: { id: string; name: string; price: number; professional?: { id: string; name: string } | null }[]
+  productIntents?: ProductIntent[]
+}
+
+interface ProductIntent {
+  id:        string
+  productId: string
+  name:      string
+  unitPrice: number
+  quantity:  number
+  total:     number
+  converted: boolean
+}
+
+/* Produtos escolhidos pelo cliente na vitrine do link publico.
+   Vive FORA do IIFE de servicos: vale em modo lista e em modo single.
+   Azul = veio do link (mesma cor do foguete); ambar continua sendo
+   "entrou no caixa" no bloco de servicos avulsos. */
+function ProductIntentsCard({ items }: { items: ProductIntent[] }) {
+  if (items.length === 0) return null
+
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 18,
+      overflow: 'hidden',
+      boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+      border: '1px solid rgba(0,0,0,0.06)',
+    }}>
+      <div style={{
+        padding: '14px 18px 10px',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        <span style={{
+          fontSize: 11, fontWeight: 700,
+          color: colors.gray.dimText,
+          textTransform: 'uppercase',
+          letterSpacing: '.07em',
+        }}>Produtos</span>
+        <span style={{
+          fontSize: 9, fontWeight: 700,
+          color: '#1d4ed8',
+          background: 'rgba(37,99,235,0.10)',
+          border: '1px solid rgba(37,99,235,0.22)',
+          padding: '1px 6px', borderRadius: 5,
+          letterSpacing: '.04em', textTransform: 'uppercase',
+        }}>do link online</span>
+      </div>
+
+      {items.map((p) => (
+        <div key={p.id} style={{
+          padding: '12px 18px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+          borderTop: '1px solid rgba(0,0,0,0.06)',
+        }}>
+          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              fontSize: 12, fontWeight: 800,
+              color: colors.gray.dimText,
+              fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+            }}>{p.quantity}x</span>
+            <span style={{
+              fontSize: 15, fontWeight: 700, color: '#0f0f14',
+              letterSpacing: '-0.01em',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{p.name}</span>
+          </div>
+          <span style={{
+            fontSize: 14, fontWeight: 800, color: '#0f0f14',
+            fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+          }}>
+            R$ {p.total.toFixed(2).replace('.',',')}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 interface GroupItem {
@@ -411,8 +487,10 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
 
   const isGroup    = !!(detail?.groupItems && detail.groupItems.length > 1)
   const extras     = detail?.extraServices ?? []
+  const products     = detail?.productIntents ?? []
+  const productsTotal = products.reduce((s, p) => s + p.total, 0)
   const price     = detail?.service.price ?? 0
-  const displayTotal = detail?.sale ? detail.sale.total : (isGroup ? (detail?.groupTotal ?? 0) : price)
+  const displayTotal = detail?.sale ? detail.sale.total : ((isGroup ? (detail?.groupTotal ?? 0) : price) + productsTotal)
   const profName  = detail?.professional?.name
   const dateLabel = dayjs(detail?.startAt ?? `${dateStr}T${bookingStart}:00`)
     .tz('America/Sao_Paulo').format('ddd, DD [de] MMM [de] YYYY').replace(/^\w/, c => c.toUpperCase())
@@ -992,8 +1070,10 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                 </button>
               )}
 
+              <ProductIntentsCard items={products} />
+
               {/* Card total + status de venda */}
-              {(price > 0 || isGroup || !!detail?.sale) && (
+              {(price > 0 || isGroup || !!detail?.sale || products.length > 0) && (
                 <div
                   onClick={isCompleted && detail?.sale?.confirmedAt ? openReceipt : undefined}
                   style={{
