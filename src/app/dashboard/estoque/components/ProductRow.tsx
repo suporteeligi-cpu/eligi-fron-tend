@@ -127,6 +127,19 @@ export default function ProductRow({ product, isMobile, isLast, onClick, onQuick
                 }}>INATIVO</span>
               </>
             )}
+            {product.sellOnline && (
+              <>
+                <span>·</span>
+                <span style={{
+                  fontSize: 9, fontWeight: 700,
+                  color: colors.red.DEFAULT,
+                  background: 'rgba(220,38,38,0.08)',
+                  border: `1px solid ${colors.red.border}`,
+                  borderRadius: 4, padding: '1px 5px',
+                  letterSpacing: '.04em',
+                }}>ONLINE</span>
+              </>
+            )}
           </div>
         </div>
 

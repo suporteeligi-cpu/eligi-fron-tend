@@ -49,6 +49,7 @@ export default function ProductModal({
   const [sku,         setSku]         = useState(product?.sku     ?? '')
   const [barcode,     setBarcode]     = useState(product?.barcode ?? '')
   const [active,      setActive]      = useState(product?.active ?? true)
+  const [sellOnline,  setSellOnline]  = useState(product?.sellOnline ?? false)
 
   // Estoque
   const [trackStock,    setTrackStock]    = useState(product?.trackStock ?? false)
@@ -124,6 +125,7 @@ export default function ProductModal({
       sku:          sku.trim()         || null,
       barcode:      barcode.trim()     || null,
       trackStock,
+      sellOnline,
       ...(stockValue       !== undefined ? { stock:      stockValue }      : {}),
       ...(stockAlertValue  !== undefined ? { stockAlert: stockAlertValue } : {}),
       ...(isEditing ? { active } : {}),
@@ -511,6 +513,48 @@ export default function ProductModal({
                   </div>
                 </button>
               )}
+
+              <button
+                onClick={() => setSellOnline(!sellOnline)}
+                type="button"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px',
+                  background: 'transparent',
+                  border: `1px solid ${colors.gray.border}`,
+                  borderRadius: 9,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontFamily: 'inherit',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <div style={{
+                  width: 40, height: 22, borderRadius: 11,
+                  background: sellOnline ? colors.red.DEFAULT : colors.gray.borderMd,
+                  position: 'relative',
+                  transition: `background ${transitions.fast}`,
+                  flexShrink: 0,
+                }}>
+                  <div style={{
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: '#fff',
+                    position: 'absolute',
+                    top: 2,
+                    left: sellOnline ? 'calc(100% - 20px)' : 2,
+                    transition: `left ${transitions.fast}`,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                  }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: colors.gray[900] }}>
+                    Vender no link online
+                  </div>
+                  <div style={{ fontSize: 11, color: colors.gray.dimText, marginTop: 1 }}>
+                    Aparece na vitrine do agendamento online
+                  </div>
+                </div>
+              </button>
 
               {error && (
                 <div style={{

@@ -1,6 +1,7 @@
 // src/features/products/types.ts
 
 export interface Product {
+  sellOnline?: boolean
   id:          string
   name:        string
   description?: string | null
