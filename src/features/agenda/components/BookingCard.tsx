@@ -90,6 +90,7 @@ function BookingCard({ booking, totalHeight }: Props) {
         isPaid={booking.isPaid}
         fromOnline={booking.fromOnline}
         professionalPreference={booking.professionalPreference}
+        hasProducts={booking.hasProducts}
         hasClub={booking.hasClub}
         isNoShow={isNoShow}
         hidden={sealsHidden}

@@ -14,12 +14,13 @@
 // legivel) abaixo disso. Os demais selos seguem EXATAMENTE o comportamento
 // anterior - nada neles mudou.
 import { useId } from 'react'
-import { Rocket, Heart, EyeOff } from 'lucide-react'
+import { Rocket, Heart, EyeOff, ShoppingBag } from 'lucide-react'
 
 interface Props {
   isPaid?:                 boolean
   fromOnline?:             boolean
   professionalPreference?: boolean
+  hasProducts?:            boolean  // levara produto escolhido no link
   isNoShow?:               boolean
   hidden?:                 boolean
   cardHeight?:             number   // altura do card em px - selos escalam proporcionalmente
@@ -93,7 +94,7 @@ function GlobeMark({ badge }: { badge: number }) {
 }
 
 export default function BookingSeals({
-  isPaid, fromOnline, professionalPreference, isNoShow, hidden, cardHeight, hasClub,
+  isPaid, fromOnline, professionalPreference, hasProducts, isNoShow, hidden, cardHeight, hasClub,
 }: Props) {
   const items: { size: number; node: React.ReactNode }[] = []
 
@@ -117,6 +118,7 @@ export default function BookingSeals({
       </Badge> })
     if (fromOnline)             items.push({ size, node: <Badge bg="#2563eb" size={size}><Rocket size={iconSz} color="#fff" strokeWidth={2.4} /></Badge> })
     if (professionalPreference) items.push({ size, node: <Badge bg="#e11d48" size={size}><Heart  size={iconSz} color="#fff" fill="#fff" strokeWidth={2} /></Badge> })
+    if (hasProducts)            items.push({ size, node: <Badge bg="#f59e0b" size={size}><ShoppingBag size={iconSz} color="#fff" strokeWidth={2.4} /></Badge> })
     if (isNoShow)               items.push({ size, node: <Badge bg="#475569" size={size}><EyeOff size={iconSz} color="#fff" strokeWidth={2.4} /></Badge> })
   }
 

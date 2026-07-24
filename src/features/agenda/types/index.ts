@@ -21,6 +21,7 @@ export type AgendaBooking = {
   isPaid?:        boolean  // tem venda CONFIRMED ligada (checkout completo)
   fromOnline?:             boolean  // veio do link público (selo 🚀)
   professionalPreference?: boolean  // cliente escolheu o profissional
+  hasProducts?:            boolean  // escolheu produto na vitrine do link
   hasClub?:                boolean  // cliente tem EligiClub ativo (selo globo) (selo ❤️)
 }
 

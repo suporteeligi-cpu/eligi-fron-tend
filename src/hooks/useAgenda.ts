@@ -20,6 +20,7 @@ interface ApiBooking {
   end:       string   // "HH:mm"
   status?:   string
   isPaid?:   boolean
+  hasProducts?:            boolean   // escolheu produto na vitrine do link
   fromOnline?:             boolean   // ← veio do link público (🚀)
   professionalPreference?: boolean   // ← cliente escolheu o profissional (❤️)
   hasClub?:                boolean   // ← cliente tem EligiClub ativo (globo)
@@ -66,6 +67,7 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
     status,
     isPaid:                 b.isPaid ?? false,
     fromOnline:             b.fromOnline ?? false,
+    hasProducts:            b.hasProducts ?? false,
     professionalPreference: b.professionalPreference ?? false,
     hasClub:                b.hasClub ?? false,
   }
