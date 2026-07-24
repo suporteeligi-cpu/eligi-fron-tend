@@ -80,6 +80,13 @@ export interface MarketingData {
   serieOnline: { mes: string; total: number | null }[]
   origem: { online: number; manual: number }
   topClientes: { nome: string; reservas: number; receita: number }[]
+  vitrine: {
+    escolhidos: number
+    convertidos: number
+    taxaConversao: number
+    receita: number
+    topProdutos: { nome: string; escolhidos: number; convertidos: number; receita: number }[]
+  }
 }
 
 

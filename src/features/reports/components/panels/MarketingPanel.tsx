@@ -42,6 +42,90 @@ function ini(s: string) {
   return s.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
 }
 
+function VitrineCard({ v }: {
+  v: {
+    escolhidos: number
+    convertidos: number
+    taxaConversao: number
+    receita: number
+    topProdutos: { nome: string; escolhidos: number; convertidos: number; receita: number }[]
+  }
+}) {
+  const cor = v.taxaConversao >= 60 ? '#0f6e56' : v.taxaConversao >= 30 ? '#b45309' : '#a32d2d'
+
+  return (
+    <div style={{ ...GLASS_CARD, padding: 18 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#0c0c12', marginBottom: 4 }}>
+        Vitrine de produtos
+      </div>
+      <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', marginBottom: 14 }}>
+        Escolhidos no link e efetivamente levados no balcão
+      </div>
+
+      {v.escolhidos === 0 ? (
+        <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.4)', padding: '8px 0' }}>
+          Nenhum produto escolhido pelo link neste período.
+        </div>
+      ) : (
+        <>
+          <div style={{
+            display: 'flex', alignItems: 'flex-end', gap: 22,
+            flexWrap: 'wrap', marginBottom: 14,
+          }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.5)', marginBottom: 4 }}>
+                Taxa de conversão
+              </div>
+              <div style={{ fontSize: 34, fontWeight: 600, color: cor, lineHeight: 1 }}>
+                {v.taxaConversao}%
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 20, paddingBottom: 4 }}>
+              <div>
+                <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.5)' }}>Escolhidos</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: '#0c0c12' }}>{v.escolhidos}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.5)' }}>Levados</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: '#0c0c12' }}>{v.convertidos}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.5)' }}>Receita</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: '#0c0c12' }}>{brl(v.receita)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden',
+            background: 'rgba(0,0,0,0.06)', marginBottom: 14,
+          }}>
+            <div style={{ width: `${v.taxaConversao}%`, background: cor }} />
+          </div>
+
+          {v.topProdutos.map((p, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0',
+                fontSize: 14, borderTop: '0.5px solid rgba(0,0,0,0.06)',
+              }}
+            >
+              <span style={{ flex: 1, color: '#0c0c12' }}>{p.nome}</span>
+              <span style={{ color: 'rgba(0,0,0,0.5)', width: 120, textAlign: 'right' }}>
+                {p.convertidos}/{p.escolhidos} levados
+              </span>
+              <span style={{ color: '#0c0c12', width: 100, textAlign: 'right', fontWeight: 500 }}>
+                {brl(p.receita)}
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function MarketingPanel({ period }: { period: string }) {
   const { data, loading } = useMarketing(period)
 
@@ -49,7 +133,7 @@ export default function MarketingPanel({ period }: { period: string }) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'rgba(0,0,0,0.4)' }}>Carregando…</div>
   }
 
-  const { kpis, serieOnline, origem, topClientes } = data
+  const { kpis, serieOnline, origem, topClientes, vitrine } = data
   const totalOrigem = origem.online + origem.manual
   const onlinePctOrigem = totalOrigem > 0 ? Math.round((origem.online / totalOrigem) * 100) : 0
   const lastIdx = serieOnline.reduce((acc, d, i) => (d.total != null ? i : acc), -1)
@@ -112,6 +196,9 @@ export default function MarketingPanel({ period }: { period: string }) {
           </span>
         </div>
       </div>
+
+      {/* vitrine de produtos (link público) */}
+      <VitrineCard v={vitrine} />
 
       {/* top clientes do link */}
       <div style={{ ...GLASS_CARD, padding: 18 }}>
