@@ -102,7 +102,9 @@ export interface ClientesData {
   kpis: { ativos: number; novos: number; recorrentes: number; ticketMedio: number }
   serie: { mes: string; novos: number | null; recorrentes: number | null }[]
   receitaPorTipo: { novos: number; recorrentes: number }
-  topClientes: { nome: string; reservas: number; receita: number }[]
+  /** receita de vendas sem cliente vinculado (balcao) — fora dos KPIs de cliente */
+  receitaAvulsa: number
+  topClientes: { nome: string; reservas: number; receita: number; avulso?: boolean }[]
 }
 
 
