@@ -1,86 +1,71 @@
 // src/features/products/utils/imageUpload.ts
+// @eligi:image-upload-facade-v1
 //
-// Converte File de imagem em base64. Aplica resize (canvas) pra reduzir tamanho:
-// imagens >800px no maior lado são redimensionadas pra 800px máximo.
-// Qualidade JPEG: 0.85.
+// Fachada sobre `@/shared/utils/imageCompress`.
 //
-// Isso evita explosão de tamanho do banco com base64 de fotos grandes.
+// Este arquivo tinha a propria implementacao de resize em canvas. Existiam
+// TRES no repo (aqui, no ImageCropper e nenhuma no AvatarPicker — que por isso
+// gravava o arquivo cru). A logica agora e' unica; este modulo so traduz
+// contrato.
+//
+// A assinatura publica (`readImageAsBase64`, `UploadResult`, `UploadError`)
+// permanece IDENTICA de proposito: nenhum call-site precisa mudar.
+//
+// Diferencas de comportamento, todas favoraveis:
+//   - saida em WebP (~30-40% menor que o JPEG anterior no mesmo tamanho);
+//   - 800px continua sendo o maior lado — dimensao inalterada;
+//   - downscale em etapas (menos serrilhado);
+//   - orientacao EXIF respeitada; metadados descartados;
+//   - `approxBytes` vira exato (blob.size) em vez de estimado pelo tamanho da
+//     string, que dependia do prefixo 'data:image/jpeg;base64,' hardcoded.
 
-const MAX_DIMENSION  = 800
-const JPEG_QUALITY   = 0.85
-const MAX_FILE_BYTES = 5 * 1024 * 1024   // 5MB de input
+import {
+  compressImage,
+  ImageCompressError,
+  imageCompressMessage,
+} from '@/shared/utils/imageCompress'
 
 export type UploadError =
-  | { kind: 'too_large';   message: string }
+  | { kind: 'too_large';    message: string }
   | { kind: 'invalid_type'; message: string }
   | { kind: 'read_error';   message: string }
 
 export interface UploadResult {
-  base64:        string  // "data:image/jpeg;base64,..."
-  approxBytes:   number
+  base64:      string  // "data:image/webp;base64,..."
+  approxBytes: number
 }
 
-export async function readImageAsBase64(file: File): Promise<UploadResult> {
-  if (!file.type.startsWith('image/')) {
-    throw { kind: 'invalid_type', message: 'Selecione uma imagem (JPG, PNG ou WEBP)' } as UploadError
-  }
-  if (file.size > MAX_FILE_BYTES) {
-    throw {
-      kind: 'too_large',
-      message: `Imagem muito grande. Máximo ${MAX_FILE_BYTES / 1024 / 1024}MB`,
-    } as UploadError
-  }
+/**
+ * Traduz o erro tipado do compressor para o formato que os call-sites ja
+ * esperam.
+ *
+ * Nota de divida: o contrato original lanca OBJETO LITERAL, nao `Error`. Isso
+ * quebra `instanceof` e nao gera stack trace. Preservado aqui de proposito —
+ * mudar o formato exigiria tocar todos os consumidores, o que e' patch
+ * separado.
+ */
+function toUploadError(error: unknown): UploadError {
+  const message = imageCompressMessage(error)
 
-  // Lê como dataURL pra ter access ao bitmap
-  const dataUrl = await fileToDataUrl(file)
-  const img = await loadImage(dataUrl)
-
-  // Calcula novas dimensões mantendo proporção
-  let { width, height } = img
-  if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-    if (width > height) {
-      height = Math.round(height * (MAX_DIMENSION / width))
-      width = MAX_DIMENSION
-    } else {
-      width = Math.round(width * (MAX_DIMENSION / height))
-      height = MAX_DIMENSION
+  if (error instanceof ImageCompressError) {
+    switch (error.code) {
+      case 'UNSUPPORTED_TYPE':
+        return { kind: 'invalid_type', message }
+      case 'FILE_TOO_LARGE':
+        return { kind: 'too_large', message }
+      default:
+        return { kind: 'read_error', message }
     }
   }
 
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const ctx = canvas.getContext('2d')
-  if (!ctx) {
-    throw { kind: 'read_error', message: 'Erro ao processar imagem' } as UploadError
+  return { kind: 'read_error', message }
+}
+
+export async function readImageAsBase64(file: File): Promise<UploadResult> {
+  try {
+    const result = await compressImage(file, 'product')
+    return { base64: result.dataUrl, approxBytes: result.bytes }
+  } catch (error) {
+    throw toUploadError(error)
   }
-
-  // Fundo branco (pra PNG transparent virar branco no JPEG)
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, width, height)
-  ctx.drawImage(img, 0, 0, width, height)
-
-  // Sempre exporta JPEG pra economizar tamanho
-  const base64 = canvas.toDataURL('image/jpeg', JPEG_QUALITY)
-  const approxBytes = Math.ceil((base64.length - 'data:image/jpeg;base64,'.length) * 3 / 4)
-
-  return { base64, approxBytes }
-}
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject({ kind: 'read_error', message: 'Erro ao ler imagem' } as UploadError)
-    reader.readAsDataURL(file)
-  })
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve(img)
-    img.onerror = () => reject({ kind: 'read_error', message: 'Imagem corrompida' } as UploadError)
-    img.src = src
-  })
 }
