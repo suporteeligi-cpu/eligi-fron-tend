@@ -5,7 +5,6 @@ import { useState, useRef } from 'react'
 import { X, User } from 'lucide-react'
 import { colors, transitions } from '@/shared/theme'
 import { getInitials } from '@/features/professionals/utils/format'
-import { compressImage, imageCompressMessage, MAX_INPUT_MB } from '@/shared/utils/imageCompress'
 
 interface Props {
   name:     string
@@ -24,7 +23,7 @@ const AVATAR_COLORS = [
   { bg: 'linear-gradient(145deg,#64748b,#475569)', label: 'Cinza' },
 ]
 
-// @eligi:avatar-limit-delegated — teto de entrada vive em imageCompress.ts
+const MAX_FILE_MB = 2
 
 export default function AvatarPicker({ name, current, onChange }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -32,30 +31,28 @@ export default function AvatarPicker({ name, current, onChange }: Props) {
   const [loading, setLoading] = useState(false)
   const initials = getInitials(name || '?')
 
-  // @eligi:avatar-compress-v1
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const input = e.target
-    const file = input.files?.[0]
-
-    // Limpa o input ANTES de sair: sem isso, escolher a mesma foto depois de
-    // remover o avatar nao dispara onChange (o browser considera "sem
-    // mudanca"). O File ja esta capturado em `file`.
-    input.value = ''
-
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
     if (!file) return
 
+    if (file.size > MAX_FILE_MB * 1024 * 1024) {
+      alert(`Imagem muito grande. Máximo ${MAX_FILE_MB}MB.`)
+      return
+    }
+
     setLoading(true)
-    try {
-      // Preset 'avatar' = 256px WebP. O circulo renderiza 80px; guardar mais
-      // que isso e' pagar banco e banda por pixel que a tela nunca desenha.
-      const { dataUrl } = await compressImage(file, 'avatar')
-      setPreview(dataUrl)
-      onChange(dataUrl)
-    } catch (err) {
-      alert(imageCompressMessage(err))
-    } finally {
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const b64 = ev.target?.result as string
+      setPreview(b64)
+      onChange(b64)
       setLoading(false)
     }
+    reader.onerror = () => {
+      alert('Erro ao ler a imagem')
+      setLoading(false)
+    }
+    reader.readAsDataURL(file)
   }
 
   function handleColor(bg: string) {
@@ -159,7 +156,7 @@ export default function AvatarPicker({ name, current, onChange }: Props) {
           Enviar foto
         </button>
         <div style={{ fontSize: 11, color: colors.gray.dimText, textAlign: 'center', marginTop: 5 }}>
-          JPG, PNG ou WEBP · máx {MAX_INPUT_MB}MB
+          JPG, PNG ou WEBP · máx {MAX_FILE_MB}MB
         </div>
       </div>
 
