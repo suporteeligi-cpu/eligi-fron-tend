@@ -1,215 +1,422 @@
-'use client'
+"use client"
 // src/app/dashboard/configuracoes/eligiclub/page.tsx
+//
+// ATIVAÇÃO DA COBRANÇA DO CLUBE (subconta Asaas White Label).
+// Substitui o fluxo antigo de colar API key manual: aqui o Eligi CRIA a conta
+// de pagamentos do lojista via API — ele nunca sai do dashboard.
+//
+// 4 estados: (1) nao conectado -> formulario · (2) em analise -> enviar documentos
+//            (3) aprovado -> cobrando · (4) isento -> banner de modo teste
+//
+// Mobile-first: campos com inputMode numerico, alvos de toque >= 44px,
+// segmented control em vez de select, mascaras ao vivo.
+// React Compiler: subcomponentes em escopo de modulo, sem setState sincrono em effect.
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, User, RefreshCw, Wallet, Scissors, ChevronRight, Bell, Pencil } from 'lucide-react'
+import { ChevronLeft, AlertCircle, Check, Download, Loader2, ShieldCheck } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 
-interface AsaasStatus { connected: boolean; env: string | null; connectedAt: string | null; isento: boolean }
-type Env = 'sandbox' | 'production'
+// ── tipos ───────────────────────────────────────────────────────────────────
+interface AccountOnboarding {
+  connected: boolean
+  accountId: string | null
+  status: string
+  approved: boolean
+  general: string | null
+  documentation: string | null
+  commercialInfo: string | null
+  onboardingUrl: string | null
+  pendingDocs: string[]
+  isento: boolean
+}
+type CompanyType = 'MEI' | 'LIMITED'
 
-function fmtDate(iso: string | null) {
+// ── helpers (escopo de modulo) ──────────────────────────────────────────────
+const DOC_LABEL: Record<string, string> = {
+  IDENTIFICATION: 'Identificação (RG/CNH)',
+  SELFIE: 'Selfie do titular',
+  SOCIAL_CONTRACT: 'Contrato social',
+  ENTREPRENEUR_REQUIREMENT: 'Requerimento de empresário',
+  MINUTES_OF_ELECTION: 'Ata de eleição',
+  CUSTOM: 'Documento adicional',
+}
+function docLabel(t: string): string {
+  return DOC_LABEL[t] ?? t.replace(/_/g, ' ').toLowerCase()
+}
+function onlyDigits(v: string): string {
+  return v.replace(/\D/g, '')
+}
+function maskPhone(v: string): string {
+  const d = onlyDigits(v).slice(0, 11)
+  if (d.length <= 2) return d
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+}
+function maskMoney(v: string): string {
+  const d = onlyDigits(v)
+  if (!d) return ''
+  return (Number(d) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+function moneyToNumber(v: string): number {
+  return Number(onlyDigits(v)) / 100
+}
+function fmtDate(iso: string | null): string {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
 }
 
-function ConfirmProdModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }} onClick={onCancel}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 380, width: '100%' }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Conectar em produção?</div>
-        <div style={{ fontSize: 13.5, color: 'rgba(0,0,0,0.6)', lineHeight: 1.6, marginBottom: 20 }}>
-          Isso vai habilitar <b>cobranças reais</b> dos seus clientes. As mensalidades do clube passarão a ser cobradas de verdade pela sua conta Asaas.
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancelar</button>
-          <button onClick={onConfirm} style={{ flex: 1, padding: 12, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Conectar</button>
-        </div>
-      </div>
-    </div>
-  )
+// ── estilos compartilhados ──────────────────────────────────────────────────
+const CARD: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.85)',
+  backdropFilter: 'blur(20px)',
+  border: '1px solid rgba(0,0,0,0.07)',
+  borderRadius: 15,
+  boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
+  padding: 20,
+}
+const LABEL: React.CSSProperties = {
+  fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6, display: 'block',
+}
+const INPUT: React.CSSProperties = {
+  width: '100%', padding: '13px 12px', border: '1px solid rgba(0,0,0,0.13)',
+  borderRadius: 10, fontSize: 16, fontFamily: 'inherit', background: '#fff',
+  marginBottom: 14, outline: 'none', WebkitAppearance: 'none',
+}
+const BTN: React.CSSProperties = {
+  width: '100%', padding: 15, border: 'none', borderRadius: 11,
+  background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff',
+  fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+  minHeight: 50,
+}
+const ASAAS_NOTE: React.CSSProperties = {
+  fontSize: 10.5, color: 'rgba(0,0,0,0.35)', marginTop: 13, textAlign: 'center',
 }
 
-// Tela "em desenvolvimento" — mostrada a quem NAO esta isento do clube (lojista comum).
-// Fora do render (regra do React Compiler).
-function ClubEmDesenvolvimento() {
-  const steps = [
-    { Icon: User,      t: 'O cliente assina',    d: 'Escolhe um plano e vira assinante do seu negócio' },
-    { Icon: RefreshCw, t: 'Paga a mensalidade',  d: 'Cobrança automática todo mês, sem correr atrás' },
-    { Icon: Wallet,    t: 'Vira um pote',        d: 'Parte da mensalidade é separada pra equipe' },
-    { Icon: Scissors,  t: 'Rateia pra equipe',   d: 'Dividido entre os profissionais conforme os atendimentos' },
-  ]
+// ── subcomponentes (fora do render — React Compiler) ────────────────────────
+function Header({ onBack }: { onBack: () => void }) {
   return (
-    <div style={{ maxWidth: 520, fontFamily: '-apple-system,system-ui,sans-serif' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-        <span style={{ width: 42, height: 42, borderRadius: 12, background: '#0E0E12', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <EligiClubIcon size={22} color="#F4F2EC" />
+    <>
+      <button
+        onClick={onBack}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none',
+          cursor: 'pointer', color: 'rgba(0,0,0,0.5)', fontSize: 13, marginBottom: 14,
+          fontFamily: 'inherit', padding: '6px 0', minHeight: 40,
+        }}
+      >
+        <ChevronLeft size={16} /> Configurações
+      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 18 }}>
+        <span style={{
+          width: 42, height: 42, borderRadius: 12, background: '#0E0E12', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <EligiClubIcon size={21} color="#F4F2EC" />
         </span>
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>EligiClub</h2>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 600, color: '#92600a', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 20, padding: '3px 9px', marginTop: 7 }}>
-            <Pencil size={11} /> Em desenvolvimento
-          </span>
+          <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            Cobrança do clube
+          </h2>
+          <div style={{ fontSize: 12.5, color: 'rgba(0,0,0,0.45)', marginTop: 2 }}>
+            Mensalidades no cartão, automaticamente
+          </div>
         </div>
       </div>
-      <p style={{ fontSize: 13, color: 'rgba(0,0,0,0.5)', lineHeight: 1.55, margin: '16px 0 26px', maxWidth: 440 }}>
-        O clube de assinatura do seu negócio está sendo construído. Em breve seus clientes poderão assinar um plano mensal — uma renda recorrente, parte revertida pra sua equipe.
-      </p>
-      <div style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 16, padding: '8px 0' }}>
-        {steps.map((s, idx) => (
-          <div key={s.t} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '16px 22px', borderBottom: idx < steps.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none' }}>
-            <span style={{ color: '#6b7280', flexShrink: 0, display: 'flex' }}><s.Icon size={20} strokeWidth={1.7} /></span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1c1c1e' }}>{s.t}</div>
-              <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', lineHeight: 1.45, marginTop: 2 }}>{s.d}</div>
-            </div>
-            {idx < steps.length - 1 && (
-              <span style={{ color: 'rgba(0,0,0,0.18)', flexShrink: 0, display: 'flex' }}><ChevronRight size={16} /></span>
-            )}
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(0,0,0,0.4)', marginTop: 20, lineHeight: 1.5 }}>
-        <span style={{ color: 'rgba(0,0,0,0.3)', flexShrink: 0, display: 'flex' }}><Bell size={14} /></span>
-        Avisaremos assim que estiver disponível. Nenhuma ação é necessária agora.
+    </>
+  )
+}
+
+function IsentoBanner() {
+  return (
+    <div style={{
+      display: 'flex', gap: 9, background: 'rgba(245,158,11,0.09)',
+      border: '1px solid rgba(245,158,11,0.22)', borderRadius: 10,
+      padding: '12px 14px', fontSize: 12.5, color: '#92600a', lineHeight: 1.5,
+      marginBottom: 16, alignItems: 'flex-start',
+    }}>
+      <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+      <span><b>Modo teste</b> — as cobranças são simuladas e não geram pagamento real.</span>
+    </div>
+  )
+}
+
+function ErrorBox({ message }: { message: string }) {
+  return (
+    <div style={{
+      display: 'flex', gap: 9, background: 'rgba(220,38,38,0.08)',
+      border: '1px solid rgba(220,38,38,0.2)', borderRadius: 10,
+      padding: '12px 14px', fontSize: 12.5, color: '#b91c1c', lineHeight: 1.5,
+      marginBottom: 14, alignItems: 'flex-start',
+    }}>
+      <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+      <span>{message}</span>
+    </div>
+  )
+}
+
+function StatusRow({ color, title, meta }: { color: string; title: string; meta: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+      <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
+        <div style={{ fontSize: 11.5, color: '#8a8a92', marginTop: 2 }}>{meta}</div>
       </div>
     </div>
   )
 }
 
-export default function EligiClubAsaasPage() {
+function Divider() {
+  return <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '16px 0' }} />
+}
+
+function SegOption({
+  label, active, onClick,
+}: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1, padding: 13, minHeight: 48,
+        border: `1px solid ${active ? '#dc2626' : 'rgba(0,0,0,0.13)'}`,
+        borderRadius: 10, textAlign: 'center', fontSize: 13.5, fontWeight: 600,
+        cursor: 'pointer', fontFamily: 'inherit',
+        background: active ? 'rgba(220,38,38,0.06)' : '#fff',
+        color: active ? '#dc2626' : '#111827',
+        transition: 'all 0.15s ease',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+// ── página ──────────────────────────────────────────────────────────────────
+export default function EligiClubCobrancaPage() {
   const router = useRouter()
-  const [status, setStatus] = useState<AsaasStatus | null>(null)
+
+  const [acc, setAcc] = useState<AccountOnboarding | null>(null)
   const [loading, setLoading] = useState(true)
-  const [apiKey, setApiKey] = useState('')
-  const [env, setEnv] = useState<Env>('sandbox')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [editing, setEditing] = useState(false)
-  const [confirmProd, setConfirmProd] = useState(false)
 
-  const loadStatus = useCallback(async () => {
+  // formulário
+  const [companyType, setCompanyType] = useState<CompanyType>('MEI')
+  const [mobilePhone, setMobilePhone] = useState('')
+  const [addressNumber, setAddressNumber] = useState('')
+  const [province, setProvince] = useState('')
+  const [income, setIncome] = useState('')
+
+  const load = useCallback(async () => {
     try {
-      const res = await api.get('/club-subscriptions/asaas/status')
-      setStatus((res.data?.data ?? null) as AsaasStatus | null)
+      const res = await api.get('/club-subscriptions/asaas/account-status')
+      setAcc((res.data?.data ?? null) as AccountOnboarding | null)
     } catch {
-      setStatus(null)
+      setAcc(null)
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => { void loadStatus() }, [loadStatus])
+  useEffect(() => { void load() }, [load])
 
-  const doConnect = useCallback(async () => {
-    setConfirmProd(false)
+  const activate = useCallback(async () => {
+    if (onlyDigits(mobilePhone).length < 10) { setError('Informe um celular válido com DDD.'); return }
+    if (!addressNumber.trim()) { setError('Informe o número do endereço.'); return }
+    if (!province.trim()) { setError('Informe o bairro.'); return }
+    const inc = moneyToNumber(income)
+    if (!inc || inc <= 0) { setError('Informe o faturamento mensal aproximado.'); return }
+
     setSaving(true)
     setError(null)
     try {
-      await api.post('/club-subscriptions/asaas/connect', { apiKey: apiKey.trim(), env })
-      setApiKey('')
-      setEditing(false)
-      await loadStatus()
+      await api.post('/club-subscriptions/asaas/provision', {
+        companyType,
+        mobilePhone: onlyDigits(mobilePhone),
+        addressNumber: addressNumber.trim(),
+        province: province.trim(),
+        incomeValue: inc,
+      })
+      await load()
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-      setError(msg ?? 'Não foi possível conectar. Tente novamente.')
+      setError(msg ?? 'Não foi possível ativar a cobrança. Tente novamente.')
     } finally {
       setSaving(false)
     }
-  }, [apiKey, env, loadStatus])
+  }, [companyType, mobilePhone, addressNumber, province, income, load])
 
-  const handleConnect = useCallback(() => {
-    if (!apiKey.trim()) { setError('Cole a API key do Asaas.'); return }
-    if (env === 'production') { setConfirmProd(true); return }
-    void doConnect()
-  }, [apiKey, env, doConnect])
+  const goBack = useCallback(() => router.push('/dashboard/configuracoes'), [router])
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'rgba(0,0,0,0.4)' }}>Carregando…</div>
+  if (loading) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', color: 'rgba(0,0,0,0.4)' }}>
+        Carregando…
+      </div>
+    )
+  }
 
-  // Gate: enquanto o EligiClub esta em desenvolvimento, so contas isentas (modo teste)
-  // veem a tela funcional. Lojista comum (isento=false) ve a tela "em desenvolvimento".
-  if (!status?.isento) return <ClubEmDesenvolvimento />
-
-  const connected = status?.connected && !editing
+  const connected = !!acc?.connected
+  const approved = !!acc?.approved
+  const emAnalise = connected && !approved
 
   return (
-    <div style={{ maxWidth: 560, fontFamily: '-apple-system,system-ui,sans-serif' }}>
-      <button onClick={() => router.push('/dashboard/configuracoes')} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(0,0,0,0.5)', fontSize: 13, marginBottom: 16, fontFamily: 'inherit' }}>
-        <ChevronLeft size={16} /> Configurações
-      </button>
+    <div style={{ maxWidth: 540, fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
+      <Header onBack={goBack} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <span style={{ width: 44, height: 44, borderRadius: 12, background: '#0E0E12', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <EligiClubIcon size={22} color="#F4F2EC" />
-        </span>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em' }}>EligiClub — Cobrança recorrente</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>Conecte sua conta Asaas para cobrar as mensalidades do clube automaticamente.</p>
-        </div>
-      </div>
+      {acc?.isento && <IsentoBanner />}
 
-      <div style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 14, boxShadow: '0 1px 6px rgba(0,0,0,0.04)', padding: 22 }}>
-        {status?.isento && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: '11px 14px', fontSize: 12.5, color: '#92600a', marginBottom: 18 }}>
-            ⚠️ Conta em <b>modo teste</b> — as cobranças são simuladas (não cobram de verdade).
+      {/* ── ESTADO 1: não conectado → formulário de ativação ── */}
+      {!connected && (
+        <div style={CARD}>
+          <p style={{ fontSize: 12.5, color: 'rgba(0,0,0,0.5)', lineHeight: 1.55, marginBottom: 18 }}>
+            Criamos sua conta de pagamentos em segundos. Você não precisa sair do Eligi — só confirme
+            alguns dados do seu negócio.
+          </p>
+
+          {error && <ErrorBox message={error} />}
+
+          <label style={LABEL}>Tipo de empresa</label>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <SegOption label="MEI" active={companyType === 'MEI'} onClick={() => setCompanyType('MEI')} />
+            <SegOption label="LTDA / ME" active={companyType === 'LIMITED'} onClick={() => setCompanyType('LIMITED')} />
           </div>
-        )}
 
-        {connected ? (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#16a34a', flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>Conectado ✓</div>
-                <div style={{ fontSize: 12, color: '#8a8a92', marginTop: 2 }}>
-                  {status?.env === 'production' ? 'Produção' : 'Sandbox'} · desde {fmtDate(status?.connectedAt ?? null)}
-                </div>
+          <label style={LABEL}>Celular do responsável</label>
+          <input
+            style={INPUT}
+            value={mobilePhone}
+            onChange={e => setMobilePhone(maskPhone(e.target.value))}
+            placeholder="(11) 99999-9999"
+            inputMode="numeric"
+            autoComplete="tel"
+          />
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={LABEL}>Número</label>
+              <input
+                style={INPUT}
+                value={addressNumber}
+                onChange={e => setAddressNumber(e.target.value)}
+                placeholder="123"
+                inputMode="numeric"
+              />
+            </div>
+            <div style={{ flex: 2 }}>
+              <label style={LABEL}>Bairro</label>
+              <input
+                style={INPUT}
+                value={province}
+                onChange={e => setProvince(e.target.value)}
+                placeholder="Centro"
+              />
+            </div>
+          </div>
+
+          <label style={LABEL}>Faturamento mensal aproximado</label>
+          <input
+            style={INPUT}
+            value={income}
+            onChange={e => setIncome(maskMoney(e.target.value))}
+            placeholder="R$ 5.000,00"
+            inputMode="numeric"
+          />
+          <div style={{ fontSize: 11, color: '#9a9aa2', margin: '-8px 0 16px', lineHeight: 1.45 }}>
+            Exigido pelo provedor de pagamentos para a análise cadastral.
+          </div>
+
+          <button onClick={activate} disabled={saving} style={{ ...BTN, opacity: saving ? 0.65 : 1 }}>
+            {saving && <Loader2 size={16} style={{ animation: 'eligi-spin 0.9s linear infinite' }} />}
+            {saving ? 'Ativando…' : 'Ativar cobrança'}
+          </button>
+          <div style={ASAAS_NOTE}>Pagamentos processados por Asaas</div>
+          <style>{`@keyframes eligi-spin { to { transform: rotate(360deg) } }`}</style>
+        </div>
+      )}
+
+      {/* ── ESTADO 2: em análise → enviar documentos ── */}
+      {emAnalise && (
+        <div style={CARD}>
+          <StatusRow
+            color="#f59e0b"
+            title="Conta em análise"
+            meta="Aprovação em até 48h após o envio dos documentos"
+          />
+          <Divider />
+
+          <div style={{
+            display: 'flex', gap: 9, background: 'rgba(245,158,11,0.09)',
+            border: '1px solid rgba(245,158,11,0.22)', borderRadius: 10,
+            padding: '12px 14px', fontSize: 12.5, color: '#92600a', lineHeight: 1.5,
+            marginBottom: 16, alignItems: 'flex-start',
+          }}>
+            <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>Para liberar a cobrança, envie seus documentos. Leva 2 minutos.</span>
+          </div>
+
+          {acc!.pendingDocs.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, color: '#555', marginBottom: 6 }}>Pendentes:</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                {acc!.pendingDocs.map(d => (
+                  <span key={d} style={{
+                    fontSize: 11.5, background: 'rgba(0,0,0,0.05)', borderRadius: 20,
+                    padding: '5px 11px', color: '#555',
+                  }}>
+                    {docLabel(d)}
+                  </span>
+                ))}
               </div>
-            </div>
-            <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '20px 0' }} />
-            <div style={{ fontSize: 13, color: '#444', lineHeight: 1.6 }}>
-              As mensalidades do clube agora são cobradas automaticamente pelo Asaas na sua conta.
-            </div>
-            <span onClick={() => { setEditing(true); setError(null) }} style={{ fontSize: 12.5, color: '#dc2626', fontWeight: 600, cursor: 'pointer', marginTop: 14, display: 'inline-block' }}>
-              Trocar a chave →
-            </span>
-          </>
-        ) : (
-          <>
-            {error && (
-              <div style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 10, padding: '11px 14px', fontSize: 12.5, color: '#b91c1c', marginBottom: 16 }}>
-                ⚠️ {error}
-              </div>
-            )}
-            <label style={{ fontSize: 12.5, fontWeight: 600, color: '#374151', marginBottom: 6, display: 'block' }}>API key do Asaas</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder="$aact_prod_••••"
-              style={{ width: '100%', padding: '11px 13px', border: `1px solid ${error ? '#dc2626' : 'rgba(0,0,0,0.14)'}`, borderRadius: 10, fontSize: 13.5, fontFamily: 'inherit', background: '#fff', marginBottom: 8 }}
-            />
-            <div style={{ fontSize: 11.5, color: '#9a9aa2', marginBottom: 16, lineHeight: 1.5 }}>
-              Pegue em: painel Asaas → Configurações → Integrações → Chave de API. Sua key é criptografada antes de ser salva.
-            </div>
-            <label style={{ fontSize: 12.5, fontWeight: 600, color: '#374151', marginBottom: 6, display: 'block' }}>Ambiente</label>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-              {(['sandbox', 'production'] as Env[]).map(opt => (
-                <button key={opt} onClick={() => setEnv(opt)} style={{ flex: 1, padding: 11, border: `1px solid ${env === opt ? '#dc2626' : 'rgba(0,0,0,0.14)'}`, borderRadius: 10, textAlign: 'center', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: env === opt ? 'rgba(220,38,38,0.06)' : '#fff', color: env === opt ? '#dc2626' : '#111', fontFamily: 'inherit' }}>
-                  {opt === 'sandbox' ? 'Sandbox (teste)' : 'Produção (real)'}
-                </button>
-              ))}
-            </div>
-            <button onClick={handleConnect} disabled={saving} style={{ width: '100%', padding: 13, border: 'none', borderRadius: 11, background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1, fontFamily: 'inherit' }}>
-              {saving ? 'Testando…' : 'Testar e conectar'}
+            </>
+          )}
+
+          {acc!.onboardingUrl ? (
+            <a
+              href={acc!.onboardingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ ...BTN, background: '#0E0E12', textDecoration: 'none' }}
+            >
+              <Download size={16} /> Enviar documentos
+            </a>
+          ) : (
+            <button onClick={() => void load()} style={{ ...BTN, background: '#0E0E12' }}>
+              Atualizar situação
             </button>
-          </>
-        )}
-      </div>
+          )}
+          <div style={ASAAS_NOTE}>Você será direcionado ao ambiente seguro do Asaas</div>
+        </div>
+      )}
 
-      {confirmProd && <ConfirmProdModal onConfirm={doConnect} onCancel={() => setConfirmProd(false)} />}
+      {/* ── ESTADO 3: aprovado ── */}
+      {approved && (
+        <div style={CARD}>
+          <StatusRow color="#16a34a" title="Cobrança ativa" meta="Conta de pagamentos aprovada" />
+          <Divider />
+          <div style={{
+            display: 'flex', gap: 9, background: 'rgba(22,163,74,0.07)',
+            border: '1px solid rgba(22,163,74,0.2)', borderRadius: 10,
+            padding: '12px 14px', fontSize: 12.5, color: '#15803d', lineHeight: 1.5,
+            alignItems: 'flex-start',
+          }}>
+            <Check size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>
+              As mensalidades do clube são cobradas automaticamente no cartão do cliente, todo mês.
+            </span>
+          </div>
+          <div style={{
+            display: 'flex', gap: 8, alignItems: 'center', marginTop: 16,
+            fontSize: 11.5, color: 'rgba(0,0,0,0.4)',
+          }}>
+            <ShieldCheck size={14} style={{ flexShrink: 0 }} />
+            <span>Os dados do cartão são tratados pelo Asaas — o Eligi nunca os armazena.</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
