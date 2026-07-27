@@ -12,6 +12,7 @@ import {
   CreditCard,
   Coins,
   BarChart3,
+  ReceiptText,
 } from 'lucide-react'
 import EligiClubIcon from './EligiClubIcon'
 
@@ -44,6 +45,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Caixa',         path: '/dashboard/caixa',         icon: ShoppingBag,     section: 'financeiro' },
     { label: 'Financeiro',    path: '/dashboard/financeiro',    icon: DollarSign,      section: 'financeiro' },
     { label: 'Relatórios',    path: '/dashboard/relatorios',    icon: BarChart3,       section: 'financeiro' },
+    { label: 'Notas Fiscais', path: '/dashboard/notas-fiscais', icon: ReceiptText,     section: 'financeiro' },
     { label: 'Configurações', path: '/dashboard/configuracoes', icon: Settings,        section: 'gestao'     },
   ],
   MANAGER: [
