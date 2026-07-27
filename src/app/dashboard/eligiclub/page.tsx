@@ -13,10 +13,11 @@
 // em useLayoutEffect/useEffect (nunca setState por frame).
 
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search, X, Plus, ChevronRight, ChevronLeft, Loader2, Layers, Users, PiggyBank,
   Coins, CheckCircle2, CalendarClock, Hash, type LucideIcon,
-  User, RefreshCw, Wallet, Scissors, Bell, Pencil,
+  User, RefreshCw, Wallet, Scissors, Bell, Pencil, CreditCard, ShieldCheck,
 } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
@@ -202,7 +203,47 @@ function ClubEmDesenvolvimento() {
   )
 }
 
+/**
+ * Atalho pra tela de cobranca do clube. O rotulo muda com o estado da conta:
+ * nao provisionada (acao pendente) · em analise (falta documento) · ativa (status).
+ */
+function CobrancaShortcut({
+  billing, isMobile, onGo,
+}: {
+  billing: { connected: boolean; approved: boolean } | null
+  isMobile: boolean
+  onGo: () => void
+}) {
+  const approved = !!billing?.approved
+  const connected = !!billing?.connected
+
+  const cfg = approved
+    ? { bg: 'rgba(22,163,74,0.08)', bd: 'rgba(22,163,74,0.28)', fg: '#15803d', label: 'Cobrança automática ativa', Icon: ShieldCheck }
+    : connected
+      ? { bg: 'rgba(245,158,11,0.10)', bd: 'rgba(245,158,11,0.30)', fg: '#92600a', label: 'Conta em análise · enviar documentos', Icon: CalendarClock }
+      : { bg: 'rgba(220,38,38,0.07)', bd: 'rgba(220,38,38,0.25)', fg: '#b91c1c', label: 'Ativar cobrança automática', Icon: CreditCard }
+
+  return (
+    <button
+      onClick={onGo}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+        padding: isMobile ? '12px 14px' : '13px 16px', minHeight: 48,
+        borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+        background: cfg.bg, border: `1px solid ${cfg.bd}`, color: cfg.fg,
+        marginBottom: isMobile ? 14 : 18, textAlign: 'left',
+        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+      }}
+    >
+      <cfg.Icon size={17} style={{ flexShrink: 0 }} />
+      <span style={{ flex: 1, fontSize: isMobile ? 13 : 13.5, fontWeight: 600 }}>{cfg.label}</span>
+      <ChevronRight size={16} style={{ flexShrink: 0, opacity: 0.55 }} />
+    </button>
+  )
+}
+
 export default function EligiClubPage() {
+  const router = useRouter()
   const mode = useDeviceMode()
   const isMobile = mode === 'mobile'
 
@@ -238,15 +279,20 @@ export default function EligiClubPage() {
   // GATE: enquanto o EligiClub esta em desenvolvimento, so contas isentas (modo teste)
   // veem o modulo. Lojista comum (isento=false) ve a tela "em desenvolvimento".
   const [isento, setIsento] = useState<boolean | null>(null)
+  // estado da conta de pagamentos (mesma chamada do gate — sem custo extra)
+  const [billing, setBilling] = useState<{ connected: boolean; approved: boolean } | null>(null)
   useEffect(() => {
     let alive = true
     async function run() {
       try {
-        const res = await api.get('/club-subscriptions/asaas/status')
-        const v = (res.data?.data as { isento?: boolean } | null)?.isento ?? false
-        if (alive) setIsento(v)
+        const res = await api.get('/club-subscriptions/asaas/account-status')
+        const d = res.data?.data as { isento?: boolean; connected?: boolean; approved?: boolean } | null
+        if (alive) {
+          setIsento(d?.isento ?? false)
+          setBilling({ connected: !!d?.connected, approved: !!d?.approved })
+        }
       } catch {
-        if (alive) setIsento(false)
+        if (alive) { setIsento(false); setBilling(null) }
       }
     }
     void run()
@@ -279,6 +325,12 @@ export default function EligiClubPage() {
         animation: 'club-fade-up 380ms cubic-bezier(0.22,1,0.36,1) both',
         fontFamily: typography.fontFamily,
       }}>
+        <CobrancaShortcut
+          billing={billing}
+          isMobile={isMobile}
+          onGo={() => router.push('/dashboard/configuracoes/eligiclub')}
+        />
+
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: isMobile ? 14 : 18 }}>
           <div style={{ minWidth: 0 }}>
