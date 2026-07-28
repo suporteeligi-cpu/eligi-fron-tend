@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom'
 import { X, Plus, Check, Loader2, AlertCircle } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
+import { useNfseEnabled } from '@/features/fiscal/hooks/useNfseEnabled' // @eligi:nfse-switch
 import { typography, transitions, radius } from '@/shared/theme'
 import { Sale, PaymentMethod, PaymentLineInput } from '@/features/sales/types'
 import {
@@ -80,6 +81,10 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
   const [confirming, setConfirming] = useState(false)
   const [error,      setError]      = useState<string | null>(null)
   const [success,    setSuccess]    = useState(false)
+  // @eligi:nfse-switch — módulo ativo? venda tem serviço com valor?
+  const nfseEnabled = useNfseEnabled()
+  const hasService  = sale.items.some(i => i.type === 'SERVICE' && i.total > 0)
+  const [emitNfse,   setEmitNfse]   = useState(true)
 
   const parsedDiscount = parseFloat(discount.replace(',', '.')) || 0
   const subtotal = sale.subtotal
@@ -156,6 +161,14 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
         payments: validPayments,
       })
       const confirmed = res.data?.data ?? res.data
+      // @eligi:nfse-switch — enfileira a NFS-e DEPOIS do confirm, isolado.
+      // A nota é consequência da venda, nunca pré-requisito: falha aqui
+      // não trava o caixa (a central permite reemitir).
+      if (emitNfse && nfseEnabled) {
+        void api.post(`/fiscal/sales/${sale.id}/emit`).catch(() => {
+          /* silencioso: venda já fechada; a nota fica pendente na central */
+        })
+      }
       setSuccess(true)
       setTimeout(() => { onPaid(confirmed) }, 900)
     } catch (err: unknown) {
@@ -565,8 +578,41 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
           <div style={{
             padding: isMobile ? '12px 18px max(16px, env(safe-area-inset-bottom))' : '14px 26px',
             background: T.surface, borderTop: `1px solid ${T.stroke}`,
-            display: 'flex', gap: 10, flexShrink: 0,
+            display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0,
           }}>
+            {/* @eligi:nfse-switch — decisão fiscal no último momento antes de confirmar */}
+            {nfseEnabled && hasService && (
+              <label
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                  background: T.okBg, border: `1px solid ${T.okStroke}`,
+                  borderRadius: 11, padding: '11px 14px',
+                  cursor: confirming ? 'not-allowed' : 'pointer',
+                  opacity: confirming ? 0.6 : 1,
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: T.okText }}>
+                    Emitir NFS-e
+                  </span>
+                  <span style={{ display: 'block', fontSize: 11.5, color: T.muted, marginTop: 1 }}>
+                    {emitNfse
+                      ? 'A nota dos serviços sai em segundo plano'
+                      : 'Sem nota fiscal nesta venda'}
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={emitNfse}
+                  disabled={confirming}
+                  onChange={(e) => setEmitNfse(e.target.checked)}
+                  style={{ width: 20, height: 20, accentColor: T.pay, cursor: 'inherit', flexShrink: 0 }}
+                />
+              </label>
+            )}
+
+            <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={onClose}
               disabled={confirming}
@@ -605,6 +651,8 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
                 </>
               )}
             </button>
+            </div>
+            {/* @eligi:nfse-footer-end */}
           </div>
         )}
       </div>

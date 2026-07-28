@@ -6,6 +6,7 @@ import type { CSSProperties, ChangeEvent } from 'react'
 import { ShieldCheck, ShieldAlert, FileKey2, Trash2 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import type { FiscalOverview, FiscalProfile, FiscalRegime, FiscalStatus } from '../types'
+import EmissionsList from './EmissionsList'
 import { apiErrorMessage, formatCnpj } from '../utils'
 
 const card: CSSProperties = {
@@ -96,6 +97,8 @@ export default function FiscalCentral({ overview, onChanged }: Props) {
           {st.label}
         </span>
       </div>
+
+      {status === 'ACTIVE' || status === 'READY_TO_TEST' ? <EmissionsList monthRef={new Date()} /> : null}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14 }}>
         <FiscalDataCard profile={profile} prefillCnpj={overview.prefill.cnpj} onSaved={onChanged} />
