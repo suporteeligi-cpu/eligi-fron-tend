@@ -3,55 +3,66 @@
 
 import { useRef, useState } from 'react'
 import type { CSSProperties, ChangeEvent } from 'react'
-import { ShieldCheck, ShieldAlert, FileKey2, Trash2 } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, FileKey2, Trash2, Landmark, CreditCard } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
+import { colors, glassCard, inkLight, radius, shadows } from '@/shared/theme'
+import type { InkTone } from '@/shared/theme'
 import type { FiscalOverview, FiscalProfile, FiscalRegime, FiscalStatus } from '../types'
-import EmissionsList from './EmissionsList'
 import { apiErrorMessage, formatCnpj } from '../utils'
+import EmissionsList from './EmissionsList'
 
-const card: CSSProperties = {
-  background: 'rgba(255,255,255,0.045)',
-  border: '1px solid rgba(255,255,255,0.09)',
-  borderRadius: 17,
-  padding: 20,
-  backdropFilter: 'blur(24px)',
-}
+const cardStyle: CSSProperties = { ...glassCard, padding: 20 }
+
 const labelStyle: CSSProperties = {
   display: 'block',
   fontSize: 10.5,
   fontWeight: 600,
-  letterSpacing: 0.6,
+  letterSpacing: 0.5,
   textTransform: 'uppercase',
-  color: 'rgba(255,255,255,0.45)',
+  color: inkLight.faint,
   marginBottom: 6,
 }
+
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.09)',
-  borderRadius: 11,
+  background: 'rgba(0,0,0,0.02)',
+  border: `1px solid ${colors.gray.border}`,
+  borderRadius: radius.md,
   padding: '11px 13px',
-  color: '#f4f4f5',
+  color: inkLight.strong,
   fontSize: 13.5,
+  fontFamily: 'inherit',
   outline: 'none',
   boxSizing: 'border-box',
 }
+
 const primaryBtn: CSSProperties = {
-  background: 'linear-gradient(135deg,#dc2626,#b91c1c)',
+  background: colors.red.gradient,
   border: 'none',
   color: '#fff',
   fontSize: 13.5,
   fontWeight: 700,
+  fontFamily: 'inherit',
   padding: '12px 24px',
-  borderRadius: 12,
+  borderRadius: radius.md,
   cursor: 'pointer',
+  boxShadow: shadows.redSm,
 }
 
-const STATUS_CFG: Record<FiscalStatus, { label: string; color: string; bg: string }> = {
-  INCOMPLETE: { label: 'Configuração incompleta', color: '#fbbf24', bg: 'rgba(245,158,11,0.12)' },
-  READY_TO_TEST: { label: 'Pronto pra nota de teste', color: '#60a5fa', bg: 'rgba(37,99,235,0.14)' },
-  ACTIVE: { label: 'Emissão ativa', color: '#4ade80', bg: 'rgba(0,184,12,0.12)' },
-  BLOCKED: { label: 'Certificado vencido', color: '#f87171', bg: 'rgba(220,38,38,0.13)' },
+const sectionTitle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  fontSize: 14,
+  fontWeight: 600,
+  color: inkLight.strong,
+}
+
+const STATUS_CFG: Record<FiscalStatus, { label: string; tone: InkTone }> = {
+  INCOMPLETE: { label: 'Configuração incompleta', tone: inkLight.warn },
+  READY_TO_TEST: { label: 'Pronto pra nota de teste', tone: inkLight.info },
+  ACTIVE: { label: 'Emissão ativa', tone: inkLight.ok },
+  BLOCKED: { label: 'Certificado vencido', tone: inkLight.bad },
 }
 
 interface Props {
@@ -66,31 +77,30 @@ export default function FiscalCentral({ overview, onChanged }: Props) {
 
   return (
     <div>
-      {/* hero de status */}
       <div
         style={{
-          ...card,
+          ...cardStyle,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: 14,
           flexWrap: 'wrap',
-          marginBottom: 16,
+          marginBottom: 14,
         }}
       >
-        <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, maxWidth: 520 }}>
-          Módulo <b style={{ color: '#4ade80' }}>ativo</b> na sua assinatura (R$ 29,90/mês). As
-          notas emitidas pelo caixa vão aparecer aqui — o motor de emissão está em construção.
+        <div style={{ fontSize: 13.5, color: inkLight.label, lineHeight: 1.5, maxWidth: 560 }}>
+          Módulo <b style={{ color: inkLight.ok.text }}>ativo</b> na sua assinatura (R$ 29,90/mês). As notas
+          emitidas pelo caixa aparecem aqui.
         </div>
         <span
           style={{
             fontSize: 12,
-            fontWeight: 700,
-            color: st.color,
-            background: st.bg,
-            border: `1px solid ${st.color}44`,
+            fontWeight: 600,
+            color: st.tone.text,
+            background: st.tone.bg,
+            border: `1px solid ${st.tone.border}`,
             padding: '7px 14px',
-            borderRadius: 99,
+            borderRadius: radius.full,
             whiteSpace: 'nowrap',
           }}
         >
@@ -98,7 +108,7 @@ export default function FiscalCentral({ overview, onChanged }: Props) {
         </span>
       </div>
 
-      {status === 'ACTIVE' || status === 'READY_TO_TEST' ? <EmissionsList monthRef={new Date()} /> : null}
+      {(status === 'ACTIVE' || status === 'READY_TO_TEST') && <EmissionsList monthRef={new Date()} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14 }}>
         <FiscalDataCard profile={profile} prefillCnpj={overview.prefill.cnpj} onSaved={onChanged} />
@@ -159,8 +169,10 @@ function FiscalDataCard({
   }
 
   return (
-    <div style={card}>
-      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>🏛️ Dados fiscais</div>
+    <div style={cardStyle}>
+      <div style={{ ...sectionTitle, marginBottom: 14 }}>
+        <Landmark size={16} color={colors.red.DEFAULT} /> Dados fiscais
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div>
@@ -193,25 +205,27 @@ function FiscalDataCard({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={labelStyle}>Código de tributação</label>
           <input style={inputStyle} value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="06.01" />
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 5, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 11, color: inkLight.faint, marginTop: 5, lineHeight: 1.4 }}>
             06.01 = barbearia, cabeleireiro, manicure · 06.02 = estética
           </div>
         </div>
         <div>
           <label style={labelStyle}>Código IBGE do município</label>
           <input style={inputStyle} value={ibge} onChange={(e) => setIbge(e.target.value)} placeholder="7 dígitos" inputMode="numeric" />
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 5, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 11, color: inkLight.faint, marginTop: 5, lineHeight: 1.4 }}>
             Busque &quot;código IBGE + sua cidade&quot;
           </div>
         </div>
       </div>
 
       {msg && (
-        <div style={{ fontSize: 12.5, color: msg.ok ? '#4ade80' : '#fca5a5', margin: '10px 0 0' }}>{msg.text}</div>
+        <div style={{ fontSize: 12.5, color: msg.ok ? inkLight.ok.text : inkLight.bad.text, marginTop: 12 }}>
+          {msg.text}
+        </div>
       )}
 
       <button onClick={save} disabled={busy} style={{ ...primaryBtn, marginTop: 14, opacity: busy ? 0.6 : 1 }}>
@@ -231,7 +245,7 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
   const [msg, setMsg] = useState<string | null>(null)
 
   const cert = profile?.certificate ?? null
-  // Vencimento vem do status derivado no back (fonte única) — sem Date.now() no render (Compiler purity)
+  // vencimento vem do status derivado no back (fonte única; sem Date.now no render)
   const expired = profile?.status === 'BLOCKED'
   const hasProfile = Boolean(profile)
 
@@ -241,8 +255,7 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
     const reader = new FileReader()
     reader.onload = () => {
       const result = typeof reader.result === 'string' ? reader.result : ''
-      const base64 = result.split(',')[1] ?? ''
-      setPfxBase64(base64)
+      setPfxBase64(result.split(',')[1] ?? '')
       setFileName(file.name)
       setMsg(null)
     }
@@ -277,20 +290,24 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
       .finally(() => setBusy(false))
   }
 
+  const tone: InkTone = expired ? inkLight.bad : inkLight.ok
+
   return (
-    <div style={card}>
+    <div style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>🔐 Certificado A1</div>
+        <span style={sectionTitle}>
+          <FileKey2 size={16} color={colors.red.DEFAULT} /> Certificado A1
+        </span>
         {cert && (
           <span
             style={{
               fontSize: 10.5,
               fontWeight: 700,
-              color: expired ? '#f87171' : '#4ade80',
-              background: expired ? 'rgba(220,38,38,0.12)' : 'rgba(0,184,12,0.12)',
-              border: `1px solid ${expired ? 'rgba(220,38,38,0.35)' : 'rgba(0,184,12,0.3)'}`,
+              color: tone.text,
+              background: tone.bg,
+              border: `1px solid ${tone.border}`,
               padding: '3px 9px',
-              borderRadius: 99,
+              borderRadius: radius.full,
             }}
           >
             {expired ? 'VENCIDO' : 'VÁLIDO'}
@@ -300,14 +317,16 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
 
       {cert ? (
         <div>
-          <div style={{ display: 'flex', gap: 11, alignItems: 'center', fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>
-            {expired ? <ShieldAlert size={30} color="#f87171" /> : <ShieldCheck size={30} color="#4ade80" />}
+          <div style={{ display: 'flex', gap: 11, alignItems: 'center', fontSize: 12.5, color: inkLight.label }}>
+            {expired ? (
+              <ShieldAlert size={28} color={inkLight.bad.text} />
+            ) : (
+              <ShieldCheck size={28} color={inkLight.ok.text} />
+            )}
             <div>
-              <div style={{ color: '#f4f4f5', fontWeight: 600 }}>{cert.subject ?? 'Certificado'}</div>
+              <div style={{ color: inkLight.strong, fontWeight: 600 }}>{cert.subject ?? 'Certificado'}</div>
               {cert.expiresAt && (
-                <div>
-                  expira {new Date(cert.expiresAt).toLocaleDateString('pt-BR')} · avisamos antes de vencer
-                </div>
+                <div>expira {new Date(cert.expiresAt).toLocaleDateString('pt-BR')} · avisamos antes de vencer</div>
               )}
             </div>
           </div>
@@ -315,12 +334,13 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
             onClick={remove}
             disabled={busy}
             style={{
-              background: 'none',
-              border: '1px solid rgba(255,255,255,0.15)',
-              color: '#fca5a5',
+              background: 'transparent',
+              border: `1px solid ${inkLight.bad.border}`,
+              color: inkLight.bad.text,
               fontSize: 12,
+              fontFamily: 'inherit',
               padding: '7px 13px',
-              borderRadius: 9,
+              borderRadius: radius.sm,
               cursor: 'pointer',
               marginTop: 12,
               display: 'inline-flex',
@@ -333,12 +353,12 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
         </div>
       ) : (
         <div>
-          <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, margin: '0 0 12px' }}>
-            É a assinatura eletrônica do seu CNPJ — obrigatória pra emitir nota. Arquivo .pfx ou
-            .p12, guardado criptografado.
+          <p style={{ fontSize: 12.5, color: inkLight.label, lineHeight: 1.5, margin: '0 0 12px' }}>
+            É a assinatura eletrônica do seu CNPJ — obrigatória pra emitir nota. Arquivo .pfx ou .p12, guardado
+            criptografado.
           </p>
           {!hasProfile && (
-            <div style={{ fontSize: 12, color: '#fbbf24', marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: inkLight.warn.text, marginBottom: 12 }}>
               Salve os dados fiscais primeiro.
             </div>
           )}
@@ -348,14 +368,15 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
             disabled={!hasProfile || busy}
             style={{
               width: '100%',
-              background: 'rgba(255,255,255,0.05)',
-              border: '2px dashed rgba(255,255,255,0.15)',
-              borderRadius: 13,
+              background: 'rgba(0,0,0,0.02)',
+              border: '2px dashed rgba(0,0,0,0.14)',
+              borderRadius: radius.lg,
               padding: '18px 14px',
-              color: 'rgba(255,255,255,0.7)',
+              color: inkLight.label,
               fontSize: 13,
+              fontFamily: 'inherit',
               cursor: !hasProfile || busy ? 'not-allowed' : 'pointer',
-              opacity: !hasProfile ? 0.5 : 1,
+              opacity: hasProfile ? 1 : 0.55,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -365,6 +386,7 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
             <FileKey2 size={17} />
             {fileName ?? 'Escolher arquivo .pfx'}
           </button>
+
           {pfxBase64 && (
             <div style={{ marginTop: 12 }}>
               <label style={labelStyle}>Senha do certificado</label>
@@ -378,7 +400,12 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
               <button
                 onClick={upload}
                 disabled={busy || password.length === 0}
-                style={{ ...primaryBtn, width: '100%', marginTop: 12, opacity: busy || password.length === 0 ? 0.6 : 1 }}
+                style={{
+                  ...primaryBtn,
+                  width: '100%',
+                  marginTop: 12,
+                  opacity: busy || password.length === 0 ? 0.6 : 1,
+                }}
               >
                 {busy ? 'Validando…' : 'Enviar certificado'}
               </button>
@@ -387,7 +414,7 @@ function CertificateCard({ profile, onChanged }: { profile: FiscalProfile | null
         </div>
       )}
 
-      {msg && <div style={{ fontSize: 12.5, color: '#fca5a5', marginTop: 10 }}>{msg}</div>}
+      {msg && <div style={{ fontSize: 12.5, color: inkLight.bad.text, marginTop: 10 }}>{msg}</div>}
     </div>
   )
 }
@@ -415,36 +442,42 @@ function AddonCard({ onChanged }: { onChanged: () => void }) {
   }
 
   return (
-    <div style={card}>
+    <div style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>💳 Add-on</div>
+        <span style={sectionTitle}>
+          <CreditCard size={16} color={colors.red.DEFAULT} /> Add-on
+        </span>
         <span
           style={{
             fontSize: 10.5,
             fontWeight: 700,
-            color: '#4ade80',
-            background: 'rgba(0,184,12,0.12)',
-            border: '1px solid rgba(0,184,12,0.3)',
+            color: inkLight.ok.text,
+            background: inkLight.ok.bg,
+            border: `1px solid ${inkLight.ok.border}`,
             padding: '3px 9px',
-            borderRadius: 99,
+            borderRadius: radius.full,
           }}
         >
           ATIVO
         </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'rgba(255,255,255,0.55)' }}>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: inkLight.label }}>
         <span>Na sua assinatura</span>
-        <b style={{ color: '#f4f4f5', fontSize: 14 }}>R$ 29,90/mês</b>
+        <b style={{ color: inkLight.strong, fontSize: 14 }}>R$ 29,90/mês</b>
       </div>
-      {msg && <div style={{ fontSize: 12.5, color: '#fca5a5', marginTop: 10 }}>{msg}</div>}
+
+      {msg && <div style={{ fontSize: 12.5, color: inkLight.bad.text, marginTop: 10 }}>{msg}</div>}
+
       <button
         onClick={deactivate}
         disabled={busy}
         style={{
           background: 'none',
           border: 'none',
-          color: 'rgba(255,255,255,0.4)',
+          color: inkLight.faint,
           fontSize: 11.5,
+          fontFamily: 'inherit',
           textDecoration: 'underline',
           cursor: 'pointer',
           padding: 0,

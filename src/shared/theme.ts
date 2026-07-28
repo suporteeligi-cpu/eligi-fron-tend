@@ -156,3 +156,37 @@ export const agendaLayout = {
   minColWidth:  140,
   headerHeight: 56,
 } as const
+
+/**
+ * Card padrão dos módulos de dashboard (glass claro).
+ * Fonte única — nasceu em features/reports e foi promovido aqui quando
+ * o módulo fiscal precisou do mesmo vocabulário. Não duplicar.
+ */
+export const glassCard = {
+  background: 'rgba(255,255,255,0.72)',
+  backdropFilter: 'blur(20px) saturate(160%)',
+  WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+  border: '0.5px solid rgba(0,0,0,0.08)',
+  borderRadius: 16,
+  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+} as const
+
+/** Forma de um tom de estado (chip/badge) — use ESTE tipo, nunca
+ *  `typeof inkLight.ok`: o `as const` congela o literal da cor. */
+export interface InkTone {
+  readonly text: string
+  readonly bg: string
+  readonly border: string
+}
+
+/** Tons de texto/estado para SUPERFÍCIE CLARA (dashboard). */
+export const inkLight = {
+  strong: '#0c0c12',
+  label: 'rgba(0,0,0,0.5)',
+  faint: 'rgba(0,0,0,0.4)',
+  ok: { text: '#0f6e56', bg: 'rgba(29,158,117,0.12)', border: 'rgba(29,158,117,0.28)' },
+  warn: { text: '#b45309', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.30)' },
+  bad: { text: '#a32d2d', bg: 'rgba(220,38,38,0.10)', border: 'rgba(220,38,38,0.24)' },
+  info: { text: '#2563eb', bg: 'rgba(37,99,235,0.10)', border: 'rgba(37,99,235,0.24)' },
+  neutral: { text: '#64748b', bg: 'rgba(100,116,139,0.10)', border: 'rgba(100,116,139,0.22)' },
+} as const

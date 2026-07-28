@@ -1,3 +1,4 @@
+import { glassCard } from '@/shared/theme'
 // src/features/reports/constants.ts
 
 import type { TabDef } from './types'
@@ -15,14 +16,9 @@ export const ONLINE = '#7C3AED'
 export const ONLINE_HI = '#6D28D9'
 
 /** Estilo glass reaproveitado nos cards (Direção B). */
-export const GLASS_CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.72)',
-  backdropFilter: 'blur(20px) saturate(160%)',
-  WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-  border: '0.5px solid rgba(0,0,0,0.08)',
-  borderRadius: 16,
-  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-}
+// fonte única em @/shared/theme (promovido quando o módulo fiscal
+// passou a usar o mesmo card). Mantido o nome por compatibilidade.
+export const GLASS_CARD: React.CSSProperties = glassCard
 
 export const TABS: TabDef[] = [
   { id: 'painel', label: 'Painel' },
