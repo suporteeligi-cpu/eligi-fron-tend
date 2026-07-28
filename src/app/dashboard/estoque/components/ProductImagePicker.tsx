@@ -5,6 +5,7 @@ import { useState, useRef } from 'react'
 import { Image as ImageIcon, X, Upload } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { readImageAsBase64, UploadError } from '@/features/products/utils/imageUpload'
+import { IMAGE_ACCEPT_ATTR, MAX_INPUT_MB } from '@/shared/utils/imageCompress'
 
 interface Props {
   current?: string | null
@@ -54,7 +55,7 @@ export default function ProductImagePicker({ current, onChange }: Props) {
       <input
         ref={fileRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={IMAGE_ACCEPT_ATTR}
         onChange={handleFile}
         style={{ display: 'none' }}
       />
@@ -147,7 +148,7 @@ export default function ProductImagePicker({ current, onChange }: Props) {
         fontSize: 11, color: colors.gray.dimText,
         textAlign: 'center', maxWidth: 220,
       }}>
-        JPG, PNG ou WEBP · máx 5MB · redimensionada automaticamente
+        JPG, PNG ou WEBP · máx {MAX_INPUT_MB}MB · redimensionada automaticamente
       </div>
 
       {error && (

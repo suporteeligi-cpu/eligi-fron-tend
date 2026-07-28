@@ -1,29 +1,22 @@
 // src/features/products/utils/imageUpload.ts
-// @eligi:image-upload-facade-v1
+// @eligi:image-upload-facade-v2
 //
-// Fachada sobre `@/shared/utils/imageCompress`.
+// Fachada sobre `@/shared/utils/uploadImage`.
 //
-// Este arquivo tinha a propria implementacao de resize em canvas. Existiam
-// TRES no repo (aqui, no ImageCropper e nenhuma no AvatarPicker — que por isso
-// gravava o arquivo cru). A logica agora e' unica; este modulo so traduz
-// contrato.
-//
+// Historico: este arquivo tinha implementacao propria de resize em canvas
+// (fatia 0a consolidou no imageCompress); agora delega tambem o upload.
 // A assinatura publica (`readImageAsBase64`, `UploadResult`, `UploadError`)
-// permanece IDENTICA de proposito: nenhum call-site precisa mudar.
+// permanece IDENTICA — o unico call-site nao muda.
 //
-// Diferencas de comportamento, todas favoraveis:
-//   - saida em WebP (~30-40% menor que o JPEG anterior no mesmo tamanho);
-//   - 800px continua sendo o maior lado — dimensao inalterada;
-//   - downscale em etapas (menos serrilhado);
-//   - orientacao EXIF respeitada; metadados descartados;
-//   - `approxBytes` vira exato (blob.size) em vez de estimado pelo tamanho da
-//     string, que dependia do prefixo 'data:image/jpeg;base64,' hardcoded.
+// O campo continua chamando `base64` por compatibilidade, mas hoje carrega a
+// URL do bucket. A coluna Product.imageUrl e' polimorfica: aceita os dois, e o
+// <img src> do dashboard e da vitrine publica renderiza qualquer um.
 
 import {
-  compressImage,
-  ImageCompressError,
-  imageCompressMessage,
-} from '@/shared/utils/imageCompress'
+  uploadImage,
+  ImageUploadError,
+  uploadImageMessage,
+} from '@/shared/utils/uploadImage'
 
 export type UploadError =
   | { kind: 'too_large';    message: string }
@@ -31,23 +24,22 @@ export type UploadError =
   | { kind: 'read_error';   message: string }
 
 export interface UploadResult {
-  base64:      string  // "data:image/webp;base64,..."
+  /** URL do bucket (ou data URL, se o storage falhou). */
+  base64:      string
   approxBytes: number
 }
 
 /**
- * Traduz o erro tipado do compressor para o formato que os call-sites ja
- * esperam.
+ * Traduz o erro tipado para o formato que o call-site ja espera.
  *
- * Nota de divida: o contrato original lanca OBJETO LITERAL, nao `Error`. Isso
- * quebra `instanceof` e nao gera stack trace. Preservado aqui de proposito —
- * mudar o formato exigiria tocar todos os consumidores, o que e' patch
- * separado.
+ * Divida conhecida: este contrato lanca OBJETO LITERAL, nao `Error` — quebra
+ * `instanceof` e nao gera stack trace. Preservado de proposito; mudar o formato
+ * exigiria tocar o consumidor, o que e' patch separado.
  */
 function toUploadError(error: unknown): UploadError {
-  const message = imageCompressMessage(error)
+  const message = uploadImageMessage(error)
 
-  if (error instanceof ImageCompressError) {
+  if (error instanceof ImageUploadError) {
     switch (error.code) {
       case 'UNSUPPORTED_TYPE':
         return { kind: 'invalid_type', message }
@@ -63,8 +55,8 @@ function toUploadError(error: unknown): UploadError {
 
 export async function readImageAsBase64(file: File): Promise<UploadResult> {
   try {
-    const result = await compressImage(file, 'product')
-    return { base64: result.dataUrl, approxBytes: result.bytes }
+    const result = await uploadImage(file, 'product')
+    return { base64: result.value, approxBytes: result.bytes }
   } catch (error) {
     throw toUploadError(error)
   }

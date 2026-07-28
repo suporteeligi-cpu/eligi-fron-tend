@@ -5,13 +5,8 @@ import { useState, useRef } from 'react'
 import { X, User } from 'lucide-react'
 import { colors, transitions } from '@/shared/theme'
 import { getInitials } from '@/features/professionals/utils/format'
-import {
-  compressImage,
-  imageCompressMessage,
-  MAX_INPUT_MB,
-  IMAGE_ACCEPT_ATTR,
-} from '@/shared/utils/imageCompress'
-import api from '@/shared/lib/apiClient'
+import { MAX_INPUT_MB, IMAGE_ACCEPT_ATTR } from '@/shared/utils/imageCompress'
+import { uploadImage, uploadImageMessage } from '@/shared/utils/uploadImage'
 
 interface Props {
   name:     string
@@ -52,39 +47,16 @@ export default function AvatarPicker({ name, current, onChange }: Props) {
 
     setLoading(true)
 
-    let dataUrl: string
     try {
+      // @eligi:avatar-bucket-v2
       // Preset 'avatar' = 256px WebP. O circulo renderiza 80px; guardar mais
       // que isso e' pagar banco e banda por pixel que a tela nunca desenha.
-      const compressed = await compressImage(file, 'avatar')
-      dataUrl = compressed.dataUrl
+      // O callback de preview mostra a foto antes da rede responder.
+      const result = await uploadImage(file, 'avatar', setPreview)
+      setPreview(result.value)
+      onChange(result.value)
     } catch (err) {
-      alert(imageCompressMessage(err))
-      setLoading(false)
-      return
-    }
-
-    // Preview otimista: a foto aparece na hora, sem esperar a rede. A URL
-    // definitiva substitui logo abaixo, quando o upload conclui.
-    setPreview(dataUrl)
-
-    try {
-      // @eligi:avatar-bucket-v1
-      // A URL vem PRONTA do back (API_PUBLIC_URL + key). Montar aqui a partir
-      // de NEXT_PUBLIC_API_URL gravaria 'localhost:3333' no banco quando o
-      // save sai de uma maquina de desenvolvimento.
-      const { data } = await api.post<{ url: string }>('/uploads', {
-        dataUrl,
-        kind: 'avatar',
-      })
-      setPreview(data.url)
-      onChange(data.url)
-    } catch {
-      // Storage indisponivel nao pode impedir o cadastro da equipe. Degrada
-      // pro comportamento anterior (base64 na coluna), que funciona hoje.
-      // A coluna avatarUrl e' polimorfica por design — base64, 'color:' ou URL
-      // convivem, e o backfill varre por LIKE 'data:%'.
-      onChange(dataUrl)
+      alert(uploadImageMessage(err))
     } finally {
       setLoading(false)
     }
