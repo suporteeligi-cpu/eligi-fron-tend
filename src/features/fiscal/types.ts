@@ -6,6 +6,9 @@ export type NfseStatus = 'PENDING' | 'PROCESSING' | 'AUTHORIZED' | 'REJECTED' | 
 export interface FiscalCertificate {
   subject: string | null
   expiresAt: string | null
+  /** calculados no back (conta de data no render viola a pureza do Compiler) */
+  daysLeft?: number | null
+  expiresSoon?: boolean
 }
 
 export interface FiscalProfile {

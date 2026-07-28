@@ -108,6 +108,32 @@ export default function FiscalCentral({ overview, onChanged }: Props) {
         </span>
       </div>
 
+      {/* @eligi:nfse-cert-banner — A1 vale 12 meses; vencer sem aviso para a emissão no meio do expediente */}
+      {profile?.certificate?.expiresSoon && status !== 'BLOCKED' && (
+        <div
+          style={{
+            ...cardStyle,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 14,
+            background: inkLight.warn.bg,
+            border: `1px solid ${inkLight.warn.border}`,
+          }}
+        >
+          <ShieldAlert size={22} color={inkLight.warn.text} style={{ flexShrink: 0 }} />
+          <div style={{ fontSize: 13, color: inkLight.warn.text, lineHeight: 1.5 }}>
+            <b>
+              {typeof profile.certificate.daysLeft === 'number' && profile.certificate.daysLeft > 0
+                ? `Seu certificado vence em ${profile.certificate.daysLeft} dia${profile.certificate.daysLeft === 1 ? '' : 's'}.`
+                : 'Seu certificado está perto de vencer.'}
+            </b>{' '}
+            Renove com seu contador ou na certificadora e envie o arquivo novo abaixo — sem
+            certificado válido a emissão de notas para.
+          </div>
+        </div>
+      )}
+
       {(status === 'ACTIVE' || status === 'READY_TO_TEST') && <EmissionsList monthRef={new Date()} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14 }}>
