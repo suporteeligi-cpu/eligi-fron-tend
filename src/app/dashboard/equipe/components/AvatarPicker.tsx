@@ -5,7 +5,13 @@ import { useState, useRef } from 'react'
 import { X, User } from 'lucide-react'
 import { colors, transitions } from '@/shared/theme'
 import { getInitials } from '@/features/professionals/utils/format'
-import { compressImage, imageCompressMessage, MAX_INPUT_MB } from '@/shared/utils/imageCompress'
+import {
+  compressImage,
+  imageCompressMessage,
+  MAX_INPUT_MB,
+  IMAGE_ACCEPT_ATTR,
+} from '@/shared/utils/imageCompress'
+import api from '@/shared/lib/apiClient'
 
 interface Props {
   name:     string
@@ -45,14 +51,40 @@ export default function AvatarPicker({ name, current, onChange }: Props) {
     if (!file) return
 
     setLoading(true)
+
+    let dataUrl: string
     try {
       // Preset 'avatar' = 256px WebP. O circulo renderiza 80px; guardar mais
       // que isso e' pagar banco e banda por pixel que a tela nunca desenha.
-      const { dataUrl } = await compressImage(file, 'avatar')
-      setPreview(dataUrl)
-      onChange(dataUrl)
+      const compressed = await compressImage(file, 'avatar')
+      dataUrl = compressed.dataUrl
     } catch (err) {
       alert(imageCompressMessage(err))
+      setLoading(false)
+      return
+    }
+
+    // Preview otimista: a foto aparece na hora, sem esperar a rede. A URL
+    // definitiva substitui logo abaixo, quando o upload conclui.
+    setPreview(dataUrl)
+
+    try {
+      // @eligi:avatar-bucket-v1
+      // A URL vem PRONTA do back (API_PUBLIC_URL + key). Montar aqui a partir
+      // de NEXT_PUBLIC_API_URL gravaria 'localhost:3333' no banco quando o
+      // save sai de uma maquina de desenvolvimento.
+      const { data } = await api.post<{ url: string }>('/uploads', {
+        dataUrl,
+        kind: 'avatar',
+      })
+      setPreview(data.url)
+      onChange(data.url)
+    } catch {
+      // Storage indisponivel nao pode impedir o cadastro da equipe. Degrada
+      // pro comportamento anterior (base64 na coluna), que funciona hoje.
+      // A coluna avatarUrl e' polimorfica por design — base64, 'color:' ou URL
+      // convivem, e o backfill varre por LIKE 'data:%'.
+      onChange(dataUrl)
     } finally {
       setLoading(false)
     }
@@ -78,6 +110,7 @@ export default function AvatarPicker({ name, current, onChange }: Props) {
       {/* Preview atual */}
       <div style={{ position: 'relative' }}>
         <div style={{
+          position: 'relative', // @eligi:avatar-overlay-anchor
           width: 80, height: 80, borderRadius: '50%',
           background: colorBg ?? (preview && !isColor ? 'transparent' : colors.red.gradient),
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -125,7 +158,7 @@ export default function AvatarPicker({ name, current, onChange }: Props) {
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept={IMAGE_ACCEPT_ATTR}
           onChange={handleFile}
           style={{ display: 'none' }}
         />
