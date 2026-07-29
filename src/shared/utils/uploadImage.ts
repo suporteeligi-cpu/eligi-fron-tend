@@ -82,6 +82,33 @@ export async function uploadImage(
   }
 }
 
+/**
+ * Sobe um binario JA processado, sem recomprimir.
+ *
+ * @eligi:upload-blob
+ * Usado pelo ImageCropper: ele entrega no tamanho final (512x512, 1200x675,
+ * 800x800) e passar pelo compressImage redimensionaria de novo, brigando com o
+ * enquadramento que o usuario acabou de ajustar.
+ *
+ * Mesmo contrato de falha do uploadImage: erro de rede NAO lanca, devolve o
+ * dataUrl (comportamento legado) pra nao travar o cadastro.
+ */
+export async function uploadBlob(
+  blob: Blob,
+  kind: ImagePresetName,
+  dataUrl: string,
+): Promise<UploadedImage> {
+  try {
+    const { data } = await api.post<{ url: string }>('/uploads', {
+      dataUrl,
+      kind,
+    })
+    return { value: data.url, dataUrl, stored: true, bytes: blob.size }
+  } catch {
+    return { value: dataUrl, dataUrl, stored: false, bytes: blob.size }
+  }
+}
+
 /** Mensagem pronta pra UI a partir de um erro desconhecido. */
 export function uploadImageMessage(error: unknown): string {
   if (error instanceof ImageUploadError) return error.message

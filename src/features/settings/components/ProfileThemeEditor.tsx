@@ -25,6 +25,8 @@ import {
   coverBackground,
   isMonogramCover,
 } from '@/shared/profileTheme';
+import { uploadBlob } from '@/shared/utils/uploadImage';
+import type { ImagePresetName } from '@/shared/utils/imageCompress';
 import ImageCropper from './ImageCropper';
 import MapPicker from './MapPicker';
 
@@ -90,7 +92,9 @@ type CropState = {
   aspect: number;
   outW: number;
   outH: number;
-  type: 'image/png' | 'image/jpeg';
+  // @eligi:cropstate-webp — precisa espelhar a prop `outType` do ImageCropper.
+  // Sao DUAS declaracoes do mesmo contrato; ampliar uma sem a outra quebra o build.
+  type: 'image/png' | 'image/jpeg' | 'image/webp';
   target: 'logo' | 'cover' | 'gallery';
 } | null;
 
@@ -155,15 +159,25 @@ export function ProfileThemeEditor({
 
   function openCrop(file: File, target: 'logo' | 'cover' | 'gallery') {
     const src = URL.createObjectURL(file);
-    if (target === 'logo') setCrop({ src, aspect: 1, outW: 512, outH: 512, type: 'image/png', target });
-    else if (target === 'cover') setCrop({ src, aspect: 16 / 9, outW: 1200, outH: 675, type: 'image/jpeg', target });
-    else setCrop({ src, aspect: 1, outW: 800, outH: 800, type: 'image/jpeg', target });
+    // @eligi:crop-targets-webp
+    // PNG 512x512 sem compressao gerou os 692 kB do logo da Barbearia Will.
+    // Mesmas dimensoes em WebP: ~30 kB.
+    if (target === 'logo') setCrop({ src, aspect: 1, outW: 512, outH: 512, type: 'image/webp', target });
+    else if (target === 'cover') setCrop({ src, aspect: 16 / 9, outW: 1200, outH: 675, type: 'image/webp', target });
+    else setCrop({ src, aspect: 1, outW: 800, outH: 800, type: 'image/webp', target });
   }
 
-  function applyCrop(dataUrl: string) {
+  // @eligi:apply-crop-upload
+  // ORDEM IMPORTA: a paleta e' extraida do dataUrl LOCAL antes do upload.
+  // extractPalette usa ctx.getImageData(); imagem carregada de URL cross-origin
+  // deixa o canvas tainted e getImageData lanca SecurityError — a cor primaria
+  // do tema pararia de ser detectada.
+  async function applyCrop(dataUrl: string, blob: Blob) {
     const target = crop?.target;
     const src = crop?.src;
     touch();
+
+    // 1) preview otimista + paleta, tudo com o dataUrl local
     if (target === 'logo') {
       setLogoUrl(dataUrl);
       const img = new Image();
@@ -178,8 +192,30 @@ export function ProfileThemeEditor({
     } else if (target === 'gallery') {
       setGallery(g => [...g, dataUrl].slice(0, 3));
     }
+
     if (src) URL.revokeObjectURL(src);
     setCrop(null);
+
+    // 2) upload em segundo plano; a URL substitui o base64 quando chega.
+    //    Falhou? o dataUrl fica — degrada pro comportamento anterior.
+    if (!target) return;
+
+    const kind: ImagePresetName =
+      target === 'logo' ? 'logo' : target === 'cover' ? 'banner' : 'product';
+
+    const result = await uploadBlob(blob, kind, dataUrl);
+    if (!result.stored) return;
+
+    if (target === 'logo') {
+      setLogoUrl(result.value);
+    } else if (target === 'cover') {
+      setCoverUrl(result.value);
+    } else {
+      // Troca pela URL a entrada que acabou de ser inserida (comparando pelo
+      // dataUrl), sem depender de indice — o usuario pode ter removido outra
+      // foto enquanto o upload corria.
+      setGallery(g => g.map(item => (item === dataUrl ? result.value : item)));
+    }
   }
 
   async function save() {

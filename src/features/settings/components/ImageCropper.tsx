@@ -15,16 +15,20 @@ interface Props {
   aspect: number;              // largura/altura (1 = quadrado, 16/9 = capa)
   outWidth: number;
   outHeight: number;
-  outType?: 'image/png' | 'image/jpeg';
+  // @eligi:cropper-webp
+  // WebP entrou na lista: logo saia em PNG 512x512 sem compressao — foi o
+  // que produziu os 692 kB da Barbearia Will. Mesmo tamanho em WebP: ~30 kB.
+  outType?: 'image/png' | 'image/jpeg' | 'image/webp';
   quality?: number;
   title?: string;
   onCancel: () => void;
-  onApply: (dataUrl: string) => void;
+  /** dataUrl para preview/paleta (local), blob para o upload. */
+  onApply: (dataUrl: string, blob: Blob) => void;
 }
 
 export default function ImageCropper({
   src, aspect, outWidth, outHeight,
-  outType = 'image/jpeg', quality = 0.85, title = 'Recortar imagem',
+  outType = 'image/webp', quality = 0.85, title = 'Recortar imagem',
   onCancel, onApply,
 }: Props) {
   const frameH = Math.round(FRAME_W / aspect);
@@ -86,6 +90,9 @@ export default function ImageCropper({
   }
   function onPointerUp() { drag.current = null; }
 
+  // @eligi:cropper-blob
+  // Entrega dataUrl E blob: o dataUrl alimenta preview e extracao de paleta
+  // (que precisa de canvas NAO-tainted); o blob vai pro bucket.
   function apply() {
     if (!img) return;
     const scale = baseScale * zoom;
@@ -93,8 +100,33 @@ export default function ImageCropper({
     cv.width = outWidth; cv.height = outHeight;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
+
+    // JPEG e WebP com qualidade nao tem alpha util aqui: fundo branco evita
+    // que area transparente do PNG de origem vire preto.
+    if (outType !== 'image/png') {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, outWidth, outHeight);
+    }
+
     ctx.drawImage(img, -tx / scale, -ty / scale, FRAME_W / scale, frameH / scale, 0, 0, outWidth, outHeight);
-    onApply(cv.toDataURL(outType, quality));
+
+    const dataUrl = cv.toDataURL(outType, quality);
+
+    cv.toBlob(
+      (blob) => {
+        if (blob) {
+          onApply(dataUrl, blob);
+          return;
+        }
+        // toBlob falhou (formato nao suportado): reconstroi o binario a partir
+        // do dataUrl que ja temos, em vez de deixar o usuario sem retorno.
+        const base64 = dataUrl.split(',')[1] ?? '';
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        onApply(dataUrl, new Blob([bytes], { type: outType }));
+      },
+      outType,
+      quality,
+    );
   }
 
   const dispW = img ? img.naturalWidth * baseScale * zoom : 0;
