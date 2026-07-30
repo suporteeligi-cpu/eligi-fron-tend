@@ -1,0 +1,174 @@
+// src/features/fiscal/components/NfseBookingAction.tsx
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { ReceiptText, FileDown, Loader2 } from 'lucide-react'
+import api from '@/shared/lib/apiClient'
+import { colors, typography, inkLight } from '@/shared/theme'
+import type { NfseEmission } from '../types'
+import { apiErrorMessage } from '../utils'
+
+// Depois disso, avisamos que a competência é a do atendimento.
+// NÃO bloqueia: a obrigação de emitir é do lojista; travar a UI só o
+// empurraria pro portal do governo.
+const COMPETENCE_WARN_DAYS = 7
+
+const itemStyle: React.CSSProperties = {
+  width: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '14px 18px',
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  textAlign: 'left',
+  fontSize: 14,
+  fontWeight: 600,
+  fontFamily: typography.fontFamily,
+  transition: 'background 0.12s',
+}
+
+interface Props {
+  saleId: string
+  /** confirmação da venda = data do atendimento (competência do ISS) */
+  saleConfirmedAt: string | null
+  onBeforeAction?: () => void
+}
+
+type Phase = 'loading' | 'hidden' | 'none' | 'has'
+
+export default function NfseBookingAction({ saleId, saleConfirmedAt, onBeforeAction }: Props) {
+  const [phase, setPhase] = useState<Phase>('loading')
+  const [emission, setEmission] = useState<NfseEmission | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    let alive = true
+    api
+      .get<NfseEmission | ''>(`/fiscal/sales/${saleId}/emission`)
+      .then((res) => {
+        if (!alive) return
+        // 204 → axios entrega string vazia
+        if (!res.data || typeof res.data !== 'object') {
+          setEmission(null)
+          setPhase('none')
+          return
+        }
+        setEmission(res.data)
+        setPhase('has')
+      })
+      .catch(() => {
+        // 403 (cargo sem permissão) / 400 (módulo inativo) → item some.
+        // Permissão mora no BACK; o front não duplica a lista de cargos.
+        if (alive) setPhase('hidden')
+      })
+    return () => {
+      alive = false
+    }
+  }, [saleId, tick])
+
+  const emit = useCallback(() => {
+    if (busy) return
+
+    const days = saleConfirmedAt
+      ? Math.floor((Date.now() - new Date(saleConfirmedAt).getTime()) / 86_400_000)
+      : 0
+
+    if (days > COMPETENCE_WARN_DAYS) {
+      const dataAtendimento = saleConfirmedAt
+        ? new Date(saleConfirmedAt).toLocaleDateString('pt-BR')
+        : 'a data do atendimento'
+      const ok = window.confirm(
+        `Este atendimento foi em ${dataAtendimento} (${days} dias atrás).\n\n` +
+          'A nota será emitida com a competência do atendimento, não a de hoje. ' +
+          'Confirme com seu contador se isso afeta a apuração do mês.\n\nEmitir mesmo assim?',
+      )
+      if (!ok) return
+    }
+
+    setBusy(true)
+    setError(null)
+    onBeforeAction?.()
+    api
+      .post(`/fiscal/sales/${saleId}/emit`)
+      .then(() => setTick((t) => t + 1))
+      .catch((err: unknown) => setError(apiErrorMessage(err)))
+      .finally(() => setBusy(false))
+  }, [busy, saleConfirmedAt, saleId, onBeforeAction])
+
+  if (phase === 'loading' || phase === 'hidden') return null
+
+  // ── já tem nota: status + XML ──
+  if (phase === 'has' && emission) {
+    const done = emission.status === 'AUTHORIZED'
+    const failed = emission.status === 'REJECTED'
+    const tone = done ? inkLight.ok : failed ? inkLight.bad : inkLight.warn
+    const label = done
+      ? `Nota fiscal nº ${emission.nfseNumber ?? '—'}`
+      : failed
+        ? 'Nota rejeitada'
+        : 'Nota em processamento…'
+
+    return (
+      <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, fontWeight: 600, color: tone.text }}>
+          <ReceiptText size={14} strokeWidth={2} />
+          {label}
+        </div>
+        {failed && emission.errorMessage && (
+          <div style={{ fontSize: 11.5, color: inkLight.faint, marginTop: 4, lineHeight: 1.4 }}>
+            {emission.errorMessage}
+          </div>
+        )}
+        {done && (
+          <a
+            href={`/fiscal/emissions/${emission.id}/xml`}
+            onClick={(e) => {
+              e.preventDefault()
+              window.open(
+                `${process.env.NEXT_PUBLIC_API_URL ?? ''}/fiscal/emissions/${emission.id}/xml`,
+                '_blank',
+                'noopener',
+              )
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              color: colors.red.DEFAULT,
+              textDecoration: 'none',
+              marginTop: 8,
+            }}
+          >
+            <FileDown size={13} strokeWidth={2} />
+            Baixar XML da nota
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  // ── sem nota: emitir ──
+  return (
+    <>
+      <button className="bvp-drop-item" onClick={emit} disabled={busy} style={{ ...itemStyle, color: inkLight.strong }}>
+        {busy ? (
+          <Loader2 size={14} strokeWidth={2} style={{ animation: 'spin 0.8s linear infinite' }} />
+        ) : (
+          <ReceiptText size={14} strokeWidth={2} />
+        )}
+        {busy ? 'Emitindo…' : 'Emitir nota fiscal'}
+      </button>
+      {error && (
+        <div style={{ padding: '0 18px 10px', fontSize: 11.5, color: inkLight.bad.text, lineHeight: 1.4 }}>
+          {error}
+        </div>
+      )}
+    </>
+  )
+}

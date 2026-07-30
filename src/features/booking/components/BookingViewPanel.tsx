@@ -24,6 +24,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAgendaStore'
 import { Sale } from '@/features/sales/types'
 import SaleReceiptModal from '@/features/sales/components/SaleReceiptModal'
+import NfseBookingAction from '@/features/fiscal/components/NfseBookingAction' // @eligi:nfse-booking-action
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc from 'dayjs/plugin/utc'
@@ -658,6 +659,15 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                             <User size={14} strokeWidth={2}/>
                             Cliente não compareceu
                           </button>
+                        )}
+                        {/* @eligi:nfse-booking-item — some sozinho sem venda,
+                            sem módulo ativo ou sem permissão (403 do back) */}
+                        {detail?.sale?.id && detail.sale.status === 'CONFIRMED' && (
+                          <NfseBookingAction
+                            saleId={detail.sale.id}
+                            saleConfirmedAt={detail.sale.confirmedAt ?? null}
+                            onBeforeAction={() => setShowAlter(false)}
+                          />
                         )}
                         <button className="bvp-drop-item"
                           onClick={() => { setShowAlter(false); setConfirm('cancel') }}
