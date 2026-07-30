@@ -6,7 +6,7 @@ import { useState } from 'react'
 import LegalModal from '@/shared/legal/LegalModal'
 import {
   Calendar, Building2, CreditCard, Users,
-  Sliders, Bell, Shield, ChevronRight, Scissors, Sparkles,
+  Sliders, Bell, Shield, ChevronRight, Scissors, Sparkles, Palette,
   FileText, Lock, Globe,
 } from 'lucide-react'
 
@@ -100,6 +100,13 @@ const MODULES: ModuleGroup[] = [
   {
     group: 'Sistema',
     items: [
+      {
+        href:        '/dashboard/configuracoes/aparencia',
+        icon:        Palette,
+        label:       'Aparência',
+        description: 'Estilo dos cards da agenda: clássico (cores cheias) ou clean (tons suaves).',
+        available:   true,
+      },
       {
         href:        '/dashboard/configuracoes/notificacoes',
         icon:        Bell,
