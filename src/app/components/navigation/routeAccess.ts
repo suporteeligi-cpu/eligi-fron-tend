@@ -23,6 +23,7 @@ export const ROUTE_ACCESS_BY_ROLE: Record<Role, readonly string[]> = {
     '/dashboard/equipe',
     '/dashboard/estoque',
     '/dashboard/caixa',
+    '/dashboard/configuracoes/aparencia',
   ],
   RECEPTIONIST: [
     '/dashboard/agenda',
@@ -33,17 +34,20 @@ export const ROUTE_ACCESS_BY_ROLE: Record<Role, readonly string[]> = {
     '/dashboard/caixa',
     '/dashboard/financeiro/vendas',
     '/dashboard/financeiro/comissoes',
+    '/dashboard/configuracoes/aparencia',
     // NÃO inclui '/dashboard/financeiro' (índice) — barrado de propósito (decisão jul/2026).
   ],
   STAFF: [
     '/dashboard/agenda',
     '/dashboard/caixa',
     '/dashboard/financeiro/comissoes',
+    '/dashboard/configuracoes/aparencia',
   ],
   BASIC_STAFF: [
     '/dashboard/agenda',
     '/dashboard/financeiro/comissoes',
     '/dashboard/caixa',
+    '/dashboard/configuracoes/aparencia',
   ],
   PROFESSIONAL: [
     '/dashboard',
