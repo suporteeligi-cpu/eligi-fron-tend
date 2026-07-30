@@ -18,6 +18,7 @@ import {
 import api from '@/shared/lib/apiClient'
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
+import AsaasSeal, { AsaasSupportNote } from '@/shared/components/AsaasSeal'
 
 // ── tipos ───────────────────────────────────────────────────────────────────
 interface AccountOnboarding {
@@ -98,8 +99,9 @@ const BTN: React.CSSProperties = {
   fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50,
 }
-const ASAAS_NOTE: React.CSSProperties = {
-  fontSize: 10.5, color: 'rgba(0,0,0,0.35)', marginTop: 13, textAlign: 'center',
+// O texto solto foi substituido pelo SELO OFICIAL (exigencia do playbook BaaS).
+const ASAAS_HINT: React.CSSProperties = {
+  fontSize: 10.5, color: 'rgba(0,0,0,0.35)', marginTop: 10, textAlign: 'center',
 }
 const MINI_BTN: React.CSSProperties = {
   flex: 1, minHeight: 44, padding: '10px 12px', borderRadius: 9,
@@ -354,8 +356,8 @@ export default function EligiClubCobrancaPage() {
       {!connected && (
         <div style={CARD}>
           <p style={{ fontSize: 12.5, color: 'rgba(0,0,0,0.5)', lineHeight: 1.55, marginBottom: 18 }}>
-            Criamos sua conta de pagamentos em segundos. Você não precisa sair do Eligi — só confirme
-            alguns dados do seu negócio.
+            Sua conta de pagamentos é aberta no <b>Asaas</b>, sem você sair do Eligi. Confirme alguns
+            dados do seu negócio para começar.
           </p>
 
           {error && <Banner tone="red">{error}</Banner>}
@@ -393,7 +395,8 @@ export default function EligiClubCobrancaPage() {
             {saving && <Loader2 size={16} style={{ animation: 'eligi-spin 0.9s linear infinite' }} />}
             {saving ? 'Ativando…' : 'Ativar cobrança'}
           </button>
-          <div style={ASAAS_NOTE}>Pagamentos processados por Asaas</div>
+          <AsaasSeal variant="positivo" />
+          <AsaasSupportNote />
         </div>
       )}
 
@@ -429,7 +432,9 @@ export default function EligiClubCobrancaPage() {
               Atualizar situação
             </button>
           )}
-          <div style={ASAAS_NOTE}>Você será direcionado ao ambiente seguro do Asaas</div>
+          <div style={ASAAS_HINT}>Você será direcionado ao ambiente seguro do Asaas</div>
+          <AsaasSeal variant="positivo" />
+          <AsaasSupportNote />
         </div>
       )}
 
@@ -475,6 +480,8 @@ export default function EligiClubCobrancaPage() {
             <ShieldCheck size={14} style={{ flexShrink: 0 }} />
             <span>Os dados do cartão são tratados pelo Asaas — o Eligi nunca os armazena.</span>
           </div>
+          <AsaasSeal variant="positivo" />
+          <AsaasSupportNote />
         </div>
       )}
     </div>

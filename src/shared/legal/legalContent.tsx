@@ -43,6 +43,12 @@ export const TERMOS: LegalDocData = {
     { kind: 'h', text: '5. Assinatura e pagamento' },
     { kind: 'p', text: 'As condicoes comerciais da Plataforma — planos, precos, cobranca, periodo de teste, reajuste, cancelamento e reembolso — constam nos Termos de Planos e Assinatura, que integram estes Termos.' },
 
+    { kind: 'h', text: '5.1. Prestacao de Servicos Financeiros' },
+    { kind: 'p', text: 'Os servicos financeiros e de pagamentos disponibilizados por meio da presente plataforma, incluindo abertura e manutencao de conta de pagamento, processamento de transacoes, emissao de boletos, transferencias, pagamentos e demais movimentacoes de valores, sao prestados pelo ASAAS GESTAO FINANCEIRA INSTITUICAO DE PAGAMENTOS S.A., instituicao de pagamento autorizada a funcionar pelo Banco Central do Brasil.' },
+    { kind: 'p', text: 'A ELIGI SISTEMAS EMPRESARIAIS LTDA atua exclusivamente como integradora tecnologica e distribuidora da experiencia do produto, nao sendo instituicao financeira ou de pagamento, nem realizando intermediacao financeira em nome proprio.' },
+    { kind: 'p', text: 'O cliente declara ciencia de que o relacionamento financeiro/de pagamentos e a responsabilidade regulatoria pelos servicos acima descritos sao do ASAAS GESTAO FINANCEIRA S.A., nos termos da regulamentacao vigente.' },
+    { kind: 'note', text: 'Suporte do Asaas para questoes da operacao financeira: 0800 009 0037 (Pessoa Juridica) · contato@asaas.com.br' },
+
     { kind: 'h', text: '6. Dados pessoais e responsabilidades do Assinante' },
     { kind: 'p', text: 'Ao inserir, importar ou tratar na Plataforma dados de Clientes Finais e de terceiros, o Assinante atua como controlador desses dados e o Eligi como operador, processando-os conforme as instrucoes do Assinante e o Adendo de Tratamento de Dados (DPA). O Assinante declara possuir base legal adequada (LGPD - Lei no 13.709/2018) para tratar esses dados e responde por essa adequacao.' },
 
