@@ -2,6 +2,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { ReceiptText, FileDown, Loader2 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, inkLight } from '@/shared/theme'
@@ -13,7 +14,7 @@ import { apiErrorMessage } from '../utils'
 // empurraria pro portal do governo.
 const COMPETENCE_WARN_DAYS = 7
 
-const itemStyle: React.CSSProperties = {
+const menuItemStyle: CSSProperties = {
   width: '100%',
   display: 'flex',
   alignItems: 'center',
@@ -29,22 +30,48 @@ const itemStyle: React.CSSProperties = {
   transition: 'background 0.12s',
 }
 
+/** Compacto, alinhado à direita — vive no card de Total, junto do "Ver recibo". */
+const inlineStyle: CSSProperties = {
+  marginTop: 8,
+  fontSize: 11,
+  fontWeight: 700,
+  fontFamily: typography.fontFamily,
+  color: colors.red.DEFAULT,
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: 5,
+  width: '100%',
+}
+
 interface Props {
   saleId: string
   /** confirmação da venda = data do atendimento (competência do ISS) */
   saleConfirmedAt: string | null
+  variant?: 'menu' | 'inline'
   onBeforeAction?: () => void
 }
 
 type Phase = 'loading' | 'hidden' | 'none' | 'has'
 
-export default function NfseBookingAction({ saleId, saleConfirmedAt, onBeforeAction }: Props) {
+export default function NfseBookingAction({
+  saleId,
+  saleConfirmedAt,
+  variant = 'menu',
+  onBeforeAction,
+}: Props) {
   const [phase, setPhase] = useState<Phase>('loading')
   const [emission, setEmission] = useState<NfseEmission | null>(null)
   const [busy, setBusy] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
+
+  const inline = variant === 'inline'
 
   useEffect(() => {
     let alive = true
@@ -62,7 +89,7 @@ export default function NfseBookingAction({ saleId, saleConfirmedAt, onBeforeAct
         setPhase('has')
       })
       .catch(() => {
-        // 403 (cargo sem permissão) / 400 (módulo inativo) → item some.
+        // 403 (cargo sem permissão) / 400 (módulo inativo) → some.
         // Permissão mora no BACK; o front não duplica a lista de cargos.
         if (alive) setPhase('hidden')
       })
@@ -131,22 +158,61 @@ export default function NfseBookingAction({ saleId, saleConfirmedAt, onBeforeAct
     const failed = emission.status === 'REJECTED'
     const tone = done ? inkLight.ok : failed ? inkLight.bad : inkLight.warn
     const label = done
-      ? `Nota fiscal nº ${emission.nfseNumber ?? '—'}`
+      ? `NFS-e nº ${emission.nfseNumber ?? '—'}`
       : failed
         ? 'Nota rejeitada'
         : 'Nota em processamento…'
 
+    if (inline) {
+      return (
+        <div style={{ marginTop: 8, textAlign: 'right' }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: tone.text,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 5,
+            }}
+          >
+            <ReceiptText size={12} strokeWidth={2} />
+            {label}
+          </div>
+          {done && (
+            <button onClick={downloadXml} disabled={downloading} style={inlineStyle}>
+              <FileDown size={12} strokeWidth={2} />
+              {downloading ? 'Baixando…' : 'Baixar XML'}
+            </button>
+          )}
+          {failed && emission.errorMessage && (
+            <div style={{ fontSize: 10.5, color: inkLight.faint, marginTop: 3, lineHeight: 1.35 }}>
+              {emission.errorMessage}
+            </div>
+          )}
+          {error && (
+            <div style={{ fontSize: 10.5, color: inkLight.bad.text, marginTop: 3 }}>{error}</div>
+          )}
+        </div>
+      )
+    }
+
     return (
       <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, fontWeight: 600, color: tone.text }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 9,
+            fontSize: 13,
+            fontWeight: 600,
+            color: tone.text,
+          }}
+        >
           <ReceiptText size={14} strokeWidth={2} />
           {label}
         </div>
-        {failed && emission.errorMessage && (
-          <div style={{ fontSize: 11.5, color: inkLight.faint, marginTop: 4, lineHeight: 1.4 }}>
-            {emission.errorMessage}
-          </div>
-        )}
         {done && (
           <button
             onClick={downloadXml}
@@ -170,14 +236,44 @@ export default function NfseBookingAction({ saleId, saleConfirmedAt, onBeforeAct
             {downloading ? 'Baixando…' : 'Baixar XML da nota'}
           </button>
         )}
+        {failed && emission.errorMessage && (
+          <div style={{ fontSize: 11.5, color: inkLight.faint, marginTop: 4, lineHeight: 1.4 }}>
+            {emission.errorMessage}
+          </div>
+        )}
       </div>
     )
   }
 
   // ── sem nota: emitir ──
+  if (inline) {
+    return (
+      <div style={{ textAlign: 'right' }}>
+        <button onClick={emit} disabled={busy} style={inlineStyle}>
+          {busy ? (
+            <Loader2 size={12} strokeWidth={2} style={{ animation: 'spin 0.8s linear infinite' }} />
+          ) : (
+            <ReceiptText size={12} strokeWidth={2} />
+          )}
+          {busy ? 'Emitindo…' : 'Emitir nota fiscal ›'}
+        </button>
+        {error && (
+          <div style={{ fontSize: 10.5, color: inkLight.bad.text, marginTop: 3, lineHeight: 1.35 }}>
+            {error}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <>
-      <button className="bvp-drop-item" onClick={emit} disabled={busy} style={{ ...itemStyle, color: inkLight.strong }}>
+      <button
+        className="bvp-drop-item"
+        onClick={emit}
+        disabled={busy}
+        style={{ ...menuItemStyle, color: inkLight.strong }}
+      >
         {busy ? (
           <Loader2 size={14} strokeWidth={2} style={{ animation: 'spin 0.8s linear infinite' }} />
         ) : (

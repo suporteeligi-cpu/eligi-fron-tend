@@ -660,15 +660,6 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                             Cliente não compareceu
                           </button>
                         )}
-                        {/* @eligi:nfse-booking-item — some sozinho sem venda,
-                            sem módulo ativo ou sem permissão (403 do back) */}
-                        {detail?.sale?.id && detail.sale.status === 'CONFIRMED' && (
-                          <NfseBookingAction
-                            saleId={detail.sale.id}
-                            saleConfirmedAt={detail.sale.confirmedAt ?? null}
-                            onBeforeAction={() => setShowAlter(false)}
-                          />
-                        )}
                         <button className="bvp-drop-item"
                           onClick={() => { setShowAlter(false); setConfirm('cancel') }}
                           style={{
@@ -1137,6 +1128,16 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                         }}>
                           Ver recibo ›
                         </div>
+                        {/* @eligi:nfse-booking-total — a ação de nota vive AQUI,
+                            não no dropdown "Alterar": o dropdown só existe em
+                            CONFIRMED, e atendimento pago vira COMPLETED. */}
+                        {detail?.sale?.id && (
+                          <NfseBookingAction
+                            saleId={detail.sale.id}
+                            saleConfirmedAt={detail.sale.confirmedAt ?? null}
+                            variant="inline"
+                          />
+                        )}
                       </div>
                     ) : hasOpenSale ? (
                       <div style={{ textAlign: 'right' }}>
