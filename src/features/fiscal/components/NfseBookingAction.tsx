@@ -3,11 +3,12 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { ReceiptText, FileDown, Loader2 } from 'lucide-react'
+import { ReceiptText, FileDown, FileText, Loader2 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, inkLight } from '@/shared/theme'
 import type { NfseEmission } from '../types'
 import { apiErrorMessage } from '../utils'
+import { downloadFile, openPdf } from '../download'
 
 // Depois disso, avisamos que a competência é a do atendimento.
 // NÃO bloqueia: a obrigação de emitir é do lojista; travar a UI só o
@@ -134,18 +135,20 @@ export default function NfseBookingAction({
     if (!emission || downloading) return
     setDownloading(true)
     setError(null)
-    api
-      .get<Blob>(`/fiscal/emissions/${emission.id}/xml`, { responseType: 'blob' })
-      .then((res) => {
-        const url = URL.createObjectURL(res.data)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `NFSe-${emission.nfseNumber ?? emission.id}.xml`
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        URL.revokeObjectURL(url)
-      })
+    downloadFile(
+      `/fiscal/emissions/${emission.id}/xml`,
+      `NFSe-${emission.nfseNumber ?? emission.id}.xml`,
+    )
+      .catch((err: unknown) => setError(apiErrorMessage(err)))
+      .finally(() => setDownloading(false))
+  }, [emission, downloading])
+
+  // Comprovante: abre em aba nova (o lojista vai compartilhar, não arquivar)
+  const openReceipt = useCallback(() => {
+    if (!emission || downloading) return
+    setDownloading(true)
+    setError(null)
+    openPdf(`/fiscal/emissions/${emission.id}/receipt.pdf`)
       .catch((err: unknown) => setError(apiErrorMessage(err)))
       .finally(() => setDownloading(false))
   }, [emission, downloading])
@@ -214,27 +217,48 @@ export default function NfseBookingAction({
           {label}
         </div>
         {done && (
-          <button
-            onClick={downloadXml}
-            disabled={downloading}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 12,
-              fontWeight: 600,
-              color: colors.red.DEFAULT,
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              marginTop: 8,
-              cursor: downloading ? 'wait' : 'pointer',
-              fontFamily: typography.fontFamily,
-            }}
-          >
-            <FileDown size={13} strokeWidth={2} />
-            {downloading ? 'Baixando…' : 'Baixar XML da nota'}
-          </button>
+          <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
+            <button
+              onClick={openReceipt}
+              disabled={downloading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: colors.red.DEFAULT,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: downloading ? 'wait' : 'pointer',
+                fontFamily: typography.fontFamily,
+              }}
+            >
+              <FileText size={13} strokeWidth={2} />
+              Comprovante
+            </button>
+            <button
+              onClick={downloadXml}
+              disabled={downloading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: colors.red.DEFAULT,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: downloading ? 'wait' : 'pointer',
+                fontFamily: typography.fontFamily,
+              }}
+            >
+              <FileDown size={13} strokeWidth={2} />
+              XML
+            </button>
+          </div>
         )}
         {failed && emission.errorMessage && (
           <div style={{ fontSize: 11.5, color: inkLight.faint, marginTop: 4, lineHeight: 1.4 }}>

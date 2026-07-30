@@ -8,6 +8,7 @@ import type { InkTone } from '@/shared/theme'
 import { useEmissions } from '../hooks/useEmissions'
 import type { NfseEmission, NfseStatus } from '../types'
 import { apiErrorMessage } from '../utils'
+import { downloadFile, openPdf } from '../download'
 
 const CHIP: Record<NfseStatus, { label: string; tone: InkTone }> = {
   PENDING: { label: 'NA FILA', tone: inkLight.warn },
@@ -156,6 +157,51 @@ export default function EmissionsList({ monthRef }: { monthRef: Date }) {
                   >
                     {chip.label}
                   </span>
+                  {e.status === 'AUTHORIZED' && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setActionError(null)
+                          openPdf(`/fiscal/emissions/${e.id}/receipt.pdf`).catch((err: unknown) =>
+                            setActionError(apiErrorMessage(err)),
+                          )
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid rgba(0,0,0,0.11)',
+                          color: inkLight.label,
+                          fontSize: 11.5,
+                          fontFamily: 'inherit',
+                          padding: '6px 11px',
+                          borderRadius: radius.sm,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        PDF
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActionError(null)
+                          downloadFile(
+                            `/fiscal/emissions/${e.id}/xml`,
+                            `NFSe-${e.nfseNumber ?? e.id}.xml`,
+                          ).catch((err: unknown) => setActionError(apiErrorMessage(err)))
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid rgba(0,0,0,0.11)',
+                          color: inkLight.label,
+                          fontSize: 11.5,
+                          fontFamily: 'inherit',
+                          padding: '6px 11px',
+                          borderRadius: radius.sm,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        XML
+                      </button>
+                    </>
+                  )}
                   {e.status === 'REJECTED' && (
                     <button
                       onClick={() => retry(e)}
