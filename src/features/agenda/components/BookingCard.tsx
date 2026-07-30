@@ -4,12 +4,14 @@
 // Curto → uma linha inline; alto (≥56px) → empilhado, mesma ordem.
 // O horário (faixa início–fim) nunca encolhe; nome e serviço truncam (serviço cede primeiro).
 // Cor do texto adapta ao fundo do serviço via inkFor().
+// Estilo do card ('classic' saturado × 'clean' pastel/Fresha) via useCardStyle().
 
 import { memo } from 'react'
 import { AgendaBooking } from '../types'
 import { bookingStatus } from '@/shared/theme'
 import { colorToGradient, colorToGlow } from '@/features/agenda/constants/serviceColors'
-import { inkFor } from '../utils/contrast'
+import { inkFor, inkForPastel, pastelOf, stripOf } from '../utils/contrast'
+import { useCardStyle } from '@/hooks/useCardStyle'
 import BookingSeals from './shared/BookingSeals'
 
 interface Props {
@@ -27,13 +29,26 @@ function BookingCard({ booking, totalHeight }: Props) {
 
   const isNoShow    = booking.status === 'NO_SHOW'
   const statusTheme = bookingStatus[booking.status] ?? bookingStatus.CONFIRMED
-  // NO_SHOW: mantém cor do serviço mas dessatura/escurece via overlay
-  const gradient    = booking.serviceColor && !isNoShow ? colorToGradient(booking.serviceColor) : statusTheme.gradient
-  const glow        = booking.serviceColor && !isNoShow ? colorToGlow(booking.serviceColor)     : statusTheme.glow
 
-  // Tinta adaptativa: NO_SHOW (fundo escuro do tema) e sem cor → branco.
-  const ink   = isNoShow ? inkFor(null) : inkFor(booking.serviceColor)
-  const range = `${booking.start}–${booking.end}`
+  // Estilo clean (Fresha): só com cor de serviço e fora do NO_SHOW —
+  // NO_SHOW mantém o ghost do tema nos DOIS estilos.
+  const cardStyle = useCardStyle()
+  const isClean   = cardStyle === 'clean' && !!booking.serviceColor && !isNoShow
+
+  // NO_SHOW: mantém cor do serviço mas dessatura/escurece via overlay
+  const gradient = isClean
+    ? pastelOf(booking.serviceColor)
+    : booking.serviceColor && !isNoShow ? colorToGradient(booking.serviceColor) : statusTheme.gradient
+  const glow = isClean
+    ? 'rgba(0,0,0,0.08)'
+    : booking.serviceColor && !isNoShow ? colorToGlow(booking.serviceColor) : statusTheme.glow
+  const strip = isClean ? stripOf(booking.serviceColor) : null
+
+  // Tinta adaptativa: clean → fundo pastel sempre claro → tinta escura;
+  // NO_SHOW (fundo escuro do tema) e sem cor → branco.
+  const ink       = isClean ? inkForPastel() : isNoShow ? inkFor(null) : inkFor(booking.serviceColor)
+  const timeColor = strip ?? ink.secondary
+  const range     = `${booking.start}–${booking.end}`
 
   return (
     <div
@@ -52,7 +67,7 @@ function BookingCard({ booking, totalHeight }: Props) {
         justifyContent: stacked ? 'flex-start' : 'center',
         overflow: 'hidden',
         boxShadow: `0 2px 8px ${glow}, 0 1px 3px rgba(0,0,0,0.08)`,
-        border: '1px solid rgba(255,255,255,0.15)',
+        border: isClean ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.15)',
         cursor: 'pointer',
         opacity: isNoShow ? 0.55 : 1,
         userSelect: 'none',
@@ -77,13 +92,15 @@ function BookingCard({ booking, totalHeight }: Props) {
         }
       `}</style>
 
-      {/* Brilho topo */}
-      <div aria-hidden style={{
-        position:'absolute', top:0, left:0, right:0, height:'50%',
-        background:'linear-gradient(180deg,rgba(255,255,255,0.18) 0%, transparent 100%)',
-        borderRadius:'7px 7px 0 0',
-        pointerEvents:'none',
-      }} />
+      {/* Brilho topo — só no clássico (lavaria o pastel do clean) */}
+      {!isClean && (
+        <div aria-hidden style={{
+          position:'absolute', top:0, left:0, right:0, height:'50%',
+          background:'linear-gradient(180deg,rgba(255,255,255,0.18) 0%, transparent 100%)',
+          borderRadius:'7px 7px 0 0',
+          pointerEvents:'none',
+        }} />
+      )}
 
       {/* Selos: Pago 💲 · Online 🚀 · Preferência ❤️ (empilhados, leve sobreposição) */}
       <BookingSeals
@@ -106,10 +123,10 @@ function BookingCard({ booking, totalHeight }: Props) {
         }} />
       )}
 
-      {/* Barra lateral esquerda — adapta ao fundo */}
+      {/* Barra lateral esquerda — clean: cor crua do serviço; clássico: adapta ao fundo */}
       <div aria-hidden style={{
-        position:'absolute', left:0, top:0, bottom:0, width:3,
-        background: ink.isDark ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.38)',
+        position:'absolute', left:0, top:0, bottom:0, width: strip ? 4 : 3,
+        background: strip ?? (ink.isDark ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.38)'),
         borderRadius:'7px 0 0 7px',
       }} />
 
@@ -117,7 +134,7 @@ function BookingCard({ booking, totalHeight }: Props) {
       {stacked ? (
         <>
           <div style={{
-            fontSize:10, fontWeight:600, color: ink.secondary, fontVariantNumeric:'tabular-nums',
+            fontSize:10, fontWeight:600, color: timeColor, fontVariantNumeric:'tabular-nums',
             letterSpacing:'-0.1px', lineHeight:1,
             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%',
           }}>
@@ -143,7 +160,7 @@ function BookingCard({ booking, totalHeight }: Props) {
         /* INLINE (curto) — horário · nome · serviço numa linha */
         <div style={{ display:'flex', alignItems:'baseline', gap:5, width:'100%', overflow:'hidden', lineHeight:1.1 }}>
           <span style={{
-            fontSize:9, fontWeight:700, color: ink.secondary, flexShrink:0,
+            fontSize:9, fontWeight:700, color: timeColor, flexShrink:0,
             fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px',
           }}>
             {range}

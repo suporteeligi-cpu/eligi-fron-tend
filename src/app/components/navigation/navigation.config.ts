@@ -57,6 +57,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Equipe',    path: '/dashboard/equipe',   icon: UserCog,         section: 'principal'  },
     { label: 'Estoque',   path: '/dashboard/estoque',  icon: PackageOpen,     section: 'principal'  },
     { label: 'Caixa',     path: '/dashboard/caixa',    icon: ShoppingBag,     section: 'financeiro' },
+    { label: 'Configurações', path: '/dashboard/configuracoes/aparencia', icon: Settings, section: 'gestao' },
   ],
   RECEPTIONIST: [
     { label: 'Agenda',    path: '/dashboard/agenda',            icon: Calendar,    section: 'principal'  },
@@ -67,15 +68,18 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Caixa',     path: '/dashboard/caixa',             icon: ShoppingBag, section: 'financeiro' },
     { label: 'Vendas',    path: '/dashboard/financeiro/vendas', icon: DollarSign,  section: 'financeiro' },
     { label: 'Comissões', path: '/dashboard/financeiro/comissoes', icon: Coins,    section: 'financeiro' },
+    { label: 'Configurações', path: '/dashboard/configuracoes/aparencia', icon: Settings, section: 'gestao' },
   ],
   STAFF: [
     { label: 'Agenda',    path: '/dashboard/agenda',   icon: Calendar,    section: 'principal'  },
     { label: 'Caixa',     path: '/dashboard/caixa',    icon: ShoppingBag, section: 'financeiro' },
     { label: 'Comissões', path: '/dashboard/financeiro/comissoes', icon: Coins, section: 'financeiro' },
+    { label: 'Configurações', path: '/dashboard/configuracoes/aparencia', icon: Settings, section: 'gestao' },
   ],
   BASIC_STAFF: [
     { label: 'Agenda',    path: '/dashboard/agenda',   icon: Calendar, section: 'principal'  },
     { label: 'Comissões', path: '/dashboard/financeiro/comissoes', icon: Coins, section: 'financeiro' },
+    { label: 'Configurações', path: '/dashboard/configuracoes/aparencia', icon: Settings, section: 'gestao' },
   ],
   PROFESSIONAL: [
     { label: 'Dashboard', path: '/dashboard',        icon: LayoutDashboard, section: 'principal' },
