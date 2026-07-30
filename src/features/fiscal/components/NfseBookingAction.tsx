@@ -42,6 +42,7 @@ export default function NfseBookingAction({ saleId, saleConfirmedAt, onBeforeAct
   const [phase, setPhase] = useState<Phase>('loading')
   const [emission, setEmission] = useState<NfseEmission | null>(null)
   const [busy, setBusy] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
 
@@ -99,6 +100,29 @@ export default function NfseBookingAction({ saleId, saleConfirmedAt, onBeforeAct
       .finally(() => setBusy(false))
   }, [busy, saleConfirmedAt, saleId, onBeforeAction])
 
+  // Download via axios (não window.open): herda a baseURL do apiClient e
+  // manda o cookie (withCredentials). URL montada na mão abriria 401 numa
+  // aba em branco e dependeria de env no client.
+  const downloadXml = useCallback(() => {
+    if (!emission || downloading) return
+    setDownloading(true)
+    setError(null)
+    api
+      .get<Blob>(`/fiscal/emissions/${emission.id}/xml`, { responseType: 'blob' })
+      .then((res) => {
+        const url = URL.createObjectURL(res.data)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `NFSe-${emission.nfseNumber ?? emission.id}.xml`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+      })
+      .catch((err: unknown) => setError(apiErrorMessage(err)))
+      .finally(() => setDownloading(false))
+  }, [emission, downloading])
+
   if (phase === 'loading' || phase === 'hidden') return null
 
   // ── já tem nota: status + XML ──
@@ -124,16 +148,9 @@ export default function NfseBookingAction({ saleId, saleConfirmedAt, onBeforeAct
           </div>
         )}
         {done && (
-          <a
-            href={`/fiscal/emissions/${emission.id}/xml`}
-            onClick={(e) => {
-              e.preventDefault()
-              window.open(
-                `${process.env.NEXT_PUBLIC_API_URL ?? ''}/fiscal/emissions/${emission.id}/xml`,
-                '_blank',
-                'noopener',
-              )
-            }}
+          <button
+            onClick={downloadXml}
+            disabled={downloading}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -141,13 +158,17 @@ export default function NfseBookingAction({ saleId, saleConfirmedAt, onBeforeAct
               fontSize: 12,
               fontWeight: 600,
               color: colors.red.DEFAULT,
-              textDecoration: 'none',
+              background: 'none',
+              border: 'none',
+              padding: 0,
               marginTop: 8,
+              cursor: downloading ? 'wait' : 'pointer',
+              fontFamily: typography.fontFamily,
             }}
           >
             <FileDown size={13} strokeWidth={2} />
-            Baixar XML da nota
-          </a>
+            {downloading ? 'Baixando…' : 'Baixar XML da nota'}
+          </button>
         )}
       </div>
     )
