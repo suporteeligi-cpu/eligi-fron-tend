@@ -20,6 +20,8 @@ import { colors, typography, radius, transitions } from '@/shared/theme'
 import { useAgendaStore }    from '../hooks/useAgendaStore'
 import { useCurrentTimeY }   from '../hooks/useCurrentTimeY'
 import { useBookingActions } from '../hooks/useBookingActions'
+import { useCardStyle }     from '@/hooks/useCardStyle'
+import { resizeHandleInk }  from '../utils/contrast'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildHalfSlots, computeGridRange } from '../utils/time'
 import { computeOverlapLayout, computeOffHoursOverlay, cardOffHoursSegments, uniqueBookings } from '../utils/layout'
 import {
@@ -160,6 +162,7 @@ export default function AgendaMobileList({
   const preview       = useAgendaStore(s => s.preview)
 
   const { savingId, pendingAction, setPendingAction, doReschedule, doResize } = useBookingActions(selectedDate)
+  const cardStyle = useCardStyle()
 
   // ─── Range ─────────────────────────────────────────────────────────────────
   // Minutos (start/end) de bookings + ghost — esticam a janela pra fora do
@@ -477,10 +480,10 @@ export default function AgendaMobileList({
         }
         .m-rh::after{
           content:''; width:28px; height:5px;
-          background:rgba(255,255,255,0.60);
+          background:var(--rh-base,rgba(255,255,255,0.60));
           border-radius:3px; transition:all 0.15s ${EASE.smooth};
         }
-        .m-rh:active::after{background:rgba(255,255,255,0.98); width:32px; height:6px}
+        .m-rh:active::after{background:var(--rh-strong,rgba(255,255,255,0.98)); width:32px; height:6px}
         @keyframes lp-ring{from{outline-width:0px; outline-offset:0px; opacity:0} to{outline-width:3px; outline-offset:2px; opacity:1}}
         .lp-waiting{
           outline:3px solid ${colors.red.DEFAULT};
@@ -687,6 +690,7 @@ export default function AgendaMobileList({
               const isSaving     = savingId === b.id
               const isWaiting    = longPressId === b.id
               const height = isThisResize && drag.type === 'resize' ? drag.ghostHeight : baseH
+              const rh = resizeHandleInk(cardStyle, b.serviceColor, b.status === 'NO_SHOW')
 
               return (
                 <div key={b.id} style={{
@@ -694,6 +698,8 @@ export default function AgendaMobileList({
                   top: isThisMove && drag.type === 'move' ? drag.ghostTop : top,
                   left: leftStr, width: widthStr, height,
                   zIndex: isThisMove ? 2 : Z.booking,
+                  ['--rh-base'   as string]: rh.base,
+                  ['--rh-strong' as string]: rh.strong,
                   opacity: isThisMove ? 0.22 : isSaving ? 0.55 : 1,
                   transition: isThisResize ? 'height 0s' : isThisMove ? 'none' : `opacity 0.2s ${EASE.smooth}`,
                   touchAction:'none',

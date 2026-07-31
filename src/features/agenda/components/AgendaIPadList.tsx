@@ -23,6 +23,8 @@ import { colors, agendaLayout } from '@/shared/theme'
 import { useAgendaStore }    from '../hooks/useAgendaStore'
 import { useCurrentTimeY }   from '../hooks/useCurrentTimeY'
 import { useBookingActions } from '../hooks/useBookingActions'
+import { useCardStyle }     from '@/hooks/useCardStyle'
+import { resizeHandleInk }  from '../utils/contrast'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildSlots, computeGridRange } from '../utils/time'
 import { computeOverlapLayout, computeOffHoursOverlay, cardOffHoursSegments, uniqueBookings } from '../utils/layout'
 import {
@@ -98,6 +100,7 @@ export default function AgendaIPadList({
   const collapsedSet = useMemo(() => new Set(collapsed), [collapsed])
 
   const { savingId, pendingAction, setPendingAction, doReschedule, doResize } = useBookingActions(selectedDate)
+  const cardStyle = useCardStyle()
 
   // ─── Range ─────────────────────────────────────────────────────────────────
   // Minutos (start/end) de bookings + ghost — esticam a janela pra fora do
@@ -527,11 +530,11 @@ export default function AgendaIPadList({
           .ip-half{border-top:1px dashed rgba(0,0,0,0.06)}
           .ip-5{border-top:1px solid transparent}
           .ip-rh{position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:48px; height:18px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:4px; cursor:ns-resize; z-index:20; touch-action:none}
-          .ip-rh::after{content:''; width:28px; height:5px; background:rgba(255,255,255,0.60); border-radius:3px; transition:all 0.15s ${EASE.smooth}}
-          .ip-rh:active::after{background:rgba(255,255,255,0.98); width:34px; height:6px}
+          .ip-rh::after{content:''; width:28px; height:5px; background:var(--rh-base,rgba(255,255,255,0.60)); border-radius:3px; transition:all 0.15s ${EASE.smooth}}
+          .ip-rh:active::after{background:var(--rh-strong,rgba(255,255,255,0.98)); width:34px; height:6px}
           @media (any-pointer: coarse){
             .ip-rh{width:84px; height:26px}
-            .ip-rh::after{width:36px; height:6px; background:rgba(255,255,255,0.92)}
+            .ip-rh::after{width:36px; height:6px; background:var(--rh-strong,rgba(255,255,255,0.92))}
           }
           @keyframes ip-ring{from{outline-width:0px; outline-offset:0px; opacity:0} to{outline-width:3px; outline-offset:2px; opacity:1}}
           .ip-waiting{outline:3px solid ${colors.red.DEFAULT}; outline-offset:2px; border-radius:7px; animation:ip-ring ${LONG_PRESS_MS}ms ${EASE.smooth} forwards}
@@ -717,11 +720,14 @@ export default function AgendaIPadList({
                   const isSaving     = savingId === b.id
                   const isWaiting    = longPressId === b.id
                   const height = isThisResize && drag.type === 'resize' ? drag.ghostHeight : baseH
+                  const rh = resizeHandleInk(cardStyle, b.serviceColor, b.status === 'NO_SHOW')
 
                   return (
                     <div key={b.id} style={{
                       position:'absolute', top, left, width, height,
                       zIndex: isThisMove ? 0 : Z.booking,
+                      ['--rh-base'   as string]: rh.base,
+                      ['--rh-strong' as string]: rh.strong,
                       opacity: isThisMove ? 0.2 : isSaving ? 0.55 : 1,
                       transition: isThisResize ? 'height 0s' : `opacity 0.2s ${EASE.smooth}`,
                       touchAction:'none',

@@ -22,6 +22,8 @@ import { useAgendaStore }   from '../hooks/useAgendaStore'
 import { useAuth }          from '@/hooks/useAuth'
 import { useCurrentTimeY }  from '../hooks/useCurrentTimeY'
 import { useBookingActions } from '../hooks/useBookingActions'
+import { useCardStyle }     from '@/hooks/useCardStyle'
+import { resizeHandleInk }  from '../utils/contrast'
 import { toMinutes, minutesToTime, snapToSlot, addMin, buildSlots, computeGridRange } from '../utils/time'
 import { computeOverlapLayout, computeOffHoursOverlay, cardOffHoursSegments, uniqueBookings } from '../utils/layout'
 import {
@@ -102,6 +104,7 @@ export default function AgendaGrid({
   const SLOT_H     = pxPerMin * SLOT_STEP
 
   const { savingId, pendingAction, setPendingAction, doReschedule, doResize } = useBookingActions(selectedDate)
+  const cardStyle = useCardStyle()
 
   // Refs DOM
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -515,11 +518,11 @@ export default function AgendaGrid({
           .ag-half{border-top:1px dashed rgba(0,0,0,0.06)}
           .ag-5{border-top:1px solid transparent}
           .ag-rh{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:28px;height:8px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;z-index:20;border-radius:0 0 7px 7px;touch-action:none}
-          .ag-rh::after{content:'';width:20px;height:4px;background:rgba(255,255,255,0.50);border-radius:2px;transition:all 0.15s ${EASE.smooth}}
-          .ag-rh:hover::after{background:rgba(255,255,255,0.95);width:24px;height:5px;box-shadow:0 0 4px rgba(0,0,0,0.2)}
+          .ag-rh::after{content:'';width:20px;height:4px;background:var(--rh-base,rgba(255,255,255,0.50));border-radius:2px;transition:all 0.15s ${EASE.smooth}}
+          .ag-rh:hover::after{background:var(--rh-strong,rgba(255,255,255,0.95));width:24px;height:5px;box-shadow:0 0 4px rgba(0,0,0,0.2)}
           @media (any-pointer: coarse){
             .ag-rh{width:72px;height:24px;align-items:flex-end;padding-bottom:5px;box-sizing:border-box}
-            .ag-rh::after{width:34px;height:6px;background:rgba(255,255,255,0.92)}
+            .ag-rh::after{width:34px;height:6px;background:var(--rh-strong,rgba(255,255,255,0.92))}
           }
           .ag-card-hover{cursor:grab}
           .ag-card-hover:active{cursor:grabbing}
@@ -727,6 +730,7 @@ export default function AgendaGrid({
                   const isThisResize = drag?.type === 'resize' && drag.bookingId === b.id
                   const isSaving     = savingId === b.id
                   const height = isThisResize && drag.type === 'resize' ? drag.ghostHeight : baseH
+                  const rh = resizeHandleInk(cardStyle, b.serviceColor, b.status === 'NO_SHOW')
 
                   return (
                     <div
@@ -735,6 +739,8 @@ export default function AgendaGrid({
                       style={{
                         position:'absolute', top, left, width, height,
                         zIndex: isThisMove && isMovingReal ? 0 : Z.booking,
+                        ['--rh-base'   as string]: rh.base,
+                        ['--rh-strong' as string]: rh.strong,
                         opacity: isThisMove && isMovingReal ? 0.22 : isSaving ? 0.6 : 1,
                         transition: isThisResize ? 'height 0s' : `opacity 0.2s ${EASE.smooth}`,
                       }}

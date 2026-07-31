@@ -119,3 +119,28 @@ export function stripOf(serviceColor?: string | null): string {
 export function inkForPastel(): CardInk {
   return DARK_INK
 }
+
+/* ─── Alça de resize (barrinha inferior dos cards) ───────────────────────
+   Fundo saturado/escuro → alça branca (padrão histórico).
+   Fundo pastel do modo clean → alça escura, senão some.
+   NO_SHOW ignora o estilo clean (fundo escuro do tema) → segue branca. */
+
+export interface ResizeHandleInk {
+  /** Estado de repouso. */
+  base: string
+  /** Hover (desktop) / active (touch) / ponteiro grosso. */
+  strong: string
+}
+
+const HANDLE_LIGHT: ResizeHandleInk = { base: 'rgba(255,255,255,0.60)', strong: 'rgba(255,255,255,0.96)' }
+const HANDLE_DARK:  ResizeHandleInk = { base: 'rgba(0,0,0,0.32)',       strong: 'rgba(0,0,0,0.58)'       }
+
+export function resizeHandleInk(
+  style: AgendaCardStyle,
+  serviceColor?: string | null,
+  isNoShow?: boolean,
+): ResizeHandleInk {
+  const isCleanCard = style === 'clean' && !!serviceColor && !isNoShow
+  return isCleanCard ? HANDLE_DARK : HANDLE_LIGHT
+}
+
