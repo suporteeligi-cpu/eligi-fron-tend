@@ -7,9 +7,19 @@
 import { ReactNode, useState, useEffect, useCallback } from 'react'
 import api from '@/shared/lib/apiClient'
 import LegalModal from '@/shared/legal/LegalModal'
+// @eligi:coupon-guard-import
+import { readStoredCoupon, clearStoredCoupon, type CouponPreview } from '@/shared/coupon/coupon'
 
 
 type Plan = 'AUTONOMO' | 'ESTABELECIMENTO'
+
+/** 39.9 -> "39,90". O "R$" fica no JSX (precisa do &nbsp;). */
+function money(v: number): string {
+  return v.toFixed(2).replace('.', ',')
+}
+
+/** Tabela oficial — usada quando nao ha cupom. Espelha DEFAULT_PRICING do back. */
+const REGULAR = { autonomo: 59.9, estabelecimento: 99.9, extraSeat: 19.9 } // @eligi:coupon-regular
 
 interface AccessState {
   status: string
@@ -92,6 +102,26 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
     return () => clearTimeout(t)
   }, [check])
 
+  // @eligi:coupon-claim-effect
+  // O BillingGuard envolve todo o dashboard: este E o "1o load autenticado".
+  // Manda o codigo capturado do link pro servidor e descarta o localStorage —
+  // dali em diante a verdade e o BusinessProfile.pendingCouponCode.
+  useEffect(() => {
+    const code = readStoredCoupon()
+    if (!code) return
+    const t = setTimeout(() => {
+      api.post('/billing/coupon/claim', { code })
+        .then(() => clearStoredCoupon())
+        .catch((e: unknown) => {
+          const status = (e as { response?: { status?: number } })?.response?.status
+          // 4xx = codigo invalido, expirado ou conta inelegivel: insistir a cada
+          // load nao muda o resultado. 5xx/rede mantem pra tentar no proximo.
+          if (typeof status === 'number' && status >= 400 && status < 500) clearStoredCoupon()
+        })
+    }, 0)
+    return () => clearTimeout(t)
+  }, [])
+
   useEffect(() => {
     function onBlocked(e: Event) {
       const detail = (e as CustomEvent).detail as { code?: string } | undefined
@@ -119,6 +149,50 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
   const [err, setErr] = useState('')
   const [seatGate, setSeatGate] = useState<SeatGate | null>(null)
   const [keepId, setKeepId] = useState<string | null>(null)
+  // @eligi:coupon-overlay-state
+  const [coupon, setCoupon] = useState<CouponPreview | null>(null)
+  const [couponOpen, setCouponOpen] = useState(false)
+  const [couponInput, setCouponInput] = useState('')
+  const [couponErr, setCouponErr] = useState('')
+  const [couponBusy, setCouponBusy] = useState(false)
+
+  // @eligi:coupon-overlay-fetch
+  // O /billing/access nao carrega cupom — precisa do /billing/subscription.
+  // setState so dentro dos callbacks da promise (React Compiler).
+  useEffect(() => {
+    let alive = true
+    api
+      .get<{ data: { pendingCoupon: CouponPreview | null } }>('/billing/subscription')
+      .then((res) => {
+        if (alive) setCoupon(res.data?.data?.pendingCoupon ?? null)
+      })
+      .catch(() => {
+        // sem cupom: a tela mostra a tabela oficial. Nunca bloqueia a assinatura.
+      })
+    return () => { alive = false }
+  }, [])
+
+  // @eligi:coupon-overlay-apply
+  // Fallback manual: quem digitou o codigo a mao (indicacao, print do story).
+  // Usa /claim e nao /preview — precisa PERSISTIR, senao o subscribe nao acha.
+  async function applyCoupon() {
+    const code = couponInput.trim()
+    if (!code) return
+    setCouponBusy(true)
+    setCouponErr('')
+    try {
+      const res = await api.post<{ data: CouponPreview }>('/billing/coupon/claim', { code })
+      setCoupon(res.data?.data ?? null)
+      setCouponOpen(false)
+      setCouponInput('')
+    } catch (e) {
+      const msg = (e as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message
+      setCouponErr(msg ?? 'Cupom invalido ou nao disponivel.')
+    } finally {
+      setCouponBusy(false)
+    }
+  }
 
   async function subscribe(plan: Plan, extra?: { keepProfessionalIds?: string[]; acceptBilling?: boolean }) {
     const digits = doc.replace(/\D/g, '')
@@ -201,10 +275,48 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
           </span>
         </label>
 
+        {/* @eligi:coupon-overlay-banner */}
+        {coupon ? (
+          <div style={couponBanner}>
+            <div>
+              <p style={couponBannerTitle}>Preco de agosto aplicado</p>
+              <p style={couponBannerSub}>
+                Cupom {coupon.code} · esse valor e seu enquanto a assinatura estiver ativa.
+              </p>
+            </div>
+          </div>
+        ) : couponOpen ? (
+          <div style={couponBox}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value)}
+                placeholder="Codigo do cupom"
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={32}
+                style={{ ...inputStyle, marginBottom: 0, textTransform: 'uppercase' }}
+              />
+              <button style={{ ...btnRed, width: 'auto', padding: '10px 18px' }} disabled={couponBusy} onClick={applyCoupon}>
+                {couponBusy ? '...' : 'Aplicar'}
+              </button>
+            </div>
+            {couponErr && <p style={{ ...errStyle, margin: '10px 0 0' }}>{couponErr}</p>}
+          </div>
+        ) : (
+          <button type="button" onClick={() => setCouponOpen(true)} style={couponToggle}>
+            Tenho um cupom
+          </button>
+        )}
+
         <div style={plansRow}>
           <div style={planCard}>
             <p style={planName}>Autonomo</p>
-            <p style={planPrice}>R$&nbsp;59,90<span style={planPer}>/mes</span></p>
+            {coupon && <p style={planWas}>R$&nbsp;{money(REGULAR.autonomo)}</p>}
+            <p style={coupon ? planPriceDisc : planPrice}>
+              R$&nbsp;{money(coupon ? coupon.prices.autonomo : REGULAR.autonomo)}
+              <span style={planPer}>/mes</span>
+            </p>
             <p style={planDesc}>So voce. Agenda unica, caixa, clientes e link publico.</p>
             <button style={btnGhost} disabled={busy || !accepted} onClick={() => subscribe('AUTONOMO')}>
               {submitting === 'AUTONOMO' ? 'Aguarde...' : r.cta}
@@ -214,13 +326,31 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
           <div style={{ ...planCard, border: '2px solid #dc2626' }}>
             <span style={badge}>Completo</span>
             <p style={planName}>Estabelecimento</p>
-            <p style={planPrice}>R$&nbsp;99,90<span style={planPer}>/mes</span></p>
+            {coupon && <p style={planWas}>R$&nbsp;{money(REGULAR.estabelecimento)}</p>}
+            <p style={coupon ? planPriceDisc : planPrice}>
+              R$&nbsp;{money(coupon ? coupon.prices.estabelecimento : REGULAR.estabelecimento)}
+              <span style={planPer}>/mes</span>
+            </p>
             <p style={planDesc}>Equipe ate 3 inclusos + todos os modulos.</p>
             <button style={btnRed} disabled={busy || !accepted} onClick={() => subscribe('ESTABELECIMENTO')}>
               {submitting === 'ESTABELECIMENTO' ? 'Aguarde...' : r.cta}
             </button>
           </div>
         </div>
+
+        {/* @eligi:coupon-overlay-seat */}
+        <p style={seatLine}>
+          Acesso adicional{' '}
+          {coupon ? (
+            <>
+              <s style={{ opacity: 0.55 }}>R$&nbsp;{money(REGULAR.extraSeat)}</s>{' '}
+              <strong style={{ color: '#059669' }}>R$&nbsp;{money(coupon.prices.extraSeat)}/mes</strong>
+            </>
+          ) : (
+            <>R$&nbsp;{money(REGULAR.extraSeat)}/mes</>
+          )}
+          {' · '}Notas Fiscais R$&nbsp;{money(coupon ? coupon.addon : 29.9)}/mes (opcional)
+        </p>
 
         {err && <p style={errStyle}>{err}</p>}
 
@@ -337,4 +467,34 @@ const closeBtn: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center',
   background: 'none', border: 'none', borderRadius: 8,
   fontSize: 22, lineHeight: 1, color: '#a1a1aa', cursor: 'pointer',
+}
+
+/* @eligi:coupon-styles */
+const planWas: React.CSSProperties = {
+  fontSize: 13, color: '#a1a1aa', textDecoration: 'line-through', margin: '0 0 2px',
+}
+const planPriceDisc: React.CSSProperties = {
+  fontSize: 24, fontWeight: 700, margin: '0 0 10px', color: '#059669',
+}
+const couponBanner: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
+  background: 'rgba(16,185,129,0.10)', border: '1px solid rgba(16,185,129,0.28)',
+  borderRadius: 12, padding: '12px 14px', marginBottom: 14,
+}
+const couponBannerTitle: React.CSSProperties = {
+  fontSize: 14, fontWeight: 600, color: '#065f46', margin: 0,
+}
+const couponBannerSub: React.CSSProperties = {
+  fontSize: 12.5, color: '#52525b', margin: '2px 0 0', lineHeight: 1.45,
+}
+const couponBox: React.CSSProperties = {
+  textAlign: 'left', marginBottom: 14,
+}
+const couponToggle: React.CSSProperties = {
+  display: 'block', marginBottom: 14, background: 'none', border: 'none', padding: 0,
+  color: '#71717a', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+  textDecoration: 'underline', textUnderlineOffset: 3,
+}
+const seatLine: React.CSSProperties = {
+  fontSize: 12, color: '#71717a', margin: '14px 0 0', lineHeight: 1.6, textAlign: 'center',
 }

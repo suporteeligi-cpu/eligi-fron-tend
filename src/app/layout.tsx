@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { Providers } from './providers'
+import CouponCapture from '@/shared/coupon/CouponCapture' // @eligi:coupon-capture-import
 import { ServiceWorkerRegister } from './sw-register'
 import { InstallAppBar } from './components/InstallAppBar'
 import '../styles/globals.css'
@@ -117,6 +119,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="msapplication-TileImage"     content="/icons/icon-144x144.png" />
       </head>
       <body>
+        {/* @eligi:coupon-capture-mount
+            Fora do Providers de proposito: so escreve em localStorage e
+            reescreve a URL, nao depende de sessao nem de contexto.
+            Suspense obrigatorio — useSearchParams sem ele quebra o build. */}
+        <Suspense fallback={null}>
+          <CouponCapture />
+        </Suspense>
         <Providers>{children}</Providers>
         <ServiceWorkerRegister />
         <InstallAppBar />
