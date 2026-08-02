@@ -48,9 +48,11 @@ export default function PlanStep() {
       setError(null);
       await api.post('/onboarding/finish', { termsAccepted: true, plan });
       setData({ plan });
-      // TODO(asaas): se plan === 'subscribe', abrir o pagamento do plano (Asaas)
-      // em vez de ir direto pro dashboard. Por ora ambos concluem o onboarding.
-      router.replace('/dashboard');
+      // @eligi:coupon-onboarding-subscribe
+      // Quem escolheu "Assinar agora" demonstrou intencao de compra: nao pode
+      // cair no dashboard em trial. O ?assinar=1 abre o overlay de pagamento
+      // do BillingGuard — mesma tela do fluxo de conversao, uma implementacao.
+      router.replace(plan === 'subscribe' ? '/dashboard?assinar=1' : '/dashboard');
     } catch {
       setError('Não foi possível concluir agora. Tente novamente.');
       setLoading(false);

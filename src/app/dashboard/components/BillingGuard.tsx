@@ -106,6 +106,24 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
   // @eligi:coupon-claim-hook-use — mesma implementacao do onboarding
   useCouponClaim()
 
+  // @eligi:onboarding-subscribe-intent
+  // Chegou do onboarding tendo escolhido "Assinar agora": abre o overlay de
+  // pagamento. reason VOLUNTARY porque nada esta bloqueado — e escolha dele,
+  // e o overlay traz o botao de fechar. O parametro e removido da URL para
+  // que um F5 nao reabra a tela depois que a pessoa desistir.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('assinar') !== '1') return
+    url.searchParams.delete('assinar')
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+    const t = setTimeout(() => {
+      setBlocked(true)
+      setReason('VOLUNTARY')
+    }, 0)
+    return () => clearTimeout(t)
+  }, [])
+
   useEffect(() => {
     function onBlocked(e: Event) {
       const detail = (e as CustomEvent).detail as { code?: string } | undefined
