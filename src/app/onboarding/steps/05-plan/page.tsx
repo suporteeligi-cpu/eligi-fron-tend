@@ -7,6 +7,8 @@ import { Gift, Zap, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useOnboardingStore } from '../../store';
 import { api } from '@/lib/api';
 import LegalModal from '@/shared/legal/LegalModal';
+// @eligi:coupon-onboarding
+import { useCouponClaim } from '@/shared/coupon/useCouponClaim';
 
 
 type Plan = 'trial' | 'subscribe';
@@ -18,7 +20,19 @@ export default function PlanStep() {
 
   const isBusiness = journeyType === 'BUSINESS';
   const planName = isBusiness ? 'Estabelecimento' : 'Autônomo';
-  const price = isBusiness ? '99,90' : '59,90';
+
+  // @eligi:coupon-onboarding-price
+  // Primeira tela de preco da jornada de campanha. O claim roda AQUI porque o
+  // onboarding fica fora de /dashboard — o BillingGuard so pega depois.
+  const coupon = useCouponClaim();
+  const regular = isBusiness ? 59.9 : 39.9; // placeholder substituido abaixo
+  void regular;
+  const REGULAR_PRICE = isBusiness ? '99,90' : '59,90';
+  const price = coupon
+    ? (isBusiness ? coupon.prices.estabelecimento : coupon.prices.autonomo)
+        .toFixed(2)
+        .replace('.', ',')
+    : REGULAR_PRICE;
 
   const [plan, setPlan] = useState<Plan>('trial');
   const [accepted, setAccepted] = useState(false);
@@ -51,6 +65,29 @@ export default function PlanStep() {
         Plano {planName} · você pode mudar depois.
       </p>
 
+      {/* @eligi:coupon-onboarding-banner */}
+      {coupon && (
+        <div
+          className="ob-anim"
+          style={{
+            animationDelay: '.12s',
+            background: 'rgba(16,185,129,0.10)',
+            border: '1px solid rgba(16,185,129,0.28)',
+            borderRadius: 12,
+            padding: '11px 14px',
+            marginBottom: 16,
+            fontSize: 13,
+            lineHeight: 1.5,
+            color: '#065f46',
+          }}
+        >
+          <strong>Cupom {coupon.code} aplicado.</strong>{' '}
+          <span style={{ color: '#52525b' }}>
+            Esse preço é seu enquanto a assinatura estiver ativa.
+          </span>
+        </div>
+      )}
+
       <div className="ob-plans ob-anim" style={{ animationDelay: '.15s' }}>
         <button
           type="button"
@@ -76,7 +113,15 @@ export default function PlanStep() {
             <span className="ob-plan-name">Assinar agora</span>
           </div>
           <div className="ob-plan-price">
-            R$ {price}<span className="ob-plan-price-unit">/mês</span>
+            {coupon && (
+              <span style={{ fontSize: '0.62em', color: '#9ca3af', textDecoration: 'line-through', marginRight: 6, fontWeight: 400 }}>
+                R$ {REGULAR_PRICE}
+              </span>
+            )}
+            <span style={coupon ? { color: '#059669' } : undefined}>
+              R$ {price}
+            </span>
+            <span className="ob-plan-price-unit">/mês</span>
           </div>
           <div className="ob-plan-desc">Ativa na hora, sem prazo. Para quem já está convencido.</div>
         </button>
@@ -127,7 +172,6 @@ export default function PlanStep() {
           <ArrowLeft size={16} /> Voltar
         </button>
       </div>
-      {legal && <LegalModal kind={legal} onClose={() => setLegal(null)} />}
       {legal && <LegalModal kind={legal} onClose={() => setLegal(null)} />}
     </div>
   );

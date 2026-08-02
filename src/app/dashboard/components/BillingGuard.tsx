@@ -8,7 +8,8 @@ import { ReactNode, useState, useEffect, useCallback } from 'react'
 import api from '@/shared/lib/apiClient'
 import LegalModal from '@/shared/legal/LegalModal'
 // @eligi:coupon-guard-import
-import { readStoredCoupon, clearStoredCoupon, type CouponPreview } from '@/shared/coupon/coupon'
+import { type CouponPreview } from '@/shared/coupon/coupon'
+import { useCouponClaim } from '@/shared/coupon/useCouponClaim'
 
 
 type Plan = 'AUTONOMO' | 'ESTABELECIMENTO'
@@ -102,25 +103,8 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
     return () => clearTimeout(t)
   }, [check])
 
-  // @eligi:coupon-claim-effect
-  // O BillingGuard envolve todo o dashboard: este E o "1o load autenticado".
-  // Manda o codigo capturado do link pro servidor e descarta o localStorage —
-  // dali em diante a verdade e o BusinessProfile.pendingCouponCode.
-  useEffect(() => {
-    const code = readStoredCoupon()
-    if (!code) return
-    const t = setTimeout(() => {
-      api.post('/billing/coupon/claim', { code })
-        .then(() => clearStoredCoupon())
-        .catch((e: unknown) => {
-          const status = (e as { response?: { status?: number } })?.response?.status
-          // 4xx = codigo invalido, expirado ou conta inelegivel: insistir a cada
-          // load nao muda o resultado. 5xx/rede mantem pra tentar no proximo.
-          if (typeof status === 'number' && status >= 400 && status < 500) clearStoredCoupon()
-        })
-    }, 0)
-    return () => clearTimeout(t)
-  }, [])
+  // @eligi:coupon-claim-hook-use — mesma implementacao do onboarding
+  useCouponClaim()
 
   useEffect(() => {
     function onBlocked(e: Event) {

@@ -20,12 +20,18 @@ interface SubscriptionView {
   extraSeats?: number
   activeCount?: number
   nextChange?: { delta: number; expectedValue: number; activeCount: number } | null
+  // @eligi:coupon-assinatura-types — tabela vigente servida pela API
+  pricing?: { base: Record<'AUTONOMO' | 'ESTABELECIMENTO', number>; extraSeat: number; addon: number }
+  coupon?: { code: string; label: string; regularValue: number } | null
 }
 
 const PLAN_LABEL: Record<'AUTONOMO' | 'ESTABELECIMENTO', string> = {
   AUTONOMO: 'Autonomo',
   ESTABELECIMENTO: 'Estabelecimento',
 }
+// @eligi:coupon-assinatura-fallback
+// FALLBACK apenas. A fonte de verdade e data.pricing (vem do /billing/subscription
+// e ja considera cupom). Estes valores so aparecem se a API responder sem pricing.
 const PLAN_BASE: Record<'AUTONOMO' | 'ESTABELECIMENTO', number> = { AUTONOMO: 59.9, ESTABELECIMENTO: 99.9 }
 const EXTRA_SEAT_PRICE = 19.9
 /** Chip de vencimento conforme a regua dos lembretes do sino (T-7/T-3/T-1). */
@@ -333,17 +339,26 @@ export default function AssinaturaPage() {
                   <div style={{ background: 'rgba(220,38,38,0.04)', border: '0.5px solid rgba(220,38,38,0.1)', borderRadius: 10, padding: '12px 14px', marginTop: 16, fontSize: 12.5 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#525252' }}>
                       <span>{planLabel} (base{data.plan === 'ESTABELECIMENTO' ? ', 3 profissionais' : ''})</span>
-                      <span>R$ {fmtBRL(PLAN_BASE[data.plan])}</span>
+                      <span>R$ {fmtBRL(data.pricing?.base[data.plan] ?? PLAN_BASE[data.plan])}</span>
                     </div>
                     {data.plan === 'ESTABELECIMENTO' && (data.extraSeats ?? 0) > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: '#525252' }}>
                         <span>{data.extraSeats} × profissional extra</span>
-                        <span>R$ {fmtBRL(EXTRA_SEAT_PRICE * (data.extraSeats ?? 0))}</span>
+                        <span>R$ {fmtBRL((data.pricing?.extraSeat ?? EXTRA_SEAT_PRICE) * (data.extraSeats ?? 0))}</span>
                       </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, marginTop: 6, borderTop: '0.5px solid rgba(220,38,38,0.15)', fontWeight: 500, color: '#18181b' }}>
                       <span>Total mensal</span><span>R$ {fmtBRL(data.value)}</span>
                     </div>
+                    {/* @eligi:coupon-assinatura-selo */}
+                    {data.coupon && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingTop: 8, marginTop: 6, borderTop: '0.5px solid rgba(16,185,129,0.2)', color: '#047857', fontSize: 12 }}>
+                        <span>Cupom {data.coupon.code}</span>
+                        <span style={{ color: '#71717a' }}>
+                          sem cupom seria R$ {fmtBRL(data.coupon.regularValue)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
                 {data.nextChange && data.value != null && (
