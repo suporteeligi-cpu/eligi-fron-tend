@@ -128,7 +128,10 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
     function onBlocked(e: Event) {
       const detail = (e as CustomEvent).detail as { code?: string } | undefined
       setBlocked(true)
-      setReason(detail?.code && REASONS[detail.code] ? detail.code : 'VOLUNTARY')
+      // @eligi:overdue-fallback — code desconhecido cai no estado mais RESTRITIVO.
+      // VOLUNTARY e o unico com botao de fechar: status novo no back nao pode
+      // transformar bloqueio em aviso dispensavel.
+      setReason(detail?.code && REASONS[detail.code] ? detail.code : 'BLOCKED_TRIAL_EXPIRED')
     }
     window.addEventListener('billing:blocked', onBlocked)
     return () => window.removeEventListener('billing:blocked', onBlocked)
@@ -141,6 +144,9 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
     </>
   )
 }
+
+/* @eligi:overdue-type */
+type OverdueInfo = { dueDate: string | null; invoiceUrl: string }
 
 function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResolved: () => void; onClose: () => void }) {
   const r = REASONS[reason] ?? REASONS.BLOCKED_TRIAL_EXPIRED
@@ -157,6 +163,9 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
   const [couponInput, setCouponInput] = useState('')
   const [couponErr, setCouponErr] = useState('')
   const [couponBusy, setCouponBusy] = useState(false)
+  // @eligi:overdue-state
+  const [overdue, setOverdue] = useState<OverdueInfo | null>(null)
+  const [planValue, setPlanValue] = useState<number | null>(null)
 
   // @eligi:coupon-overlay-fetch
   // O /billing/access nao carrega cupom — precisa do /billing/subscription.
@@ -164,9 +173,13 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
   useEffect(() => {
     let alive = true
     api
-      .get<{ data: { pendingCoupon: CouponPreview | null } }>('/billing/subscription')
+      .get<{ data: { pendingCoupon: CouponPreview | null; overdue: OverdueInfo | null; value: number | null } }>('/billing/subscription')
       .then((res) => {
         if (alive) setCoupon(res.data?.data?.pendingCoupon ?? null)
+        // @eligi:overdue-fetch — mesmo request do cupom, zero chamada nova.
+        // setState so dentro do callback da promise (React Compiler).
+        if (alive) setOverdue(res.data?.data?.overdue ?? null)
+        if (alive) setPlanValue(res.data?.data?.value ?? null)
       })
       .catch(() => {
         // sem cupom: a tela mostra a tabela oficial. Nunca bloqueia a assinatura.
@@ -241,6 +254,44 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
   }
 
   const busy = submitting !== null
+
+  // @eligi:overdue-overlay
+  // PAST_DUE com fatura vencida NAO e contratacao, e cobranca. Ele ja tem
+  // plano e ja informou o CPF. Mandar esse fluxo pelo formulario de assinatura
+  // foi o que fez a Barbearia Will pagar o mes errado (ago/26).
+  //
+  // overdue null em PAST_DUE (Asaas fora do ar / fatura nao gerada) cai no
+  // fluxo antigo de proposito: degradacao consciente, nunca tela vazia.
+  if (reason === 'BLOCKED_PAST_DUE' && overdue) {
+    return (
+      <div style={overlay}>
+        <div style={modal}>
+          <p style={titleStyle}>{r.title}</p>
+          <p style={subStyle}>{r.sub}</p>
+          <div style={overdueBox}>
+            <p style={overdueLabel}>Fatura em aberto</p>
+            {planValue != null && (
+              <p style={overduePrice}>R$&nbsp;{money(planValue)}</p>
+            )}
+            {overdue.dueDate && (
+              <p style={overdueDue}>
+                Venceu em {overdue.dueDate.split('-').reverse().join('/')}
+              </p>
+            )}
+          </div>
+          <button
+            style={btnRed}
+            onClick={() => { window.location.href = overdue.invoiceUrl }}
+          >
+            Pagar agora
+          </button>
+          <button type="button" onClick={logout} style={overdueExit}>
+            Sair da conta
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -464,6 +515,27 @@ const signOut: React.CSSProperties = {
   marginTop: 18, background: 'none', border: 'none', color: '#a1a1aa',
   fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
 }
+/* @eligi:overdue-styles */
+const overdueBox: React.CSSProperties = {
+  border: '0.5px solid rgba(0,0,0,0.12)', borderRadius: 12,
+  padding: '20px 18px', margin: '0 0 18px', background: '#fafafa',
+}
+const overdueLabel: React.CSSProperties = {
+  fontSize: 13, color: '#71717a', margin: '0 0 6px', fontWeight: 500,
+}
+const overduePrice: React.CSSProperties = {
+  fontSize: 32, fontWeight: 700, color: '#18181b', margin: '0 0 4px',
+  letterSpacing: '-0.02em',
+}
+const overdueDue: React.CSSProperties = {
+  fontSize: 13.5, color: '#dc2626', fontWeight: 600, margin: 0,
+}
+const overdueExit: React.CSSProperties = {
+  display: 'block', width: '100%', marginTop: 14, padding: 10,
+  background: 'none', border: 'none', fontSize: 13, color: '#a1a1aa',
+  cursor: 'pointer', textDecoration: 'underline',
+}
+
 const closeBtn: React.CSSProperties = {
   position: 'absolute', top: 12, right: 14, width: 30, height: 30,
   display: 'flex', alignItems: 'center', justifyContent: 'center',

@@ -137,7 +137,8 @@ export default function AssinaturaPage() {
 
   function openSubscribe() {
     // reusa o overlay de assinatura do BillingGuard
-    window.dispatchEvent(new CustomEvent('billing:blocked'))
+    // @eligi:overdue-detail — explicito: o fallback do guard nao e mais VOLUNTARY
+    window.dispatchEvent(new CustomEvent('billing:blocked', { detail: { code: 'VOLUNTARY' } }))
   }
 
   async function doCancel() {
