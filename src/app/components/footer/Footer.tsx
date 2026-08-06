@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import styles from './Footer.module.css'
+import AsaasSeal from '@/shared/components/AsaasSeal'
 
 const NAV = [
   { label: 'Funcionalidades', href: '/#recursos' },
@@ -72,7 +73,18 @@ export default function Footer() {
           <span className={styles.dot} aria-hidden>·</span>
           <Link href="/privacidade">Privacidade</Link>
           <span className={styles.dot} aria-hidden>·</span>
+          <Link href="/termos-plano">Planos</Link>
+          <span className={styles.dot} aria-hidden>·</span>
           <span>Feito com <span className={styles.heart}>♥</span> no Brasil</span>
+        </div>
+        {/* Selo Asaas — prestador dos servicos financeiros (playbook BaaS / Res. Conj. 16/2025).
+            Canal publico oficial: precisa estar visivel fora da area logada. */}
+        <div style={{ textAlign: 'center', padding: '14px 0 2px' }}>
+          <AsaasSeal variant="positivo" width={132} />
+          <div style={{ fontSize: 11, color: 'rgba(128,128,140,0.75)', lineHeight: 1.55, marginTop: 6 }}>
+            Serviços financeiros e de pagamentos prestados pelo Asaas Gestão Financeira
+            Instituição de Pagamentos S.A. · Suporte Asaas: 0800 009 0037
+          </div>
         </div>
       </div>
     </footer>
