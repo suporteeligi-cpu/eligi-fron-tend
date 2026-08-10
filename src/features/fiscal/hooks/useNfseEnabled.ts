@@ -3,37 +3,35 @@
 
 import { useEffect, useState } from 'react'
 import api from '@/shared/lib/apiClient'
+import type { NfseEmissionState } from '../types'
 
-interface BillingResponse {
-  success: boolean
-  data: { nfseAddon?: boolean }
-}
+// Cache de sessão: o caixa abre o modal dezenas de vezes por dia.
+let cached: NfseEmissionState | null = null
 
-// Cache de sessão: o caixa abre o modal dezenas de vezes por dia —
-// não faz sentido perguntar ao back em toda abertura.
-let cached: boolean | null = null
-
-/** Diz se o módulo de Notas Fiscais está ativo (pro switch do caixa). */
-export function useNfseEnabled(): boolean {
-  const [enabled, setEnabled] = useState<boolean>(() => cached ?? false)
+/**
+ * Estado da emissão para o CAIXA. Quem decide ligar/desligar é o dono
+ * (master switch no módulo fiscal) — o operador só é informado.
+ */
+export function useNfseEnabled(): NfseEmissionState | null {
+  const [state, setState] = useState<NfseEmissionState | null>(() => cached)
 
   useEffect(() => {
     if (cached !== null) return
     let alive = true
     api
-      .get<BillingResponse>('/billing/subscription')
+      .get<NfseEmissionState>('/fiscal/emission-state')
       .then((res) => {
-        const value = res.data.data?.nfseAddon ?? false
-        cached = value
-        if (alive) setEnabled(value)
+        cached = res.data
+        if (alive) setState(res.data)
       })
       .catch(() => {
-        cached = false
+        // sem módulo / sem permissão → nada é exibido no caixa
+        cached = { ativa: false, ativadaEm: null, producaoLiberada: false, ambienteProducao: false }
       })
     return () => {
       alive = false
     }
   }, [])
 
-  return enabled
+  return state
 }

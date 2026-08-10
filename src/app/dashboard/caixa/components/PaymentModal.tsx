@@ -81,10 +81,12 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
   const [confirming, setConfirming] = useState(false)
   const [error,      setError]      = useState<string | null>(null)
   const [success,    setSuccess]    = useState(false)
-  // @eligi:nfse-switch — módulo ativo? venda tem serviço com valor?
-  const nfseEnabled = useNfseEnabled()
-  const hasService  = sale.items.some(i => i.type === 'SERVICE' && i.total > 0)
-  const [emitNfse,   setEmitNfse]   = useState(true)
+  // @eligi:nfse-switch — quem decide emitir é o DONO (master switch no
+  // módulo de Notas Fiscais). O caixa não escolhe venda a venda: a nota
+  // é obrigatória e a decisão não pertence ao operador.
+  const nfseState  = useNfseEnabled()
+  const hasService = sale.items.some(i => i.type === 'SERVICE' && i.total > 0)
+  const emitNfse   = (nfseState?.ativa ?? false) && hasService
 
   const parsedDiscount = parseFloat(discount.replace(',', '.')) || 0
   const subtotal = sale.subtotal
@@ -164,7 +166,7 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
       // @eligi:nfse-switch — enfileira a NFS-e DEPOIS do confirm, isolado.
       // A nota é consequência da venda, nunca pré-requisito: falha aqui
       // não trava o caixa (a central permite reemitir).
-      if (emitNfse && nfseEnabled) {
+      if (emitNfse) {
         void api.post(`/fiscal/sales/${sale.id}/emit`).catch(() => {
           /* silencioso: venda já fechada; a nota fica pendente na central */
         })
@@ -581,35 +583,26 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
             display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0,
           }}>
             {/* @eligi:nfse-switch — decisão fiscal no último momento antes de confirmar */}
-            {nfseEnabled && hasService && (
-              <label
+            {emitNfse && (
+              <div
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                  display: 'flex', alignItems: 'center', gap: 10,
                   background: T.okBg, border: `1px solid ${T.okStroke}`,
-                  borderRadius: 11, padding: '11px 14px',
-                  cursor: confirming ? 'not-allowed' : 'pointer',
-                  opacity: confirming ? 0.6 : 1,
-                  WebkitTapHighlightColor: 'transparent',
+                  borderRadius: 11, padding: '10px 14px',
                 }}
               >
+                <span style={{ fontSize: 15, lineHeight: 1 }}>🧾</span>
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: T.okText }}>
-                    Emitir NFS-e
+                  <span style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: T.okText }}>
+                    Nota fiscal será emitida
                   </span>
-                  <span style={{ display: 'block', fontSize: 11.5, color: T.muted, marginTop: 1 }}>
-                    {emitNfse
-                      ? 'A nota dos serviços sai em segundo plano'
-                      : 'Sem nota fiscal nesta venda'}
+                  <span style={{ display: 'block', fontSize: 11, color: T.muted, marginTop: 1 }}>
+                    {nfseState?.ambienteProducao
+                      ? 'A NFS-e dos serviços sai automaticamente após o pagamento'
+                      : 'Modo de teste — a nota gerada não tem validade fiscal'}
                   </span>
                 </span>
-                <input
-                  type="checkbox"
-                  checked={emitNfse}
-                  disabled={confirming}
-                  onChange={(e) => setEmitNfse(e.target.checked)}
-                  style={{ width: 20, height: 20, accentColor: T.pay, cursor: 'inherit', flexShrink: 0 }}
-                />
-              </label>
+              </div>
             )}
 
             <div style={{ display: 'flex', gap: 10 }}>

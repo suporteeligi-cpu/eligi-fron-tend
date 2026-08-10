@@ -32,6 +32,16 @@ export interface BillingSubscriptionView {
   nfseAddon: boolean
 }
 
+export interface NfseEmissionState {
+  /** master do dono: ligado = toda venda com serviço emite */
+  ativa: boolean
+  ativadaEm: string | null
+  /** liberado pelo Eligi (EligiBrain) para emitir em produção */
+  producaoLiberada: boolean
+  /** true = as notas emitidas TÊM validade fiscal */
+  ambienteProducao: boolean
+}
+
 export interface NfseEmission {
   id: string
   saleId: string

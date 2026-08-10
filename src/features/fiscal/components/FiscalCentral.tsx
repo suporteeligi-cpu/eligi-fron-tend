@@ -10,6 +10,8 @@ import type { InkTone } from '@/shared/theme'
 import type { FiscalOverview, FiscalProfile, FiscalRegime, FiscalStatus } from '../types'
 import { apiErrorMessage, formatCnpj } from '../utils'
 import EmissionsList from './EmissionsList'
+import NfseMasterSwitch from './NfseMasterSwitch'
+import { useEmissionState } from '../hooks/useEmissionState'
 
 const cardStyle: CSSProperties = { ...glassCard, padding: 20 }
 
@@ -74,9 +76,15 @@ export default function FiscalCentral({ overview, onChanged }: Props) {
   const profile = overview.profile
   const status: FiscalStatus = profile?.status ?? 'INCOMPLETE'
   const st = STATUS_CFG[status]
+  const { state: emissionState, refetch: refetchEmission } = useEmissionState()
 
   return (
     <div>
+      {/* @eligi:nfse-master-switch — o dono precisa poder desligar a qualquer
+          momento: nota emitida por engano vira processo na prefeitura */}
+      {emissionState && status !== 'INCOMPLETE' && (
+        <NfseMasterSwitch state={emissionState} onChanged={refetchEmission} />
+      )}
       <div
         style={{
           ...cardStyle,
