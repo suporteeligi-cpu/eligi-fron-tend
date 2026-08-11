@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
-  ChevronLeft, Phone, Calendar, Trash2, TrendingUp, Star,
+  ChevronLeft, Phone, Calendar, Trash2, TrendingUp, Star, CreditCard,
 } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
@@ -15,6 +15,7 @@ import { getInitials, formatPhone, maskPhone, fmtRevenue } from '@/features/clie
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 import EditableField from './components/EditableField'
 import DeleteModal   from './components/DeleteModal'
+import ShareWalletModal from './components/ShareWalletModal'
 import BookingRow, { BookingItem } from './components/BookingRow'
 
 import dayjs from 'dayjs'
@@ -112,6 +113,7 @@ export default function ClientProfilePage() {
   const [loading,    setLoading]    = useState(true)
   const [tab,        setTab]        = useState<'bookings' | 'info'>('bookings')
   const [showDelete, setShowDelete] = useState(false)
+  const [showShare,  setShowShare]  = useState(false)
   const [deleting,   setDeleting]   = useState(false)
   const [toast,      setToast]      = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
 
@@ -256,6 +258,14 @@ export default function ClientProfilePage() {
         fontFamily: typography.fontFamily,
       }}>
 
+        {showShare && (
+          <ShareWalletModal
+            clientId={id}
+            clientName={client.name}
+            onClose={() => setShowShare(false)}
+          />
+        )}
+
         {/* ═══════════════════════ HEADER ═══════════════════════ */}
         {isMobile ? (
           // Mobile: top-bar slim com voltar/apagar + bloco central com avatar e nome
@@ -347,6 +357,27 @@ export default function ClientProfilePage() {
                 </div>
               )}
             </div>
+            <button
+              onClick={() => setShowShare(true)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                width: '100%',
+                padding: '11px 16px',
+                marginBottom: 16,
+                borderRadius: radius.sm,
+                border: `1px solid rgba(124,58,237,0.22)`,
+                background: 'rgba(124,58,237,0.07)',
+                color: '#7c3aed',
+                fontSize: typography.scale.sm,
+                fontWeight: typography.weight.semibold,
+                cursor: 'pointer',
+                transition: transitions.fast,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <CreditCard size={15} strokeWidth={2} />
+              Compartilhar cartao
+            </button>
           </>
         ) : (
           // Desktop: layout horizontal (mantido)
@@ -408,6 +439,29 @@ export default function ClientProfilePage() {
                 )}
               </div>
             </div>
+
+            <button
+              onClick={() => setShowShare(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px',
+                borderRadius: radius.sm,
+                border: `1px solid rgba(124,58,237,0.22)`,
+                background: 'rgba(124,58,237,0.07)',
+                color: '#7c3aed',
+                fontSize: typography.scale.sm,
+                fontWeight: typography.weight.semibold,
+                cursor: 'pointer',
+                flexShrink: 0,
+                transition: transitions.fast,
+                marginTop: 6,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,0.13)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(124,58,237,0.07)' }}
+            >
+              <CreditCard size={14} strokeWidth={2} />
+              Compartilhar cartao
+            </button>
 
             <button
               onClick={() => setShowDelete(true)}
