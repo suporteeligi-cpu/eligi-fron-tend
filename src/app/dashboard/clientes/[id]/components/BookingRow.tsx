@@ -1,7 +1,8 @@
 'use client'
 // src/app/dashboard/clientes/[id]/components/BookingRow.tsx
 
-import { Clock, CheckCircle, X } from 'lucide-react'
+import { Clock, CheckCircle, X, AlertCircle } from 'lucide-react'   // @eligi:bookingrow-icons
+import type { LucideIcon } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 
@@ -14,7 +15,7 @@ export interface BookingItem {
   id:               string
   startAt:          string
   endAt:            string
-  status:           'CONFIRMED' | 'COMPLETED' | 'CANCELED'
+  status:           'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW'   // @eligi:bookingrow-statustype
   serviceName:      string
   serviceColor:     string | null
   servicePrice:     number | null
@@ -26,14 +27,31 @@ interface Props {
   isMobile: boolean
 }
 
-const STATUS_CFG = {
-  CONFIRMED: { label: 'Confirmado', color: colors.red.DEFAULT,   bg: colors.red.subtle,   Icon: Clock        },
-  COMPLETED: { label: 'Concluído',  color: colors.slate.DEFAULT, bg: colors.slate.subtle, Icon: CheckCircle  },
-  CANCELED:  { label: 'Cancelado',  color: colors.gray.dimText,  bg: 'rgba(0,0,0,0.04)',  Icon: X            },
-} as const
+// @eligi:bookingrow-cfgmap
+interface StatusCfg {
+  label: string
+  color: string
+  bg:    string
+  Icon:  LucideIcon
+}
+
+/** Usado quando o status vier de fora do mapa (enum novo no back, dado legado).
+ *  Degradação elegante > página inteira no error boundary. */
+const STATUS_FALLBACK: StatusCfg = {
+  label: 'Agendado', color: colors.gray.dimText, bg: 'rgba(0,0,0,0.04)', Icon: Clock,
+}
+
+/** `| undefined` é DE PROPÓSITO: obriga o `??` no lookup e impede que um
+ *  status desconhecido volte a derrubar o render. */
+const STATUS_CFG: Record<string, StatusCfg | undefined> = {
+  CONFIRMED: { label: 'Confirmado', color: colors.red.DEFAULT,   bg: colors.red.subtle,       Icon: Clock       },
+  COMPLETED: { label: 'Concluído',  color: colors.slate.DEFAULT, bg: colors.slate.subtle,     Icon: CheckCircle },
+  CANCELED:  { label: 'Cancelado',  color: colors.gray.dimText,  bg: 'rgba(0,0,0,0.04)',      Icon: X           },
+  NO_SHOW:   { label: 'Não veio',   color: '#b45309',            bg: 'rgba(245,158,11,0.14)', Icon: AlertCircle },
+}
 
 export default function BookingRow({ booking: b, isMobile }: Props) {
-  const cfg      = STATUS_CFG[b.status]
+  const cfg      = STATUS_CFG[b.status] ?? STATUS_FALLBACK   // @eligi:bookingrow-lookup
   const gradient = b.serviceColor ? colorToGradient(b.serviceColor) : colors.red.gradient
 
   // ─── Mobile: card vertical 2-linhas ───────────────────────────────────
