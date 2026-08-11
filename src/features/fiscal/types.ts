@@ -17,6 +17,7 @@ export interface FiscalProfile {
   regime: FiscalRegime
   codigoTributacaoNacional: string
   aliquotaIss: number
+  aliquotaSimplesNacional: number
   codigoMunicipioIbge: string
   status: FiscalStatus
   certificate: FiscalCertificate | null
@@ -30,6 +31,63 @@ export interface FiscalOverview {
 export interface BillingSubscriptionView {
   hasSubscription: boolean
   nfseAddon: boolean
+}
+
+export interface MonthPoint {
+  month: number
+  total: number
+  count: number
+}
+
+export interface ServiceSlice {
+  name: string
+  count: number
+  total: number
+}
+
+export interface SimplesGauge {
+  rbt12: number
+  teto: number
+  percentual: number
+  faixa: number
+  aliquotaFaixa: number
+  proximaFaixa: number | null
+  aliquotaProxima: number | null
+  faltaParaProxima: number | null
+  /** o valor considera só o que passou pelo Eligi — a UI PRECISA avisar */
+  parcial: boolean
+}
+
+export interface FiscalSummary {
+  year: number
+  business: {
+    displayName: string
+    cnpj: string
+    inscricaoMunicipal: string
+    regime: string
+    codigoTributacaoNacional: string
+    aliquotaIss: number
+    aliquotaSimplesNacional: number
+    codigoMunicipioIbge: string
+    municipio: string | null
+    uf: string | null
+  }
+  monthly: MonthPoint[]
+  yearTotal: number
+  yearCount: number
+  current: {
+    month: number
+    total: number
+    count: number
+    deltaPct: number | null
+    ticketMedio: number
+    maiorNota: number
+    issEstimado: number
+    tributosAproximados: number
+  }
+  byService: ServiceSlice[]
+  simples: SimplesGauge
+  status: { authorized: number; rejected: number; pending: number; canceled: number }
 }
 
 export interface NfseEmissionState {
