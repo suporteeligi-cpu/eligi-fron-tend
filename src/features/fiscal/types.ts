@@ -90,6 +90,11 @@ export interface FiscalSummary {
   status: { authorized: number; rejected: number; pending: number; canceled: number }
 }
 
+export interface MotivoSubstituicao {
+  codigo: string
+  label: string
+}
+
 export interface NfseEmissionState {
   /** master do dono: ligado = toda venda com serviço emite */
   ativa: boolean
@@ -114,6 +119,12 @@ export interface NfseEmission {
   discriminacao: string
   attempts: number
   errorMessage: string | null
+  /** esta nota substituiu outra */
+  substitutaDeId?: string | null
+  /** esta nota foi substituída — deixou de valer */
+  substituidaPorId?: string | null
+  /** janela de 72h ainda aberta (derivado no back) */
+  podeSubstituir?: boolean
   createdAt: string
   updatedAt: string
 }

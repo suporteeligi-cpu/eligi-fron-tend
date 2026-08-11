@@ -1,15 +1,17 @@
 // src/features/fiscal/components/EmissionsList.tsx
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { FileText, Download, RotateCw, ExternalLink } from 'lucide-react'
+import { MoreHorizontal, RotateCw } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { useEmissions } from '../hooks/useEmissions'
 import type { NfseEmission, NfseStatus } from '../types'
 import { apiErrorMessage } from '../utils'
-import { downloadFile, openPdf } from '../download'
+import { downloadFile } from '../download'
 import { card, ink, tone, h2, body, numeric, brl } from '../ui'
+import ReceiptPreviewModal from './ReceiptPreviewModal'
+import SubstituirModal from './SubstituirModal'
 
 const DOT: Record<NfseStatus, { color: string; text: string }> = {
   PENDING: { color: tone.amber, text: 'na fila' },
@@ -19,12 +21,7 @@ const DOT: Record<NfseStatus, { color: string; text: string }> = {
   CANCELED: { color: ink.faint, text: 'cancelada' },
 }
 
-const seg: CSSProperties = {
-  display: 'flex',
-  background: 'rgba(0,0,0,0.045)',
-  borderRadius: 9,
-  padding: 2.5,
-}
+const seg: CSSProperties = { display: 'flex', background: 'rgba(0,0,0,0.045)', borderRadius: 9, padding: 2.5 }
 const segBtn = (on: boolean): CSSProperties => ({
   border: 'none',
   background: on ? '#fff' : 'transparent',
@@ -38,17 +35,20 @@ const segBtn = (on: boolean): CSSProperties => ({
   letterSpacing: '-0.01em',
   boxShadow: on ? '0 1px 2px rgba(0,0,0,.06)' : 'none',
 })
-const iconBtn: CSSProperties = {
-  width: 30,
-  height: 30,
-  borderRadius: 8,
+const menuItem: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+  padding: '10px 14px',
   border: 'none',
   background: 'transparent',
   cursor: 'pointer',
-  color: ink.faint,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  fontSize: 13,
+  fontWeight: 500,
+  color: ink.strong,
+  fontFamily: 'inherit',
+  textAlign: 'left',
+  letterSpacing: '-0.01em',
 }
 
 type Filter = 'all' | 'authorized' | 'rejected'
@@ -68,7 +68,21 @@ export default function EmissionsList() {
   const [filter, setFilter] = useState<Filter>('all')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [hover, setHover] = useState<string | null>(null)
+  const [menu, setMenu] = useState<string | null>(null)
+  const [preview, setPreview] = useState<NfseEmission | null>(null)
+  const [substituir, setSubstituir] = useState<NfseEmission | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  // fecha o menu ao clicar fora
+  useEffect(() => {
+    if (!menu) return
+    const close = (ev: MouseEvent) => {
+      if (!wrapRef.current?.contains(ev.target as Node)) setMenu(null)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [menu])
 
   const rows = useMemo(() => {
     if (filter === 'authorized') return emissions.filter((e) => e.status === 'AUTHORIZED')
@@ -77,7 +91,10 @@ export default function EmissionsList() {
   }, [emissions, filter])
 
   const total = useMemo(
-    () => rows.filter((e) => e.status === 'AUTHORIZED').reduce((s, e) => s + e.valorServicos, 0),
+    () =>
+      rows
+        .filter((e) => e.status === 'AUTHORIZED' && !e.substituidaPorId)
+        .reduce((s, e) => s + e.valorServicos, 0),
     [rows],
   )
 
@@ -85,6 +102,7 @@ export default function EmissionsList() {
     if (busyId) return
     setBusyId(e.id)
     setActionError(null)
+    setMenu(null)
     api
       .post(`/fiscal/sales/${e.saleId}/emit`)
       .then(() => refetch())
@@ -92,13 +110,21 @@ export default function EmissionsList() {
       .finally(() => setBusyId(null))
   }
 
-  const act = (fn: Promise<void>) => {
+  const baixarXml = (e: NfseEmission) => {
+    setMenu(null)
     setActionError(null)
-    fn.catch((err: unknown) => setActionError(apiErrorMessage(err)))
+    downloadFile(`/fiscal/emissions/${e.id}/xml`, `NFSe-${e.nfseNumber ?? e.id}.xml`).catch(
+      (err: unknown) => setActionError(apiErrorMessage(err)),
+    )
   }
 
+  // ⚠️ quem decide a janela de 72h é o BACK (`podeSubstituir` no DTO).
+  // Calcular aqui usaria Date.now() no render — impuro para o Compiler —
+  // e o relógio do cliente não pode mandar em prazo fiscal.
+  const podeSubstituir = (e: NfseEmission) => e.podeSubstituir === true
+
   return (
-    <div style={{ ...card, overflow: 'hidden' }}>
+    <div style={{ ...card, overflow: 'visible' }} ref={wrapRef}>
       <div
         style={{
           display: 'flex',
@@ -123,13 +149,8 @@ export default function EmissionsList() {
         </div>
       </div>
 
-      {loading && (
-        <div style={{ padding: '36px 28px', textAlign: 'center', ...body, fontSize: 13 }}>Carregando…</div>
-      )}
-
-      {!loading && error && (
-        <div style={{ padding: '26px 28px', fontSize: 13, color: tone.red }}>{error}</div>
-      )}
+      {loading && <div style={{ padding: '36px 28px', textAlign: 'center', ...body, fontSize: 13 }}>Carregando…</div>}
+      {!loading && error && <div style={{ padding: '26px 28px', fontSize: 13, color: tone.red }}>{error}</div>}
 
       {!loading && !error && rows.length === 0 && (
         <div style={{ padding: '44px 28px', textAlign: 'center' }}>
@@ -144,8 +165,11 @@ export default function EmissionsList() {
         !error &&
         rows.map((e) => {
           const dot = DOT[e.status]
-          const on = hover === e.id
+          const on = hover === e.id || menu === e.id
           const done = e.status === 'AUTHORIZED'
+          // substituída deixou de valer: apagada, para não parecer nota dobrada
+          const substituida = Boolean(e.substituidaPorId)
+
           return (
             <div
               key={e.id}
@@ -160,6 +184,8 @@ export default function EmissionsList() {
                 alignItems: 'center',
                 background: on ? 'rgba(0,0,0,0.012)' : 'transparent',
                 transition: 'background .16s',
+                opacity: substituida ? 0.55 : 1,
+                position: 'relative',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
@@ -176,13 +202,20 @@ export default function EmissionsList() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    letterSpacing: '-0.01em',
                   }}
                 >
                   {initials(e.tomadorNome)}
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, letterSpacing: '-0.015em', color: ink.strong }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 500,
+                      letterSpacing: '-0.015em',
+                      color: ink.strong,
+                      textDecoration: substituida ? 'line-through' : 'none',
+                    }}
+                  >
                     {e.tomadorNome ?? 'Consumidor não identificado'}
                   </div>
                   <div
@@ -190,7 +223,6 @@ export default function EmissionsList() {
                       fontSize: 12.5,
                       color: ink.faint,
                       marginTop: 2,
-                      letterSpacing: '-0.005em',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -198,52 +230,88 @@ export default function EmissionsList() {
                   >
                     {e.nfseNumber ? `nº ${e.nfseNumber} · ` : ''}
                     {e.discriminacao}
+                    {substituida ? ' · substituída' : ''}
+                    {e.substitutaDeId ? ' · substitui outra nota' : ''}
                     {e.status === 'REJECTED' && e.errorMessage ? ` · ${e.errorMessage}` : ''}
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                <div style={{ display: 'flex', gap: 2, opacity: on ? 1 : 0, transition: 'opacity .18s' }}>
-                  {done && (
-                    <>
-                      <button
-                        style={iconBtn}
-                        title="Comprovante"
-                        onClick={() => act(openPdf(`/fiscal/emissions/${e.id}/receipt.pdf`))}
-                      >
-                        <FileText size={14} strokeWidth={1.8} />
-                      </button>
-                      <button
-                        style={iconBtn}
-                        title="Baixar XML"
-                        onClick={() =>
-                          act(
-                            downloadFile(
-                              `/fiscal/emissions/${e.id}/xml`,
-                              `NFSe-${e.nfseNumber ?? e.id}.xml`,
-                            ),
-                          )
-                        }
-                      >
-                        <Download size={14} strokeWidth={1.8} />
-                      </button>
-                    </>
-                  )}
-                  {e.status === 'REJECTED' && (
-                    <button
-                      style={{ ...iconBtn, color: tone.red }}
-                      title="Reemitir"
-                      disabled={busyId === e.id}
-                      onClick={() => retry(e)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                {/* menu de ações — rótulos em texto, não ícones adivinhados */}
+                <div style={{ position: 'relative', opacity: on ? 1 : 0, transition: 'opacity .18s' }}>
+                  <button
+                    onClick={() => setMenu(menu === e.id ? null : e.id)}
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 8,
+                      border: 'none',
+                      background: menu === e.id ? 'rgba(0,0,0,0.06)' : 'transparent',
+                      cursor: 'pointer',
+                      color: ink.mid,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <MoreHorizontal size={16} strokeWidth={1.8} />
+                  </button>
+
+                  {menu === e.id && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 34,
+                        minWidth: 216,
+                        background: '#fff',
+                        border: `0.5px solid ${ink.hair2}`,
+                        borderRadius: 13,
+                        boxShadow: '0 12px 32px rgba(0,0,0,0.13)',
+                        padding: '5px 0',
+                        zIndex: 60,
+                      }}
                     >
-                      <RotateCw size={14} strokeWidth={1.8} />
-                    </button>
-                  )}
-                  {done && e.chaveAcesso && (
-                    <button style={iconBtn} title="Consultar no Portal Nacional">
-                      <ExternalLink size={14} strokeWidth={1.8} />
-                    </button>
+                      {done && (
+                        <>
+                          <button style={menuItem} onClick={() => { setMenu(null); setPreview(e) }}>
+                            Visualizar comprovante
+                          </button>
+                          <button style={menuItem} onClick={() => baixarXml(e)}>
+                            Baixar XML da nota
+                          </button>
+                        </>
+                      )}
+
+                      {e.status === 'REJECTED' && (
+                        <button style={menuItem} onClick={() => retry(e)} disabled={busyId === e.id}>
+                          <RotateCw size={13} strokeWidth={1.8} style={{ marginRight: 9 }} />
+                          {busyId === e.id ? 'Reemitindo…' : 'Reemitir nota'}
+                        </button>
+                      )}
+
+                      {podeSubstituir(e) && (
+                        <>
+                          <div style={{ height: 1, background: ink.hair, margin: '5px 0' }} />
+                          <button
+                            style={{ ...menuItem, color: tone.red }}
+                            onClick={() => { setMenu(null); setSubstituir(e) }}
+                          >
+                            Substituir nota
+                          </button>
+                          <div style={{ padding: '2px 14px 8px', fontSize: 11, color: ink.faint, lineHeight: 1.4 }}>
+                            Disponível até 72h após a emissão
+                          </div>
+                        </>
+                      )}
+
+                      {substituida && (
+                        <div style={{ padding: '8px 14px', fontSize: 11.5, color: ink.faint, lineHeight: 1.4 }}>
+                          Esta nota foi substituída e não tem mais validade.
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -270,9 +338,7 @@ export default function EmissionsList() {
           )
         })}
 
-      {actionError && (
-        <div style={{ padding: '12px 28px', fontSize: 12.5, color: tone.red }}>{actionError}</div>
-      )}
+      {actionError && <div style={{ padding: '12px 28px', fontSize: 12.5, color: tone.red }}>{actionError}</div>}
 
       {!loading && !error && rows.length > 0 && (
         <div
@@ -290,6 +356,18 @@ export default function EmissionsList() {
           </span>
           <span style={numeric}>{brl(total)}</span>
         </div>
+      )}
+
+      {preview && <ReceiptPreviewModal emission={preview} onClose={() => setPreview(null)} />}
+      {substituir && (
+        <SubstituirModal
+          emission={substituir}
+          onClose={() => setSubstituir(null)}
+          onDone={() => {
+            setSubstituir(null)
+            refetch()
+          }}
+        />
       )}
     </div>
   )
