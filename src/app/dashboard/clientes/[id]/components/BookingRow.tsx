@@ -6,7 +6,7 @@ import type { LucideIcon } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 
-import { colors, typography, radius } from '@/shared/theme'
+import { colors, typography, radius, bookingStatus } from '@/shared/theme'   // @eligi:bookingrow-themeimport
 import { colorToGradient } from '@/features/agenda/constants/serviceColors'
 
 dayjs.locale('pt-br')
