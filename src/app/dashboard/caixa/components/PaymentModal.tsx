@@ -167,7 +167,9 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
       // A nota é consequência da venda, nunca pré-requisito: falha aqui
       // não trava o caixa (a central permite reemitir).
       if (emitNfse) {
-        void api.post(`/fiscal/sales/${sale.id}/emit`).catch(() => {
+        // ?auto=1 → disparo automático: a decisão de emitir é do DONO
+        // (master switch). Qualquer cargo do caixa dispara.
+        void api.post(`/fiscal/sales/${sale.id}/emit?auto=1`).catch(() => {
           /* silencioso: venda já fechada; a nota fica pendente na central */
         })
       }
