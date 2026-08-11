@@ -18,6 +18,10 @@ export interface FiscalProfile {
   codigoTributacaoNacional: string
   aliquotaIss: number
   aliquotaSimplesNacional: number
+  /** RBT12 do extrato do PGDAS-D (oficial) */
+  rbt12Informado?: number | null
+  /** competência do extrato, 'AAAA-MM' */
+  rbt12Competencia?: string | null
   codigoMunicipioIbge: string
   status: FiscalStatus
   certificate: FiscalCertificate | null
@@ -47,6 +51,13 @@ export interface ServiceSlice {
 
 export interface SimplesGauge {
   rbt12: number
+  /** parte vinda do extrato oficial (null = não informado) */
+  rbt12Declarado?: number | null
+  rbt12Competencia?: string | null
+  /** vendas do Eligi posteriores à competência declarada */
+  rbt12Complemento?: number
+  /** extrato com mais de ~3 meses */
+  declaracaoDesatualizada?: boolean
   teto: number
   percentual: number
   faixa: number

@@ -1,7 +1,7 @@
 // src/features/fiscal/components/FiscalInsights.tsx
 'use client'
 
-import { Gauge, TriangleAlert, CircleCheck, Info } from 'lucide-react'
+import { Gauge, TriangleAlert, CircleCheck, Info, FileCheck2 } from 'lucide-react'
 import { card, ink, tone, label, body, numeric, brl, compact } from '../ui'
 import type { FiscalSummary } from '../types'
 
@@ -22,6 +22,17 @@ export default function FiscalInsights({ summary }: Props) {
       icon: <TriangleAlert size={13} color={tone.amber} strokeWidth={1.9} />,
       title: `A faixa muda em ${brl(s.faltaParaProxima)}.`,
       text: `Ao ultrapassar ${brl(s.teto === 4800000 ? s.faltaParaProxima + s.rbt12 : 0)} em 12 meses, a alíquota nominal vai de ${s.aliquotaFaixa}% para ${s.aliquotaProxima}% — avise seu contador para atualizar o percentual das notas.`,
+    })
+  }
+
+  // a alíquota das notas precisa acompanhar a faixa — se o RBT12 subiu e
+  // o perfil ficou pra trás, toda nota informa um percentual errado
+  if (summary.business.aliquotaSimplesNacional < s.aliquotaFaixa - 0.01) {
+    rows.push({
+      color: tone.amber,
+      icon: <TriangleAlert size={13} color={tone.amber} strokeWidth={1.9} />,
+      title: `Você está na ${s.faixa}ª faixa, mas as notas informam ${summary.business.aliquotaSimplesNacional}%.`,
+      text: `A alíquota nominal da sua faixa é ${s.aliquotaFaixa}%. Peça ao contador a alíquota efetiva atual e atualize na configuração fiscal.`,
     })
   }
 
@@ -88,13 +99,32 @@ export default function FiscalInsights({ summary }: Props) {
           </div>
         </div>
 
-        {/* ⚠️ aviso obrigatório — o número é parcial */}
-        {s.parcial && (
+        {/* origem do número — a UI nunca mostra o medidor sem dizer de onde veio */}
+        {s.parcial ? (
           <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'flex-start' }}>
-            <Info size={12} color={ink.faint} strokeWidth={1.9} style={{ marginTop: 2, flexShrink: 0 }} />
+            <Info size={12} color={tone.amber} strokeWidth={1.9} style={{ marginTop: 2, flexShrink: 0 }} />
             <span style={{ fontSize: 11.5, color: ink.faint, lineHeight: 1.45 }}>
-              Considera apenas as vendas registradas no Eligi. Confirme o valor real com seu contador.
+              <b style={{ color: tone.amber }}>Pode estar subestimado.</b> Considera apenas as vendas
+              registradas no Eligi. Informe a receita do extrato do Simples na configuração fiscal.
             </span>
+          </div>
+        ) : (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <FileCheck2 size={12} color={tone.green} strokeWidth={1.9} style={{ marginTop: 2, flexShrink: 0 }} />
+              <span style={{ fontSize: 11.5, color: ink.faint, lineHeight: 1.45 }}>
+                {brl(s.rbt12Declarado ?? 0)} declarados no extrato de{' '}
+                {s.rbt12Competencia ?? '—'} + {brl(s.rbt12Complemento ?? 0)} em vendas registradas depois.
+              </span>
+            </div>
+            {s.declaracaoDesatualizada && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 8 }}>
+                <TriangleAlert size={12} color={tone.amber} strokeWidth={1.9} style={{ marginTop: 2, flexShrink: 0 }} />
+                <span style={{ fontSize: 11.5, color: tone.amber, lineHeight: 1.45 }}>
+                  O extrato tem mais de três meses. Peça o mais recente ao seu contador.
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>

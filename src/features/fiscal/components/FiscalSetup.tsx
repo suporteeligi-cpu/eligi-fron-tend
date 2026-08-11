@@ -3,7 +3,7 @@
 
 import { useRef, useState } from 'react'
 import type { CSSProperties, ChangeEvent } from 'react'
-import { Landmark, FileKey2, CreditCard, ShieldCheck, ShieldAlert, Trash2, Info } from 'lucide-react'
+import { Landmark, FileKey2, CreditCard, ShieldCheck, ShieldAlert, Trash2, Info, ChartNoAxesColumn } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { ink, tone, label, body, btn } from '../ui'
 import type { FiscalOverview, FiscalProfile, FiscalRegime } from '../types'
@@ -85,6 +85,12 @@ function FiscalData({
       : '6,00',
   )
   const [ibge, setIbge] = useState(() => profile?.codigoMunicipioIbge ?? '')
+  const [rbt12, setRbt12] = useState(() =>
+    profile?.rbt12Informado != null
+      ? profile.rbt12Informado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+      : '',
+  )
+  const [rbt12Comp, setRbt12Comp] = useState(() => profile?.rbt12Competencia ?? '')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -107,6 +113,11 @@ function FiscalData({
         aliquotaIss: issNum,
         aliquotaSimplesNacional: snNum,
         codigoMunicipioIbge: ibge.trim(),
+        // '1.234,56' → 1234.56 · vazio → null (volta ao cálculo só do Eligi)
+        rbt12Informado: rbt12.trim()
+          ? Number(rbt12.replace(/\./g, '').replace(',', '.'))
+          : null,
+        rbt12Competencia: rbt12Comp.trim() || null,
       })
       .then(() => {
         setMsg({ ok: true, text: 'Dados fiscais salvos.' })
@@ -173,6 +184,59 @@ function FiscalData({
         <div style={field}>
           <div style={label}>Código IBGE do município</div>
           <input style={{ ...input, marginTop: 7 }} value={ibge} onChange={(e) => setIbge(e.target.value)} placeholder="7 dígitos" inputMode="numeric" />
+        </div>
+      </div>
+
+      {/* @eligi:rbt12 — base oficial do medidor do Simples */}
+      <div style={{ marginTop: 22, paddingTop: 20, borderTop: `0.5px solid ${ink.hair}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
+          <ChartNoAxesColumn size={14} color={tone.blue} strokeWidth={1.9} />
+          <span style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.015em', color: ink.strong }}>
+            Receita declarada (PGDAS-D)
+          </span>
+        </div>
+        <p style={{ ...body, fontSize: 12.5, marginBottom: 14 }}>
+          Sem esse número, o Eligi só enxerga o que passou por aqui e{' '}
+          <b style={{ color: ink.strong }}>subestima</b> o quanto você já usou do limite do Simples.
+        </p>
+
+        <div style={{ ...grid2, marginBottom: 12 }}>
+          <div style={field}>
+            <div style={label}>Receita dos últimos 12 meses (RBT12)</div>
+            <input
+              style={{ ...input, marginTop: 7 }}
+              value={rbt12}
+              onChange={(e) => setRbt12(e.target.value)}
+              placeholder="154.064,19"
+              inputMode="decimal"
+            />
+            <div style={hint}>
+              No extrato do Simples Nacional: &quot;Receita bruta acumulada nos doze meses anteriores ao PA
+              (RBT12)&quot;.
+            </div>
+          </div>
+          <div style={field}>
+            <div style={label}>Competência do extrato</div>
+            <input
+              style={{ ...input, marginTop: 7 }}
+              value={rbt12Comp}
+              onChange={(e) => setRbt12Comp(e.target.value)}
+              placeholder="2026-06"
+              maxLength={7}
+            />
+            <div style={hint}>
+              Período de apuração (PA) do extrato, no formato AAAA-MM. As vendas registradas depois dessa
+              data entram por cima.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 18 }}>
+          <Info size={12} color={ink.faint} strokeWidth={1.9} style={{ marginTop: 3, flexShrink: 0 }} />
+          <span style={{ fontSize: 11.5, color: ink.faint, lineHeight: 1.45 }}>
+            Seu contador emite esse extrato no portal do Simples Nacional. Vale atualizar a cada trimestre —
+            número velho engana tanto quanto número ausente.
+          </span>
         </div>
       </div>
 
