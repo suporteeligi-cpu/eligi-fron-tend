@@ -85,7 +85,12 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
   // módulo de Notas Fiscais). O caixa não escolhe venda a venda: a nota
   // é obrigatória e a decisão não pertence ao operador.
   const nfseState  = useNfseEnabled()
-  const hasService = sale.items.some(i => i.type === 'SERVICE' && i.total > 0)
+  // @eligi:nfse-tributaveis — espelha o back: serviço, pacote e assinatura
+  // geram nota; produto é NF-e. Item com valor 0 é consumo de pacote — a
+  // nota daquela receita saiu quando o plano foi vendido.
+  const hasService = sale.items.some(
+    i => (i.type === 'SERVICE' || i.type === 'PACKAGE' || i.type === 'MEMBERSHIP') && i.total > 0
+  )
   const emitNfse   = (nfseState?.ativa ?? false) && hasService
 
   const parsedDiscount = parseFloat(discount.replace(',', '.')) || 0
