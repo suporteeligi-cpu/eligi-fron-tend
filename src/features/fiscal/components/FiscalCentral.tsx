@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings2 } from 'lucide-react'
+import { Settings2, FileDown } from 'lucide-react'
 import { card, ink, tone, btn, body } from '../ui'
 import type { FiscalOverview, FiscalStatus } from '../types'
 import { useEmissionState } from '../hooks/useEmissionState'
@@ -14,6 +14,8 @@ import FiscalCharts from './FiscalCharts'
 import FiscalInsights from './FiscalInsights'
 import EmissionsList from './EmissionsList'
 import FiscalSetup from './FiscalSetup'
+import DasCard from './DasCard'
+import RelatorioModal from './RelatorioModal'
 
 const STATUS_LABEL: Record<FiscalStatus, string> = {
   INCOMPLETE: 'Configuração incompleta',
@@ -33,6 +35,7 @@ export default function FiscalCentral({ overview, onChanged }: Props) {
   const { state: emissionState, refetch: refetchEmission } = useEmissionState()
   const { summary } = useFiscalSummary(new Date().getFullYear())
   const [showSetup, setShowSetup] = useState(status === 'INCOMPLETE')
+  const [relatorio, setRelatorio] = useState(false)
 
   return (
     <div>
@@ -47,9 +50,25 @@ export default function FiscalCentral({ overview, onChanged }: Props) {
       {summary && <FiscalCharts summary={summary} />}
       {summary && <FiscalInsights summary={summary} />}
 
+      <DasCard />
+
       <div style={{ marginBottom: 14 }}>
         <EmissionsList />
       </div>
+
+      <button
+        onClick={() => setRelatorio(true)}
+        style={{
+          ...btn,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 14,
+        }}
+      >
+        <FileDown size={14} strokeWidth={1.8} />
+        Exportar relatório
+      </button>
 
       {/* configuração recolhida: coisa de 1x por ano, não merece a dobra */}
       <div style={{ ...card, padding: showSetup ? '22px 26px' : '18px 26px' }}>
@@ -84,6 +103,8 @@ export default function FiscalCentral({ overview, onChanged }: Props) {
           </div>
         )}
       </div>
+
+      {relatorio && <RelatorioModal onClose={() => setRelatorio(false)} />}
     </div>
   )
 }

@@ -86,6 +86,8 @@ export interface FiscalSummary {
   monthly: MonthPoint[]
   yearTotal: number
   yearCount: number
+  /** 'AAAA-MM' da primeira competência com nota */
+  primeiraNota?: string | null
   current: {
     month: number
     total: number
@@ -99,6 +101,16 @@ export interface FiscalSummary {
   byService: ServiceSlice[]
   simples: SimplesGauge
   status: { authorized: number; rejected: number; pending: number; canceled: number }
+}
+
+export interface DasAgenda {
+  competencia: string
+  competenciaLabel: string
+  vencimento: string
+  diasRestantes: number
+  vencido: boolean
+  proxima: { competencia: string; vencimento: string }
+  portalUrl: string
 }
 
 export interface MotivoSubstituicao {

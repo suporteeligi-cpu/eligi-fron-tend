@@ -18,6 +18,12 @@ export default function FiscalCharts({ summary }: Props) {
   const max = Math.max(...summary.monthly.map((m) => m.total), 1)
   const curIdx = summary.current.month - 1
 
+  // meses antes da primeira nota não são "faturamento zero" — são "sem
+  // emissão". Sem essa distinção o gráfico parece negócio parado.
+  const primeiroIdx = summary.primeiraNota
+    ? Number(summary.primeiraNota.slice(5, 7)) - 1
+    : null
+
   const W = 620
   const H = 150
   const step = W / 12
@@ -48,7 +54,10 @@ export default function FiscalCharts({ summary }: Props) {
             Faturamento com nota
           </span>
           <span style={{ ...body, fontSize: 12 }}>
-            {summary.year} · <span style={numeric}>{brl(summary.yearTotal)}</span>
+            <span style={{ ...numeric, color: ink.strong, fontWeight: 600, fontSize: 14 }}>
+              {brl(summary.yearTotal)}
+            </span>{' '}
+            em {summary.yearCount} {summary.yearCount === 1 ? 'nota' : 'notas'} · {summary.year}
           </span>
         </div>
 
@@ -88,6 +97,13 @@ export default function FiscalCharts({ summary }: Props) {
             )
           })}
         </svg>
+
+        {primeiroIdx != null && primeiroIdx > 0 && (
+          <div style={{ ...body, fontSize: 11, marginTop: 10, color: ink.faint }}>
+            Emissão pelo Eligi começou em {MONTHS[primeiroIdx]}/{summary.year} — os meses anteriores não
+            têm notas registradas aqui.
+          </div>
+        )}
 
         <div style={{ display: 'flex', marginTop: 8 }}>
           {MONTHS.map((mo, i) => (
