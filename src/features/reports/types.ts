@@ -19,7 +19,11 @@ export type ReportTab =
 export interface TabDef {
   id: ReportTab
   label: string
-  icon?: LucideIcon
+  /** rótulo curto pro seletor mobile (cabe em ~90px) [rpt-mobile-leva1] */
+  shortLabel: string
+  /** subtítulo de 2–3 palavras: o que a aba mostra */
+  hint: string
+  icon: LucideIcon
 }
 
 export interface KpiDelta {

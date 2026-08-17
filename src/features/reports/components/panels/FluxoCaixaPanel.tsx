@@ -86,7 +86,7 @@ export default function FluxoCaixaPanel({ period }: { period: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12 }}>
+      <div className="rpt-kpis">
         <Card label="Entradas" value={brl(kpis.entradas)}>
           <DeltaPill pct={kpis.entradasDelta.pct} />
         </Card>

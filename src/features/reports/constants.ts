@@ -2,7 +2,10 @@ import { glassCard } from '@/shared/theme'
 // src/features/reports/constants.ts
 
 import type { TabDef } from './types'
-import { Rocket, Globe } from 'lucide-react'
+import {
+  LayoutGrid, CalendarDays, Users, Wallet, ArrowLeftRight,
+  Package, Briefcase, Rocket, Globe,
+} from 'lucide-react'
 
 /** Vermelho eligi — trocar por token do theme.ts se preferir centralizar */
 export const ACCENT = '#dc2626'
@@ -20,16 +23,20 @@ export const ONLINE_HI = '#6D28D9'
 // passou a usar o mesmo card). Mantido o nome por compatibilidade.
 export const GLASS_CARD: React.CSSProperties = glassCard
 
+// [rpt-mobile-leva1] ícones segment-neutral (Eligi atende barbearia, salão, clínica…)
 export const TABS: TabDef[] = [
-  { id: 'painel', label: 'Painel' },
-  { id: 'agendamentos', label: 'Agendamentos' },
-  { id: 'clientes', label: 'Clientes' },
-  { id: 'receita', label: 'Receita' },
-  { id: 'fluxo-de-caixa', label: 'Fluxo de caixa' },
-  { id: 'estoque', label: 'Estoque' },
-  { id: 'equipe', label: 'Equipe' },
-  { id: 'marketing', label: 'Link online', icon: Rocket },
-  { id: 'club', label: 'Clube', icon: Globe },
+  { id: 'painel',         label: 'Painel',         shortLabel: 'Painel',   hint: 'visão geral',         icon: LayoutGrid },
+  { id: 'agendamentos',   label: 'Agendamentos',   shortLabel: 'Agenda',   hint: 'confirmados, faltas', icon: CalendarDays },
+  { id: 'clientes',       label: 'Clientes',       shortLabel: 'Clientes', hint: 'novos, recorrentes',  icon: Users },
+  { id: 'receita',        label: 'Receita',        shortLabel: 'Receita',  hint: 'vendas, ticket',      icon: Wallet },
+  { id: 'fluxo-de-caixa', label: 'Fluxo de caixa', shortLabel: 'Caixa',    hint: 'entradas, saídas',    icon: ArrowLeftRight },
+  { id: 'estoque',        label: 'Estoque',        shortLabel: 'Estoque',  hint: 'giro, mínimo',        icon: Package },
+  { id: 'equipe',         label: 'Equipe',         shortLabel: 'Equipe',   hint: 'receita, ocupação',   icon: Briefcase },
+  { id: 'marketing',      label: 'Link online',    shortLabel: 'Link',     hint: 'canal online',        icon: Rocket },
+  { id: 'club',           label: 'Clube',          shortLabel: 'Clube',    hint: 'membros, MRR',        icon: Globe },
 ]
+
+/** breakpoint único do módulo (mesmo valor do CSS .rpt-kpis) */
+export const MOBILE_BP = 640
 
 export const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']

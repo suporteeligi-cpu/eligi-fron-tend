@@ -33,7 +33,7 @@ export default function EquipePanel({ period }: { period: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12 }}>
+      <div className="rpt-kpis">
         <Kpi label="Profissionais ativos" value={String(kpis.profissionais)} />
         <Kpi label="Receita da equipe" value={brl(kpis.receita)} />
         <Kpi label="Comissões" value={brl(kpis.comissoes)} />

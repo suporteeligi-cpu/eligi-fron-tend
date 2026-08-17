@@ -104,7 +104,7 @@ export default function ClubReportPanel({ period }: { period: string }) {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12 }}>
+      <div className="rpt-kpis">
         <Card label="Membros ativos" value={String(kpis.membrosAtivos)} />
         <Card label="MRR (recorrente)" value={brl(kpis.mrr)} />
         <Card label="Novos no mês" value={String(kpis.novos)} sub={kpis.novos > 0 ? <span style={{ display: 'inline-flex', alignItems: 'center', color: '#0f6e56', fontSize: 11, fontWeight: 600 }}><ArrowUp size={11} /></span> : undefined} />

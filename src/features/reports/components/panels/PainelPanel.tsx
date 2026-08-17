@@ -48,7 +48,7 @@ export default function PainelPanel({ period }: { period: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* faixa de KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12 }}>
+      <div className="rpt-kpis">
         <div style={{ ...GLASS_CARD, padding: '16px 18px' }}>
           <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.5)', marginBottom: 6 }}>Agendamentos</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
