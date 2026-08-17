@@ -173,6 +173,7 @@ export default function EmissionsList() {
           return (
             <div
               key={e.id}
+              className="fis-nfrow"
               onMouseEnter={() => setHover(e.id)}
               onMouseLeave={() => setHover(null)}
               style={{
@@ -214,6 +215,9 @@ export default function EmissionsList() {
                       letterSpacing: '-0.015em',
                       color: ink.strong,
                       textDecoration: substituida ? 'line-through' : 'none',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
                     {e.tomadorNome ?? 'Consumidor não identificado'}
@@ -239,7 +243,7 @@ export default function EmissionsList() {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
                 {/* menu de ações — rótulos em texto, não ícones adivinhados */}
-                <div style={{ position: 'relative', opacity: on ? 1 : 0, transition: 'opacity .18s' }}>
+                <div className="fis-nfactions" style={{ position: 'relative', opacity: on ? 1 : 0, transition: 'opacity .18s' }}>
                   <button
                     onClick={() => setMenu(menu === e.id ? null : e.id)}
                     style={{

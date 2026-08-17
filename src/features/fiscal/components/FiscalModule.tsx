@@ -27,6 +27,9 @@ export default function FiscalModule() {
   .fis-grid-charts,.fis-grid-insights{grid-template-columns:minmax(0,1fr);gap:12px}
   .fis-card-pad{padding:18px 16px}
   .fis-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .fis-mo{font-size:9px!important;letter-spacing:0!important}
+  .fis-nfrow{padding:14px 16px!important;gap:12px!important}
+  .fis-nfactions{opacity:1!important}
 }
 `}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 20 }}>

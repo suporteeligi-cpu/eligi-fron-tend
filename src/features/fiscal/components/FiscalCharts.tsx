@@ -109,6 +109,7 @@ export default function FiscalCharts({ summary }: Props) {
           {MONTHS.map((mo, i) => (
             <span
               key={mo}
+              className="fis-mo"
               style={{
                 flex: 1,
                 textAlign: 'center',
