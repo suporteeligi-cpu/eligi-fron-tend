@@ -14,7 +14,21 @@ export default function FiscalModule() {
   const { overview, billing, loading, error, refetch } = useFiscal()
 
   return (
-    <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 20px', paddingTop: NAVBAR_OFFSET + 16 }}>
+    <div className="fis-page">
+      <style>{`
+.fis-page{max-width:1180px;margin:0 auto;padding:${NAVBAR_OFFSET + 16}px 20px 40px}
+.fis-grid-charts{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
+.fis-grid-insights{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:14px;margin-bottom:14px}
+.fis-card-pad{padding:26px 28px}
+.fis-row{display:flex;justify-content:space-between;gap:14px}
+.fis-row>*{min-width:0}
+@media (max-width:640px){
+  .fis-page{padding:${NAVBAR_OFFSET + 8}px 14px calc(64px + env(safe-area-inset-bottom) + 24px)}
+  .fis-grid-charts,.fis-grid-insights{grid-template-columns:minmax(0,1fr);gap:12px}
+  .fis-card-pad{padding:18px 16px}
+  .fis-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+}
+`}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 20 }}>
         <div
           style={{

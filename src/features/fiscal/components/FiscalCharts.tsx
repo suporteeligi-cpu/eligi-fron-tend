@@ -45,9 +45,9 @@ export default function FiscalCharts({ summary }: Props) {
   )
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.7fr) minmax(0,1fr)', gap: 14, marginBottom: 14 }}>
+    <div className="fis-grid-charts">
       {/* ── faturamento mensal ── */}
-      <div style={{ ...card, padding: '26px 30px', minWidth: 0 }}>
+      <div className="fis-card-pad" style={{ ...card, minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
           <span style={{ ...h3, display: 'flex', alignItems: 'center', gap: 8 }}>
             <TrendingUp size={15} color={tone.red} strokeWidth={1.75} />
@@ -126,7 +126,7 @@ export default function FiscalCharts({ summary }: Props) {
       </div>
 
       {/* ── notas por serviço ── */}
-      <div style={{ ...card, padding: '26px 28px', minWidth: 0 }}>
+      <div className="fis-card-pad" style={{ ...card, minWidth: 0, marginTop: 0 }}>
         <span style={{ ...h3, display: 'flex', alignItems: 'center', gap: 8 }}>
           <ChartPie size={15} color={tone.violet} strokeWidth={1.75} />
           Notas por serviço
@@ -177,7 +177,7 @@ export default function FiscalCharts({ summary }: Props) {
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24, paddingTop: 20, borderTop: `0.5px solid ${ink.hair}` }}>
+        <div className="fis-row" style={{ marginTop: 24, paddingTop: 20, borderTop: `0.5px solid ${ink.hair}` }}>
           <div>
             <div style={label}>Ticket médio</div>
             <div style={{ fontSize: 19, fontWeight: 600, marginTop: 7, ...numeric, color: ink.strong }}>

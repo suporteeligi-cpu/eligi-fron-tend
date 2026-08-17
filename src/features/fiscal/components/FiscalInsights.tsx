@@ -53,9 +53,9 @@ export default function FiscalInsights({ summary }: Props) {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.35fr)', gap: 14, marginBottom: 14 }}>
+    <div className="fis-grid-insights">
       {/* medidor do Simples */}
-      <div style={{ ...card, padding: '26px 28px', minWidth: 0 }}>
+      <div className="fis-card-pad" style={{ ...card, minWidth: 0 }}>
         <span style={{ ...label, display: 'flex', alignItems: 'center', gap: 7 }}>
           <Gauge size={13} color={tone.blue} strokeWidth={1.9} />
           Limite do Simples Nacional
@@ -84,7 +84,7 @@ export default function FiscalInsights({ summary }: Props) {
           <div style={{ position: 'absolute', left: '75%', top: -3, bottom: -3, width: 1, background: ink.faint }} />
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: ink.faint }}>
+        <div className="fis-row" style={{ fontSize: 12.5, color: ink.faint }}>
           <span style={numeric}>{brl(s.rbt12)} em 12 meses</span>
           <span style={numeric}>R$ {compact(s.teto)}</span>
         </div>
@@ -130,7 +130,7 @@ export default function FiscalInsights({ summary }: Props) {
       </div>
 
       {/* leituras */}
-      <div style={{ ...card, padding: '22px 26px', minWidth: 0 }}>
+      <div className="fis-card-pad" style={{ ...card, minWidth: 0, letterSpacing: 0 }}>
         <div style={label}>Leituras do período</div>
         <div style={{ marginTop: 14 }}>
           {rows.map((r, i) => (
