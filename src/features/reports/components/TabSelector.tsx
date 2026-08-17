@@ -61,7 +61,7 @@ export default function TabSelector({ value, onChange }: Props) {
               background: accent, color: '#fff', display: 'grid', placeItems: 'center',
             }}
           >
-            <Icon size={20} />
+            <Icon size={20} color="#ffffff" />
           </span>
           <span style={{ minWidth: 0 }}>
             <span
@@ -109,6 +109,8 @@ export default function TabSelector({ value, onChange }: Props) {
             const TIcon = t.icon
             const fg = on ? '#fff' : online ? ONLINE : 'rgba(12,12,18,0.72)'
             const bg = on ? (online ? ONLINE : INK) : 'rgba(12,12,18,0.035)'
+            // selecionado -> icone branco (contraste sobre INK/ONLINE)
+            const iconInk = on ? '#ffffff' : online ? ONLINE : 'rgba(12,12,18,0.72)'
             return (
               <button
                 key={t.id}
@@ -126,11 +128,13 @@ export default function TabSelector({ value, onChange }: Props) {
                 <span
                   style={{
                     width: 38, height: 38, borderRadius: 12, display: 'grid', placeItems: 'center',
-                    background: on ? 'rgba(255,255,255,0.16)' : online ? 'rgba(124,58,237,0.10)' : '#fff',
+                    background: on ? 'rgba(255,255,255,0.20)' : online ? 'rgba(124,58,237,0.10)' : '#fff',
                     boxShadow: on ? 'none' : '0 2px 6px rgba(0,0,0,0.05)',
+                    // cor explicita: nao depender de herança de currentColor (regra global de svg)
+                    color: iconInk,
                   }}
                 >
-                  <TIcon size={17} />
+                  <TIcon size={17} color={iconInk} />
                 </span>
                 {t.shortLabel}
                 <span style={{ fontSize: 10, fontWeight: 500, color: on ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.45)' }}>
