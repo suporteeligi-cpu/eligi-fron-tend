@@ -44,6 +44,13 @@ const REASONS: Record<string, { title: string; sub: string; cta: string }> = {
     sub: 'Reative sua assinatura pra voltar a usar o Eligi.',
     cta: 'Reativar',
   },
+  // @eligi:reason-archived — conta encerrada pelo EligiBrain. Sem CTA de
+  // pagamento de proposito: assinar aqui cobraria sem devolver acesso.
+  BLOCKED_ARCHIVED: {
+    title: 'Esta conta foi encerrada',
+    sub: 'O acesso ao painel foi desativado. Seus dados seguem salvos. Se isso nao estava previsto, fale com o suporte do Eligi.',
+    cta: 'Falar com o suporte',
+  },
   VOLUNTARY: {
     title: 'Assine o Eligi',
     sub: 'Garanta o acesso a sua agenda, equipe e caixa sem interrupcao. Pagamento por boleto ou Pix.',
@@ -92,7 +99,10 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
       const res = await api.get<{ data: AccessState }>('/billing/access')
       const st = res.data?.data
       setBlocked(!!st?.blocked)
-      if (st?.blocked && REASONS[st.status]) setReason(st.status)
+      // Mesmo contrato do handler de 'billing:blocked': status desconhecido
+      // cai no MAIS RESTRITIVO, nunca no inicial 'VOLUNTARY' (o unico com
+      // botao de fechar). Sem isto, status novo no back vira aviso fechavel.
+      if (st?.blocked) setReason(REASONS[st.status] ? st.status : 'BLOCKED_TRIAL_EXPIRED')
     } catch {
       // silencioso — se vier 402, o interceptor dispara o evento abaixo
     }
@@ -288,6 +298,21 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
           <button type="button" onClick={logout} style={overdueExit}>
             Sair da conta
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  // @eligi:guard-archived-overlay
+  // Conta encerrada: sem CPF, sem termos, sem cards de plano e sem botao de
+  // fechar. O subscribe recusa com 409, mas a tela nao pode nem sugerir o
+  // caminho — cobrar quem nao vai ter acesso e o pior desfecho possivel.
+  if (reason === 'BLOCKED_ARCHIVED') {
+    return (
+      <div style={overlay}>
+        <div style={modal}>
+          <p style={titleStyle}>{REASONS.BLOCKED_ARCHIVED.title}</p>
+          <p style={subStyle}>{REASONS.BLOCKED_ARCHIVED.sub}</p>
         </div>
       </div>
     )
