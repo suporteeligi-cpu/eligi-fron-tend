@@ -7,20 +7,24 @@
 // Tudo recebido via props do parent (sem GET extra). Salva em vários endpoints.
 
 import { useMemo, useState } from 'react';
-import {
-  UploadCloud, Check, AlertTriangle, Loader2, Palette, Save,
-  Image as ImageIcon, Trash2, Instagram, Phone, Globe, Users,
-} from 'lucide-react';
+import { Check, AlertTriangle, Loader2, Palette, Save } from 'lucide-react';
 import {
   type BusinessTheme,
-  type WallPattern,
   type BusinessSocials,
-  THEME_PRESETS,
-  COVER_PRESETS,
-  bestTextOn,
+  type ThemePreset,
   checkReadability,
-  coverBackground,
 } from '@/shared/profileTheme';
+// @eligi:editor-compoe-fields
+// Os controles de cada assunto agora vivem em ProfileFields.tsx, compartilhados
+// com as sheets do mobile. O que sumiu deste import foi junto com eles.
+import {
+  IdentityFields,
+  AboutField,
+  AddressField,
+  SocialsField,
+  TeamAndPhotosFields,
+  ColorsFields,
+} from './ProfileFields';
 // @eligi:editor-consome-draft-hook
 // `api` e `sanitizeTheme` sairam daqui: quem fala com a API e quem sanitiza o
 // tema inicial agora e' o hook. Import orfao e' erro no lint.
@@ -28,7 +32,7 @@ import { useBusinessProfileDraft, SECTION_LABEL } from '../hooks/useBusinessProf
 import { uploadBlob } from '@/shared/utils/uploadImage';
 import type { ImagePresetName } from '@/shared/utils/imageCompress';
 import ImageCropper from './ImageCropper';
-import MapPicker from './MapPicker';
+// @eligi:mappicker-no-address-field — o mapa e' montado dentro de AddressField.
 // @eligi:editor-usa-business-preview
 // deriveTheme e isMonogramCover sairam daqui junto com a funcao Preview local:
 // quem deriva as CSS vars e le o monograma agora e' o BusinessPreview.
@@ -77,11 +81,7 @@ function extractPalette(img: HTMLImageElement, count = 6): string[] {
   return out.map(o => `#${hex(o.r)}${hex(o.g)}${hex(o.b)}`);
 }
 
-const WALLS: Array<{ id: WallPattern; label: string }> = [
-  { id: 'none', label: 'Liso' },
-  { id: 'dots', label: 'Pontos' },
-  { id: 'grid', label: 'Grade' },
-];
+// @eligi:walls-nos-fields — a lista de papeis de parede vive em ProfileFields.
 
 type TabId = 'id' | 'perfil' | 'equipe' | 'cores';
 const TABS: Array<{ id: TabId; label: string }> = [
@@ -156,14 +156,17 @@ export function ProfileThemeEditor({
 
   // @eligi:vars-no-preview — as CSS vars sao derivadas dentro do BusinessPreview.
   const readability = useMemo(() => checkReadability(theme), [theme]);
-  const onPrimaryResolved = theme.onPrimary === 'auto' ? bestTextOn(theme.primary) : theme.onPrimary;
+  // @eligi:onprimary-nos-fields — derivado dentro de ColorsFields.
 
   function touch() { setSaved(false); }
   function set<K extends keyof BusinessTheme>(key: K, value: BusinessTheme[K]) {
     touch();
     setTheme(t => ({ ...t, [key]: value }));
   }
-  function applyPreset(p: (typeof THEME_PRESETS)[number]) {
+  // @eligi:applypreset-tipo-nomeado
+  // Era `(typeof THEME_PRESETS)[number]`: a constante saiu do import junto com
+  // a aba de cores, mas continuava presa aqui pelo TIPO. Quebraria o build.
+  function applyPreset(p: ThemePreset) {
     touch();
     setTheme(t => ({ ...t, primary: p.primary, bg: p.bg, surface: p.surface, onPrimary: 'auto' }));
   }
@@ -266,157 +269,51 @@ export function ProfileThemeEditor({
         </div>
 
         {/* IDENTIDADE */}
+        {/* @eligi:aba-id-compoe */}
         {tab === 'id' && (
-          <div>
-            <div style={glabel}>Nome (herdado do cadastro)</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#f1f1f4', borderRadius: 11, padding: '11px 13px' }}>
-              <b style={{ fontSize: 14 }}>{businessName}</b>
-              <span style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 700, color: '#047857', background: '#e9f7f1', padding: '3px 8px', borderRadius: 99 }}>herdado</span>
-            </div>
-
-            <div style={glabel}>Logo · extrai as cores ao subir</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <label style={{ width: 52, height: 52, borderRadius: 13, border: '1.5px dashed #e7e7ec', display: 'grid', placeItems: 'center', overflow: 'hidden', cursor: 'pointer', color: '#a1a1aa', flex: 'none', background: '#fafafa' }}>
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : <ImageIcon size={18} />}
-                <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) openCrop(f, 'logo'); e.target.value = ''; }} />
-              </label>
-              <div style={{ fontSize: 12, color: '#71717a', lineHeight: 1.4 }}>
-                Ao subir, abrimos o <b style={{ color: '#0c0c12' }}>recortador</b> e extraímos a paleta.
-              </div>
-              {logoUrl && (
-                <button onClick={() => { touch(); setLogoUrl(null); }} style={miniBtn} aria-label="Remover logo"><Trash2 size={14} /></button>
-              )}
-            </div>
-            {extracted.length > 0 && (
-              <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
-                {extracted.map(c => (
-                  <button key={c} onClick={() => set('primary', c)} title={c}
-                    style={{ width: 30, height: 30, borderRadius: 8, background: c, cursor: 'pointer', boxShadow: '0 0 0 1px #e7e7ec', border: theme.primary === c ? '2px solid #0c0c12' : '2px solid #fff' }} />
-                ))}
-              </div>
-            )}
-
-            <div style={glabel}>Capa do painel</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-              {COVER_PRESETS.map(id => {
-                const sel = coverUrl === `preset:${id}` || (!coverUrl && id === 'gradient');
-                const label = id === 'monogram' ? 'Monograma' : id === 'glow' ? 'Brilho' : 'Gradiente';
-                return (
-                  <button key={id} onClick={() => { touch(); setCoverUrl(`preset:${id}`); }}
-                    style={{ height: 50, borderRadius: 10, background: coverBackground(`preset:${id}`, theme.primary).background, border: sel ? '2px solid #0c0c12' : '2px solid transparent', boxShadow: '0 0 0 1px #e7e7ec', cursor: 'pointer', color: '#fff', fontSize: 11.5, fontWeight: 700, textShadow: '0 1px 4px rgba(0,0,0,.5)' }}>
-                    {label}
-                  </button>
-                );
-              })}
-              <label style={{ height: 50, borderRadius: 10, cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 11.5, fontWeight: 600, color: coverUrl?.startsWith('data:') ? '#fff' : '#71717a', border: coverUrl?.startsWith('data:') ? '2px solid #0c0c12' : '1.5px dashed #e7e7ec', background: coverUrl?.startsWith('data:') ? `linear-gradient(rgba(0,0,0,.4),rgba(0,0,0,.4)), url("${coverUrl}") center/cover` : 'transparent', textShadow: coverUrl?.startsWith('data:') ? '0 1px 4px rgba(0,0,0,.6)' : 'none' }}>
-                {coverUrl?.startsWith('data:') ? 'Trocar foto' : 'Subir foto'}
-                <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) openCrop(f, 'cover'); e.target.value = ''; }} />
-              </label>
-            </div>
-          </div>
+          <IdentityFields
+            businessName={businessName}
+            logoUrl={logoUrl}
+            coverUrl={coverUrl}
+            primary={theme.primary}
+            extracted={extracted}
+            onPickFile={openCrop}
+            onRemoveLogo={() => { touch(); setLogoUrl(null); }}
+            onPickExtracted={c => set('primary', c)}
+            onPickCoverPreset={v => { touch(); setCoverUrl(v); }}
+          />
         )}
 
         {/* PERFIL */}
+        {/* @eligi:aba-perfil-compoe */}
         {tab === 'perfil' && (
           <div>
-            <div style={glabel}>Sobre nós</div>
-            <textarea value={about} onChange={e => { touch(); setAbout(e.target.value); }} placeholder="Conte a história do lugar, o que torna o atendimento especial..."
-              style={{ width: '100%', minHeight: 84, resize: 'vertical', border: '1px solid #e7e7ec', borderRadius: 11, padding: 11, fontFamily: 'inherit', fontSize: 13, color: '#0c0c12' }} maxLength={1500} />
-            <div style={{ fontSize: 11, color: '#a1a1aa', textAlign: 'right', marginTop: 4 }}>{about.length}/1500</div>
-
-            <div style={glabel}>Endereço</div>
-            <input value={address} onChange={e => { touch(); setAddress(e.target.value); }} placeholder="Rua, número — bairro, cidade - UF" style={inp} />
-            <div style={{ marginTop: 8 }}>
-              <MapPicker lat={lat} lng={lng} address={address} onChange={(la, ln) => { touch(); setLat(la); setLng(ln); }} />
-            </div>
-
-            <div style={glabel}>Redes sociais</div>
-            <SocialInput icon={<Instagram size={15} />} value={socials.instagram ?? ''} onChange={v => setSocial('instagram', v)} placeholder="@seuperfil" />
-            <SocialInput icon={<Phone size={15} />} value={socials.whatsapp ?? ''} onChange={v => setSocial('whatsapp', v)} placeholder="WhatsApp — (11) 9...." />
-            <SocialInput icon={<Globe size={15} />} value={socials.website ?? ''} onChange={v => setSocial('website', v)} placeholder="https://seusite.com.br" />
+            <AboutField value={about} onChange={v => { touch(); setAbout(v); }} />
+            <AddressField
+              address={address}
+              lat={lat}
+              lng={lng}
+              onChangeAddress={v => { touch(); setAddress(v); }}
+              onChangeCoords={(la, ln) => { touch(); setLat(la); setLng(ln); }}
+            />
+            <SocialsField socials={socials} onChange={setSocial} />
           </div>
         )}
 
         {/* EQUIPE & FOTOS */}
+        {/* @eligi:aba-equipe-compoe */}
         {tab === 'equipe' && (
-          <div>
-            <div style={glabel}>Equipe</div>
-            <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', background: '#f7f7f9', border: '1px solid #eee', borderRadius: 12, padding: '12px 14px', fontSize: 12.5, color: '#52525b', lineHeight: 1.45 }}>
-              <Users size={16} style={{ flex: 'none', marginTop: 1, color: '#71717a' }} />
-              <span>A equipe aparece automaticamente no link, com os avatares dos <b>profissionais com agendamento online</b>. Edite quem aparece em <b>Equipe</b>.</span>
-            </div>
-
-            <div style={glabel}>Fotos do estabelecimento <span style={{ color: '#a1a1aa', fontWeight: 600 }}>· até 3</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {gallery.map((g, i) => (
-                <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 11, overflow: 'hidden', boxShadow: '0 0 0 1px #e7e7ec' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={g} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <button onClick={() => { touch(); setGallery(arr => arr.filter((_, j) => j !== i)); }} aria-label="Remover foto"
-                    style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', background: 'rgba(12,12,18,.7)', color: '#fff', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-              {gallery.length < 3 && (
-                <label style={{ aspectRatio: '1', borderRadius: 11, border: '1.5px dashed #e7e7ec', display: 'grid', placeItems: 'center', cursor: 'pointer', color: '#a1a1aa' }}>
-                  <UploadCloud size={18} />
-                  <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) openCrop(f, 'gallery'); e.target.value = ''; }} />
-                </label>
-              )}
-            </div>
-            <div style={{ fontSize: 11, color: '#a1a1aa', marginTop: 8 }}>Cada foto passa pelo recortador (quadrada).</div>
-          </div>
+          <TeamAndPhotosFields
+            gallery={gallery}
+            onPickFile={openCrop}
+            onRemovePhoto={i => { touch(); setGallery(arr => arr.filter((_, j) => j !== i)); }}
+          />
         )}
 
         {/* CORES */}
+        {/* @eligi:aba-cores-compoe */}
         {tab === 'cores' && (
-          <div>
-            <div style={glabel}>Modelos prontos</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 9 }}>
-              {THEME_PRESETS.map(p => {
-                const on = theme.primary === p.primary && theme.bg === p.bg;
-                return (
-                  <button key={p.id} onClick={() => applyPreset(p)}
-                    style={{ border: on ? '1.5px solid #dc2626' : '1.5px solid #e7e7ec', boxShadow: on ? '0 0 0 3px #fff5f5' : 'none', borderRadius: 13, padding: 9, textAlign: 'left', cursor: 'pointer', background: '#fff' }}>
-                    <div style={{ display: 'flex', gap: 4, marginBottom: 7 }}>
-                      {[p.primary, p.surface, p.bg].map((c, i) => (
-                        <i key={i} style={{ width: 15, height: 15, borderRadius: 5, background: c, boxShadow: 'inset 0 0 0 1px #e7e7ec', display: 'block' }} />
-                      ))}
-                    </div>
-                    <small style={{ fontSize: 11.5, fontWeight: 700, color: '#3a3a44' }}>{p.label}</small>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div style={glabel}>Ajuste fino</div>
-            <Field label="Cor principal" sub="Botão · destaques · selects">
-              <ColorInput value={theme.primary} onChange={v => set('primary', v)} />
-            </Field>
-            <Field label="Texto do botão" sub="Auto por contraste">
-              <ColorInput value={onPrimaryResolved} code={theme.onPrimary === 'auto' ? `auto · ${onPrimaryResolved}` : onPrimaryResolved} onChange={v => set('onPrimary', v)} />
-            </Field>
-            <Field label="Cor dos cards" sub="Superfície dos blocos">
-              <ColorInput value={theme.surface} onChange={v => set('surface', v)} />
-            </Field>
-
-            <div style={glabel}>Fundo / papel de parede</div>
-            <Field label="Cor de fundo">
-              <ColorInput value={theme.bg} onChange={v => set('bg', v)} />
-            </Field>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-              {WALLS.map(w => (
-                <button key={w.id} onClick={() => set('wall', w.id)}
-                  style={{ padding: '8px 12px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: theme.wall === w.id ? '1.5px solid #dc2626' : '1.5px solid #e7e7ec', boxShadow: theme.wall === w.id ? '0 0 0 3px #fff5f5' : 'none', color: '#3a3a44', background: '#fff' }}>
-                  {w.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <ColorsFields theme={theme} onSet={set} onApplyPreset={applyPreset} />
         )}
 
         {/* guard-rail + salvar (sempre visível) */}
@@ -489,39 +386,9 @@ export function ProfileThemeEditor({
 
 // @eligi:preview-local-removida — virou src/features/settings/components/BusinessPreview.tsx
 
-/* ---------- subcomponentes ---------- */
-function Field({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 0' }}>
-      <div>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0c0c12' }}>{label}</div>
-        {sub && <div style={{ fontSize: 11, color: '#71717a', fontWeight: 500 }}>{sub}</div>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function ColorInput({ value, code, onChange }: { value: string; code?: string; onChange: (v: string) => void }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-      <label style={{ width: 34, height: 34, borderRadius: 9, border: '2px solid #fff', boxShadow: '0 0 0 1px #e7e7ec', overflow: 'hidden', cursor: 'pointer', position: 'relative', background: value }}>
-        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#dc2626'} onChange={e => onChange(e.target.value)}
-          style={{ position: 'absolute', inset: -6, width: '150%', height: '150%', border: 'none', padding: 0, cursor: 'pointer', background: 'none' }} />
-      </label>
-      <code style={{ fontSize: 11.5, color: '#71717a', fontWeight: 600, minWidth: 70 }}>{code ?? value}</code>
-    </div>
-  );
-}
-
-function SocialInput({ icon, value, onChange, placeholder }: { icon: React.ReactNode; value: string; onChange: (v: string) => void; placeholder: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 0' }}>
-      <span style={{ width: 32, height: 32, borderRadius: 8, background: '#f1f1f4', display: 'grid', placeItems: 'center', color: '#52525b', flex: 'none' }}>{icon}</span>
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ ...inp, marginTop: 0 }} />
-    </div>
-  );
-}
+// @eligi:subcomponentes-nos-fields
+// Field, ColorInput e SocialInput vivem em ProfileFields.tsx — as sheets do
+// mobile usam os mesmos.
 
 const card: React.CSSProperties = {
   background: '#fff',
@@ -531,16 +398,6 @@ const card: React.CSSProperties = {
   padding: 18,
 };
 
-const glabel: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '.06em', margin: '16px 0 8px',
-};
-
-const inp: React.CSSProperties = {
-  width: '100%', border: '1px solid #e7e7ec', borderRadius: 11, padding: 11, fontFamily: 'inherit', fontSize: 13, color: '#0c0c12',
-};
-
-const miniBtn: React.CSSProperties = {
-  width: 30, height: 30, borderRadius: 8, border: '1px solid #e7e7ec', background: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#71717a', flex: 'none', marginLeft: 'auto',
-};
+// @eligi:estilos-nos-fields — glabel, inp e miniBtn vivem em ProfileFields.tsx.
 
 export default ProfileThemeEditor;
