@@ -1,0 +1,698 @@
+/* ============================================================
+   @eligi:raiox-styles — Funil "Raio-X" (/comece)
+   Direcao "Manchete": fundo branco, preto em escala de manchete,
+   vermelho reservado ao que esta ativo agora.
+
+   Mobile-first: ~90% do trafego vem do Instagram no celular. O desktop
+   e a excecao (media query no fim), nao o contrario.
+   ============================================================ */
+
+.shell {
+  --ink: #0a0a0a;
+  --ink-2: #5c5c60;
+  --line: #e6e6ea;
+  --red: #dc2626;
+  --red-deep: #b91c1c;
+  --red-tint: #fff1f1;
+  --ease: cubic-bezier(0.22, 0.61, 0.21, 1);
+
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  background: #ffffff;
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Topo ── */
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(16px + env(safe-area-inset-top)) 22px 0;
+}
+
+.wordmark {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.wordmark i {
+  color: var(--red);
+  font-style: normal;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.back:hover {
+  color: var(--ink);
+}
+
+/* ── Progresso ── */
+.progress {
+  position: relative;
+  height: 3px;
+  margin: 14px 22px 0;
+  background: var(--line);
+}
+
+.progressBar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--red);
+  transition: width 500ms var(--ease);
+}
+
+.stepLabel {
+  margin: 10px 22px 0;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.stepLabel em {
+  font-style: normal;
+  color: var(--red);
+}
+
+/* ── Area de conteudo ── */
+.main {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  padding: 28px 22px 8px;
+  animation: screenIn 420ms var(--ease) both;
+}
+
+@keyframes screenIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+/* ── Tipografia ── */
+.left {
+  min-width: 0;
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(34px, 10.5vw, 54px);
+  line-height: 0.94;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.word {
+  display: inline-block;
+  margin-right: 0.24em;
+  opacity: 0;
+  transform: translateY(110%);
+  animation: wordRise 550ms var(--ease) forwards;
+}
+
+@keyframes wordRise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sub {
+  max-width: 36ch;
+  margin: 12px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* ── Opcoes ── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 98px;
+  padding: 16px 14px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 200ms ease,
+    background 200ms ease,
+    transform 180ms var(--ease);
+}
+
+.option:active {
+  transform: scale(0.97);
+}
+
+.optionSelected {
+  border-color: var(--red);
+  background: var(--red-tint);
+}
+
+.optionWide {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  min-height: 76px;
+  grid-column: 1 / -1;
+}
+
+.optionIcon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.optionGlyph {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.optionLabel {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.optionCheck {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--red);
+  color: #ffffff;
+}
+
+/* ── Stepper de equipe ── */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-height: 0;
+  margin-top: 14px;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-height 350ms var(--ease),
+    opacity 260ms ease;
+}
+
+.stepperOpen {
+  max-height: 90px;
+  opacity: 1;
+}
+
+.stepper button {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.stepper strong {
+  min-width: 64px;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepper small {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+/* ── Numero grande + slider ── */
+.bigNumber {
+  margin: 20px 0 0;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: clamp(80px, 25vw, 150px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bigNumber small {
+  margin-right: 6px;
+  font-size: 0.28em;
+  letter-spacing: -0.02em;
+  color: var(--ink-2);
+}
+
+.range {
+  width: 100%;
+  height: 44px;
+  margin-top: 14px;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--red) var(--pct, 0%),
+    var(--line) var(--pct, 0%)
+  );
+}
+
+.range::-webkit-slider-thumb {
+  width: 34px;
+  height: 34px;
+  margin-top: -15px;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.range::-moz-range-track {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--line);
+}
+
+.range::-moz-range-progress {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--red);
+}
+
+.range::-moz-range-thumb {
+  width: 34px;
+  height: 34px;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.range:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 4px;
+}
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.live {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.live small {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.live strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Resultado ── */
+.loss {
+  margin: 22px 0 0;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: clamp(58px, 18vw, 118px);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+
+.loss small {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.year {
+  margin: 18px 0 0;
+  font-size: 17px;
+  color: var(--ink-2);
+}
+
+.year strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.booksy {
+  margin: 10px 0 0;
+  font-weight: 600;
+  color: var(--red-deep);
+}
+
+/* ── Formulario ── */
+.form {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field > span {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.field input {
+  width: 100%;
+  height: 54px;
+  padding: 0 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+  color: inherit;
+  font-family: inherit;
+  /* 16px evita o zoom automatico do Safari iOS ao focar o campo. */
+  font-size: 16px;
+  outline: none;
+  transition: border-color 200ms ease;
+}
+
+.field input:focus {
+  border-color: var(--ink);
+}
+
+.field input:disabled {
+  opacity: 0.5;
+}
+
+.hint {
+  font-size: 12px;
+  font-style: normal;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.error {
+  font-size: 13px;
+  font-style: normal;
+  color: var(--red-deep);
+}
+
+.errorLink {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.errorBox {
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--red);
+  border-radius: 12px;
+  background: var(--red-tint);
+  font-size: 14px;
+  color: var(--red-deep);
+}
+
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.terms input {
+  margin-top: 2px;
+  accent-color: var(--red);
+}
+
+.terms a {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+/* ── Rodape / CTA ── */
+.foot {
+  padding: 14px 22px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid transparent;
+  background: #ffffff;
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 58px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--ink);
+  color: #ffffff;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    background 300ms ease,
+    opacity 200ms ease,
+    transform 150ms var(--ease);
+}
+
+.cta:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.cta:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.ctaRed {
+  background: var(--red);
+}
+
+/* ── Loading do submit ── */
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 0 24px;
+  background: #ffffff;
+  animation: fadeIn 300ms ease both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+.loader p {
+  margin: 0;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: clamp(24px, 7vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-align: center;
+}
+
+.loader p::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 3px;
+  margin: 22px auto 0;
+  background: var(--red);
+  animation: loaderPulse 1s var(--ease) infinite alternate;
+}
+
+@keyframes loaderPulse {
+  from {
+    transform: scaleX(0.2);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ============================================================
+   DESKTOP — pergunta a esquerda, resposta a direita, CTA ancorado
+   ============================================================ */
+@media (min-width: 900px) {
+  .shell {
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+
+  .top {
+    padding: 28px 48px 0;
+  }
+
+  .progress {
+    margin: 18px 48px 0;
+  }
+
+  .stepLabel {
+    margin: 12px 48px 0;
+  }
+
+  .screen {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    column-gap: 64px;
+    align-content: start;
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 56px 48px 120px;
+  }
+
+  .headline {
+    font-size: clamp(52px, 6.2vw, 88px);
+  }
+
+  /* A pergunta acompanha a rolagem: nas telas com muitos campos (cadastro),
+     o usuario nunca perde de vista o que esta respondendo. */
+  .left {
+    position: sticky;
+    top: 0;
+    align-self: start;
+  }
+
+  .grid,
+  .form {
+    margin-top: 0;
+  }
+
+  .bigNumber {
+    margin-top: 0;
+    font-size: 170px;
+  }
+
+  .loss {
+    margin-top: 0;
+    font-size: 140px;
+  }
+
+  .live strong {
+    font-size: 44px;
+  }
+
+  .foot {
+    position: fixed;
+    right: 48px;
+    bottom: 40px;
+    width: 360px;
+    padding: 0;
+    background: none;
+  }
+}
+
+/* ── Acessibilidade ── */
+@media (prefers-reduced-motion: reduce) {
+  .shell *,
+  .shell *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .word {
+    opacity: 1;
+    transform: none;
+  }
+}

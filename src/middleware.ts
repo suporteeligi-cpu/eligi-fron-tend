@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveAccessRedirect } from '@/app/components/navigation/routeAccess'
 
 // Rotas que só fazem sentido sem sessão
-const PUBLIC_ONLY = ['/', '/login', '/register', '/forgot-password']
+// @eligi:raiox-public-only — '/comece' e a landing do anuncio: lojista ja
+// logado que clicar nela vai pro dashboard, nao abre uma segunda conta.
+const PUBLIC_ONLY = ['/', '/login', '/register', '/forgot-password', '/comece']
 
 // Rotas que exigem sessão
 const PROTECTED_PREFIX = '/dashboard'
