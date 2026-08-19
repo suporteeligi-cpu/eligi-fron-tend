@@ -696,3 +696,63 @@
     transform: none;
   }
 }
+
+/* ============================================================
+   @eligi:raiox-ink-fix
+   O globals.css pinta cor em seletores de ELEMENTO (h1, p, span...).
+   Herança perde pra regra de elemento, entao o `color: var(--ink)` do
+   `.shell` nunca chegava no texto e tudo nascia cinza.
+
+   Aqui a cor e reafirmada por CLASSE: `.shell .headline` tem
+   especificidade 0,2,0 contra 0,0,1 do `h1` — ganha sem !important.
+   Os secundarios (--ink-2) ficam de fora de proposito: a hierarquia
+   entre pergunta e apoio e o que faz a tela respirar.
+   ============================================================ */
+.shell .wordmark,
+.shell .headline,
+.shell .word,
+.shell .option,
+.shell .optionLabel,
+.shell .optionGlyph,
+.shell .bigNumber,
+.shell .stepper strong,
+.shell .stepper button,
+.shell .live strong,
+.shell .year strong,
+.shell .loss small,
+.shell .field input,
+.shell .terms a,
+.shell .errorLink,
+.shell .loader p {
+  color: var(--ink);
+}
+
+/* Icones do Lucide desenham com currentColor — sem isto herdariam o cinza
+   do globals e o card ficava com o traco lavado. */
+.shell .option svg,
+.shell .stepper button svg,
+.shell .back svg {
+  color: inherit;
+  stroke: currentColor;
+}
+
+.shell .optionSelected,
+.shell .optionSelected .optionLabel {
+  color: var(--red-deep);
+}
+
+.shell .optionCheck {
+  color: #ffffff;
+}
+
+.shell .cta {
+  color: #ffffff;
+}
+
+.shell .loss {
+  color: var(--red);
+}
+
+.shell .booksy {
+  color: var(--red-deep);
+}
