@@ -11,18 +11,20 @@ import {
   UploadCloud, Check, AlertTriangle, Loader2, Palette, Save,
   Image as ImageIcon, Trash2, Instagram, Phone, Globe, Users,
 } from 'lucide-react';
-import api from '@/shared/lib/apiClient';
 import {
   type BusinessTheme,
   type WallPattern,
   type BusinessSocials,
   THEME_PRESETS,
   COVER_PRESETS,
-  sanitizeTheme,
   bestTextOn,
   checkReadability,
   coverBackground,
 } from '@/shared/profileTheme';
+// @eligi:editor-consome-draft-hook
+// `api` e `sanitizeTheme` sairam daqui: quem fala com a API e quem sanitiza o
+// tema inicial agora e' o hook. Import orfao e' erro no lint.
+import { useBusinessProfileDraft, SECTION_LABEL } from '../hooks/useBusinessProfileDraft';
 import { uploadBlob } from '@/shared/utils/uploadImage';
 import type { ImagePresetName } from '@/shared/utils/imageCompress';
 import ImageCropper from './ImageCropper';
@@ -32,7 +34,7 @@ import MapPicker from './MapPicker';
 // quem deriva as CSS vars e le o monograma agora e' o BusinessPreview.
 import BusinessPreview from './BusinessPreview';
 
-const SETTINGS_BASE = '/business-settings';
+// @eligi:settings-base-no-hook — a base da API vive em useBusinessProfileDraft.
 
 if (typeof document !== 'undefined' && !document.getElementById('eligi-spin-kf')) {
   const s = document.createElement('style');
@@ -122,20 +124,35 @@ export function ProfileThemeEditor({
   initialAbout, initialAddress, initialLat, initialLng, initialSocials, initialGallery,
   onSaved,
 }: Props) {
+  // Estado puramente de UI fica aqui; o rascunho persistivel vive no hook.
   const [tab, setTab] = useState<TabId>('id');
-  const [theme, setTheme] = useState<BusinessTheme>(() => sanitizeTheme(initialTheme ?? undefined));
-  const [logoUrl, setLogoUrl] = useState<string | null>(initialLogo ?? null);
-  const [coverUrl, setCoverUrl] = useState<string | null>(initialCover ?? null);
-  const [about, setAbout] = useState(initialAbout ?? '');
-  const [address, setAddress] = useState(initialAddress ?? '');
-  const [lat, setLat] = useState<number | null>(initialLat ?? null);
-  const [lng, setLng] = useState<number | null>(initialLng ?? null);
-  const [socials, setSocials] = useState<BusinessSocials>(initialSocials ?? {});
-  const [gallery, setGallery] = useState<string[]>(initialGallery ?? []);
   const [extracted, setExtracted] = useState<string[]>([]);
   const [crop, setCrop] = useState<CropState>(null);
-  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // @eligi:estado-no-draft-hook
+  const {
+    theme, setTheme,
+    logoUrl, setLogoUrl,
+    coverUrl, setCoverUrl,
+    about, setAbout,
+    address, setAddress,
+    lat, setLat,
+    lng, setLng,
+    socials, setSocials,
+    gallery, setGallery,
+    errors, busy, failed, saveAll,
+  } = useBusinessProfileDraft({
+    theme: initialTheme,
+    logo: initialLogo,
+    cover: initialCover,
+    about: initialAbout,
+    address: initialAddress,
+    lat: initialLat,
+    lng: initialLng,
+    socials: initialSocials,
+    gallery: initialGallery,
+  });
 
   // @eligi:vars-no-preview — as CSS vars sao derivadas dentro do BusinessPreview.
   const readability = useMemo(() => checkReadability(theme), [theme]);
@@ -216,23 +233,14 @@ export function ProfileThemeEditor({
     }
   }
 
+  // @eligi:save-delega-ao-hook
+  // O selo "Salvo" so' aparece se as QUATRO secoes passarem. Antes, o encadeado
+  // sem catch marcava sucesso mesmo com metade da tela por gravar.
   async function save() {
-    setSaving(true);
-    try {
-      await api.patch(`${SETTINGS_BASE}/theme`, theme);
-      await api.patch(`${SETTINGS_BASE}/images`, { logoUrl, coverUrl });
-      await api.patch(`${SETTINGS_BASE}/profile`, {
-        about: about || null,
-        address: address || null,
-        lat, lng,
-        socials,
-      });
-      await api.patch(`${SETTINGS_BASE}/gallery`, { gallery });
-      setSaved(true);
-      onSaved?.(theme);
-    } finally {
-      setSaving(false);
-    }
+    const ok = await saveAll();
+    if (!ok) return;
+    setSaved(true);
+    onSaved?.(theme);
   }
 
   return (
@@ -423,10 +431,23 @@ export function ProfileThemeEditor({
               <span>Contraste baixo no botão ({readability.ratio.toFixed(1)}:1). Sugerimos texto {readability.suggestedOnPrimary === '#ffffff' ? 'branco' : 'escuro'}.</span>
             </div>
           )}
-          <button onClick={save} disabled={saving}
-            style={{ width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 700, fontSize: 14, borderRadius: 12, padding: '13px 18px', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1, border: 'none' }}>
-            {saving ? <Loader2 size={16} style={{ animation: 'eligi-spin 1s linear infinite' }} /> : saved ? <Check size={16} /> : <Save size={16} />}
-            {saving ? 'Salvando…' : saved ? 'Salvo' : 'Salvar personalização'}
+          {/* @eligi:falha-de-save-visivel
+              Erro por secao. Nomeia o que NAO foi gravado: "nao salvou" sem
+              dizer o que e' pior que nao avisar, porque manda reconferir tudo. */}
+          {failed.length > 0 && (
+            <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: 11, padding: '10px 12px', fontSize: 12, fontWeight: 600, marginBottom: 12, lineHeight: 1.45 }}>
+              <AlertTriangle size={15} style={{ flex: 'none', marginTop: 1 }} />
+              <span>
+                Não foi possível salvar {failed.map(s => SECTION_LABEL[s]).join(', ')}.
+                {errors[failed[0]] ? ` ${errors[failed[0]]}.` : ''} O restante foi gravado.
+                Tente de novo.
+              </span>
+            </div>
+          )}
+          <button onClick={save} disabled={busy}
+            style={{ width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 700, fontSize: 14, borderRadius: 12, padding: '13px 18px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1, border: 'none' }}>
+            {busy ? <Loader2 size={16} style={{ animation: 'eligi-spin 1s linear infinite' }} /> : saved ? <Check size={16} /> : <Save size={16} />}
+            {busy ? 'Salvando…' : saved ? 'Salvo' : 'Salvar personalização'}
           </button>
         </div>
       </div>
