@@ -16,6 +16,14 @@
   --red-tint: #fff1f1;
   --ease: cubic-bezier(0.22, 0.61, 0.21, 1);
 
+  /* @eligi:raiox-color-scheme
+     O globals.css declara `color-scheme: dark` quando o sistema esta
+     escuro, e isso manda nos widgets NATIVOS (input, range, checkbox,
+     scrollbar) — inclusive no autofill, que ignora o background do CSS.
+     Esta tela e sempre clara: fixamos o esquema aqui e os campos param
+     de nascer pretos sobre preto no celular em modo escuro. */
+  color-scheme: light;
+
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -755,4 +763,21 @@
 
 .shell .booksy {
   color: var(--red-deep);
+}
+
+/* Autofill: o Chrome pinta com um background interno que nenhuma regra de
+   `background` alcanca. O box-shadow inset e a unica forma de cobri-lo, e o
+   -webkit-text-fill-color e o unico jeito de mandar na cor do texto. */
+.shell .field input:-webkit-autofill,
+.shell .field input:-webkit-autofill:hover,
+.shell .field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  caret-color: var(--ink);
+}
+
+.shell .field input::placeholder {
+  color: var(--ink-2);
+  opacity: 1;
 }
