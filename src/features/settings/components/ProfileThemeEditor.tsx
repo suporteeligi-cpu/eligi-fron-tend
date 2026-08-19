@@ -19,16 +19,18 @@ import {
   THEME_PRESETS,
   COVER_PRESETS,
   sanitizeTheme,
-  deriveTheme,
   bestTextOn,
   checkReadability,
   coverBackground,
-  isMonogramCover,
 } from '@/shared/profileTheme';
 import { uploadBlob } from '@/shared/utils/uploadImage';
 import type { ImagePresetName } from '@/shared/utils/imageCompress';
 import ImageCropper from './ImageCropper';
 import MapPicker from './MapPicker';
+// @eligi:editor-usa-business-preview
+// deriveTheme e isMonogramCover sairam daqui junto com a funcao Preview local:
+// quem deriva as CSS vars e le o monograma agora e' o BusinessPreview.
+import BusinessPreview from './BusinessPreview';
 
 const SETTINGS_BASE = '/business-settings';
 
@@ -112,11 +114,7 @@ interface Props {
   onSaved?: (theme: BusinessTheme) => void;
 }
 
-function initials(name: string): string {
-  const t = (name || '').trim();
-  if (!t) return 'E';
-  return t.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-}
+// @eligi:initials-movida — agora vive em BusinessPreview.tsx como initialsOf().
 
 export function ProfileThemeEditor({
   businessName = 'Seu negócio',
@@ -139,7 +137,7 @@ export function ProfileThemeEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const vars = useMemo(() => deriveTheme(theme), [theme]);
+  // @eligi:vars-no-preview — as CSS vars sao derivadas dentro do BusinessPreview.
   const readability = useMemo(() => checkReadability(theme), [theme]);
   const onPrimaryResolved = theme.onPrimary === 'auto' ? bestTextOn(theme.primary) : theme.onPrimary;
 
@@ -438,9 +436,17 @@ export function ProfileThemeEditor({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: '#71717a', fontSize: 13, fontWeight: 600 }}>
           <Palette size={15} /> Preview ao vivo
         </div>
-        <div style={{ ...(vars as React.CSSProperties), borderRadius: 20, overflow: 'hidden', border: '1px solid #dfdfe4', boxShadow: '0 1px 2px rgba(12,12,18,.04),0 24px 60px -30px rgba(12,12,18,.3)' }}>
-          <Preview businessName={businessName} logoUrl={logoUrl} coverUrl={coverUrl} primary={theme.primary} />
-        </div>
+        {/* @eligi:render-business-preview */}
+        <BusinessPreview
+          businessName={businessName}
+          theme={theme}
+          logoUrl={logoUrl}
+          coverUrl={coverUrl}
+          about={about}
+          address={address}
+          socials={socials}
+          gallery={gallery}
+        />
       </div>
 
       {/* ---------- RECORTADOR ---------- */}
@@ -460,47 +466,7 @@ export function ProfileThemeEditor({
   );
 }
 
-/* ---------- preview: painel (capa+logo+nome real) + card de cores ---------- */
-function Preview({ businessName, logoUrl, coverUrl, primary }: { businessName: string; logoUrl: string | null; coverUrl: string | null; primary: string }) {
-  const cover = coverBackground(coverUrl, primary);
-  const watermark = isMonogramCover(coverUrl);
-  const ini = initials(businessName);
-  return (
-    <div style={{ background: 'var(--p-bg)', backgroundImage: 'var(--p-bg-img)', backgroundSize: '18px 18px', padding: 22 }}>
-      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, padding: 20, marginBottom: 14, color: '#fff', background: cover.background }}>
-        {watermark && (
-          <div aria-hidden style={{ position: 'absolute', right: -16, bottom: -40, fontSize: 150, lineHeight: 0.7, fontWeight: 800, color: primary, opacity: 0.16, userSelect: 'none' }}>{ini.slice(0, 1)}</div>
-        )}
-        <div style={{ position: 'relative', zIndex: 1, width: 46, height: 46, borderRadius: 13, overflow: 'hidden', background: '#fff', color: primary, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 20 }}>
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : ini}
-        </div>
-        <div style={{ position: 'relative', zIndex: 1, marginTop: 14, fontWeight: 800, fontSize: 18, letterSpacing: '-0.01em' }}>{businessName}</div>
-        <div style={{ position: 'relative', zIndex: 1, marginTop: 3, fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>Agende seu horário</div>
-      </div>
-
-      <div style={{ background: 'var(--p-surface)', border: '1px solid var(--p-line)', borderRadius: 16, padding: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '6px 11px', borderRadius: 99, background: 'var(--p-pill)', color: 'var(--p-primary)' }}>★ 4,9 (212)</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--p-muted)' }}>{businessName}</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1.5px solid var(--p-accent)', boxShadow: '0 0 0 3px color-mix(in srgb, var(--p-accent) 14%, transparent)', borderRadius: 11, padding: '11px 13px', fontSize: 13.5, fontWeight: 600, color: 'var(--p-text)', background: 'var(--p-surface)' }}>
-            Corte + Barba · 1h10 <span style={{ marginLeft: 'auto', color: 'var(--p-accent)' }}>▾</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1.5px solid var(--p-line)', borderRadius: 11, padding: '11px 13px', fontSize: 13.5, fontWeight: 600, color: 'var(--p-text)', background: 'var(--p-surface)' }}>
-            Corte Masculino · 40 min
-          </div>
-        </div>
-        <button style={{ width: '100%', marginTop: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: 'linear-gradient(135deg, var(--p-primary), var(--p-primary-2))', color: 'var(--p-on-primary)', fontWeight: 700, fontSize: 15, borderRadius: 13, padding: '15px 26px', border: 'none', cursor: 'pointer', boxShadow: '0 12px 26px -12px var(--p-primary)' }}>
-          Agendar horário
-        </button>
-      </div>
-    </div>
-  );
-}
+// @eligi:preview-local-removida — virou src/features/settings/components/BusinessPreview.tsx
 
 /* ---------- subcomponentes ---------- */
 function Field({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
