@@ -168,4 +168,9 @@ export function useBusinessProfileDraft(init: BusinessProfileDraftInit) {
   }
 }
 
+// @eligi:draft-tipo-exportado
+// O MobileProfileEditor recebe o rascunho inteiro por prop; sem um nome para a
+// forma, seriam vinte props soltas atravessando a fronteira do componente.
+export type BusinessProfileDraft = ReturnType<typeof useBusinessProfileDraft>
+
 export default useBusinessProfileDraft

@@ -3,20 +3,21 @@
 // src/features/settings/components/BusinessPreview.tsx
 //
 // @eligi:business-preview-componente
+// @eligi:preview-slots-editaveis
 // Espelho do link publico (app.eligi.com.br/<slug>) dentro do dashboard.
 //
-// Nasceu como a funcao `Preview` dentro do ProfileThemeEditor e foi extraido
-// quando passou a precisar mostrar sobre/endereco/redes/fotos — o editor tinha
-// 559 linhas e o preview e' o heroi da tela, nao um detalhe dela.
+// DOIS MODOS
+// - LEITURA (sem `onEditSlot`): identico ao preview de sempre.
+// - EDICAO (com `onEditSlot`): cada regiao ganha um pino, e regiao VAZIA vira
+//   um alvo pontilhado "Adicionar ...". Sem isso, quem ainda nao escreveu o
+//   "sobre nos" nao teria onde tocar — o preview mostraria o buraco e nao
+//   ofereceria saida.
 //
 // CONTRATO: componente PURO. Recebe tudo por prop, nao faz fetch, nao guarda
-// estado. Quem edita e' o parent; aqui so' se desenha o resultado.
-//
-// As CSS variables sao derivadas por `deriveTheme` (fonte unica em
-// shared/profileTheme.ts) e aplicadas no wrapper — nenhum calculo de cor ou
-// contraste vive aqui. Dois calculos seriam duas verdades.
+// estado. As CSS variables saem de `deriveTheme` (fonte unica em
+// shared/profileTheme.ts) — nenhum calculo de cor ou contraste vive aqui.
 
-import { Instagram, Phone, Globe, MapPin } from 'lucide-react';
+import { Instagram, Phone, Globe, MapPin, Pencil, Plus } from 'lucide-react';
 import {
   type BusinessTheme,
   type BusinessSocials,
@@ -25,11 +26,98 @@ import {
   isMonogramCover,
 } from '@/shared/profileTheme';
 
+/** Regioes editaveis do preview. */
+export type PreviewSlot = 'logo' | 'appearance' | 'about' | 'address' | 'socials' | 'photos';
+
 /** Iniciais do negocio, usadas sem logo e na marca-d'agua do monograma. */
 export function initialsOf(name: string): string {
   const t = (name || '').trim();
   if (!t) return 'E';
   return t.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
+/**
+ * Pino de edicao. Alvo REAL de 44px com o disco visivel de 28px dentro: um
+ * alvo do tamanho do icone, sobre area rolavel, produz toque fantasma.
+ */
+function EditPin({
+  onClick, label, position,
+}: {
+  onClick: () => void;
+  label: string;
+  position: React.CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      style={{
+        position: 'absolute',
+        width: 44,
+        height: 44,
+        display: 'grid',
+        placeItems: 'center',
+        padding: 0,
+        border: 'none',
+        background: 'transparent',
+        cursor: 'pointer',
+        touchAction: 'manipulation',
+        WebkitTapHighlightColor: 'transparent',
+        zIndex: 4,
+        ...position,
+      }}
+    >
+      <span
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          background: '#fff',
+          color: 'var(--p-primary)',
+          border: '1.5px solid var(--p-primary)',
+          display: 'grid',
+          placeItems: 'center',
+          boxShadow: '0 2px 10px rgba(12,12,18,.28)',
+        }}
+      >
+        <Pencil size={13} />
+      </span>
+    </button>
+  );
+}
+
+/** Alvo para regiao ainda vazia: mostra o que falta E oferece o caminho. */
+function EmptySlot({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 7,
+        width: '100%',
+        minHeight: 44,
+        marginTop: 12,
+        padding: '10px 12px',
+        borderRadius: 11,
+        border: '1.5px dashed var(--p-line)',
+        background: 'transparent',
+        color: 'var(--p-muted)',
+        fontSize: 12.5,
+        fontWeight: 600,
+        fontFamily: 'inherit',
+        cursor: 'pointer',
+        touchAction: 'manipulation',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      <Plus size={14} />
+      {label}
+    </button>
+  );
 }
 
 interface Props {
@@ -41,6 +129,8 @@ interface Props {
   address?: string | null;
   socials?: BusinessSocials | null;
   gallery?: string[] | null;
+  /** Presente = modo edicao (pinos e alvos vazios). Ausente = so' leitura. */
+  onEditSlot?: (slot: PreviewSlot) => void;
 }
 
 export function BusinessPreview({
@@ -52,11 +142,15 @@ export function BusinessPreview({
   address,
   socials,
   gallery,
+  onEditSlot,
 }: Props) {
   const vars = deriveTheme(theme);
   const cover = coverBackground(coverUrl, theme.primary);
   const watermark = isMonogramCover(coverUrl);
   const ini = initialsOf(businessName);
+
+  const editable = typeof onEditSlot === 'function';
+  const edit = (slot: PreviewSlot) => () => onEditSlot?.(slot);
 
   const aboutText = (about ?? '').trim();
   const addressText = (address ?? '').trim();
@@ -129,29 +223,34 @@ export function BusinessPreview({
               {ini.slice(0, 1)}
             </div>
           )}
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              width: 46,
-              height: 46,
-              borderRadius: 13,
-              overflow: 'hidden',
-              background: '#fff',
-              color: theme.primary,
-              display: 'grid',
-              placeItems: 'center',
-              fontWeight: 800,
-              fontSize: 20,
-            }}
-          >
-            {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              ini
+
+          <div style={{ position: 'relative', zIndex: 1, display: 'inline-block' }}>
+            <div
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: 13,
+                overflow: 'hidden',
+                background: '#fff',
+                color: theme.primary,
+                display: 'grid',
+                placeItems: 'center',
+                fontWeight: 800,
+                fontSize: 20,
+              }}
+            >
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                ini
+              )}
+            </div>
+            {editable && (
+              <EditPin onClick={edit('logo')} label="Editar logo" position={{ top: 24, left: 24 }} />
             )}
           </div>
+
           <div
             style={{
               position: 'relative',
@@ -175,6 +274,14 @@ export function BusinessPreview({
           >
             Agende seu horário
           </div>
+
+          {editable && (
+            <EditPin
+              onClick={edit('appearance')}
+              label="Editar cores e capa"
+              position={{ top: 6, right: 6 }}
+            />
+          )}
         </div>
 
         {/* card */}
@@ -207,66 +314,92 @@ export function BusinessPreview({
             </span>
           </div>
 
-          {aboutText && (
-            <p
-              style={{
-                margin: '14px 0 0',
-                fontSize: 12.5,
-                lineHeight: 1.5,
-                color: 'var(--p-text)',
-                opacity: 0.78,
-                display: '-webkit-box',
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                whiteSpace: 'pre-line',
-              }}
-            >
-              {aboutText}
-            </p>
+          {/* sobre */}
+          {aboutText ? (
+            <div style={{ position: 'relative' }}>
+              <p
+                style={{
+                  margin: '14px 0 0',
+                  paddingRight: editable ? 34 : 0,
+                  fontSize: 12.5,
+                  lineHeight: 1.5,
+                  color: 'var(--p-text)',
+                  opacity: 0.78,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  whiteSpace: 'pre-line',
+                }}
+              >
+                {aboutText}
+              </p>
+              {editable && (
+                <EditPin onClick={edit('about')} label="Editar sobre nós" position={{ top: 4, right: -10 }} />
+              )}
+            </div>
+          ) : (
+            editable && <EmptySlot onClick={edit('about')} label="Adicionar descrição" />
           )}
 
-          {addressText && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 7,
-                marginTop: 12,
-                fontSize: 12.5,
-                lineHeight: 1.4,
-                color: 'var(--p-muted)',
-              }}
-            >
-              <MapPin size={14} style={{ flex: 'none', marginTop: 1, color: 'var(--p-accent)' }} />
-              <span>{addressText}</span>
+          {/* endereco */}
+          {addressText ? (
+            <div style={{ position: 'relative' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 7,
+                  marginTop: 12,
+                  paddingRight: editable ? 34 : 0,
+                  fontSize: 12.5,
+                  lineHeight: 1.4,
+                  color: 'var(--p-muted)',
+                }}
+              >
+                <MapPin size={14} style={{ flex: 'none', marginTop: 1, color: 'var(--p-accent)' }} />
+                <span>{addressText}</span>
+              </div>
+              {editable && (
+                <EditPin onClick={edit('address')} label="Editar endereço" position={{ top: 0, right: -10 }} />
+              )}
             </div>
+          ) : (
+            editable && <EmptySlot onClick={edit('address')} label="Adicionar endereço" />
           )}
 
-          {photos.length > 0 && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${photos.length}, 1fr)`,
-                gap: 7,
-                marginTop: 14,
-              }}
-            >
-              {photos.map((src, i) => (
-                <div
-                  key={`${i}-${src.slice(-24)}`}
-                  style={{
-                    aspectRatio: '1',
-                    borderRadius: 10,
-                    overflow: 'hidden',
-                    boxShadow: 'inset 0 0 0 1px var(--p-line)',
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              ))}
+          {/* fotos */}
+          {photos.length > 0 ? (
+            <div style={{ position: 'relative' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${photos.length}, 1fr)`,
+                  gap: 7,
+                  marginTop: 14,
+                }}
+              >
+                {photos.map((src, i) => (
+                  <div
+                    key={`${i}-${src.slice(-24)}`}
+                    style={{
+                      aspectRatio: '1',
+                      borderRadius: 10,
+                      overflow: 'hidden',
+                      boxShadow: 'inset 0 0 0 1px var(--p-line)',
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                ))}
+              </div>
+              {editable && (
+                <EditPin onClick={edit('photos')} label="Editar fotos" position={{ top: 4, right: -10 }} />
+              )}
             </div>
+          ) : (
+            editable && <EmptySlot onClick={edit('photos')} label="Adicionar fotos do espaço" />
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 16 }}>
@@ -333,41 +466,50 @@ export function BusinessPreview({
             Agendar horário
           </button>
 
-          {socialItems.length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 7,
-                marginTop: 16,
-                paddingTop: 14,
-                borderTop: '1px solid var(--p-line-2)',
-              }}
-            >
-              {socialItems.map(s => (
-                <span
-                  key={s.key}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    maxWidth: '100%',
-                    padding: '6px 10px',
-                    borderRadius: 99,
-                    background: 'var(--p-pill)',
-                    color: 'var(--p-primary)',
-                    fontSize: 11.5,
-                    fontWeight: 600,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {s.icon}
-                  {s.label}
-                </span>
-              ))}
+          {/* redes */}
+          {socialItems.length > 0 ? (
+            <div style={{ position: 'relative' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 7,
+                  marginTop: 16,
+                  paddingTop: 14,
+                  paddingRight: editable ? 34 : 0,
+                  borderTop: '1px solid var(--p-line-2)',
+                }}
+              >
+                {socialItems.map(s => (
+                  <span
+                    key={s.key}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      maxWidth: '100%',
+                      padding: '6px 10px',
+                      borderRadius: 99,
+                      background: 'var(--p-pill)',
+                      color: 'var(--p-primary)',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {s.icon}
+                    {s.label}
+                  </span>
+                ))}
+              </div>
+              {editable && (
+                <EditPin onClick={edit('socials')} label="Editar redes sociais" position={{ top: 8, right: -10 }} />
+              )}
             </div>
+          ) : (
+            editable && <EmptySlot onClick={edit('socials')} label="Adicionar redes sociais" />
           )}
         </div>
       </div>

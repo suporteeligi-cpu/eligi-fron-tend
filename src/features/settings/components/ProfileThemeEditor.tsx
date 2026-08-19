@@ -37,6 +37,9 @@ import ImageCropper from './ImageCropper';
 // deriveTheme e isMonogramCover sairam daqui junto com a funcao Preview local:
 // quem deriva as CSS vars e le o monograma agora e' o BusinessPreview.
 import BusinessPreview from './BusinessPreview';
+// @eligi:editor-bifurca-mobile-import
+import { useIsMobile } from '@/hooks/useIsMobile';
+import MobileProfileEditor from './MobileProfileEditor';
 
 // @eligi:settings-base-no-hook — a base da API vive em useBusinessProfileDraft.
 
@@ -130,7 +133,25 @@ export function ProfileThemeEditor({
   const [crop, setCrop] = useState<CropState>(null);
   const [saved, setSaved] = useState(false);
 
+  const isMobile = useIsMobile();
+
   // @eligi:estado-no-draft-hook
+  // @eligi:draft-objeto-nomeado
+  // Guardado tambem como objeto: o MobileProfileEditor recebe o rascunho
+  // inteiro, em vez de vinte props soltas.
+  const draft = useBusinessProfileDraft({
+    theme: initialTheme,
+    logo: initialLogo,
+    cover: initialCover,
+    about: initialAbout,
+    address: initialAddress,
+    lat: initialLat,
+    lng: initialLng,
+    socials: initialSocials,
+    gallery: initialGallery,
+  });
+
+  // @eligi:draft-desestrutura
   const {
     theme, setTheme,
     logoUrl, setLogoUrl,
@@ -142,17 +163,7 @@ export function ProfileThemeEditor({
     socials, setSocials,
     gallery, setGallery,
     errors, busy, failed, saveAll,
-  } = useBusinessProfileDraft({
-    theme: initialTheme,
-    logo: initialLogo,
-    cover: initialCover,
-    about: initialAbout,
-    address: initialAddress,
-    lat: initialLat,
-    lng: initialLng,
-    socials: initialSocials,
-    gallery: initialGallery,
-  });
+  } = draft;
 
   // @eligi:vars-no-preview — as CSS vars sao derivadas dentro do BusinessPreview.
   const readability = useMemo(() => checkReadability(theme), [theme]);
@@ -244,6 +255,40 @@ export function ProfileThemeEditor({
     if (!ok) return;
     setSaved(true);
     onSaved?.(theme);
+  }
+
+  // @eligi:branch-mobile
+  // O recortador serve as DUAS superficies: declarado uma vez, montado nas duas
+  // arvores. Duas copias divergiriam no primeiro ajuste de proporcao.
+  const cropper = crop ? (
+    <ImageCropper
+      src={crop.src}
+      aspect={crop.aspect}
+      outWidth={crop.outW}
+      outHeight={crop.outH}
+      outType={crop.type}
+      title={crop.target === 'logo' ? 'Recortar logo (1:1)' : crop.target === 'cover' ? 'Recortar capa (16:9)' : 'Recortar foto (1:1)'}
+      onCancel={() => { if (crop.src) URL.revokeObjectURL(crop.src); setCrop(null); }}
+      onApply={applyCrop}
+    />
+  ) : null;
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileProfileEditor
+          businessName={businessName}
+          draft={draft}
+          extracted={extracted}
+          readability={readability}
+          onPickFile={openCrop}
+          onSetTheme={set}
+          onApplyPreset={applyPreset}
+          onSetSocial={setSocial}
+        />
+        {cropper}
+      </>
+    );
   }
 
   return (
@@ -367,19 +412,8 @@ export function ProfileThemeEditor({
         />
       </div>
 
-      {/* ---------- RECORTADOR ---------- */}
-      {crop && (
-        <ImageCropper
-          src={crop.src}
-          aspect={crop.aspect}
-          outWidth={crop.outW}
-          outHeight={crop.outH}
-          outType={crop.type}
-          title={crop.target === 'logo' ? 'Recortar logo (1:1)' : crop.target === 'cover' ? 'Recortar capa (16:9)' : 'Recortar foto (1:1)'}
-          onCancel={() => { if (crop.src) URL.revokeObjectURL(crop.src); setCrop(null); }}
-          onApply={applyCrop}
-        />
-      )}
+      {/* @eligi:cropper-unico — declarado antes do branch mobile. */}
+      {cropper}
     </div>
   );
 }
