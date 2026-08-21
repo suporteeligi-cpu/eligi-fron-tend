@@ -16,9 +16,11 @@ interface Envelope {
   data?: AssistantAnswer
 }
 
+// Esta string vai para o sintetizador de voz: acentuacao e obrigatoria.
+// "Nao" sem til e falado como "nau"; "conexao" vira "conexau".
 const FALLBACK: AssistantAnswer = {
   understood: false,
-  answer: 'Nao consegui consultar a agenda agora. Tente de novo.',
+  answer: 'Não consegui consultar a agenda agora. Tente de novo.',
   intent: null,
   data: null,
   denied: false,

@@ -44,8 +44,8 @@ export const SHOW_TEXT_FALLBACK = true
 
 export const STATE_LABEL: Record<AssistantState, string> = {
   idle:      'Toque para falar',
-  listening: 'Escutando...',
-  thinking:  'Pensando...',
+  listening: 'Escutando…',
+  thinking:  'Pensando…',
   speaking:  'Respondendo',
 }
 
@@ -55,6 +55,6 @@ export type MicError = 'denied' | 'unavailable' | 'insecure' | 'unsupported'
 export const MIC_ERROR_LABEL: Record<MicError, string> = {
   denied:      'Microfone bloqueado no navegador',
   unavailable: 'Nenhum microfone encontrado',
-  insecure:    'O microfone exige conexao segura',
-  unsupported: 'Este navegador nao reconhece voz',
+  insecure:    'O microfone exige conexão segura',
+  unsupported: 'Este navegador não reconhece voz',
 }
