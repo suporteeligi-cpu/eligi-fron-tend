@@ -50,10 +50,11 @@ export const STATE_LABEL: Record<AssistantState, string> = {
 }
 
 /** Motivos de indisponibilidade do microfone, em linguagem de usuario. */
-export type MicError = 'denied' | 'unavailable' | 'insecure'
+export type MicError = 'denied' | 'unavailable' | 'insecure' | 'unsupported'
 
 export const MIC_ERROR_LABEL: Record<MicError, string> = {
   denied:      'Microfone bloqueado no navegador',
   unavailable: 'Nenhum microfone encontrado',
   insecure:    'O microfone exige conexao segura',
+  unsupported: 'Este navegador nao reconhece voz',
 }

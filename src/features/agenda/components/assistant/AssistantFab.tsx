@@ -229,14 +229,17 @@ export default function AssistantFab({ onOpen, hidden }: Props) {
             }}
           />
         ))}
-        <img
+        {/* backgroundImage em vez de <img>: o globo e decoracao de 38px, nao
+            conteudo. Evita o aviso do next/image e um no do DOM. */}
+        <span
           className="eligi-fab-globe"
-          src={GLOBE_SRC}
-          alt=""
           aria-hidden="true"
-          draggable={false}
           style={{
-            position: 'absolute', inset: 9, width: 38, height: 38, objectFit: 'contain',
+            position: 'absolute', inset: 9,
+            backgroundImage: `url(${GLOBE_SRC})`,
+            backgroundSize: 'contain',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
             filter: 'drop-shadow(0 0 6px rgba(220,38,38,0.8))',
             animation: 'eligi-fab-breathe 3.2s ease-in-out infinite',
             pointerEvents: 'none',
