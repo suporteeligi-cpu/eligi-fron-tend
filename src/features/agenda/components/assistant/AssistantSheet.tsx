@@ -13,6 +13,7 @@ import { Keyboard, Mic, Send, X } from 'lucide-react'
 
 import OrbCanvas, { OrbHandle } from './OrbCanvas'
 import { useMicLevel } from './useMicLevel'
+import { useLevelPulse } from './useLevelPulse'
 import { useSpeechRecognition } from './useSpeechRecognition'
 import { useSpeechSynthesis } from './useSpeechSynthesis'
 import { askAssistant } from './assistant.api'
@@ -84,12 +85,11 @@ export default function AssistantSheet({ open, onClose }: Props) {
     orbRef.current?.setVoiceLevel(level)
   }, [])
 
-  // O analyser e apenas o medidor visual. Se ele falhar (dois consumidores do
-  // mesmo microfone), o reconhecimento de fala segue funcionando: nao vale
-  // derrubar a feature por causa do brilho do orbe.
-  const ignoreMicMeterError = useCallback(() => { /* silencioso */ }, [])
-
-  const mic = useMicLevel({ onLevel: handleMicLevel, onError: ignoreMicMeterError })
+  // O medidor de audio e opcional. No iOS ele nao roda: getUserMedia e
+  // SpeechRecognition disputando o mesmo dispositivo derrubam o reconhecimento
+  // apos a primeira rodada. Sem medidor, o orbe pulsa a cada trecho reconhecido.
+  const mic = useMicLevel({ onLevel: handleMicLevel })
+  const pulse = useLevelPulse({ onLevel: handleMicLevel })
 
   const handleSpeechEnd = useCallback(() => setState('idle'), [])
   const speech = useSpeechSynthesis({ onLevel: handleVoiceLevel, onEnd: handleSpeechEnd })
@@ -112,23 +112,29 @@ export default function AssistantSheet({ open, onClose }: Props) {
 
   /* ─── reconhecimento de fala ─────────────────────────────────────────── */
 
-  const handlePartial = useCallback((text: string) => setTranscript(text), [])
+  const handlePartial = useCallback((text: string) => {
+    setTranscript(text)
+    if (!mic.available) pulse.pulse()
+  }, [mic.available, pulse])
 
   const handleFinal = useCallback((text: string) => {
     mic.stop()
+    pulse.stop()
     void runQuery(text)
-  }, [mic, runQuery])
+  }, [mic, pulse, runQuery])
 
   const handleSttError = useCallback((error: MicError) => {
     mic.stop()
+    pulse.stop()
     setMicError(error)
     setState('idle')
-  }, [mic])
+  }, [mic, pulse])
 
   const handleEmpty = useCallback(() => {
     mic.stop()
+    pulse.stop()
     setState(prev => (prev === 'listening' ? 'idle' : prev))
-  }, [mic])
+  }, [mic, pulse])
 
   const recognition = useSpeechRecognition({
     onPartial: handlePartial,
@@ -140,13 +146,15 @@ export default function AssistantSheet({ open, onClose }: Props) {
   const stopAll = useCallback(() => {
     recognition.stop()
     mic.stop()
+    pulse.stop()
     speech.cancel()
-  }, [recognition, mic, speech])
+  }, [recognition, mic, pulse, speech])
 
   const toggleListening = useCallback(() => {
     if (state === 'listening') {
       recognition.stop()
       mic.stop()
+      pulse.stop()
       setState('idle')
       return
     }
@@ -160,6 +168,9 @@ export default function AssistantSheet({ open, onClose }: Props) {
     setMicError(null)
     setTranscript('')
     setAnswer('')
+    // Este clique e o unico gesto do usuario no ciclo. A resposta so sera
+    // falada depois do await, ja fora dele — destravamos a sintese aqui.
+    speech.unlock()
 
     if (!recognition.supported) {
       setMicError('unsupported')
@@ -167,17 +178,19 @@ export default function AssistantSheet({ open, onClose }: Props) {
     }
     if (recognition.start()) {
       setState('listening')
-      void mic.start()
+      // Medidor e um extra: se nao iniciar, a fala continua funcionando.
+      if (mic.available) void mic.start()
     }
-  }, [state, recognition, mic, speech])
+  }, [state, recognition, mic, pulse, speech])
 
   const submitTyped = useCallback(() => {
     const text = typed.trim()
     if (text.length === 0) return
+    speech.unlock()
     setTyped('')
     setTyping(false)
     void runQuery(text)
-  }, [typed, runQuery])
+  }, [typed, speech, runQuery])
 
   /* ─── ciclo de vida do painel ────────────────────────────────────────── */
 

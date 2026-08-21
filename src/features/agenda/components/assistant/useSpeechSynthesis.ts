@@ -31,6 +31,13 @@ interface SpeechController {
   supported: boolean
   speak: (text: string) => boolean
   cancel: () => void
+  /**
+   * Destrava a sintese dentro de um gesto do usuario. O Safari exige que a
+   * PRIMEIRA chamada a speak() venha de um toque; a nossa vem depois do await
+   * da consulta, ou seja, fora do gesto — e o iOS bloqueia em silencio para o
+   * resto da sessao. Um utterance mudo no toque resolve.
+   */
+  unlock: () => void
 }
 
 function pickVoice(): SpeechSynthesisVoice | null {
@@ -48,6 +55,8 @@ export function useSpeechSynthesis({ onLevel, onEnd }: Options): SpeechControlle
   const [hasVoices, setHasVoices] = useState(false)
   /** Uma falha silenciosa basta para desistir da voz nesta sessao. */
   const brokenRef = useRef(false)
+  /** Ja houve um speak() dentro de um gesto do usuario. */
+  const unlockedRef = useRef(false)
   const decayRef = useRef<number | null>(null)
   const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -92,10 +101,9 @@ export function useSpeechSynthesis({ onLevel, onEnd }: Options): SpeechControlle
   const speak = useCallback((text: string): boolean => {
     if (brokenRef.current) return false
     if (!isSpeechSynthesisAvailable() || text.trim().length === 0) return false
-    if (window.speechSynthesis.getVoices().length === 0) {
-      brokenRef.current = true
-      return false
-    }
+    // Lista de vozes ainda nao carregada: recusa esta fala, mas NAO condena a
+    // sessao. No iOS a lista costuma chegar depois da primeira interacao.
+    if (window.speechSynthesis.getVoices().length === 0) return false
 
     clearTimers()
     window.speechSynthesis.cancel()
@@ -145,7 +153,20 @@ export function useSpeechSynthesis({ onLevel, onEnd }: Options): SpeechControlle
     return true
   }, [clearTimers])
 
+  const unlock = useCallback(() => {
+    if (unlockedRef.current || brokenRef.current) return
+    if (!isSpeechSynthesisAvailable()) return
+    try {
+      const primer = new SpeechSynthesisUtterance(' ')
+      primer.volume = 0
+      window.speechSynthesis.speak(primer)
+      unlockedRef.current = true
+    } catch {
+      /* plataforma sem sintese: o texto na tela cobre */
+    }
+  }, [])
+
   useEffect(() => cancel, [cancel])
 
-  return { supported: isSpeechSynthesisAvailable() && hasVoices, speak, cancel }
+  return { supported: isSpeechSynthesisAvailable() && hasVoices, speak, cancel, unlock }
 }

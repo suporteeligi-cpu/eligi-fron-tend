@@ -39,6 +39,8 @@ function classify(code: string): MicError {
 export function useSpeechRecognition({ onPartial, onFinal, onError, onEmpty }: Options): SpeechController {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const gotResultRef = useRef(false)
+  /** Instancia anterior ainda encerrando. Iniciar por cima da InvalidStateError. */
+  const closingRef = useRef(false)
 
   const partialRef = useRef(onPartial)
   const finalRef = useRef(onFinal)
@@ -57,12 +59,15 @@ export function useSpeechRecognition({ onPartial, onFinal, onError, onEmpty }: O
     recognitionRef.current = null
     recognition.onresult = null
     recognition.onerror = null
-    recognition.onend = null
     recognition.onspeechend = null
+    // stop() encerra com gracia e ainda dispara onend. abort() deixa o servico
+    // de reconhecimento do iOS num estado do qual so um reload tira.
+    closingRef.current = true
+    recognition.onend = () => { closingRef.current = false }
     try {
-      recognition.abort()
+      recognition.stop()
     } catch {
-      /* ja encerrado */
+      closingRef.current = false
     }
   }, [])
 
@@ -70,6 +75,11 @@ export function useSpeechRecognition({ onPartial, onFinal, onError, onEmpty }: O
     const Ctor = getSpeechRecognitionCtor()
     if (!Ctor) {
       errorRef.current('unsupported')
+      return false
+    }
+    if (closingRef.current) {
+      // A instancia anterior ainda esta encerrando: iniciar agora lanca
+      // InvalidStateError no Safari. Melhor recusar do que travar.
       return false
     }
     stop()
@@ -109,6 +119,7 @@ export function useSpeechRecognition({ onPartial, onFinal, onError, onEmpty }: O
     }
 
     recognition.onend = () => {
+      closingRef.current = false
       if (!gotResultRef.current) emptyRef.current()
       recognitionRef.current = null
     }

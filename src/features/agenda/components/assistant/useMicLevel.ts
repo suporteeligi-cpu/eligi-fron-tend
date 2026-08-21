@@ -1,87 +1,104 @@
 'use client'
 // src/features/agenda/components/assistant/useMicLevel.ts
-// Captura real do microfone. Entrega o nivel RMS via callback (nao via state),
-// para nao disparar um render por frame.
+// Medidor visual do microfone. Alimenta a vibracao do orbe e NADA mais:
+// o reconhecimento de fala nunca depende dele.
+//
+// Duas licoes aprendidas em producao, ambas no iPhone:
+//
+// 1. O iOS Safari limita o numero de AudioContext por pagina (~4) e `close()`
+//    e assincrono. Criar um por captura esgotava o limite e, a partir dai,
+//    `new AudioContext()` falhava em silencio. Por isso o contexto agora e
+//    unico por pagina, reaproveitado e nunca fechado.
+//
+// 2. No iOS, getUserMedia e SpeechRecognition disputando o mesmo dispositivo
+//    derrubam o reconhecimento depois da primeira rodada. Ali o medidor
+//    simplesmente nao roda: e melhor um orbe menos vivo do que um microfone
+//    que exige recarregar a pagina.
 
 import { useCallback, useEffect, useRef } from 'react'
-import { MicError } from './constants'
 
 interface WindowWithLegacyAudio extends Window {
   webkitAudioContext?: typeof AudioContext
 }
 
-function resolveAudioContext(): typeof AudioContext | null {
+/** Contexto unico por pagina. Nunca fechado — apenas suspenso quando ocioso. */
+let sharedContext: AudioContext | null = null
+
+function getSharedContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
-  if (typeof window.AudioContext === 'function') return window.AudioContext
-  const legacy = (window as WindowWithLegacyAudio).webkitAudioContext
-  return typeof legacy === 'function' ? legacy : null
+  if (sharedContext) return sharedContext
+  const Ctor = typeof window.AudioContext === 'function'
+    ? window.AudioContext
+    : (window as WindowWithLegacyAudio).webkitAudioContext
+  if (typeof Ctor !== 'function') return null
+  try {
+    sharedContext = new Ctor()
+    return sharedContext
+  } catch {
+    return null
+  }
 }
 
-function classifyError(err: unknown): MicError {
-  if (typeof window !== 'undefined' && !window.isSecureContext) return 'insecure'
-  if (err instanceof DOMException) {
-    if (err.name === 'NotAllowedError' || err.name === 'SecurityError') return 'denied'
-    if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') return 'unavailable'
-  }
-  return 'unavailable'
+/**
+ * iOS (inclui iPadOS, que se anuncia como Mac com toque).
+ * Ali o medidor nao convive com o reconhecimento de fala.
+ */
+export function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  if (/iPad|iPhone|iPod/.test(ua)) return true
+  return ua.includes('Macintosh') && navigator.maxTouchPoints > 1
 }
 
 interface Options {
-  /** Recebe o nivel 0..1 a cada frame enquanto a captura esta ativa. */
   onLevel: (level: number) => void
-  /** Chamado quando a captura nao pode ser iniciada. */
-  onError: (error: MicError) => void
 }
 
 interface MicController {
+  /** false quando o medidor nao vai rodar. Nunca e motivo para abortar a fala. */
+  available: boolean
   start: () => Promise<boolean>
   stop: () => void
 }
 
-export function useMicLevel({ onLevel, onError }: Options): MicController {
+export function useMicLevel({ onLevel }: Options): MicController {
   const streamRef = useRef<MediaStream | null>(null)
-  const audioRef  = useRef<AudioContext | null>(null)
-  const rafRef    = useRef<number | null>(null)
-
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const rafRef = useRef<number | null>(null)
   const levelRef = useRef(onLevel)
-  const errorRef = useRef(onError)
   useEffect(() => { levelRef.current = onLevel }, [onLevel])
-  useEffect(() => { errorRef.current = onError }, [onError])
+
+  const available = !isIOS()
+    && typeof navigator !== 'undefined'
+    && Boolean(navigator.mediaDevices?.getUserMedia)
 
   const stop = useCallback(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
+    if (sourceRef.current) {
+      sourceRef.current.disconnect()
+      sourceRef.current = null
+    }
     if (streamRef.current) {
-      // Sem isto o indicador de gravacao do sistema fica ligado apos fechar.
+      // Sem isto o indicador de gravacao do sistema fica aceso.
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
-    }
-    if (audioRef.current) {
-      void audioRef.current.close().catch(() => { /* ja fechado */ })
-      audioRef.current = null
     }
     levelRef.current(0)
   }, [])
 
   const start = useCallback(async (): Promise<boolean> => {
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      errorRef.current(typeof window !== 'undefined' && !window.isSecureContext ? 'insecure' : 'unavailable')
-      return false
-    }
-    const Ctor = resolveAudioContext()
-    if (!Ctor) {
-      errorRef.current('unavailable')
-      return false
-    }
+    if (!available) return false
+    const audio = getSharedContext()
+    if (!audio) return false
+
     try {
+      if (audio.state === 'suspended') await audio.resume()
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       })
-      const audio = new Ctor()
-      // iOS Safari inicia o contexto suspenso ate um gesto do usuario.
-      if (audio.state === 'suspended') await audio.resume()
 
       const source = audio.createMediaStreamSource(stream)
       const analyser = audio.createAnalyser()
@@ -89,10 +106,10 @@ export function useMicLevel({ onLevel, onError }: Options): MicController {
       analyser.smoothingTimeConstant = 0.6
       source.connect(analyser)
 
-      const buffer = new Uint8Array(analyser.frequencyBinCount)
       streamRef.current = stream
-      audioRef.current = audio
+      sourceRef.current = source
 
+      const buffer = new Uint8Array(analyser.frequencyBinCount)
       let smoothed = 0
       const loop = (): void => {
         rafRef.current = requestAnimationFrame(loop)
@@ -102,22 +119,21 @@ export function useMicLevel({ onLevel, onError }: Options): MicController {
           const v = (buffer[i] - 128) / 128
           sum += v * v
         }
-        // RMS -> 0..1 com ganho; fala normal fica em torno de 0.05 de RMS.
-        const rms = Math.sqrt(sum / buffer.length)
-        const target = Math.min(1, rms * 7)
+        // RMS -> 0..1 com ganho; fala normal fica perto de 0.05 de RMS.
+        const target = Math.min(1, Math.sqrt(sum / buffer.length) * 7)
         smoothed += (target - smoothed) * (target > smoothed ? 0.45 : 0.12)
         levelRef.current(smoothed)
       }
       rafRef.current = requestAnimationFrame(loop)
       return true
-    } catch (err) {
+    } catch {
+      // Medidor indisponivel nao interrompe nada: a fala segue.
       stop()
-      errorRef.current(classifyError(err))
       return false
     }
-  }, [stop])
+  }, [available, stop])
 
   useEffect(() => stop, [stop])
 
-  return { start, stop }
+  return { available, start, stop }
 }
