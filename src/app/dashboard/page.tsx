@@ -1,6 +1,7 @@
 'use client'
 // src/app/dashboard/page.tsx
 // @eligi:cockpit-v1
+// @eligi:cockpit-v1-1-breakpoints
 // Visao geral — direcao "Cockpit" (fatia 1).
 //
 // O que esta fatia entrega:
@@ -332,13 +333,24 @@ export default function DashboardPage() {
   const staffRoles = ['MANAGER', 'STAFF']
   const isStaff = Boolean(authUser && staffRoles.includes(authUser.role))
 
-  const twoColumns = isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))'
-
   return (
     <>
       <style>{`
         @keyframes fadeUp   { from { opacity:0;transform:translateY(8px) } to { opacity:1;transform:translateY(0) } }
         @keyframes pos-spin { to   { transform:rotate(360deg) } }
+        .eligi-page { max-width: ${PAGE_MAX_WIDTH}px; padding: 0; }
+        .eligi-duo  { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+        /* Duas colunas so quando ha largura real pra elas. O device mode
+           (ponteiro) nao serve pra decidir layout: janela estreita de desktop
+           e laptop hibrido caiam em 2 colunas e cortavam o texto. */
+        @media (min-width: 900px) {
+          .eligi-duo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 899px) {
+          .eligi-page  { padding: 0 ${MOBILE_GUTTER}px; }
+          .eligi-bleed { margin-left: -${MOBILE_GUTTER}px; margin-right: -${MOBILE_GUTTER}px;
+                         padding-left: ${MOBILE_GUTTER}px; padding-right: ${MOBILE_GUTTER}px; }
+        }
         .eligi-ticker { scrollbar-width: none; -ms-overflow-style: none; }
         .eligi-ticker::-webkit-scrollbar { display: none; }
         .eligi-pill { transition: transform .18s cubic-bezier(0.34,1.56,0.64,1), box-shadow .18s ease; }
@@ -355,9 +367,7 @@ export default function DashboardPage() {
         <AccessDenied message="A visão geral do dashboard é exclusiva para proprietários. Use o menu lateral para navegar." />
       )}
 
-      {!isStaff && <div style={{
-        maxWidth:   PAGE_MAX_WIDTH,
-        padding:    isMobile ? `0 ${MOBILE_GUTTER}px` : 0,
+      {!isStaff && <div className="eligi-page" style={{
         animation:  'fadeUp 0.3s ease',
         fontFamily: typography.fontFamily,
       }}>
@@ -372,7 +382,7 @@ export default function DashboardPage() {
           <div style={{ minWidth: 0 }}>
             <h1 style={{
               fontFamily:    DISPLAY_FONT,
-              fontSize:      isMobile ? 26 : 30,
+              fontSize:      'clamp(24px, 6vw, 30px)',
               fontWeight:    typography.weight.bold,
               color:         inkLight.strong,
               margin:        0,
@@ -426,7 +436,7 @@ export default function DashboardPage() {
 
             {/* ── Ticker de KPIs ── */}
             <div
-              className="eligi-ticker"
+              className="eligi-ticker eligi-bleed"
               style={{
                 display:         'flex',
                 gap:             8,
@@ -434,10 +444,6 @@ export default function DashboardPage() {
                 scrollSnapType:  'x proximity',
                 WebkitOverflowScrolling: 'touch',
                 paddingBottom:   2,
-                marginLeft:      isMobile ? -MOBILE_GUTTER : 0,
-                marginRight:     isMobile ? -MOBILE_GUTTER : 0,
-                paddingLeft:     isMobile ? MOBILE_GUTTER : 0,
-                paddingRight:    isMobile ? MOBILE_GUTTER : 0,
               }}
             >
               {buildTicker(data.kpis, period, isMobile).map(item => (
@@ -449,21 +455,13 @@ export default function DashboardPage() {
             <OnlineBanner data={data.kpis.onlineBookings} isMobile={isMobile} />
 
             {/* ── Receita + Top profissionais ── */}
-            <div style={{
-              display:             'grid',
-              gridTemplateColumns: twoColumns,
-              gap:                 12,
-            }}>
+            <div className="eligi-duo">
               <RevenueSparkline data={data.revenueChart} isMobile={isMobile} />
               <TopProfessionalsCard professionals={data.topProfessionals} />
             </div>
 
             {/* ── Agenda hoje + Alertas ── */}
-            <div style={{
-              display:             'grid',
-              gridTemplateColumns: twoColumns,
-              gap:                 12,
-            }}>
+            <div className="eligi-duo">
               <TodayScheduleCard items={data.todaySchedule} />
               <AlertsCard alerts={data.alerts} />
             </div>
