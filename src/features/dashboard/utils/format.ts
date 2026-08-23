@@ -1,7 +1,16 @@
 // src/features/dashboard/utils/format.ts
 
+// @eligi:money-intl
+// Separador de milhar via Intl: `toFixed(2).replace('.', ',')` produzia
+// "R$ 14950,00" — num painel financeiro o olho tropeca no numero sem ponto.
+// Escopo desta correcao: SO o dashboard. Existem outras 12 copias de fmtBRL
+// no repo (expenses, payouts, sales-report, checkout, eligiclub, packages,
+// assinatura) com tres contratos diferentes — consolidar tudo e refactor
+// proprio, nao carona de fatia de UI.
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+
 export function fmtBRL(v: number): string {
-  return `R$ ${v.toFixed(2).replace('.', ',')}`
+  return BRL.format(v)
 }
 
 /** Formato compacto pra KPIs grandes (R$ 4.200,00 → R$ 4,2k) */
@@ -10,7 +19,7 @@ export function fmtBRLCompact(v: number): string {
     const k = v / 1000
     return `R$ ${k.toFixed(k >= 10 ? 0 : 1).replace('.', ',')}k`
   }
-  return `R$ ${Math.round(v)}`
+  return BRL.format(v)
 }
 
 export function fmtGrowth(growth: number | null): { text: string; positive: boolean | null } {

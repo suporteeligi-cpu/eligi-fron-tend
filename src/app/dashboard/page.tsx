@@ -2,6 +2,7 @@
 // src/app/dashboard/page.tsx
 // @eligi:cockpit-v1
 // @eligi:cockpit-v1-1-breakpoints
+// @eligi:priorities-mounted
 // Visao geral — direcao "Cockpit" (fatia 1).
 //
 // O que esta fatia entrega:
@@ -11,7 +12,6 @@
 //   - fim do EmptySlot ("EM BREVE")
 //
 // O que NAO muda aqui (fatias seguintes):
-//   - AlertsCard + OnboardingChecklistCard viram fila de prioridades (fatia 2)
 //   - RevenueSparkline troca Chart.js CDN por Recharts (fatia 3)
 //   - TodayScheduleCard vira timeline (fatia 3)
 //   - OnlineBanner vira card de canal (fatia 4)
@@ -55,10 +55,9 @@ import {
 import RevenueSparkline        from './components/RevenueSparkline'
 import TopProfessionalsCard    from './components/TopProfessionalsCard'
 import TodayScheduleCard       from './components/TodayScheduleCard'
-import AlertsCard              from './components/AlertsCard'
+import PrioritiesCard          from './components/PrioritiesCard'
 import PeriodSelector          from './components/PeriodSelector'
 import OnlineBanner            from './components/OnlineBanner'
-import OnboardingChecklistCard from './components/OnboardingChecklistCard'
 
 // ─── tokens locais ─────────────────────────────────────────────────────────
 
@@ -404,8 +403,6 @@ export default function DashboardPage() {
           <PeriodSelector value={period} onChange={setPeriod} />
         </div>
 
-        <OnboardingChecklistCard />
-
         {/* ── Loading ── */}
         {loading || !data ? (
           <div style={{
@@ -451,6 +448,9 @@ export default function DashboardPage() {
               ))}
             </div>
 
+            {/* ── Prioridades ── */}
+            <PrioritiesCard alerts={data.alerts} />
+
             {/* ── Canal online ── */}
             <OnlineBanner data={data.kpis.onlineBookings} isMobile={isMobile} />
 
@@ -460,11 +460,8 @@ export default function DashboardPage() {
               <TopProfessionalsCard professionals={data.topProfessionals} />
             </div>
 
-            {/* ── Agenda hoje + Alertas ── */}
-            <div className="eligi-duo">
-              <TodayScheduleCard items={data.todaySchedule} />
-              <AlertsCard alerts={data.alerts} />
-            </div>
+            {/* ── Agenda de hoje ── */}
+            <TodayScheduleCard items={data.todaySchedule} />
 
           </div>
         )}
