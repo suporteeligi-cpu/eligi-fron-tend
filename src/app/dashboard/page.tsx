@@ -1,163 +1,295 @@
 'use client'
 // src/app/dashboard/page.tsx
-import { useAuth } from '@/hooks/useAuth'
-import AccessDenied from '@/app/components/AccessDenied'
-// Dashboard v2.3 — borda esquerda vermelha, strip 3 KPIs, slot "em breve"
+// @eligi:cockpit-v1
+// Visao geral — direcao "Cockpit" (fatia 1).
+//
+// O que esta fatia entrega:
+//   - saudacao contextual (sem nome: a AppNavbar ja mostra "Ola, <nome>")
+//   - ticker horizontal de KPIs no lugar do hero + side card + strip de 3
+//   - glassCard / inkLight do theme.ts no lugar do token CARD local
+//   - fim do EmptySlot ("EM BREVE")
+//
+// O que NAO muda aqui (fatias seguintes):
+//   - AlertsCard + OnboardingChecklistCard viram fila de prioridades (fatia 2)
+//   - RevenueSparkline troca Chart.js CDN por Recharts (fatia 3)
+//   - TodayScheduleCard vira timeline (fatia 3)
+//   - OnlineBanner vira card de canal (fatia 4)
+//   - realtime via useDashboardSocket (fatia 5)
 
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, Users, Receipt, EyeOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import {
+  Loader2,
+  Banknote,
+  CalendarDays,
+  CalendarClock,
+  Receipt,
+  UserCheck,
+  UserX,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+} from 'lucide-react'
+
+import { useAuth } from '@/hooks/useAuth'
+import AccessDenied from '@/app/components/AccessDenied'
 import api from '@/shared/lib/apiClient'
-import { colors, typography } from '@/shared/theme'
+import { colors, typography, radius, shadows, glassCard, inkLight } from '@/shared/theme'
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import {
   DashboardOverview,
   DashboardPeriod,
-  TodayScheduleItem,
-  TopProfessional,
+  DashboardKPIs,
 } from '@/features/dashboard/types'
 import {
   fmtBRL,
   fmtBRLCompact,
   fmtGrowth,
+  fmtPercent,
   todayFull,
+  periodLabel,
   periodCompareLabel,
 } from '@/features/dashboard/utils/format'
 
-import RevenueSparkline     from './components/RevenueSparkline'
-import TopProfessionalsCard from './components/TopProfessionalsCard'
-import TodayScheduleCard    from './components/TodayScheduleCard'
-import AlertsCard           from './components/AlertsCard'
-import PeriodSelector       from './components/PeriodSelector'
-import OnlineBanner         from './components/OnlineBanner'
+import RevenueSparkline        from './components/RevenueSparkline'
+import TopProfessionalsCard    from './components/TopProfessionalsCard'
+import TodayScheduleCard       from './components/TodayScheduleCard'
+import AlertsCard              from './components/AlertsCard'
+import PeriodSelector          from './components/PeriodSelector'
+import OnlineBanner            from './components/OnlineBanner'
 import OnboardingChecklistCard from './components/OnboardingChecklistCard'
 
 // ─── tokens locais ─────────────────────────────────────────────────────────
 
-const CARD: React.CSSProperties = {
-  background:   '#fff',
-  border:       `0.5px solid ${colors.gray.borderMd}`,
-  borderLeft:   `2.5px solid ${colors.red.DEFAULT}`,
-  borderRadius: 14,
-  boxShadow:    '0 1px 3px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.07)',
-  padding:      '20px 24px',
-  fontFamily:   typography.fontFamily,
+/** Face display: numeros e titulos. Ja carregada no globals.css. */
+const DISPLAY_FONT = `'Space Grotesk', ${typography.fontFamily}`
+
+const PAGE_MAX_WIDTH = 1100
+const MOBILE_GUTTER  = 12
+
+// ─── helpers ───────────────────────────────────────────────────────────────
+
+/** Saudacao por faixa horaria. Sem nome: a AppNavbar ja identifica o usuario. */
+function greetingFor(hour: number): string {
+  if (hour < 5)  return 'Boa madrugada'
+  if (hour < 12) return 'Bom dia'
+  if (hour < 18) return 'Boa tarde'
+  return 'Boa noite'
 }
 
-// ─── sub-componentes locais ────────────────────────────────────────────────
+function plural(n: number, singular: string, pluralWord: string): string {
+  return n === 1 ? singular : pluralWord
+}
 
-function MetaDivider() {
-  return (
-    <div style={{
-      width:      1,
-      height:     26,
-      background: 'rgba(0,0,0,0.08)',
-      flexShrink: 0,
-    }} />
+/**
+ * Resumo em linguagem natural. So afirma o que o payload garante —
+ * nada de comparacao com historico que a API nao devolve.
+ */
+function buildSummary(kpis: DashboardKPIs, period: DashboardPeriod): string {
+  const bookings = kpis.totalBookings
+  const tomorrow = kpis.tomorrowBookings
+
+  if (period === 'today') {
+    const head = bookings === 0
+      ? 'Nenhum atendimento registrado hoje'
+      : `${bookings} ${plural(bookings, 'atendimento', 'atendimentos')} hoje`
+    const tail = tomorrow > 0
+      ? `, ${tomorrow} ${plural(tomorrow, 'agendado', 'agendados')} para amanhã`
+      : ''
+    return `${head}${tail}.`
+  }
+
+  const head = bookings === 0
+    ? 'Nenhum atendimento no período'
+    : `${bookings} ${plural(bookings, 'atendimento', 'atendimentos')} no período`
+  return `${head}, ticket médio de ${fmtBRL(kpis.ticketAverage)}.`
+}
+
+// ─── ticker ────────────────────────────────────────────────────────────────
+
+type IconComponent = React.ComponentType<{
+  size?:       number
+  color?:      string
+  strokeWidth?: number
+}>
+
+interface TickerDelta {
+  text:     string
+  positive: boolean | null
+  hint:     string
+}
+
+interface TickerItem {
+  key:    string
+  Icon:   IconComponent
+  tint:   string
+  value:  string
+  label:  string
+  delta?: TickerDelta
+}
+
+function buildTicker(
+  kpis:     DashboardKPIs,
+  period:   DashboardPeriod,
+  isMobile: boolean,
+): TickerItem[] {
+  const money = (v: number) => (isMobile ? fmtBRLCompact(v) : fmtBRL(v))
+  const growth = fmtGrowth(kpis.revenueGrowth)
+
+  const items: TickerItem[] = [
+    {
+      key:   'revenue',
+      Icon:  Banknote,
+      tint:  inkLight.ok.text,
+      value: money(kpis.revenue),
+      label: periodLabel(period).toLowerCase(),
+      delta: {
+        text:     growth.text,
+        positive: growth.positive,
+        hint:     periodCompareLabel(period),
+      },
+    },
+    {
+      key:   'bookings',
+      Icon:  CalendarDays,
+      tint:  inkLight.info.text,
+      value: String(kpis.totalBookings),
+      label: plural(kpis.totalBookings, 'atendimento', 'atendimentos'),
+    },
+  ]
+
+  if (kpis.tomorrowBookings > 0) {
+    items.push({
+      key:   'tomorrow',
+      Icon:  CalendarClock,
+      tint:  inkLight.info.text,
+      value: String(kpis.tomorrowBookings),
+      label: 'amanhã',
+    })
+  }
+
+  items.push(
+    {
+      key:   'ticket',
+      Icon:  Receipt,
+      tint:  inkLight.neutral.text,
+      value: money(kpis.ticketAverage),
+      label: 'ticket médio',
+    },
+    {
+      key:   'attendance',
+      Icon:  UserCheck,
+      tint:  inkLight.ok.text,
+      value: fmtPercent(kpis.attendanceRate),
+      label: 'presença',
+    },
+    {
+      key:   'noshow',
+      Icon:  UserX,
+      tint:  kpis.noShowCount === 0 ? inkLight.neutral.text : inkLight.warn.text,
+      value: kpis.noShowCount === 0 ? '—' : String(kpis.noShowCount),
+      label: kpis.noShowCount === 0
+        ? 'sem faltas'
+        : `${plural(kpis.noShowCount, 'falta', 'faltas')} · ${fmtPercent(kpis.noShowRate)}`,
+    },
   )
+
+  return items
 }
 
-function MetaItem({ label, value, accent }: {
-  label:   string
-  value:   string
-  accent?: string
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <span style={{
-        fontSize:   13,
-        fontWeight: typography.weight.bold,
-        color:      accent ?? typography.color.primary,
-      }}>
-        {value}
-      </span>
-      <span style={{ fontSize: 11, color: typography.color.muted }}>
-        {label}
-      </span>
-    </div>
-  )
-}
+function DeltaChip({ delta }: { delta: TickerDelta }) {
+  const tone =
+    delta.positive === true  ? inkLight.ok :
+    delta.positive === false ? inkLight.bad :
+    inkLight.neutral
 
-function FlatKPI({ label, value, note, noteColor, icon, onClick }: {
-  label:      string
-  value:      string
-  note:       string
-  noteColor?: string
-  icon:       React.ReactNode
-  onClick?:   () => void
-}) {
+  const Arrow =
+    delta.positive === true  ? TrendingUp :
+    delta.positive === false ? TrendingDown :
+    Minus
+
   return (
-    <div
-      onClick={onClick}
+    <span
+      title={delta.hint}
       style={{
-        background:    'var(--surface-2, rgba(0,0,0,0.03))',
-        borderRadius:  10,
-        padding:       '14px 16px',
-        display:       'flex',
-        flexDirection: 'column',
-        gap:           4,
-        cursor:        onClick ? 'pointer' : 'default',
-        transition:    'background 0.15s',
-      }}
-      onMouseEnter={e => {
-        if (onClick) (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0.05)'
-      }}
-      onMouseLeave={e => {
-        if (onClick) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2, rgba(0,0,0,0.03))'
+        display:      'inline-flex',
+        alignItems:   'center',
+        gap:          3,
+        flexShrink:   0,
+        fontSize:     11,
+        fontWeight:   typography.weight.bold,
+        color:        tone.text,
+        background:   tone.bg,
+        border:       `0.5px solid ${tone.border}`,
+        borderRadius: radius.full,
+        padding:      '3px 7px',
+        lineHeight:   1,
       }}
     >
-      <div style={{
+      <Arrow size={11} strokeWidth={2.4} />
+      {delta.text}
+    </span>
+  )
+}
+
+function TickerPill({ item }: { item: TickerItem }) {
+  const { Icon } = item
+
+  return (
+    <div
+      className="eligi-pill"
+      style={{
+        ...glassCard,
+        borderRadius:  radius.full,
+        boxShadow:     shadows.sm,
         display:       'flex',
         alignItems:    'center',
-        gap:           5,
-        fontSize:      10,
-        textTransform: 'uppercase' as const,
-        letterSpacing: '.06em',
-        color:         typography.color.muted,
-        marginBottom:  2,
-      }}>
-        {icon}
-        {label}
-      </div>
-      <div style={{
-        fontSize:   16,
-        fontWeight: typography.weight.bold,
-        color:      typography.color.primary,
-        lineHeight: 1.2,
-      }}>
-        {value}
-      </div>
-      <div style={{ fontSize: 11, color: noteColor ?? typography.color.muted }}>
-        {note}
-      </div>
-    </div>
-  )
-}
-
-function EmptySlot() {
-  return (
-    <div style={{
-      background:     'transparent',
-      border:         `0.5px dashed ${colors.gray.borderMd}`,
-      borderRadius:   14,
-      display:        'flex',
-      alignItems:     'center',
-      justifyContent: 'center',
-      minHeight:      100,
-    }}>
-      <span style={{
-        fontSize:      11,
-        color:         typography.color.muted,
-        textTransform: 'uppercase' as const,
-        letterSpacing: '.06em',
-      }}>
-        Em breve
+        gap:           10,
+        padding:       '10px 14px',
+        flex:          '0 0 auto',
+        scrollSnapAlign: 'start',
+        whiteSpace:    'nowrap',
+      }}
+    >
+      <span
+        style={{
+          display:        'grid',
+          placeItems:     'center',
+          width:          28,
+          height:         28,
+          flexShrink:     0,
+          borderRadius:   radius.sm,
+          background:     'var(--surface-2, rgba(0,0,0,0.04))',
+        }}
+      >
+        <Icon size={14} color={item.tint} strokeWidth={2.2} />
       </span>
+
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+        <span
+          style={{
+            fontFamily:         DISPLAY_FONT,
+            fontSize:           17,
+            fontWeight:         typography.weight.bold,
+            color:              inkLight.strong,
+            lineHeight:         1.05,
+            letterSpacing:      '-.02em',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {item.value}
+        </span>
+        <span style={{ fontSize: 11, color: inkLight.label, lineHeight: 1.2 }}>
+          {item.label}
+        </span>
+      </span>
+
+      {item.delta ? <DeltaChip delta={item.delta} /> : null}
     </div>
   )
 }
 
-// ─── página principal ──────────────────────────────────────────────────────
+// ─── pagina principal ──────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { user: authUser } = useAuth()
@@ -170,6 +302,10 @@ export default function DashboardPage() {
   const [data, setData]       = useState<DashboardOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
+
+  // Faixa horaria congelada na montagem: evita a saudacao trocar sozinha
+  // no meio da sessao e mantem o render estavel pro React Compiler.
+  const [greeting] = useState(() => greetingFor(new Date().getHours()))
 
   const fetchData = useCallback(async (p: DashboardPeriod) => {
     try {
@@ -196,11 +332,23 @@ export default function DashboardPage() {
   const staffRoles = ['MANAGER', 'STAFF']
   const isStaff = Boolean(authUser && staffRoles.includes(authUser.role))
 
+  const twoColumns = isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))'
+
   return (
     <>
       <style>{`
         @keyframes fadeUp   { from { opacity:0;transform:translateY(8px) } to { opacity:1;transform:translateY(0) } }
         @keyframes pos-spin { to   { transform:rotate(360deg) } }
+        .eligi-ticker { scrollbar-width: none; -ms-overflow-style: none; }
+        .eligi-ticker::-webkit-scrollbar { display: none; }
+        .eligi-pill { transition: transform .18s cubic-bezier(0.34,1.56,0.64,1), box-shadow .18s ease; }
+        @media (hover: hover) {
+          .eligi-pill:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.09); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .eligi-pill { transition: none; }
+          .eligi-pill:hover { transform: none; }
+        }
       `}</style>
 
       {isStaff && (
@@ -208,38 +356,39 @@ export default function DashboardPage() {
       )}
 
       {!isStaff && <div style={{
-        maxWidth:   1100,
-        padding:    isMobile ? '0 12px' : 0,
+        maxWidth:   PAGE_MAX_WIDTH,
+        padding:    isMobile ? `0 ${MOBILE_GUTTER}px` : 0,
         animation:  'fadeUp 0.3s ease',
         fontFamily: typography.fontFamily,
       }}>
         {/* ── Header ── */}
         <div style={{
           display:        'flex',
-          alignItems:     isMobile ? 'flex-start' : 'center',
+          alignItems:     'flex-start',
           justifyContent: 'space-between',
-          flexDirection:  isMobile ? 'column' : 'row',
           gap:            12,
-          marginBottom:   20,
+          marginBottom:   18,
         }}>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h1 style={{
-              fontSize:      isMobile ? 20 : 22,
+              fontFamily:    DISPLAY_FONT,
+              fontSize:      isMobile ? 26 : 30,
               fontWeight:    typography.weight.bold,
-              color:         typography.color.primary,
+              color:         inkLight.strong,
               margin:        0,
-              letterSpacing: '-.02em',
+              letterSpacing: '-.025em',
+              lineHeight:    1.1,
             }}>
-              Visão geral
+              {greeting}
             </h1>
             <p style={{
-              fontSize:      typography.scale.sm,
-              color:         typography.color.muted,
-              marginTop:     2,
+              fontSize:      13,
+              color:         inkLight.label,
+              marginTop:     4,
               marginBottom:  0,
-              textTransform: 'capitalize',
+              lineHeight:    1.45,
             }}>
-              {todayFull()}
+              {data ? buildSummary(data.kpis, period) : todayFull()}
             </p>
           </div>
           <PeriodSelector value={period} onChange={setPeriod} />
@@ -250,10 +399,10 @@ export default function DashboardPage() {
         {/* ── Loading ── */}
         {loading || !data ? (
           <div style={{
-            display:     'flex',
+            display:        'flex',
             justifyContent: 'center',
-            alignItems:  'center',
-            padding:     80,
+            alignItems:     'center',
+            padding:        80,
           }}>
             <Loader2 size={28} style={{
               animation: 'pos-spin 0.8s linear infinite',
@@ -265,7 +414,7 @@ export default function DashboardPage() {
             padding:      '16px 20px',
             background:   'rgba(220,38,38,0.06)',
             border:       `1px solid ${colors.red.border}`,
-            borderRadius: 11,
+            borderRadius: radius.md,
             color:        colors.red.DEFAULT,
             fontSize:     typography.scale.sm,
             textAlign:    'center',
@@ -273,191 +422,50 @@ export default function DashboardPage() {
             {error}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-            {/* ── Hero row ── */}
-            <div style={{
-              display:             'grid',
-              gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,2fr) minmax(0,1fr)',
-              gap:                 10,
-            }}>
-              {/* Hero receita */}
-              <div style={CARD}>
-                <div style={{
-                  fontSize:      10,
-                  textTransform: 'uppercase',
-                  letterSpacing: '.07em',
-                  color:         typography.color.muted,
-                  marginBottom:  6,
-                }}>
-                  {period === 'today'
-                    ? 'Receita de Hoje'
-                    : period === '7d'
-                      ? 'Receita — últimos 7 dias'
-                      : 'Receita — últimos 30 dias'}
-                </div>
-                <div style={{
-                  fontSize:      isMobile ? 28 : 36,
-                  fontWeight:    typography.weight.bold,
-                  color:         typography.color.primary,
-                  lineHeight:    1,
-                  marginBottom:  16,
-                  letterSpacing: '-.02em',
-                }}>
-                  {fmtBRL(data.kpis.revenue)}
-                </div>
-                <div style={{
-                  display:    'flex',
-                  alignItems: 'center',
-                  gap:        isMobile ? 12 : 18,
-                  flexWrap:   'wrap',
-                  paddingTop: 14,
-                  borderTop:  '0.5px solid rgba(0,0,0,0.07)',
-                }}>
-                  {(() => {
-                    const g = fmtGrowth(data.kpis.revenueGrowth)
-                    return (
-                      <>
-                        <MetaItem
-                          label={periodCompareLabel(period)}
-                          value={g.text}
-                          accent={
-                            g.positive === true  ? '#16a34a' :
-                            g.positive === false ? '#dc2626' :
-                            undefined
-                          }
-                        />
-                        <MetaDivider />
-                      </>
-                    )
-                  })()}
-                  <MetaItem
-                    label="ticket médio"
-                    value={isMobile
-                      ? fmtBRLCompact(data.kpis.ticketAverage)
-                      : fmtBRL(data.kpis.ticketAverage)}
-                  />
-                  <MetaDivider />
-                  <MetaItem
-                    label="agendamentos"
-                    value={String(data.kpis.totalBookings)}
-                  />
-                  {data.kpis.tomorrowBookings > 0 && (
-                    <>
-                      <MetaDivider />
-                      <MetaItem
-                        label="amanhã"
-                        value={String(data.kpis.tomorrowBookings)}
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Side — agenda + online */}
-              <div style={{
-                ...CARD,
-                padding:       '20px 22px',
-                display:       'flex',
-                flexDirection: 'column',
-              }}>
-                <div style={{
-                  marginBottom:  14,
-                  paddingBottom: 14,
-                  borderBottom:  '0.5px solid rgba(0,0,0,0.07)',
-                }}>
-                  <div style={{
-                    fontSize:      10,
-                    textTransform: 'uppercase',
-                    letterSpacing: '.07em',
-                    color:         typography.color.muted,
-                    marginBottom:  4,
-                  }}>
-                    Agendamentos hoje
-                  </div>
-                  <div style={{
-                    fontSize:   28,
-                    fontWeight: typography.weight.bold,
-                    color:      typography.color.primary,
-                    lineHeight: 1,
-                  }}>
-                    {data.kpis.totalBookings}
-                  </div>
-                  {data.kpis.tomorrowBookings > 0 && (
-                    <div style={{ fontSize: 12, color: typography.color.muted, marginTop: 4 }}>
-                      {data.kpis.tomorrowBookings} agendados amanhã
-                    </div>
-                  )}
-                </div>
-                <OnlineBanner data={data.kpis.onlineBookings} isMobile={isMobile} />
-              </div>
+            {/* ── Ticker de KPIs ── */}
+            <div
+              className="eligi-ticker"
+              style={{
+                display:         'flex',
+                gap:             8,
+                overflowX:       'auto',
+                scrollSnapType:  'x proximity',
+                WebkitOverflowScrolling: 'touch',
+                paddingBottom:   2,
+                marginLeft:      isMobile ? -MOBILE_GUTTER : 0,
+                marginRight:     isMobile ? -MOBILE_GUTTER : 0,
+                paddingLeft:     isMobile ? MOBILE_GUTTER : 0,
+                paddingRight:    isMobile ? MOBILE_GUTTER : 0,
+              }}
+            >
+              {buildTicker(data.kpis, period, isMobile).map(item => (
+                <TickerPill key={item.key} item={item} />
+              ))}
             </div>
 
-            {/* ── Strip 3 KPIs ── */}
-            <div style={{
-              display:             'grid',
-              gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,minmax(0,1fr))',
-              gap:                 10,
-            }}>
-              <FlatKPI
-                label="Ocupação hoje"
-                value={`${Math.round(data.kpis.attendanceRate)}%`}
-                note="taxa de presença"
-                icon={<Users size={12} />}
-              />
-              <FlatKPI
-                label="Ticket médio"
-                value={isMobile
-                  ? fmtBRLCompact(data.kpis.ticketAverage)
-                  : fmtBRL(data.kpis.ticketAverage)}
-                note="por venda no período"
-                icon={<Receipt size={12} />}
-              />
-              <FlatKPI
-                label="Não compareceram"
-                value={data.kpis.noShowCount === 0
-                  ? '—'
-                  : `${data.kpis.noShowCount} ${data.kpis.noShowCount === 1 ? 'cliente' : 'clientes'}`}
-                note={data.kpis.noShowCount === 0
-                  ? 'nenhum no período'
-                  : `${Math.round(data.kpis.noShowRate)}% dos agendamentos`}
-                noteColor={data.kpis.noShowRate >= 20
-                  ? '#dc2626'
-                  : data.kpis.noShowRate >= 10
-                    ? '#d97706'
-                    : undefined}
-                icon={<EyeOff size={12} />}
-              />
-            </div>
+            {/* ── Canal online ── */}
+            <OnlineBanner data={data.kpis.onlineBookings} isMobile={isMobile} />
 
-            {/* ── Sparkline + Top profissionais ── */}
+            {/* ── Receita + Top profissionais ── */}
             <div style={{
               display:             'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-              gap:                 10,
+              gridTemplateColumns: twoColumns,
+              gap:                 12,
             }}>
               <RevenueSparkline data={data.revenueChart} isMobile={isMobile} />
-              <TopProfessionalsCard professionals={data.topProfessionals as TopProfessional[]} />
+              <TopProfessionalsCard professionals={data.topProfessionals} />
             </div>
 
             {/* ── Agenda hoje + Alertas ── */}
             <div style={{
               display:             'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-              gap:                 10,
+              gridTemplateColumns: twoColumns,
+              gap:                 12,
             }}>
-              <TodayScheduleCard items={data.todaySchedule as TodayScheduleItem[]} />
+              <TodayScheduleCard items={data.todaySchedule} />
               <AlertsCard alerts={data.alerts} />
-            </div>
-
-            {/* ── Slot vazio — em breve ── */}
-            <div style={{
-              display:             'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-              gap:                 10,
-            }}>
-              <EmptySlot />
-              <EmptySlot />
             </div>
 
           </div>
