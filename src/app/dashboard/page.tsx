@@ -4,6 +4,7 @@
 // @eligi:cockpit-v1-1-breakpoints
 // @eligi:priorities-mounted
 // @eligi:charts-native
+// @eligi:online-card-paired
 // Visao geral — direcao "Cockpit" (fatia 1).
 //
 // O que esta fatia entrega:
@@ -13,7 +14,6 @@
 //   - fim do EmptySlot ("EM BREVE")
 //
 // O que NAO muda aqui (fatias seguintes):
-//   - OnlineBanner vira card de canal (fatia 4)
 //   - realtime via useDashboardSocket (fatia 5)
 
 import { useState, useEffect, useCallback } from 'react'
@@ -56,7 +56,7 @@ import TopProfessionalsCard    from './components/TopProfessionalsCard'
 import TodayScheduleCard       from './components/TodayScheduleCard'
 import PrioritiesCard          from './components/PrioritiesCard'
 import PeriodSelector          from './components/PeriodSelector'
-import OnlineBanner            from './components/OnlineBanner'
+import OnlineChannelCard      from './components/OnlineChannelCard'
 
 // ─── tokens locais ─────────────────────────────────────────────────────────
 
@@ -70,10 +70,10 @@ const MOBILE_GUTTER  = 12
 
 /** Saudacao por faixa horaria. Sem nome: a AppNavbar ja identifica o usuario. */
 function greetingFor(hour: number): string {
-  if (hour < 5)  return 'Boa madrugada!'
-  if (hour < 12) return 'Bom dia!'
-  if (hour < 18) return 'Boa tarde!'
-  return 'Boa noite!'
+  if (hour < 5)  return 'Boa madrugada'
+  if (hour < 12) return 'Bom dia'
+  if (hour < 18) return 'Boa tarde'
+  return 'Boa noite'
 }
 
 function plural(n: number, singular: string, pluralWord: string): string {
@@ -450,20 +450,20 @@ export default function DashboardPage() {
             {/* ── Prioridades ── */}
             <PrioritiesCard alerts={data.alerts} />
 
-            {/* ── Canal online ── */}
-            <OnlineBanner data={data.kpis.onlineBookings} isMobile={isMobile} />
-
             {/* ── Receita + Top profissionais ── */}
             <div className="eligi-duo">
               <RevenueSparkline data={data.revenueChart} period={period} />
               <TopProfessionalsCard professionals={data.topProfessionals} />
             </div>
 
-            {/* ── Agenda de hoje ── */}
-            <TodayScheduleCard
-              items={data.todaySchedule}
-              tomorrowCount={data.kpis.tomorrowBookings}
-            />
+            {/* ── Agenda de hoje + canal online ── */}
+            <div className="eligi-duo">
+              <TodayScheduleCard
+                items={data.todaySchedule}
+                tomorrowCount={data.kpis.tomorrowBookings}
+              />
+              <OnlineChannelCard data={data.kpis.onlineBookings} />
+            </div>
 
           </div>
         )}

@@ -1,13 +1,40 @@
 'use client'
 // src/app/dashboard/components/TopProfessionalsCard.tsx
+// @eligi:top-pros-glass
+// Ranking de receita por profissional.
+//
+// v2 (fatia 4): sai do card branco com borda propria e passa a usar glassCard
+// + inkLight, como o resto da Visao geral. Era o ultimo componente do painel
+// ainda no token antigo — a borda vermelha a esquerda aparecia em alguns cards
+// e nao em outros, sem criterio.
+//
+// Nao usa TopProfessional.avatarUrl ainda: o back entrega, mas exibir imagem
+// remota exige decidir entre <img> (warning de lint) e next/image (precisa de
+// remotePatterns no next.config). Fica para uma fatia com essa decisao tomada.
 
 import { Trophy } from 'lucide-react'
-import { colors, typography, radius, shadows } from '@/shared/theme'
+import { colors, typography, radius, shadows, glassCard, inkLight } from '@/shared/theme'
 import { TopProfessional } from '@/features/dashboard/types'
 import { fmtBRL } from '@/features/dashboard/utils/format'
 
+const DISPLAY_FONT = `'Space Grotesk', ${typography.fontFamily}`
+
+/** Ouro, prata, bronze — depois disso, neutro. */
+const PODIUM = ['#f59e0b', '#94a3b8', '#c2703a'] as const
+const BAR    = [
+  'linear-gradient(90deg,#f59e0b,#d97706)',
+  'linear-gradient(90deg,#94a3b8,#64748b)',
+  'linear-gradient(90deg,#c2703a,#9a5528)',
+] as const
+
 interface Props {
   professionals: TopProfessional[]
+}
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).slice(0, 2)
+  const letters = parts.map(w => w.charAt(0)).join('')
+  return letters.toUpperCase() || '?'
 }
 
 export default function TopProfessionalsCard({ professionals }: Props) {
@@ -15,120 +42,158 @@ export default function TopProfessionalsCard({ professionals }: Props) {
 
   return (
     <div style={{
-      background: '#fff',
-      border: `1px solid ${colors.gray.border}`,
-      borderRadius: radius.lg,
-      boxShadow: shadows.sm,
-      padding: '14px 16px',
-      fontFamily: typography.fontFamily,
-      display: 'flex', flexDirection: 'column', gap: 10,
+      ...glassCard,
+      borderRadius:  radius['2xl'],
+      boxShadow:     shadows.sm,
+      padding:       '16px 18px',
+      fontFamily:    typography.fontFamily,
+      display:       'flex',
+      flexDirection: 'column',
+      gap:           12,
     }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{
-          width: 26, height: 26, borderRadius: 7,
-          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Trophy size={13} color="#fff" strokeWidth={2.4} />
-        </div>
+      {/* cabecalho */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{
-          fontSize: 10,
-          fontWeight: typography.weight.bold,
-          color: typography.color.muted,
-          textTransform: 'uppercase',
-          letterSpacing: '.07em',
+          display:      'grid',
+          placeItems:   'center',
+          width:        32,
+          height:       32,
+          flexShrink:   0,
+          borderRadius: radius.sm,
+          background:   inkLight.warn.bg,
         }}>
-          TOP PROFISSIONAIS · RECEITA
+          <Trophy size={15} color={inkLight.warn.text} strokeWidth={2.2} />
+        </span>
+
+        <span style={{
+          fontSize:      10.5,
+          fontWeight:    typography.weight.bold,
+          color:         inkLight.label,
+          textTransform: 'uppercase',
+          letterSpacing: '.12em',
+        }}>
+          Top profissionais · receita
         </span>
       </div>
 
       {professionals.length === 0 ? (
         <div style={{
-          padding: '20px 8px',
+          padding:   '24px 8px',
           textAlign: 'center',
-          color: typography.color.muted,
-          fontSize: typography.scale.sm,
+          color:     inkLight.label,
+          fontSize:  typography.scale.sm,
         }}>
           Nenhum atendimento no período
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {professionals.map((p, idx) => {
-            const initials = p.name.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() || '?'
-            const pct = (p.revenue / maxRevenue) * 100
+            const pct     = (p.revenue / maxRevenue) * 100
+            const podium  = idx < PODIUM.length ? PODIUM[idx] : colors.gray.borderMd
+            const barFill = idx < BAR.length ? BAR[idx] : colors.red.gradient
 
             return (
-              <div key={p.professionalId} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-              }}>
-                {/* Rank */}
-                <div style={{
-                  width: 18, height: 18,
+              <div
+                key={p.professionalId}
+                style={{ display: 'flex', alignItems: 'center', gap: 11 }}
+              >
+                {/* avatar com anel de podio */}
+                <span style={{
+                  position:     'relative',
+                  flexShrink:   0,
+                  width:        36,
+                  height:       36,
                   borderRadius: '50%',
-                  background: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : idx === 2 ? '#ea7c25' : colors.gray.borderMd,
-                  color: '#fff',
-                  fontSize: 9,
-                  fontWeight: typography.weight.bold,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
+                  display:      'grid',
+                  placeItems:   'center',
+                  background:   colors.red.gradient,
+                  color:        '#fff',
+                  fontFamily:   DISPLAY_FONT,
+                  fontSize:     12,
+                  fontWeight:   typography.weight.bold,
+                  boxShadow:    idx < PODIUM.length ? `0 0 0 2px ${podium}` : 'none',
                 }}>
-                  {idx + 1}
-                </div>
+                  {initialsOf(p.name)}
 
-                {/* Avatar */}
-                <div style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: colors.red.gradient,
-                  color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 10,
-                  fontWeight: typography.weight.bold,
-                  flexShrink: 0,
-                }}>
-                  {initials}
-                </div>
+                  <span style={{
+                    position:      'absolute',
+                    bottom:        -3,
+                    right:         -3,
+                    width:         16,
+                    height:        16,
+                    borderRadius:  '50%',
+                    background:    podium,
+                    color:         '#fff',
+                    fontSize:      9,
+                    fontWeight:    typography.weight.bold,
+                    display:       'grid',
+                    placeItems:    'center',
+                    border:        '1.5px solid #fff',
+                  }}>
+                    {idx + 1}
+                  </span>
+                </span>
 
-                {/* Nome + barra */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: typography.scale.sm,
-                    fontWeight: typography.weight.semibold,
-                    color: typography.color.primary,
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    marginBottom: 3,
+                {/* nome + barra */}
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{
+                    display:        'flex',
+                    alignItems:     'baseline',
+                    justifyContent: 'space-between',
+                    gap:            8,
+                    marginBottom:   5,
                   }}>
-                    {p.name}
-                  </div>
-                  <div style={{
-                    height: 4,
-                    background: colors.gray.border,
-                    borderRadius: 2,
-                    overflow: 'hidden',
+                    <span style={{
+                      fontSize:     13.5,
+                      fontWeight:   typography.weight.semibold,
+                      color:        inkLight.strong,
+                      overflow:     'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace:   'nowrap',
+                      minWidth:     0,
+                    }}>
+                      {p.name}
+                    </span>
+
+                    <span style={{
+                      flexShrink:         0,
+                      fontFamily:         DISPLAY_FONT,
+                      fontSize:           13.5,
+                      fontWeight:         typography.weight.bold,
+                      color:              inkLight.strong,
+                      fontVariantNumeric: 'tabular-nums',
+                      letterSpacing:      '-.01em',
+                    }}>
+                      {fmtBRL(p.revenue)}
+                    </span>
+                  </span>
+
+                  <span style={{
+                    display:      'block',
+                    height:       6,
+                    background:   'rgba(0,0,0,0.06)',
+                    borderRadius: radius.full,
+                    overflow:     'hidden',
                   }}>
-                    <div style={{
-                      width: `${pct}%`,
-                      height: '100%',
-                      background: idx === 0
-                        ? 'linear-gradient(90deg, #f59e0b, #d97706)'
-                        : colors.red.gradient,
-                      transition: 'width 0.6s ease',
+                    <span style={{
+                      display:      'block',
+                      width:        `${pct}%`,
+                      height:       '100%',
+                      background:   barFill,
+                      borderRadius: radius.full,
+                      transition:   'width 0.6s cubic-bezier(0.22,1,0.36,1)',
                     }} />
-                  </div>
-                </div>
+                  </span>
 
-                {/* Valor */}
-                <div style={{
-                  fontSize: typography.scale.sm,
-                  fontWeight: typography.weight.bold,
-                  color: typography.color.primary,
-                  fontVariantNumeric: 'tabular-nums',
-                  flexShrink: 0,
-                }}>
-                  {fmtBRL(p.revenue)}
-                </div>
+                  <span style={{
+                    display:   'block',
+                    marginTop: 4,
+                    fontSize:  11,
+                    color:     inkLight.label,
+                  }}>
+                    {p.itemsCount} {p.itemsCount === 1 ? 'atendimento' : 'atendimentos'}
+                  </span>
+                </span>
               </div>
             )
           })}
