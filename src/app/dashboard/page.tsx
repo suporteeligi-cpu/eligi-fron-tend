@@ -70,10 +70,10 @@ const MOBILE_GUTTER  = 12
 
 /** Saudacao por faixa horaria. Sem nome: a AppNavbar ja identifica o usuario. */
 function greetingFor(hour: number): string {
-  if (hour < 5)  return 'Boa madrugada'
-  if (hour < 12) return 'Bom dia'
-  if (hour < 18) return 'Boa tarde'
-  return 'Boa noite'
+  if (hour < 5)  return 'Boa madrugada!'
+  if (hour < 12) return 'Bom dia!'
+  if (hour < 18) return 'Boa tarde!'
+  return 'Boa noite!'
 }
 
 function plural(n: number, singular: string, pluralWord: string): string {
