@@ -1,6 +1,7 @@
 'use client'
 // src/app/dashboard/components/RevenueSparkline.tsx
 // @eligi:revenue-recharts
+// @eligi:revenue-polish
 // Grafico de receita do periodo selecionado.
 //
 // v2 (fatia 3): Chart.js baixado de CDN em runtime -> Recharts, que ja esta no
@@ -25,7 +26,7 @@ import {
   Tooltip,
 } from 'recharts'
 
-import { colors, typography, radius, shadows, glassCard, inkLight } from '@/shared/theme'
+import { typography, radius, shadows, glassCard, inkLight } from '@/shared/theme'
 import { RevenueChartPoint, DashboardPeriod } from '@/features/dashboard/types'
 import { fmtBRL, periodLabel } from '@/features/dashboard/utils/format'
 
@@ -120,7 +121,9 @@ export default function RevenueSparkline({ data, period }: Props) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 6 }}>
+            {/* margem lateral de 16: com 6 o primeiro e o ultimo rotulo do
+                eixo X eram cortados pela borda do container. */}
+            <AreaChart data={data} margin={{ top: 6, right: 16, bottom: 0, left: 16 }}>
               <defs>
                 <linearGradient id="eligiRevenueFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%"   stopColor={GREEN} stopOpacity={0.22} />
@@ -139,6 +142,7 @@ export default function RevenueSparkline({ data, period }: Props) {
               <YAxis hide domain={[0, 'auto']} />
 
               <Tooltip
+                separator=": "
                 cursor={{ stroke: 'rgba(0,0,0,0.12)', strokeWidth: 1 }}
                 contentStyle={{
                   borderRadius: 12,
@@ -171,15 +175,6 @@ export default function RevenueSparkline({ data, period }: Props) {
           </ResponsiveContainer>
         )}
       </div>
-
-      {/* marca discreta do periodo, alinhada com o resto do dashboard */}
-      <span style={{
-        fontSize: 11,
-        color:    colors.gray.dimText,
-        textAlign: 'right',
-      }}>
-        {data.length} {data.length === 1 ? 'ponto' : 'pontos'} no período
-      </span>
     </div>
   )
 }
