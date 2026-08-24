@@ -6,6 +6,7 @@
 // @eligi:charts-native
 // @eligi:online-card-paired
 // @eligi:realtime-on
+// @eligi:fiscal-pill
 // Visao geral — direcao "Cockpit" (fatia 1).
 //
 // O que esta fatia entrega:
@@ -24,6 +25,7 @@ import {
   CalendarDays,
   CalendarClock,
   Receipt,
+  FileCheck2,
   UserCheck,
   UserX,
   TrendingUp,
@@ -40,6 +42,7 @@ import {
   DashboardOverview,
   DashboardPeriod,
   DashboardKPIs,
+  DashboardFiscal,
 } from '@/features/dashboard/types'
 import { useDashboardRealtime } from '@/features/dashboard/hooks/useDashboardRealtime'
 import {
@@ -132,6 +135,7 @@ function buildTicker(
   kpis:     DashboardKPIs,
   period:   DashboardPeriod,
   isMobile: boolean,
+  fiscal:   DashboardFiscal | null,
 ): TickerItem[] {
   const money = (v: number) => (isMobile ? fmtBRLCompact(v) : fmtBRL(v))
   const growth = fmtGrowth(kpis.revenueGrowth)
@@ -193,6 +197,20 @@ function buildTicker(
         : `${plural(kpis.noShowCount, 'falta', 'faltas')} · ${fmtPercent(kpis.noShowRate)}`,
     },
   )
+
+  // Pill fiscal so existe para quem emite NFS-e: com a emissao desligada o
+  // back devolve fiscal = null e o ticker nem sabe que ela existe.
+  if (fiscal) {
+    items.push({
+      key:   'nfse',
+      Icon:  FileCheck2,
+      tint:  '#0f766e',
+      value: String(fiscal.monthAuthorized),
+      label: fiscal.monthValue > 0
+        ? `${plural(fiscal.monthAuthorized, 'nota', 'notas')} · ${money(fiscal.monthValue)}`
+        : plural(fiscal.monthAuthorized, 'nota no mês', 'notas no mês'),
+    })
+  }
 
   return items
 }
@@ -451,13 +469,13 @@ export default function DashboardPage() {
                 paddingBottom:   2,
               }}
             >
-              {buildTicker(data.kpis, period, isMobile).map(item => (
+              {buildTicker(data.kpis, period, isMobile, data.fiscal).map(item => (
                 <TickerPill key={item.key} item={item} />
               ))}
             </div>
 
             {/* ── Prioridades ── */}
-            <PrioritiesCard alerts={data.alerts} />
+            <PrioritiesCard alerts={data.alerts} fiscal={data.fiscal} />
 
             {/* ── Receita + Top profissionais ── */}
             <div className="eligi-duo">

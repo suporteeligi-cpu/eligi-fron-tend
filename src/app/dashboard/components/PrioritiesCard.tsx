@@ -1,6 +1,7 @@
 'use client'
 // src/app/dashboard/components/PrioritiesCard.tsx
 // @eligi:priorities-v1
+// @eligi:priorities-fiscal
 // Fila "Precisa de voce" — substitui AlertsCard + OnboardingChecklistCard.
 //
 // Cada linha e uma pendencia acionavel, com trilho de cor a esquerda e um
@@ -20,6 +21,7 @@ import {
   DollarSign,
   Package,
   UserPlus,
+  FileWarning,
   ListChecks,
   AlertCircle,
   CheckCircle2,
@@ -27,7 +29,7 @@ import {
 } from 'lucide-react'
 
 import { colors, typography, radius, shadows, glassCard, inkLight } from '@/shared/theme'
-import { DashboardAlerts } from '@/features/dashboard/types'
+import { DashboardAlerts, DashboardFiscal } from '@/features/dashboard/types'
 import { fmtBRL } from '@/features/dashboard/utils/format'
 import {
   useOnboardingChecklist,
@@ -46,6 +48,7 @@ const RAIL = {
   stock:     { rail: 'linear-gradient(180deg,#f59e0b,#b45309)', bg: inkLight.warn.bg,        fg: inkLight.warn.text },
   agenda:    { rail: 'linear-gradient(180deg,#3b82f6,#2563eb)', bg: inkLight.info.bg,        fg: inkLight.info.text },
   setup:     { rail: colors.red.gradient,                       bg: 'rgba(220,38,38,0.09)',  fg: colors.red.DEFAULT },
+  fiscal:    { rail: 'linear-gradient(180deg,#0d9488,#0f766e)', bg: 'rgba(13,148,136,0.10)', fg: '#0f766e' },
 } as const
 
 type RailTone = typeof RAIL[keyof typeof RAIL]
@@ -176,7 +179,13 @@ function PriorityRow({
 
 // ─── card ──────────────────────────────────────────────────────────────────
 
-export default function PrioritiesCard({ alerts }: { alerts: DashboardAlerts }) {
+export default function PrioritiesCard({
+  alerts,
+  fiscal,
+}: {
+  alerts: DashboardAlerts
+  fiscal: DashboardFiscal | null
+}) {
   const router = useRouter()
   const { data, failed, loaded, reload } = useOnboardingChecklist()
   const [openChecklist, setOpenChecklist] = useState(false)
@@ -186,6 +195,9 @@ export default function PrioritiesCard({ alerts }: { alerts: DashboardAlerts }) 
   const hasCommissions = alerts.pendingCommissions.total > 0
   const hasLowStock    = alerts.lowStock.count > 0
   const hasUnassigned  = alerts.unassignedBookings.count > 0
+  // fiscal e null quando o estabelecimento nao emite NFS-e: a fila nem sabe
+  // que essa linha existe.
+  const hasRejected    = (fiscal?.rejected ?? 0) > 0
 
   // Checklist: pendencias essenciais e sugestoes.
   const essentialPending: ChecklistItem[] =
@@ -196,7 +208,8 @@ export default function PrioritiesCard({ alerts }: { alerts: DashboardAlerts }) 
   const checklistPending = essentialPending.length + extrasPending.length
   const showChecklist    = loaded && (failed || checklistPending > 0)
 
-  const alertCount = Number(hasCommissions) + Number(hasLowStock) + Number(hasUnassigned)
+  const alertCount =
+    Number(hasCommissions) + Number(hasLowStock) + Number(hasUnassigned) + Number(hasRejected)
   const total      = alertCount + (showChecklist ? 1 : 0)
 
   // Enquanto o checklist ainda nao respondeu, nao pinta o "tudo em ordem" —
@@ -308,6 +321,17 @@ export default function PrioritiesCard({ alerts }: { alerts: DashboardAlerts }) 
               onAction={() => goTo(alerts.unassignedBookings.href)}
             />
           )}
+
+          {hasRejected && fiscal ? (
+            <PriorityRow
+              tone={RAIL.fiscal}
+              Icon={FileWarning}
+              title={`${fiscal.rejected} ${plural(fiscal.rejected, 'nota rejeitada', 'notas rejeitadas')}`}
+              subtitle="A prefeitura recusou a emissão. Sem correção o faturamento fica sem documento fiscal."
+              actionLabel="Corrigir"
+              onAction={() => goTo(fiscal.href)}
+            />
+          ) : null}
 
           {showChecklist && failed && (
             <PriorityRow
