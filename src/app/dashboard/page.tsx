@@ -5,6 +5,7 @@
 // @eligi:priorities-mounted
 // @eligi:charts-native
 // @eligi:online-card-paired
+// @eligi:realtime-on
 // Visao geral — direcao "Cockpit" (fatia 1).
 //
 // O que esta fatia entrega:
@@ -14,7 +15,6 @@
 //   - fim do EmptySlot ("EM BREVE")
 //
 // O que NAO muda aqui (fatias seguintes):
-//   - realtime via useDashboardSocket (fatia 5)
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -41,6 +41,7 @@ import {
   DashboardPeriod,
   DashboardKPIs,
 } from '@/features/dashboard/types'
+import { useDashboardRealtime } from '@/features/dashboard/hooks/useDashboardRealtime'
 import {
   fmtBRL,
   fmtBRLCompact,
@@ -320,6 +321,14 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => { fetchData(period) }, [fetchData, period])
+
+  // Realtime: o servidor avisa que algo mudou, a pagina repergunta.
+  // O periodo entra na dependencia via useCallback para o refetch nao
+  // recarregar sempre o periodo da primeira renderizacao.
+  const refreshCurrent = useCallback(() => { fetchData(period) }, [fetchData, period])
+  // `?? undefined` cobre o caso de businessId ser `string | null` no AuthUser:
+  // o hook aceita `string | undefined` e `null` nao seria atribuivel.
+  useDashboardRealtime(authUser?.businessId ?? undefined, refreshCurrent)
 
   // Guard: funcionários não vêem o dashboard geral (dentro do JSX para não violar regra de hooks)
   // BASIC_STAFF e RECEPTIONIST: nunca veem o dashboard — redirect silencioso
