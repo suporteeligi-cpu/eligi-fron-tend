@@ -1,179 +1,185 @@
 'use client'
 // src/app/dashboard/components/RevenueSparkline.tsx
+// @eligi:revenue-recharts
+// Grafico de receita do periodo selecionado.
+//
+// v2 (fatia 3): Chart.js baixado de CDN em runtime -> Recharts, que ja esta no
+// bundle (7 paineis de relatorios usam). O que morreu junto:
+//   - script injetado de cdnjs.cloudflare.com (CDN lento = retangulo vazio, sem
+//     erro visivel, no dashboard financeiro de cliente pagante)
+//   - `declare global { Window { Chart: any } }` — poluia o tipo Window do app
+//     inteiro para uso de um componente so
+//   - dois eslint-disable de no-explicit-any e a variavel morta `lineC`
+//   - o par useRef/useEffect com destroy manual do canvas
+//
+// Corrigido tambem: o titulo era "Receita · Ultimos 7 dias" fixo, enquanto os
+// dados vem escopados pelo period. Em "30 dias" o card mentia o rotulo.
 
-import { useEffect, useRef } from 'react'
 import { TrendingUp } from 'lucide-react'
-import { colors, typography, radius, shadows } from '@/shared/theme'
-import { RevenueChartPoint } from '@/features/dashboard/types'
-import { fmtBRL } from '@/features/dashboard/utils/format'
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from 'recharts'
+
+import { colors, typography, radius, shadows, glassCard, inkLight } from '@/shared/theme'
+import { RevenueChartPoint, DashboardPeriod } from '@/features/dashboard/types'
+import { fmtBRL, periodLabel } from '@/features/dashboard/utils/format'
+
+const DISPLAY_FONT = `'Space Grotesk', ${typography.fontFamily}`
+
+const GREEN      = '#10B981'
+const GREEN_DARK = '#0f6e56'
+const CHART_H    = 132
 
 interface Props {
-  data:     RevenueChartPoint[]
-  isMobile: boolean
+  data:   RevenueChartPoint[]
+  period: DashboardPeriod
 }
 
-declare global {
-  interface Window {
-    Chart: any // eslint-disable-line @typescript-eslint/no-explicit-any
-  }
-}
+export default function RevenueSparkline({ data, period }: Props) {
+  const total = data.reduce((sum, d) => sum + d.value, 0)
+  const empty = data.length === 0 || total === 0
 
-const CDN = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'
-
-function loadChartJs(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (window.Chart) { resolve(); return }
-    const s = document.createElement('script')
-    s.src   = CDN
-    s.onload  = () => resolve()
-    s.onerror = () => reject(new Error('Chart.js failed to load'))
-    document.head.appendChild(s)
-  })
-}
-
-export default function RevenueSparkline({ data }: Props) {
-  const canvasRef  = useRef<HTMLCanvasElement>(null)
-  const chartRef   = useRef<any>(null)         // eslint-disable-line @typescript-eslint/no-explicit-any
-
-  const total = data.reduce((s, d) => s + d.value, 0)
-
-  useEffect(() => {
-    let cancelled = false
-
-    loadChartJs().then(() => {
-      if (cancelled || !canvasRef.current) return
-
-      // destrói instância anterior se existir
-      if (chartRef.current) {
-        chartRef.current.destroy()
-        chartRef.current = null
-      }
-
-      const isDark = matchMedia('(prefers-color-scheme: dark)').matches
-      const lineC  = colors.red.DEFAULT
-      const labelC = isDark ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.35)'
-
-      chartRef.current = new window.Chart(canvasRef.current, {
-        type: 'line',
-        data: {
-          labels:   data.map(d => d.label),
-          datasets: [{
-            data:                 data.map(d => d.value),
-            borderColor:          '#16a34a',
-            borderWidth:          2,
-            pointRadius:          3,
-            pointBackgroundColor: '#fff',
-            pointBorderColor:     '#16a34a',
-            pointBorderWidth:     2,
-            pointHoverRadius:     5,
-            tension:              0.35,
-            fill:                 true,
-            backgroundColor:      isDark
-              ? 'rgba(22,163,74,0.14)'
-              : 'rgba(22,163,74,0.10)',
-          }],
-        },
-        options: {
-          responsive:          true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (c: { parsed: { y: number } }) => `R$ ${Math.round(c.parsed.y).toLocaleString('pt-BR')}`,
-              },
-              backgroundColor: isDark ? '#1e1e1e' : '#fff',
-              borderColor:     isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)',
-              borderWidth:     0.5,
-              titleColor:      isDark ? '#fff' : '#111',
-              bodyColor:       '#16a34a',
-              padding:         8,
-              cornerRadius:    6,
-            },
-          },
-          scales: {
-            x: {
-              grid:   { display: false },
-              border: { display: false },
-              ticks:  {
-                font:     { size: 10 },
-                color:    labelC,
-                maxRotation: 0,
-              },
-            },
-            y: {
-              display: false,
-              grid:    { display: false },
-            },
-          },
-        },
-      })
-    }).catch(console.error)
-
-    return () => {
-      cancelled = true
-      chartRef.current?.destroy()
-      chartRef.current = null
-    }
-  }, [data])
+  // Muitos pontos (30 dias) nao cabem no eixo do celular: mostra so as pontas.
+  const denseAxis = data.length > 10
 
   return (
     <div style={{
-      background:   '#fff',
-      border:       `0.5px solid ${colors.gray.borderMd}`,
-      borderLeft:   `2.5px solid ${colors.red.DEFAULT}`,
-      borderRadius: radius.lg,
-      boxShadow:    shadows.sm,
-      padding:      '16px 20px',
-      fontFamily:   typography.fontFamily,
-      display:      'flex',
+      ...glassCard,
+      borderRadius:  radius['2xl'],
+      boxShadow:     shadows.sm,
+      padding:       '16px 18px 12px',
+      fontFamily:    typography.fontFamily,
+      display:       'flex',
       flexDirection: 'column',
-      gap:          14,
+      gap:           10,
     }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{
-          width:          24,
-          height:         24,
-          borderRadius:   7,
-          background:     'linear-gradient(135deg,#16a34a,#15803d)',
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
+      {/* cabecalho */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{
+          display:      'grid',
+          placeItems:   'center',
+          width:        32,
+          height:       32,
+          flexShrink:   0,
+          borderRadius: radius.sm,
+          background:   inkLight.ok.bg,
         }}>
-          <TrendingUp size={12} color="#fff" strokeWidth={2.4} />
-        </div>
-        <div>
-          <div style={{
-            fontSize:      10,
+          <TrendingUp size={15} color={GREEN_DARK} strokeWidth={2.2} />
+        </span>
+
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <span style={{
+            fontSize:      10.5,
             fontWeight:    typography.weight.bold,
-            color:         typography.color.muted,
+            color:         inkLight.label,
             textTransform: 'uppercase',
-            letterSpacing: '.07em',
+            letterSpacing: '.12em',
           }}>
-            Receita · Últimos 7 dias
-          </div>
-          <div style={{
-            fontSize:           typography.scale.base,
+            Receita · {periodLabel(period)}
+          </span>
+          <span style={{
+            fontFamily:         DISPLAY_FONT,
+            fontSize:           22,
             fontWeight:         typography.weight.bold,
-            color:              typography.color.primary,
+            color:              inkLight.strong,
+            letterSpacing:      '-.02em',
+            lineHeight:         1.05,
             fontVariantNumeric: 'tabular-nums',
           }}>
             {fmtBRL(total)}
-          </div>
-        </div>
+          </span>
+        </span>
       </div>
 
-      {/* Canvas */}
-      <div style={{ position: 'relative', width: '100%', height: 90 }}>
-        <canvas
-          ref={canvasRef}
-          role="img"
-          aria-label="Gráfico de receita dos últimos 7 dias"
-        >
-          {data.map(d => `${d.label}: R$${Math.round(d.value)}`).join(', ')}
-        </canvas>
+      {/* grafico — altura fixa: ResponsiveContainer sem altura definida
+          colapsa para 0 no primeiro paint e o card pisca ao trocar de coluna */}
+      <div
+        style={{ width: '100%', height: CHART_H }}
+        role="img"
+        aria-label={
+          empty
+            ? `Sem receita registrada em ${periodLabel(period).toLowerCase()}`
+            : `Grafico de receita: ${data.map(d => `${d.label} ${fmtBRL(d.value)}`).join(', ')}`
+        }
+      >
+        {empty ? (
+          <div style={{
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            height:         '100%',
+            fontSize:       typography.scale.sm,
+            color:          inkLight.label,
+          }}>
+            Nenhuma receita registrada no período
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 6 }}>
+              <defs>
+                <linearGradient id="eligiRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor={GREEN} stopOpacity={0.22} />
+                  <stop offset="100%" stopColor={GREEN} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 10, fill: 'rgba(0,0,0,0.42)' }}
+                axisLine={false}
+                tickLine={false}
+                interval={denseAxis ? 'preserveStartEnd' : 0}
+                minTickGap={denseAxis ? 24 : 4}
+              />
+              <YAxis hide domain={[0, 'auto']} />
+
+              <Tooltip
+                cursor={{ stroke: 'rgba(0,0,0,0.12)', strokeWidth: 1 }}
+                contentStyle={{
+                  borderRadius: 12,
+                  border:       '0.5px solid rgba(0,0,0,0.10)',
+                  boxShadow:    '0 6px 20px rgba(0,0,0,0.10)',
+                  fontSize:     12,
+                  padding:      '6px 10px',
+                }}
+                labelStyle={{ color: 'rgba(0,0,0,0.55)', fontSize: 11, marginBottom: 2 }}
+                itemStyle={{ color: GREEN_DARK, fontWeight: 700 }}
+                formatter={(value: unknown): [string, string] => {
+                  // O Formatter do Recharts admite undefined e array; `unknown`
+                  // e o unico parametro assinavel sem cast e sem any.
+                  const n = typeof value === 'number' ? value : Number(value)
+                  return [fmtBRL(Number.isFinite(n) ? n : 0), 'Receita']
+                }}
+              />
+
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={GREEN}
+                strokeWidth={2.5}
+                fill="url(#eligiRevenueFill)"
+                dot={{ r: 3, fill: '#fff', stroke: GREEN, strokeWidth: 2 }}
+                activeDot={{ r: 5, fill: GREEN, stroke: '#fff', strokeWidth: 2 }}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
+
+      {/* marca discreta do periodo, alinhada com o resto do dashboard */}
+      <span style={{
+        fontSize: 11,
+        color:    colors.gray.dimText,
+        textAlign: 'right',
+      }}>
+        {data.length} {data.length === 1 ? 'ponto' : 'pontos'} no período
+      </span>
     </div>
   )
 }

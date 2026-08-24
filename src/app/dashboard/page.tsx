@@ -3,6 +3,7 @@
 // @eligi:cockpit-v1
 // @eligi:cockpit-v1-1-breakpoints
 // @eligi:priorities-mounted
+// @eligi:charts-native
 // Visao geral — direcao "Cockpit" (fatia 1).
 //
 // O que esta fatia entrega:
@@ -12,8 +13,6 @@
 //   - fim do EmptySlot ("EM BREVE")
 //
 // O que NAO muda aqui (fatias seguintes):
-//   - RevenueSparkline troca Chart.js CDN por Recharts (fatia 3)
-//   - TodayScheduleCard vira timeline (fatia 3)
 //   - OnlineBanner vira card de canal (fatia 4)
 //   - realtime via useDashboardSocket (fatia 5)
 
@@ -456,12 +455,15 @@ export default function DashboardPage() {
 
             {/* ── Receita + Top profissionais ── */}
             <div className="eligi-duo">
-              <RevenueSparkline data={data.revenueChart} isMobile={isMobile} />
+              <RevenueSparkline data={data.revenueChart} period={period} />
               <TopProfessionalsCard professionals={data.topProfessionals} />
             </div>
 
             {/* ── Agenda de hoje ── */}
-            <TodayScheduleCard items={data.todaySchedule} />
+            <TodayScheduleCard
+              items={data.todaySchedule}
+              tomorrowCount={data.kpis.tomorrowBookings}
+            />
 
           </div>
         )}
