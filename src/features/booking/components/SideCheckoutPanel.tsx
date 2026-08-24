@@ -964,6 +964,32 @@ export default function SideCheckoutPanel({
           // Em SÉRIE (não Promise.all): novos via add-to-group precisam que a
           // 1ª chamada gere o groupId; as próximas reusam. PATCH dos alterados.
           const snap = snapshotRef.current
+
+          /* @eligi:group-remove - a lixeira so filtrava o array local: o
+             booking removido nunca chegava ao servidor e voltava no refetch.
+             O snapshot ja tem os bookingId que existiam ao abrir; o que nao
+             sobrou em `items` foi removido pelo usuario.
+
+             ANTES dos PATCH/POST de proposito: `removeItem` chama
+             `recomputeFrom` e os servicos seguintes avancam pro horario que
+             vagou - patchar primeiro colidiria com um booking ainda vivo
+             (409) justo no caso mais comum, remover o do meio.
+
+             Em SERIE, nunca Promise.all (mesma corrida do add-to-group).
+             O back recusa sozinho o que nao for CONFIRMED e cancela a Sale
+             OPEN linkada, entao nao ha guarda a duplicar aqui. */
+          const keptBookingIds = new Set<string>()
+          for (const it of items) {
+            if (it.bookingId) keptBookingIds.add(it.bookingId)
+          }
+          const removedBookingIds = Object.keys(snap).filter(id => !keptBookingIds.has(id))
+          for (const removedId of removedBookingIds) {
+            await api.patch(`/bookings/${removedId}/cancel`)
+            // Some do snapshot: salvar duas vezes nao tenta cancelar de novo
+            // (o back recusaria por status != CONFIRMED e viraria erro na tela).
+            delete snap[removedId]
+          }
+
           for (const it of items) {
             const startAt = dayjs.tz(`${dateStr} ${it.startTime}`, 'America/Sao_Paulo').toISOString()
             const endAt   = it.endTime ? dayjs.tz(`${dateStr} ${it.endTime}`, 'America/Sao_Paulo').toISOString() : undefined
