@@ -509,62 +509,51 @@ export default function EligiClubCobrancaPage() {
 
           {docError && <Banner tone="red">{docError}</Banner>}
 
-          {/* documentos que exigem upload por aqui (sem onboardingUrl) */}
+          {/* Documentos pendentes. O Asaas so aceita envio via API para ALGUNS tipos;
+              os demais (contrato social, identificacao, selfie) exigem o link de
+              onboarding. Quando o link nao vem (expirou/ja foi usado), orientamos
+              o lojista a pedir um novo ao suporte — melhor que um botao que falha. */}
           {(acc!.pendingDocIds ?? []).length > 0 && (
             <>
               <div style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>
-                Envie os documentos abaixo:
+                {acc!.onboardingUrl
+                  ? 'Envie estes documentos pelo site do Asaas:'
+                  : 'Documentos pendentes:'}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                {(acc!.pendingDocIds ?? []).map(d => {
-                  const enviando = uploadingId === d.id
-                  const enviado = sentDocIds.includes(d.id)
-                  return (
-                    <div key={d.id} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '11px 13px', borderRadius: 10,
-                      border: '1px solid rgba(0,0,0,0.09)', background: '#fff',
-                    }}>
-                      <FileText size={16} style={{ color: '#8a8a92', flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: '#374151' }}>
-                        {docLabel(d.type)}
-                      </span>
-                      <input
-                        ref={el => { docInputs.current[d.id] = el }}
-                        type="file"
-                        accept={DOC_ACCEPT}
-                        style={{ display: 'none' }}
-                        onChange={e => {
-                          void handleDocFile(d.id, d.type, e.target.files?.[0])
-                          e.target.value = ''
-                        }}
-                      />
-                      <button
-                        onClick={() => docInputs.current[d.id]?.click()}
-                        disabled={enviando}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 6,
-                          minHeight: 40, padding: '8px 12px', borderRadius: 9,
-                          fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
-                          cursor: enviando ? 'default' : 'pointer',
-                          border: `1px solid ${enviado ? 'rgba(22,163,74,0.35)' : 'rgba(0,0,0,0.12)'}`,
-                          background: enviado ? 'rgba(22,163,74,0.07)' : '#fff',
-                          color: enviado ? '#15803d' : '#374151',
-                          opacity: enviando ? 0.6 : 1, flexShrink: 0,
-                        }}
-                      >
-                        {enviando
-                          ? <Loader2 size={14} style={{ animation: 'eligi-spin 0.9s linear infinite' }} />
-                          : enviado ? <Check size={14} /> : <Upload size={14} />}
-                        {enviando ? 'Enviando…' : enviado ? 'Enviado' : 'Escolher'}
-                      </button>
-                    </div>
-                  )
-                })}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 16 }}>
+                {(acc!.pendingDocIds ?? []).map(d => (
+                  <div key={d.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 13px', borderRadius: 10,
+                    border: '1px solid rgba(0,0,0,0.08)', background: '#fff',
+                  }}>
+                    <FileText size={15} style={{ color: '#8a8a92', flexShrink: 0 }} />
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>
+                      {docLabel(d.type)}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div style={{ fontSize: 11, color: '#9a9aa2', margin: '-8px 0 16px', lineHeight: 1.45 }}>
-                PDF, JPG ou PNG · até {DOC_MAX_MB} MB cada.
-              </div>
+
+              {/* sem link disponivel: o envio nao pode ser feito por aqui */}
+              {!acc!.onboardingUrl && (
+                <div style={{
+                  display: 'flex', gap: 9, alignItems: 'flex-start',
+                  background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.22)',
+                  borderRadius: 10, padding: '12px 14px', marginBottom: 16,
+                  fontSize: 12.5, color: '#92600a', lineHeight: 1.55,
+                }}>
+                  <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span>
+                    O link de envio já foi utilizado ou expirou. Solicite um novo link ao
+                    suporte do Asaas pelo <b>0800 009 0037</b> ou{' '}
+                    <a href="mailto:contato@asaas.com.br" style={{ color: 'inherit' }}>
+                      contato@asaas.com.br
+                    </a>
+                    , informando o CNPJ do seu negócio.
+                  </span>
+                </div>
+              )}
             </>
           )}
 
