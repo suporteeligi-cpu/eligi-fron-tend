@@ -7,7 +7,7 @@ import LegalModal from '@/shared/legal/LegalModal'
 import {
   Calendar, Building2, CreditCard, Users,
   Sliders, Bell, Shield, ChevronRight, Scissors, Sparkles, Palette,
-  FileText, Lock, Globe,
+  FileText, Lock, Globe, MessageSquare, // @eligi:msgtpl-nav-icon
 } from 'lucide-react'
 
 type ModuleItem = {
@@ -87,6 +87,13 @@ const MODULES: ModuleGroup[] = [
         label:       'Detalhes da empresa',
         description: 'Nome, endereço, fuso horário e informações do seu estabelecimento.',
         available:   true,   // ⭐ HABILITADO
+      },
+      {
+        href:        '/dashboard/configuracoes/mensagens',
+        icon:        MessageSquare,
+        label:       'Mensagens de saudacao',
+        description: 'Modelos prontos pra chamar seu cliente no WhatsApp com seu link de agendamento.',
+        available:   true, // @eligi:msgtpl-nav-item
       },
       {
         href:        '/dashboard/configuracoes/equipe',

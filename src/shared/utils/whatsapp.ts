@@ -28,3 +28,15 @@ export function clubPaymentMessage(
   const first = clientName.trim().split(' ')[0] || clientName
   return `Oi, ${first}! 👋 Aqui é da ${businessName}. Pra ativar sua assinatura do clube, é só cadastrar seu cartão neste link: ${link}\n\nQualquer dúvida, me chama!`
 }
+
+// @eligi:msgtpl-wa-share
+/**
+ * Link de compartilhamento SEM destinatario.
+ *
+ * Abre o WhatsApp com o texto ja preenchido e deixa o lojista escolher o
+ * contato, grupo ou status. Quem aperta enviar e o humano — nao e disparo
+ * automatizado, o que evita a exigencia de template aprovado na Meta.
+ */
+export function waShareLink(message: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(message)}`
+}
