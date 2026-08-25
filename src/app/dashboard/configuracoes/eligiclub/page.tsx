@@ -10,10 +10,10 @@
 // Mobile-first: inputs 16px (sem zoom iOS), alvos >= 44px, mascaras ao vivo.
 // React Compiler: subcomponentes em escopo de modulo.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, AlertCircle, Check, Download, Loader2, ShieldCheck, Link2, MessageCircle,
+  ChevronLeft, AlertCircle, Check, Download, Loader2, ShieldCheck, Link2, MessageCircle, Upload, FileText,
 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
@@ -31,6 +31,8 @@ interface AccountOnboarding {
   commercialInfo: string | null
   onboardingUrl: string | null
   pendingDocs: string[]
+  /** grupos que precisam de upload por aqui (sem onboardingUrl) */
+  pendingDocIds?: { id: string; type: string }[]
   isento: boolean
 }
 interface PendingSub {
@@ -77,6 +79,21 @@ function maskMoney(v: string): string {
 function moneyToNumber(v: string): number { return Number(onlyDigits(v)) / 100 }
 function brl(v: number): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+// ── upload de documento cadastral ──
+const DOC_MAX_MB = 5
+const DOC_ACCEPT = '.pdf,.jpg,.jpeg,.png'
+const DOC_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
+
+/** Le o arquivo como data URL (base64) — formato que o back espera. */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result))
+    r.onerror = () => reject(new Error('Falha ao ler o arquivo'))
+    r.readAsDataURL(file)
+  })
 }
 
 // ── estilos ─────────────────────────────────────────────────────────────────
@@ -253,6 +270,13 @@ export default function EligiClubCobrancaPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [linkError, setLinkError] = useState<string | null>(null)
 
+  // upload de documentos cadastrais (grupos sem onboardingUrl)
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [docError, setDocError] = useState<string | null>(null)
+  const [sentDocIds, setSentDocIds] = useState<string[]>([])
+  const [refreshing, setRefreshing] = useState(false)
+  const docInputs = useRef<Record<string, HTMLInputElement | null>>({})
+
   const load = useCallback(async () => {
     try {
       const res = await api.get('/club-subscriptions/asaas/account-status')
@@ -343,6 +367,50 @@ export default function EligiClubCobrancaPage() {
     const msg = clubPaymentMessage(data.clientName, data.businessName, data.checkoutUrl)
     window.open(waLink(data.clientPhone, msg), '_blank', 'noopener,noreferrer')
   }, [fetchLink])
+
+  /** Valida no cliente antes de gastar request, converte e envia. */
+  const handleDocFile = useCallback(async (docId: string, type: string, file: File | undefined) => {
+    if (!file) return
+    setDocError(null)
+
+    if (!DOC_MIMES.includes(file.type)) {
+      setDocError('Envie um arquivo PDF, JPG ou PNG.')
+      return
+    }
+    if (file.size > DOC_MAX_MB * 1024 * 1024) {
+      setDocError(`O arquivo deve ter no máximo ${DOC_MAX_MB} MB.`)
+      return
+    }
+
+    setUploadingId(docId)
+    try {
+      const fileBase64 = await fileToBase64(file)
+      await api.post(`/club-subscriptions/asaas/documents/${docId}`, {
+        type, fileName: file.name, mimeType: file.type, fileBase64,
+      })
+      setSentDocIds(prev => [...prev, docId])
+      await load() // o back ja invalidou o cache; reflete na hora
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setDocError(msg ?? 'Não foi possível enviar o documento. Tente novamente.')
+    } finally {
+      setUploadingId(null)
+    }
+  }, [load])
+
+  /** Botao "Atualizar situacao": consulta o Asaas ignorando o cache. */
+  const refreshStatus = useCallback(async () => {
+    setRefreshing(true)
+    setDocError(null)
+    try {
+      const res = await api.get('/club-subscriptions/asaas/account-status?force=1')
+      setAcc((res.data?.data ?? null) as AccountOnboarding | null)
+    } catch {
+      setDocError('Não foi possível atualizar agora. Tente novamente em instantes.')
+    } finally {
+      setRefreshing(false)
+    }
+  }, [])
 
   const goBack = useCallback(() => router.push('/dashboard/configuracoes'), [router])
 
@@ -439,7 +507,68 @@ export default function EligiClubCobrancaPage() {
           <Divider />
           <Banner tone="amber">Para liberar a cobrança, envie seus documentos. Leva 2 minutos.</Banner>
 
-          {acc!.pendingDocs.length > 0 && (
+          {docError && <Banner tone="red">{docError}</Banner>}
+
+          {/* documentos que exigem upload por aqui (sem onboardingUrl) */}
+          {(acc!.pendingDocIds ?? []).length > 0 && (
+            <>
+              <div style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>
+                Envie os documentos abaixo:
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {(acc!.pendingDocIds ?? []).map(d => {
+                  const enviando = uploadingId === d.id
+                  const enviado = sentDocIds.includes(d.id)
+                  return (
+                    <div key={d.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '11px 13px', borderRadius: 10,
+                      border: '1px solid rgba(0,0,0,0.09)', background: '#fff',
+                    }}>
+                      <FileText size={16} style={{ color: '#8a8a92', flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: '#374151' }}>
+                        {docLabel(d.type)}
+                      </span>
+                      <input
+                        ref={el => { docInputs.current[d.id] = el }}
+                        type="file"
+                        accept={DOC_ACCEPT}
+                        style={{ display: 'none' }}
+                        onChange={e => {
+                          void handleDocFile(d.id, d.type, e.target.files?.[0])
+                          e.target.value = ''
+                        }}
+                      />
+                      <button
+                        onClick={() => docInputs.current[d.id]?.click()}
+                        disabled={enviando}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          minHeight: 40, padding: '8px 12px', borderRadius: 9,
+                          fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
+                          cursor: enviando ? 'default' : 'pointer',
+                          border: `1px solid ${enviado ? 'rgba(22,163,74,0.35)' : 'rgba(0,0,0,0.12)'}`,
+                          background: enviado ? 'rgba(22,163,74,0.07)' : '#fff',
+                          color: enviado ? '#15803d' : '#374151',
+                          opacity: enviando ? 0.6 : 1, flexShrink: 0,
+                        }}
+                      >
+                        {enviando
+                          ? <Loader2 size={14} style={{ animation: 'eligi-spin 0.9s linear infinite' }} />
+                          : enviado ? <Check size={14} /> : <Upload size={14} />}
+                        {enviando ? 'Enviando…' : enviado ? 'Enviado' : 'Escolher'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ fontSize: 11, color: '#9a9aa2', margin: '-8px 0 16px', lineHeight: 1.45 }}>
+                PDF, JPG ou PNG · até {DOC_MAX_MB} MB cada.
+              </div>
+            </>
+          )}
+
+          {false && acc!.pendingDocs.length > 0 && (
             <>
               <div style={{ fontSize: 12, color: '#555', marginBottom: 6 }}>Pendentes:</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
@@ -459,8 +588,16 @@ export default function EligiClubCobrancaPage() {
               <Download size={16} /> Enviar documentos
             </a>
           ) : (
-            <button onClick={() => void load()} style={{ ...BTN, background: '#0E0E12' }}>
-              Atualizar situação
+            <button
+              onClick={() => void refreshStatus()}
+              disabled={refreshing}
+              style={{
+                ...BTN, background: '#fff', color: '#374151',
+                border: '1px solid rgba(0,0,0,0.12)', opacity: refreshing ? 0.65 : 1,
+              }}
+            >
+              {refreshing && <Loader2 size={15} style={{ animation: 'eligi-spin 0.9s linear infinite' }} />}
+              {refreshing ? 'Atualizando…' : 'Atualizar situação'}
             </button>
           )}
           <div style={ASAAS_HINT}>Você será direcionado ao ambiente seguro do Asaas</div>
