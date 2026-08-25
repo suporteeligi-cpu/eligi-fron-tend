@@ -1,6 +1,7 @@
 'use client'
 // src/app/dashboard/equipe/page.tsx
 // @eligi:equipe-two-tabs
+// @eligi:equipe-revoke-local
 // Equipe — casca com DUAS abas: Profissionais e Acessos.
 //
 // Antes eram quatro (FUNCIONÁRIOS / HORÁRIOS / COMISSÕES / ACESSOS), e elas
@@ -111,6 +112,18 @@ export default function EquipePage() {
     setSelected(prof)
     setShowAdd(false)
     setDetailOpen(true)
+  }
+
+  /**
+   * Revogar acesso limpa o vinculo com a conta, mas o profissional continua
+   * cadastrado. Antes o AcessosTab dava window.location.reload() so para
+   * atualizar esse campo — recarregava a aplicacao inteira.
+   */
+  function handleRevoked(profId: string) {
+    setProfessionals(prev => prev.map(p =>
+      p.id === profId ? { ...p, userId: null, user: null } : p,
+    ))
+    setSelected(prev => (prev?.id === profId ? { ...prev, userId: null, user: null } : prev))
   }
 
   async function handleDelete(id: string) {
@@ -272,8 +285,8 @@ export default function EquipePage() {
         {tab === 'acessos' ? (
           <AcessosTab
             professionals={professionals}
-            isMobile={false}
             loading={loading}
+            onRevoked={handleRevoked}
           />
         ) : (
           <div className={`eq-split ${detailOpen ? 'eq-mode-detail' : 'eq-mode-list'}`}>

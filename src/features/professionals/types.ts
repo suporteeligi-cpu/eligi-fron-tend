@@ -46,6 +46,11 @@ export interface Professional {
   commissionProductType?:  CommissionType | null
   commissionProductValue?: number | null
 
+  // @eligi:prof-availability — so os weekdays, vindos do PROF_SELECT.
+  // Vazio significa profissional SEM horario: nao recebe agendamento e some
+  // do link publico. A lista da Equipe marca isso com um chip.
+  availability?:                { weekday: number }[]
+
   services?:                    ProfessionalService[]
   commissionOverrides?:         CommissionOverride[]
   productCommissionOverrides?:  ProductCommissionOverride[]

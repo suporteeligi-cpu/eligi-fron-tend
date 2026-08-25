@@ -1,6 +1,7 @@
 'use client'
 // src/app/dashboard/equipe/components/TeamList.tsx
 // @eligi:team-list
+// @eligi:team-list-hours
 // Lista de profissionais da aba "Profissionais".
 //
 // Substitui o ProfSidebar, que mostrava so nome e cargo. Todo o resto ja vinha
@@ -12,7 +13,7 @@
 // classifica tipo de ponteiro, e foi o que cortava a tela de horarios em
 // janela estreita de desktop.
 
-import { Search, X, UserCog, Scissors, Percent, Globe, CalendarOff } from 'lucide-react'
+import { Search, X, UserCog, Scissors, Percent, Globe, CalendarOff, CalendarClock } from 'lucide-react'
 import { colors, typography } from '@/shared/theme'
 import { Professional } from '@/features/professionals/types'
 import { fmtCommission } from '@/features/professionals/utils/format'
@@ -53,6 +54,13 @@ function chipsFor(p: Professional): Chip[] {
 
   if (p.showInCalendar === false) {
     chips.push({ key: 'cal', label: 'fora da agenda', tone: 'warn', Icon: CalendarOff })
+  }
+
+  // Sem horario o profissional nao recebe agendamento e some do link publico.
+  // E a pendencia mais grave da ficha, entao vem antes das outras.
+  const days = p.availability?.length ?? 0
+  if (days === 0) {
+    chips.push({ key: 'nohours', label: 'sem horário', tone: 'warn', Icon: CalendarClock })
   }
 
   const svc = p.services?.length ?? 0

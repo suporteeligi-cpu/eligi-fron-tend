@@ -1,8 +1,12 @@
 // src/features/professionals/constants/commissionCategories.ts
+// @eligi:no-internal-phases
 //
-// Categorias de comissão estilo Booksy.
-// Habilitadas: services (Fase 1), products (Fase 2)
-// Bloqueadas: packages, giftcards, subscriptions
+// Categorias de comissao. Habilitadas: services, products.
+//
+// As travadas NAO expoem mais numero de fase interna ("Fase 3", "Fase 4",
+// "Fase 5"). O lojista nao deve ler o roadmap de engenharia dentro do produto,
+// e um numero sem contexto so gera a pergunta "e quando e a fase 3?".
+// Onde havia phaseLabel, agora ha uma frase que descreve o beneficio.
 
 export type CommissionCategoryId =
   | 'services'
@@ -12,11 +16,12 @@ export type CommissionCategoryId =
   | 'subscriptions'
 
 export interface CommissionCategoryDef {
-  id:        CommissionCategoryId
-  label:     string
-  icon:      string
-  locked:    boolean
-  phaseLabel?: string
+  id:          CommissionCategoryId
+  label:       string
+  icon:        string
+  locked:      boolean
+  /** Texto voltado ao lojista quando a categoria ainda nao existe. */
+  lockedHint?: string
   description: string
 }
 
@@ -40,7 +45,7 @@ export const COMMISSION_CATEGORIES: CommissionCategoryDef[] = [
     label:       'Pacotes',
     icon:        'Gift',
     locked:      true,
-    phaseLabel:  'Fase 3',
+    lockedHint:  'Em breve',
     description: 'Comissão por pacote vendido',
   },
   {
@@ -48,7 +53,7 @@ export const COMMISSION_CATEGORIES: CommissionCategoryDef[] = [
     label:       'Cartões presente',
     icon:        'CreditCard',
     locked:      true,
-    phaseLabel:  'Fase 4',
+    lockedHint:  'Em breve',
     description: 'Comissão por cartão presente vendido',
   },
   {
@@ -56,7 +61,7 @@ export const COMMISSION_CATEGORIES: CommissionCategoryDef[] = [
     label:       'Assinaturas',
     icon:        'Repeat',
     locked:      true,
-    phaseLabel:  'Fase 5',
+    lockedHint:  'Em breve',
     description: 'Comissão por assinatura vendida',
   },
 ]

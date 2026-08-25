@@ -47,7 +47,7 @@ export default function CategoryList({
       {COMMISSION_CATEGORIES.map(cat => {
         const Icon = ICON_MAP[cat.icon as keyof typeof ICON_MAP]
         const isSelected = !cat.locked && selected === cat.id
-        const summary = !cat.locked ? summaries[cat.id] : cat.phaseLabel
+        const summary = !cat.locked ? summaries[cat.id] : cat.lockedHint
 
         return (
           <button
