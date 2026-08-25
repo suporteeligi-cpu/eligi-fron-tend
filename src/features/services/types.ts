@@ -19,4 +19,9 @@ export interface Service {
   color:           string | null
   active:          boolean
   serviceCategory: ServiceCategory | null
+
+  // @eligi:service-prof-count
+  // Quantos profissionais atendem o servico, vindo do _count do back.
+  // Zero significa servico sem ninguem para executar — a lista avisa.
+  _count?:         { professionals: number }
 }
