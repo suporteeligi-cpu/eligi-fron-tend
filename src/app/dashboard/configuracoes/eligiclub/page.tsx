@@ -241,6 +241,9 @@ export default function EligiClubCobrancaPage() {
 
   const [companyType, setCompanyType] = useState<CompanyType>('MEI')
   const [mobilePhone, setMobilePhone] = useState('')
+  // e-mail da conta de pagamentos. Vazio = usa o e-mail do dono.
+  // Necessario quando o lojista JA tem conta Asaas (o e-mail e unico la).
+  const [email, setEmail] = useState('')
   const [addressNumber, setAddressNumber] = useState('')
   const [province, setProvince] = useState('')
   const [income, setIncome] = useState('')
@@ -272,6 +275,9 @@ export default function EligiClubCobrancaPage() {
 
   const activate = useCallback(async () => {
     if (onlyDigits(mobilePhone).length < 10) { setError('Informe um celular válido com DDD.'); return }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('E-mail inválido.'); return
+    }
     if (!addressNumber.trim()) { setError('Informe o número do endereço.'); return }
     if (!province.trim()) { setError('Informe o bairro.'); return }
     const inc = moneyToNumber(income)
@@ -282,15 +288,22 @@ export default function EligiClubCobrancaPage() {
       await api.post('/club-subscriptions/asaas/provision', {
         companyType, mobilePhone: onlyDigits(mobilePhone),
         addressNumber: addressNumber.trim(), province: province.trim(), incomeValue: inc,
+        ...(email.trim() ? { email: email.trim() } : {}),
       })
       await load()
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-      setError(msg ?? 'Não foi possível ativar a cobrança. Tente novamente.')
+      const res = (e as { response?: { data?: { error?: string; code?: string } } })?.response?.data
+      setError(res?.error ?? 'Não foi possível ativar a cobrança. Tente novamente.')
+      // e-mail ja usado no Asaas: leva o cursor direto pro campo que precisa mudar
+      if (res?.code === 'ASAAS_EMAIL_IN_USE') {
+        window.setTimeout(() => {
+          document.getElementById('club-asaas-email')?.focus()
+        }, 60)
+      }
     } finally {
       setSaving(false)
     }
-  }, [companyType, mobilePhone, addressNumber, province, income, load])
+  }, [companyType, mobilePhone, addressNumber, province, income, email, load])
 
   /** Busca o link no Asaas (sob demanda) e devolve os dados da mensagem. */
   const fetchLink = useCallback(async (id: string): Promise<PaymentLink | null> => {
@@ -371,6 +384,24 @@ export default function EligiClubCobrancaPage() {
           <label style={LABEL}>Celular do responsável</label>
           <input style={INPUT} value={mobilePhone} onChange={e => setMobilePhone(maskPhone(e.target.value))}
             placeholder="(11) 99999-9999" inputMode="numeric" autoComplete="tel" />
+
+          <label style={LABEL}>
+            E-mail da conta de pagamentos <span style={{ fontWeight: 400, color: '#9a9aa2' }}>(opcional)</span>
+          </label>
+          <input
+            id="club-asaas-email"
+            style={INPUT}
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="deixe em branco para usar o e-mail da sua conta"
+            inputMode="email"
+            autoComplete="email"
+            type="email"
+          />
+          <div style={{ fontSize: 11, color: '#9a9aa2', margin: '-8px 0 14px', lineHeight: 1.45 }}>
+            Se você já tem conta no Asaas, informe um e-mail diferente aqui — cada conta precisa
+            de um e-mail próprio.
+          </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 1 }}>
