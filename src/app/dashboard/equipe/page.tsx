@@ -1,28 +1,46 @@
 'use client'
 // src/app/dashboard/equipe/page.tsx
+// @eligi:equipe-two-tabs
+// Equipe — casca com DUAS abas: Profissionais e Acessos.
+//
+// Antes eram quatro (FUNCIONÁRIOS / HORÁRIOS / COMISSÕES / ACESSOS), e elas
+// mentiam sobre o escopo: "Funcionários" era uma lista, mas "Horários" e
+// "Comissões" mostravam UMA pessoa, com um "Voltar" escondido dentro do card.
+// Eram dois niveis de navegacao disputando a mesma tela — e em 380px a quarta
+// aba encostava na borda.
+//
+// Agora: horarios e comissoes sao abas INTERNAS do detalhe da pessoa
+// (ProfessionalDetail). "Acessos" continua no topo porque e legitimamente uma
+// lista global — convites, papeis, revogacao — e nao cabe dentro de uma ficha.
+//
+// Mestre-detalhe por LARGURA, nao por device mode: lista e detalhe sao sempre
+// renderizados e o @media decide se aparecem lado a lado (>=900px) ou um de
+// cada vez. useDeviceMode classifica tipo de ponteiro, e era o que cortava a
+// tela em janela estreita de desktop.
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, UserCog } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
-import { colors, typography, transitions } from '@/shared/theme'
-import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
+import { colors, typography } from '@/shared/theme'
 import { Professional, ServiceItem } from '@/features/professionals/types'
 
 import AddProfessionalModal from './components/AddProfessionalModal'
-import FuncionariosTab      from './components/FuncionariosTab'
-import HorariosTab          from './components/HorariosTab'
-import ComissoesTab         from './components/ComissoesTab'
 import AcessosTab           from './components/AcessosTab'
+import TeamList             from './components/TeamList'
+import ProfessionalDetail   from './components/ProfessionalDetail'
 
-type TabId = 'funcionarios' | 'horarios' | 'comissoes' | 'acessos'
-type MobileLevel = 'list' | 'categories' | 'editor'
+type TabId = 'profissionais' | 'acessos'
+
+const TABS: Array<{ id: TabId; label: string }> = [
+  { id: 'profissionais', label: 'Profissionais' },
+  { id: 'acessos',       label: 'Acessos' },
+]
+
+const TAP = 44
 
 export default function EquipePage() {
-  const mode = useDeviceMode()
-  const isMobile = mode === 'mobile'
-
-  const [tab,           setTab]           = useState<TabId>('funcionarios')
+  const [tab,           setTab]           = useState<TabId>('profissionais')
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [allServices,   setAllServices]   = useState<ServiceItem[]>([])
   const [loading,       setLoading]       = useState(true)
@@ -30,11 +48,12 @@ export default function EquipePage() {
   const [query,         setQuery]         = useState('')
   const [showAdd,       setShowAdd]       = useState(false)
 
-  // Mobile: estado de drill-down (compartilhado entre tabs)
-  const [mobileShowDetail, setMobileShowDetail] = useState(false)
-  const [comissoesMobileLevel, setComissoesMobileLevel] = useState<MobileLevel>('list')
+  /**
+   * So governa a tela estreita: acima de 900px lista e detalhe convivem e este
+   * estado e ignorado pelo CSS.
+   */
+  const [detailOpen, setDetailOpen] = useState(false)
 
-  // ─── Fetch ──────────────────────────────────────────────────────
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     try {
       const [profRes, svcRes] = await Promise.all([
@@ -52,8 +71,9 @@ export default function EquipePage() {
       setProfessionals(profsList)
       setAllServices(svcsList)
 
-      // Auto-select primeiro só no desktop
-      if (!isMobile && profsList.length > 0) {
+      // Pre-seleciona sempre: na tela larga o detalhe ja nasce preenchido, e na
+      // estreita o detailOpen mantem a lista na frente.
+      if (profsList.length > 0) {
         setSelected(prev => prev ?? profsList[0])
       }
     } catch {
@@ -64,7 +84,7 @@ export default function EquipePage() {
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [isMobile])
+  }, [])
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -72,256 +92,235 @@ export default function EquipePage() {
     return () => ctrl.abort()
   }, [fetchData])
 
-  // ─── Handlers ───────────────────────────────────────────────────
   function handleUpdated(updated: Professional) {
-    setProfessionals(prev => prev.map(p => p.id === updated.id ? updated : p))
-    setSelected(prev => prev?.id === updated.id ? updated : prev)
+    setProfessionals(prev => prev.map(p => (p.id === updated.id ? updated : p)))
+    setSelected(prev => (prev?.id === updated.id ? updated : prev))
   }
 
   function handleDeleted(id: string) {
     setProfessionals(prev => {
       const next = prev.filter(p => p.id !== id)
-      setSelected(curr => {
-        if (curr?.id !== id) return curr
-        return next[0] ?? null
-      })
+      setSelected(curr => (curr?.id !== id ? curr : next[0] ?? null))
       return next
     })
-    if (isMobile) {
-      setMobileShowDetail(false)
-      setComissoesMobileLevel('list')
-    }
+    setDetailOpen(false)
   }
 
   function handleCreated(prof: Professional) {
     setProfessionals(prev => [...prev, prof])
     setSelected(prof)
     setShowAdd(false)
-    if (isMobile) {
-      setMobileShowDetail(true)
-    }
+    setDetailOpen(true)
   }
 
   async function handleDelete(id: string) {
     await api.delete(`/equipe/${id}`)
   }
 
-  function handleTabChange(newTab: TabId) {
-    setTab(newTab)
-    // Quando troca de tab no mobile, sempre volta pra lista
-    if (isMobile) {
-      setMobileShowDetail(false)
-      setComissoesMobileLevel('list')
-    }
-  }
-
-  function handleSelectProf(p: Professional) {
+  function handleSelect(p: Professional) {
     setSelected(p)
+    setDetailOpen(true)
   }
 
   const activeCount = professionals.filter(p => p.active).length
+  const withAccess  = professionals.filter(p => p.userId).length
 
-  // Filtra profissionais
   const filtered = professionals.filter(p =>
     p.name.toLowerCase().includes(query.toLowerCase()) ||
-    (p.role ?? '').toLowerCase().includes(query.toLowerCase())
+    (p.role ?? '').toLowerCase().includes(query.toLowerCase()),
   )
 
-  // ─── Render tabs ────────────────────────────────────────────────
-  const TABS: Array<{ id: TabId; label: string }> = [
-    { id: 'funcionarios', label: 'Funcionários' },
-    { id: 'horarios',     label: 'Horários' },
-    { id: 'comissoes',    label: 'Comissões' },
-    { id: 'acessos',      label: 'Acessos' },
-  ]
+  const subtitle = loading
+    ? 'Carregando…'
+    : `${activeCount} ${activeCount === 1 ? 'profissional ativo' : 'profissionais ativos'}`
+      + ` · ${withAccess} com acesso`
 
   return (
     <>
       <style>{`
         @keyframes eq-fade-up{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)} }
         @keyframes eq-spin{ to{transform:rotate(360deg)} }
+
+        .eq-page{ max-width:1180px; padding:0; }
+        .eq-split{ display:grid; grid-template-columns:minmax(0,1fr); gap:14px; align-items:start; }
+
+        /* Largura suficiente: lista e detalhe lado a lado, sem "Voltar". */
+        @media (min-width: 900px){
+          .eq-split{ grid-template-columns:minmax(0,340px) minmax(0,1fr); }
+        }
+
+        /* Tela estreita: um de cada vez, escolhido pelo estado detailOpen. */
+        @media (max-width: 899px){
+          .eq-page{ padding:0 12px; }
+          .eq-mode-detail .eq-list{ display:none; }
+          .eq-mode-list   .eq-detail{ display:none; }
+        }
+
+        @media (prefers-reduced-motion: reduce){ .eq-page{ animation:none !important; } }
       `}</style>
 
       {showAdd && (
         <AddProfessionalModal
-          isMobile={isMobile}
+          isMobile={false}
           onCreated={handleCreated}
           onClose={() => setShowAdd(false)}
         />
       )}
 
-      <div style={{
-        padding: isMobile ? '0 12px' : 0,
-        animation: 'eq-fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both',
-        fontFamily: typography.fontFamily,
-      }}>
-        {/* ═══════════ HEADER ═══════════ */}
+      <div
+        className="eq-page"
+        style={{
+          animation:  'eq-fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both',
+          fontFamily: typography.fontFamily,
+        }}
+      >
+        {/* cabecalho */}
         <div style={{
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
-          marginBottom: isMobile ? 12 : 16,
-          gap: 12,
+          display:        'flex',
+          alignItems:     'flex-start',
+          justifyContent: 'space-between',
+          gap:            12,
+          marginBottom:   14,
         }}>
           <div style={{ minWidth: 0 }}>
-            <h2 style={{
-              fontSize: isMobile ? 22 : typography.scale['2xl'],
-              fontWeight: 700,
+            <h1 style={{
+              margin:        0,
+              fontFamily:    "'Space Grotesk', " + typography.fontFamily,
+              fontSize:      'clamp(24px, 6vw, 30px)',
+              fontWeight:    700,
               letterSpacing: '-0.025em',
-              color: typography.color.primary,
-              margin: 0,
-              lineHeight: 1.2,
+              lineHeight:    1.1,
+              color:         colors.gray[900],
             }}>
               Equipe
-            </h2>
-            {!isMobile && (
-              <p style={{ fontSize: 14, color: typography.color.muted, margin: '4px 0 0' }}>
-                {loading ? 'Carregando...' : `${activeCount} ativo${activeCount !== 1 ? 's' : ''}`}
-              </p>
-            )}
+            </h1>
+            <p style={{
+              margin:     '4px 0 0',
+              fontSize:   13,
+              color:      colors.gray.dimText,
+              lineHeight: 1.4,
+            }}>
+              {subtitle}
+            </p>
           </div>
 
           <button
+            type="button"
             onClick={() => setShowAdd(true)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: isMobile ? '9px 14px' : '9px 18px',
-              borderRadius: 12,
-              border: 'none',
-              background: colors.red.gradient,
-              color: '#fff',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: `0 4px 14px ${colors.red.glow}`,
-              letterSpacing: '.02em',
-              flexShrink: 0,
+              flexShrink:              0,
+              minHeight:               TAP,
+              display:                 'inline-flex',
+              alignItems:              'center',
+              gap:                     6,
+              padding:                 '0 18px',
+              borderRadius:            999,
+              border:                  'none',
+              background:              colors.red.gradient,
+              color:                   '#fff',
+              fontSize:                13.5,
+              fontWeight:              700,
+              fontFamily:              'inherit',
+              cursor:                  'pointer',
+              boxShadow:               `0 4px 14px ${colors.red.glow}`,
               WebkitTapHighlightColor: 'transparent',
-              fontFamily: 'inherit',
             }}
           >
-            <Plus size={15} strokeWidth={2.5} />
-            {isMobile ? 'Novo' : 'Adicionar'}
+            <Plus size={16} strokeWidth={2.6} />
+            Novo
           </button>
         </div>
 
-        {/* ═══════════ CONTAINER COM ABAS ═══════════ */}
+        {/* duas abas — cabem folgado ate em 320px */}
         <div style={{
-          background: isMobile ? 'transparent' : 'rgba(255,255,255,0.72)',
-          backdropFilter: isMobile ? undefined : 'blur(20px) saturate(160%)',
-          WebkitBackdropFilter: isMobile ? undefined : 'blur(20px) saturate(160%)',
-          borderRadius: isMobile ? 0 : 20,
-          border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.60)',
-          boxShadow: isMobile ? 'none' : '0 2px 0 rgba(255,255,255,0.85) inset, 0 8px 28px rgba(0,0,0,0.06)',
-          overflow: isMobile ? 'visible' : 'hidden',
+          display:      'flex',
+          gap:          4,
+          padding:      4,
+          borderRadius: 999,
+          background:   'rgba(17,17,20,0.05)',
+          marginBottom: 14,
         }}>
-
-          {/* TABS NO TOPO */}
-          <div style={{
-            display: 'flex',
-            gap: 0,
-            padding: isMobile ? 0 : '0 20px',
-            background: isMobile ? 'rgba(255,255,255,0.85)' : 'transparent',
-            backdropFilter: isMobile ? 'blur(20px)' : undefined,
-            borderRadius: isMobile ? 12 : 0,
-            border: isMobile ? `1px solid ${colors.gray.border}` : 'none',
-            borderBottom: !isMobile ? `1px solid ${colors.gray.border}` : `1px solid ${colors.gray.border}`,
-            marginBottom: isMobile ? 12 : 0,
-            overflow: 'hidden',
-          }}>
-            {TABS.map(t => {
-              const isActive = tab === t.id
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => handleTabChange(t.id)}
-                  style={{
-                    flex: isMobile ? 1 : '0 0 auto',
-                    padding: isMobile ? '12px 4px' : '13px 20px',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    fontSize: isMobile ? 11 : 12,
-                    fontWeight: 700,
-                    fontFamily: 'inherit',
-                    color: isActive ? colors.red.DEFAULT : colors.gray.dimText,
-                    borderBottom: isActive
-                      ? `2px solid ${colors.red.DEFAULT}`
-                      : '2px solid transparent',
-                    transition: `all ${transitions.fast}`,
-                    letterSpacing: '.04em',
-                    textTransform: 'uppercase',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  {t.label}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* CONTEÚDO DA TAB */}
-          <div style={{
-            minHeight: isMobile ? 400 : 'calc(100vh - 220px)',
-            height: isMobile ? 'auto' : 'calc(100vh - 220px)',
-          }}>
-            {tab === 'funcionarios' && (
-              <FuncionariosTab
-                professionals={filtered}
-                allServices={allServices}
-                selected={selected}
-                query={query}
-                loading={loading}
-                isMobile={isMobile}
-                showMobilePanel={mobileShowDetail}
-                onQueryChange={setQuery}
-                onSelect={handleSelectProf}
-                onUpdated={handleUpdated}
-                onDeleted={handleDeleted}
-                onMobileBack={() => setMobileShowDetail(false)}
-                onMobileOpen={() => setMobileShowDetail(true)}
-                onDelete={handleDelete}
-              />
-            )}
-
-            {tab === 'horarios' && (
-              <HorariosTab
-                professionals={filtered}
-                selected={selected}
-                query={query}
-                loading={loading}
-                isMobile={isMobile}
-                showMobilePanel={mobileShowDetail}
-                onQueryChange={setQuery}
-                onSelect={handleSelectProf}
-                onMobileBack={() => setMobileShowDetail(false)}
-                onMobileOpen={() => setMobileShowDetail(true)}
-              />
-            )}
-
-            {tab === 'comissoes' && (
-              <ComissoesTab
-                professionals={filtered}
-                allServices={allServices}
-                selected={selected}
-                query={query}
-                loading={loading}
-                isMobile={isMobile}
-                mobileLevel={comissoesMobileLevel}
-                onQueryChange={setQuery}
-                onSelect={handleSelectProf}
-                onUpdated={handleUpdated}
-                onMobileLevel={setComissoesMobileLevel}
-              />
-            )}
-
-            {tab === 'acessos' && (
-              <AcessosTab
-                professionals={professionals}
-                isMobile={isMobile}
-                loading={loading}
-              />
-            )}
-          </div>
+          {TABS.map(t => {
+            const active = tab === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                aria-pressed={active}
+                style={{
+                  flex:                    1,
+                  minHeight:               TAP - 8,
+                  border:                  'none',
+                  borderRadius:            999,
+                  background:              active ? '#fff' : 'transparent',
+                  boxShadow:               active ? '0 2px 8px rgba(17,17,20,0.10)' : 'none',
+                  color:                   active ? colors.gray[900] : colors.gray.dimText,
+                  fontSize:                13.5,
+                  fontWeight:              700,
+                  fontFamily:              'inherit',
+                  cursor:                  'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                {t.label}
+              </button>
+            )
+          })}
         </div>
+
+        {tab === 'acessos' ? (
+          <AcessosTab
+            professionals={professionals}
+            isMobile={false}
+            loading={loading}
+          />
+        ) : (
+          <div className={`eq-split ${detailOpen ? 'eq-mode-detail' : 'eq-mode-list'}`}>
+            <div className="eq-list" style={{ minWidth: 0 }}>
+              <TeamList
+                professionals={filtered}
+                selected={selected}
+                query={query}
+                loading={loading}
+                onQueryChange={setQuery}
+                onSelect={handleSelect}
+              />
+            </div>
+
+            <div className="eq-detail" style={{ minWidth: 0 }}>
+              {selected ? (
+                <ProfessionalDetail
+                  key={selected.id}
+                  prof={selected}
+                  allServices={allServices}
+                  onBack={() => setDetailOpen(false)}
+                  onUpdated={handleUpdated}
+                  onDeleted={handleDeleted}
+                  onDelete={handleDelete}
+                />
+              ) : (
+                <div style={{
+                  display:        'flex',
+                  flexDirection:  'column',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  gap:            10,
+                  padding:        '56px 24px',
+                  borderRadius:   24,
+                  background:     'rgba(255,255,255,0.6)',
+                  border:         '1px solid rgba(17,17,20,0.07)',
+                  color:          colors.gray.dimText,
+                }}>
+                  <UserCog size={30} style={{ opacity: 0.2 }} />
+                  <span style={{ fontSize: 13 }}>
+                    {loading ? 'Carregando…' : 'Selecione um profissional'}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </>
   )
