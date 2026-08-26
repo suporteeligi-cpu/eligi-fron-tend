@@ -52,6 +52,15 @@ const QUICK_DURATIONS = [15, 20, 30, 40, 45, 60, 90, 120]
 /** O schema do back exige duracao minima de 5 minutos. */
 const MIN_DURATION = 5
 
+// @eligi:pricemode-const
+// FIXED = cobrado exatamente como esta na tabela.
+// FROM  = `price` e o PISO; o valor final e digitado no caixa e gravado em
+//         SaleItem.unitPriceOverride (com priceOverridden/catalogUnitPrice).
+const PRICE_MODES: { value: 'FIXED' | 'FROM'; label: string; hint: string }[] = [
+  { value: 'FIXED', label: 'Valor fixo',  hint: 'Cobrado exatamente como está na tabela.' },
+  { value: 'FROM',  label: 'A partir de', hint: 'Você define o valor final na hora de fechar no caixa.' },
+]
+
 function getInitials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase()
 }
@@ -63,6 +72,8 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
   const [categoryId,  setCategoryId]  = useState<string>(service?.categoryId ?? '')
   const [duration,    setDuration]    = useState(service?.duration    ?? 30)
   const [price,       setPrice]       = useState<string>(service?.price != null ? String(service.price) : '')
+  /* @eligi:pricemode-state */
+  const [priceMode,   setPriceMode]   = useState<'FIXED' | 'FROM'>(service?.priceMode ?? 'FIXED')
   const [description, setDescription] = useState(service?.description ?? '')
   const [color,       setColor]       = useState<string>(service?.color ?? DEFAULT_SERVICE_COLOR)
   const [saving,      setSaving]      = useState(false)
@@ -114,6 +125,14 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
   async function handleSave() {
     if (!name.trim()) { setError('Nome é obrigatório'); return }
     if (duration < MIN_DURATION) { setError(`Duração mínima é ${MIN_DURATION} minutos`); return }
+    // @eligi:pricemode-validate
+    // Espelha a regra que o back ja aplica em updateService. O front valida para
+    // dar retorno imediato; o back valida porque cliente nao e confiavel.
+    // `!(n > 0)` cobre vazio, NaN, zero e negativo de uma vez.
+    if (priceMode === 'FROM' && !(Number(price) > 0)) {
+      setError('Serviço "a partir de" precisa de um valor mínimo maior que zero')
+      return
+    }
     try {
       setSaving(true); setError(null)
       const selectedCat = categories.find(c => c.id === categoryId)
@@ -121,6 +140,7 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
         name:        name.trim(),
         duration,
         price:       price !== '' ? Number(price) : undefined,
+        priceMode,   // @eligi:pricemode-payload
         description: description.trim() || undefined,
         categoryId:  categoryId || null,
         category:    selectedCat?.name ?? undefined,
@@ -397,9 +417,70 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
             <ColorPicker selected={color} onSelect={setColor} />
           </div>
 
+          {/* @eligi:pricemode-ui — modo de cobranca */}
+          <div style={fieldGap}>
+            <label style={labelStyle}>Como esse serviço é cobrado</label>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {PRICE_MODES.map((m) => {
+                const selected = priceMode === m.value
+                return (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setPriceMode(m.value)}
+                    aria-pressed={selected}
+                    style={{
+                      display:    'flex',
+                      alignItems: 'flex-start',
+                      gap:        11,
+                      width:      '100%',
+                      textAlign:  'left',
+                      cursor:     'pointer',
+                      padding:    '12px 14px',
+                      borderRadius: radius.md,
+                      border:     `1.5px solid ${selected ? colors.red.DEFAULT : colors.gray.borderMd}`,
+                      background: selected ? colors.red.subtle : '#fff',
+                      transition: 'border-color .15s, background .15s',
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      style={{
+                        width: 17, height: 17, borderRadius: '50%', flexShrink: 0, marginTop: 1,
+                        border: `2px solid ${selected ? colors.red.DEFAULT : colors.gray.borderMd}`,
+                        background: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      {selected && (
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: colors.red.DEFAULT }} />
+                      )}
+                    </span>
+                    <span>
+                      <span style={{
+                        display:      'block',
+                        fontSize:     13.5,
+                        fontWeight:   typography.weight.medium,
+                        color:        selected ? colors.red.DEFAULT : colors.gray[900],
+                        marginBottom: 2,
+                      }}>
+                        {m.label}
+                      </span>
+                      <span style={{ display: 'block', fontSize: 12, color: colors.gray.dimText, lineHeight: 1.45 }}>
+                        {m.hint}
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* preco */}
           <div style={fieldGap}>
-            <label style={labelStyle} htmlFor="svc-price">Preço (R$)</label>
+            <label style={labelStyle} htmlFor="svc-price">
+              {priceMode === 'FROM' ? 'Valor mínimo (R$)' : 'Preço (R$)'}
+            </label>
             <div style={{ position: 'relative' }}>
               <span style={{
                 position: 'absolute', left: 14, top: '50%',
@@ -408,7 +489,7 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
                 fontWeight: typography.weight.medium,
                 pointerEvents: 'none',
               }}>
-                R$
+                {priceMode === 'FROM' ? 'a partir de R$' : 'R$'}
               </span>
               <input
                 id="svc-price"
@@ -420,9 +501,24 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
                 placeholder="0,00"
                 value={price}
                 onChange={e => setPrice(e.target.value)}
-                style={{ paddingLeft: 42 }}
+                style={{ paddingLeft: priceMode === 'FROM' ? 116 : 42 }}
               />
             </div>
+            {priceMode === 'FROM' && (
+              <div style={{
+                marginTop:    10,
+                padding:      '10px 12px',
+                borderRadius: radius.sm,
+                border:       `1px dashed ${colors.gray.borderMd}`,
+                fontSize:     12,
+                color:        colors.gray.dimText,
+                lineHeight:   1.5,
+              }}>
+                O cliente vê <strong style={{ color: colors.gray[900] }}>&quot;a partir de&quot;</strong> no
+                link online e o valor final é definido no caixa. Serviços com valor
+                variável não entram em pacotes, assinaturas nem no EligiClub.
+              </div>
+            )}
           </div>
 
           {/* descricao */}

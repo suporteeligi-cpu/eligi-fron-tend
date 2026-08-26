@@ -13,6 +13,10 @@ export interface Service {
   name:            string
   duration:        number
   price:           number | null
+  // @eligi:pricemode-type
+  // OPCIONAL de proposito: o back sempre envia (default FIXED), mas exigir o
+  // campo quebraria qualquer objeto Service montado a mao no repo.
+  priceMode?:      'FIXED' | 'FROM'
   description:     string | null
   category:        string | null      // legado — texto livre
   categoryId:      string | null      // novo — FK para ServiceCategory
