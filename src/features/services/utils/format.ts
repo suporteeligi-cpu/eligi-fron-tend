@@ -1,6 +1,7 @@
 // src/features/services/utils/format.ts
-import { Service } from '../types'
+// @eligi:service-money-intl
 
+/** Ex.: 90 -> "1h 30min" */
 export function formatDuration(min: number): string {
   const h = Math.floor(min / 60)
   const m = min % 60
@@ -9,29 +10,14 @@ export function formatDuration(min: number): string {
   return `${m}min`
 }
 
+// Separador de milhar via Intl. O `toFixed(2).replace('.', ',')` anterior
+// produzia "R$ 1200,00" — e desde a fatia 2 o preco aparece em destaque na
+// lista, onde o numero sem ponto faz o olho tropecar.
+// Escopo desta correcao: SO o modulo de servicos. As outras copias de
+// formatacao de dinheiro espalhadas pelo repo sao refactor proprio.
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+
 export function formatPrice(p: number | null | undefined): string {
   if (p == null) return '—'
-  return `R$ ${p.toFixed(2).replace('.', ',')}`
-}
-
-/**
- * Agrupa serviços por categoria.
- * Prioridade: serviceCategory.name → category (texto legado) → 'Sem categoria'
- * Ordena grupos pela order da categoria estruturada, depois alfabético.
- */
-export function groupByCategory(services: Service[]): Record<string, Service[]> {
-  const acc: Record<string, Service[]> = {}
-  const orderMap: Record<string, number> = {}
-
-  for (const s of services) {
-    const key   = s.serviceCategory?.name ?? s.category?.trim() ?? 'Sem categoria'
-    const order = s.serviceCategory?.order ?? 999
-    if (!acc[key]) { acc[key] = []; orderMap[key] = order }
-    acc[key].push(s)
-  }
-
-  // Retorna ordenado pela order da categoria
-  return Object.fromEntries(
-    Object.entries(acc).sort(([a], [b]) => (orderMap[a] ?? 999) - (orderMap[b] ?? 999) || a.localeCompare(b))
-  )
+  return BRL.format(p)
 }

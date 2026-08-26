@@ -1,13 +1,33 @@
 'use client'
 // src/app/dashboard/servicos/components/ServiceModal.tsx
+// @eligi:service-modal-v2
+// Criar e editar servico. LOGICA DE SALVAMENTO PRESERVADA: mesmo payload,
+// mesmas rotas (POST/PUT /services e PUT /services/:id/professionals), mesma
+// ordem. So a forma de escolher mudou.
+//
+// O que sai:
+//   - os DOIS <select> de duracao (horas e minutos). No iOS viram roda, no
+//     Android viram menu, e escolher "1h" + "30min" eram quatro toques de
+//     precisao. Agora sao chips iguais aos do cartao da lista — o lojista
+//     aprende uma vez e reconhece nos dois lugares.
+//   - o <select> invisivel de categoria (opacity 0 sobreposto ao visual):
+//     virou chip, com a cor da categoria a vista.
+//   - o <img> cru do avatar do profissional, ultimo warning de lint do modulo.
+//     Virou span com background-image: mesma foto, sem a tag que o next
+//     reclama, e sem precisar configurar remotePatterns.
+//   - `isMobile` decidindo layout: agora e @media.
+//
+// A PALETA DE CORES NAO MUDA: e a mesma da agenda. Ver ColorPicker.
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ChevronDown, Users } from 'lucide-react'
+import { X, Users, Check, Clock } from 'lucide-react'
+
 import api from '@/shared/lib/apiClient'
-import { colors, typography, radius, shadows, glass } from '@/shared/theme'
+import { colors, typography, radius } from '@/shared/theme'
 import { Service, ServiceCategory } from '@/features/services/types'
 import { DEFAULT_SERVICE_COLOR } from '@/features/services/constants/colorPalette'
+import { formatDuration } from '@/features/services/utils/format'
 import ColorPicker from './ColorPicker'
 
 interface ProfLite {
@@ -20,19 +40,23 @@ interface ProfLite {
 interface Props {
   service:    Service | null
   categories: ServiceCategory[]
-  isMobile:   boolean
   onClose:    () => void
   onSaved:    (s: Service, isNew: boolean) => void
 }
 
-const HOUR_OPTIONS   = Array.from({ length: 13 }, (_, i) => i)
-const MINUTE_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+const TAP = 44
+
+/** Duracoes que cobrem a maioria dos servicos de salao e barbearia. */
+const QUICK_DURATIONS = [15, 20, 30, 40, 45, 60, 90, 120]
+
+/** O schema do back exige duracao minima de 5 minutos. */
+const MIN_DURATION = 5
 
 function getInitials(name: string) {
-  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+  return name.trim().split(/\s+/).slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase()
 }
 
-export default function ServiceModal({ service, categories, isMobile, onClose, onSaved }: Props) {
+export default function ServiceModal({ service, categories, onClose, onSaved }: Props) {
   const isEdit = !!service
 
   const [name,        setName]        = useState(service?.name        ?? '')
@@ -44,13 +68,14 @@ export default function ServiceModal({ service, categories, isMobile, onClose, o
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState<string | null>(null)
 
+  /** Duracao fora da lista de chips abre o campo livre, ja preenchido. */
+  const [customOpen, setCustomOpen] = useState(
+    () => !QUICK_DURATIONS.includes(service?.duration ?? 30),
+  )
+
   const [allProfs,      setAllProfs]      = useState<ProfLite[]>([])
   const [selectedProfs, setSelectedProfs] = useState<Set<string>>(new Set())
   const [profsLoading,  setProfsLoading]  = useState(false)
-
-  const durationH = Math.floor(duration / 60)
-  const durationM = duration % 60
-  function setDurationHM(h: number, m: number) { setDuration(h * 60 + m) }
 
   useEffect(() => {
     let cancelled = false
@@ -88,7 +113,7 @@ export default function ServiceModal({ service, categories, isMobile, onClose, o
 
   async function handleSave() {
     if (!name.trim()) { setError('Nome é obrigatório'); return }
-    if (duration < 5) { setError('Duração mínima é 5 minutos'); return }
+    if (duration < MIN_DURATION) { setError(`Duração mínima é ${MIN_DURATION} minutos`); return }
     try {
       setSaving(true); setError(null)
       const selectedCat = categories.find(c => c.id === categoryId)
@@ -101,7 +126,7 @@ export default function ServiceModal({ service, categories, isMobile, onClose, o
         category:    selectedCat?.name ?? undefined,
         color,
       }
-      const res  = isEdit
+      const res = isEdit
         ? await api.put(`/services/${service!.id}`, payload)
         : await api.post('/services', payload)
       const saved = res.data?.data ?? res.data
@@ -121,190 +146,316 @@ export default function ServiceModal({ service, categories, isMobile, onClose, o
   if (typeof document === 'undefined') return null
 
   const labelStyle: React.CSSProperties = {
-    fontSize: typography.scale.xs, fontWeight: typography.weight.bold,
-    color: typography.color.muted, letterSpacing: '0.06em',
-    textTransform: 'uppercase', marginBottom: 6, display: 'block',
+    fontSize:      11,
+    fontWeight:    typography.weight.bold,
+    color:         colors.gray.dimText,
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
+    marginBottom:  8,
+    display:       'block',
   }
-  const fieldGap: React.CSSProperties = { marginBottom: isMobile ? 18 : 16 }
-  const selectedCat = categories.find(c => c.id === categoryId)
+
+  const fieldGap: React.CSSProperties = { marginBottom: 20 }
 
   return createPortal(
     <>
-      <div onClick={onClose} style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.30)',
-        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-        zIndex: 9998, animation: 'svc-mod-fade 0.18s ease',
-      }} />
+      <style>{`
+        @keyframes svc-fade { from{opacity:0} to{opacity:1} }
+        @keyframes svc-up   { from{transform:translateY(100%)} to{transform:translateY(0)} }
+        @keyframes svc-in   { from{opacity:0;transform:translate(-50%,-50%) scale(.96)}
+                              to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
 
-      <div style={isMobile ? {
-        position: 'fixed', bottom: 0, left: 0, right: 0, top: 60,
-        background: 'rgba(255,255,255,0.99)', borderRadius: '24px 24px 0 0',
-        boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', zIndex: 9999,
-        display: 'flex', flexDirection: 'column', fontFamily: typography.fontFamily,
-        animation: 'svc-mod-up 0.30s cubic-bezier(0.34, 1.2, 0.64, 1)',
-      } : {
-        position: 'fixed', top: '50%', left: '50%',
-        transform: 'translate(-50%,-50%)',
-        width: 500, maxWidth: '94vw', maxHeight: '92vh',
-        background: 'rgba(255,255,255,0.96)',
-        backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)',
-        borderRadius: radius['2xl'], border: `1px solid ${colors.gray.borderMd}`,
-        boxShadow: shadows.lg, zIndex: 9999,
-        display: 'flex', flexDirection: 'column', fontFamily: typography.fontFamily,
-        animation: 'svc-mod-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-      }}>
-        <style>{`
-          @keyframes svc-mod-fade { from{opacity:0} to{opacity:1} }
-          @keyframes svc-mod-in   { from{opacity:0;transform:translate(-50%,-50%) scale(.95)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
-          @keyframes svc-mod-up   { from{transform:translateY(100%)} to{transform:translateY(0)} }
-          .svc-input{
-            width:100%; padding:${isMobile ? '12px 14px' : '10px 14px'};
-            border-radius:${radius.md}px; border:1px solid ${colors.gray.borderMd};
-            background:${colors.background.surface}; color:${typography.color.primary};
-            font-size:${typography.scale.base}px; outline:none; box-sizing:border-box;
-            font-family:${typography.fontFamily}; transition:border-color .15s,box-shadow .15s;
+        .svc-input{
+          width:100%; min-height:${TAP}px; padding:0 14px;
+          border-radius:${radius.md}px; border:1px solid ${colors.gray.borderMd};
+          background:#fff; color:${colors.gray[900]};
+          /* 16px evita o zoom automatico do iOS ao focar o campo */
+          font-size:16px; outline:none; box-sizing:border-box;
+          font-family:${typography.fontFamily};
+          transition:border-color .15s, box-shadow .15s;
+        }
+        textarea.svc-input{ padding:12px 14px; min-height:80px; line-height:1.5; resize:vertical }
+        .svc-input:focus{ border-color:${colors.red.borderHover};
+                          box-shadow:0 0 0 3px ${colors.red.focusRing} }
+
+        .svc-chips{ display:flex; gap:7px; overflow-x:auto; padding-bottom:4px;
+                    scrollbar-width:none; -ms-overflow-style:none }
+        .svc-chips::-webkit-scrollbar{ display:none }
+
+        /* Folha por baixo em tela estreita, caixa centrada quando ha espaco.
+           Antes isso era decidido por device mode, que classifica ponteiro. */
+        .svc-modal{
+          position:fixed; left:0; right:0; bottom:0; top:60px; z-index:9999;
+          background:#fff; border-radius:24px 24px 0 0;
+          box-shadow:0 -8px 40px rgba(0,0,0,0.18);
+          display:flex; flex-direction:column;
+          animation:svc-up .3s cubic-bezier(0.34,1.2,0.64,1);
+        }
+        .svc-handle{ width:44px;height:5px;border-radius:3px;background:rgba(0,0,0,.12);margin:10px auto 2px }
+        @media (min-width: 640px){
+          .svc-modal{
+            top:50%; left:50%; right:auto; bottom:auto;
+            transform:translate(-50%,-50%);
+            width:520px; max-width:94vw; max-height:92vh;
+            border-radius:${radius['2xl']}px;
+            border:1px solid ${colors.gray.borderMd};
+            animation:svc-in .25s cubic-bezier(0.34,1.56,0.64,1);
           }
-          .svc-input:focus{ border-color:${colors.red.borderHover}; box-shadow:0 0 0 3px ${colors.red.focusRing}; }
-          .svc-select{ appearance:none; cursor:pointer }
-          .svc-handle{ width:40px;height:4px;border-radius:2px;background:rgba(0,0,0,.12);margin:12px auto 4px }
-          .prof-chip:hover{ border-color:${colors.red.DEFAULT} !important; background:${colors.red.subtle} !important; }
-        `}</style>
+          .svc-handle{ display:none }
+        }
+        @media (prefers-reduced-motion: reduce){ .svc-modal{ animation:none } }
+      `}</style>
 
-        {isMobile && <div aria-hidden className="svc-handle" />}
+      <div
+        onClick={onClose}
+        style={{
+          position:             'fixed',
+          inset:                0,
+          background:           'rgba(0,0,0,0.30)',
+          backdropFilter:       'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          zIndex:               9998,
+          animation:            'svc-fade 0.18s ease',
+        }}
+      />
 
-        {/* Header */}
+      <div className="svc-modal" role="dialog" aria-label={isEdit ? 'Editar serviço' : 'Novo serviço'}
+        style={{ fontFamily: typography.fontFamily }}>
+        <div aria-hidden className="svc-handle" />
+
+        {/* cabecalho */}
         <div style={{
-          padding: isMobile ? '16px 20px 14px' : '20px 20px 16px',
+          padding:      '14px 20px',
           borderBottom: `1px solid ${colors.gray.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+          display:      'flex',
+          alignItems:   'center',
+          gap:          12,
+          flexShrink:   0,
         }}>
-          <h2 style={{ margin: 0, fontSize: isMobile ? 19 : 17, fontWeight: typography.weight.bold, color: typography.color.primary, letterSpacing: '-0.3px' }}>
+          <h2 style={{
+            margin:        0,
+            flex:          1,
+            minWidth:      0,
+            fontSize:      18,
+            fontWeight:    typography.weight.bold,
+            color:         colors.gray[900],
+            letterSpacing: '-0.02em',
+          }}>
             {isEdit ? 'Editar serviço' : 'Novo serviço'}
           </h2>
-          <button onClick={onClose} aria-label="Fechar" style={{
-            width: 32, height: 32, borderRadius: '50%',
-            border: `1px solid ${colors.gray.borderMd}`,
-            background: glass.surface.default.background,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            WebkitTapHighlightColor: 'transparent',
-          }}>
-            <X size={15} color={colors.gray.dimText} />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            style={{
+              width: TAP, height: TAP, flexShrink: 0,
+              display: 'grid', placeItems: 'center',
+              border: 'none', borderRadius: 14,
+              background: 'rgba(17,17,20,0.05)',
+              color: colors.gray.dimText,
+              cursor: 'pointer',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <X size={19} strokeWidth={2.4} />
           </button>
         </div>
 
-        {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 20, WebkitOverflowScrolling: 'touch' }}>
+        {/* corpo */}
+        <div style={{
+          flex:                    1,
+          overflowY:               'auto',
+          WebkitOverflowScrolling: 'touch',
+          padding:                 20,
+        }}>
           {error && (
             <div style={{
-              marginBottom: 16, padding: '10px 14px', borderRadius: radius.sm,
+              marginBottom: 16, padding: '11px 14px', borderRadius: radius.sm,
               background: colors.red.subtle, border: `1px solid ${colors.red.border}`,
-              color: '#b91c1c', fontSize: typography.scale.sm,
-            }}>{error}</div>
+              color: '#b91c1c', fontSize: 13,
+            }}>
+              {error}
+            </div>
           )}
 
-          {/* Nome */}
+          {/* nome */}
           <div style={fieldGap}>
-            <label style={labelStyle}>Nome do serviço *</label>
-            <input className="svc-input" placeholder="Ex: Corte Masculino" value={name}
-              onChange={e => setName(e.target.value)} autoFocus={!isEdit && !isMobile} />
+            <label style={labelStyle} htmlFor="svc-name">Nome do serviço *</label>
+            <input
+              id="svc-name"
+              className="svc-input"
+              placeholder="Ex: Corte Masculino"
+              value={name}
+              onChange={e => setName(e.target.value)}
+            />
           </div>
 
-          {/* Cor */}
+          {/* duracao */}
           <div style={fieldGap}>
-            <label style={labelStyle}>Cor</label>
-            <ColorPicker selected={color} onSelect={setColor} />
-          </div>
+            <label style={labelStyle}>Duração *</label>
+            <div className="svc-chips">
+              {QUICK_DURATIONS.map(d => {
+                const active = !customOpen && duration === d
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => { setDuration(d); setCustomOpen(false) }}
+                    aria-pressed={active}
+                    style={chipStyle(active)}
+                  >
+                    {active && <Check size={13} strokeWidth={2.6} />}
+                    {formatDuration(d)}
+                  </button>
+                )
+              })}
+              <button
+                type="button"
+                onClick={() => setCustomOpen(true)}
+                aria-pressed={customOpen}
+                style={chipStyle(customOpen)}
+              >
+                <Clock size={13} strokeWidth={2.2} />
+                Outro
+              </button>
+            </div>
 
-          {/* Categoria */}
-          <div style={fieldGap}>
-            <label style={labelStyle}>Categoria</label>
-            {categories.length === 0 ? (
+            {customOpen && (
               <div style={{
-                padding: '10px 14px', borderRadius: radius.md,
-                border: `1px dashed ${colors.gray.borderMd}`,
-                fontSize: typography.scale.sm, color: typography.color.muted,
+                display:    'flex',
+                alignItems: 'center',
+                gap:        10,
+                marginTop:  10,
               }}>
-                Nenhuma categoria cadastrada. Crie uma clicando em &quot;Categorias&quot; na página de serviços.
-              </div>
-            ) : (
-              <div style={{ position: 'relative' }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: isMobile ? '12px 14px' : '10px 14px',
-                  borderRadius: radius.md, border: `1px solid ${colors.gray.borderMd}`,
-                  background: colors.background.surface, cursor: 'pointer', position: 'relative',
-                }}>
-                  {selectedCat && (
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: selectedCat.color ?? colors.gray.dimText, flexShrink: 0 }} />
-                  )}
-                  <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
-                    className="svc-select"
-                    style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', cursor: 'pointer' }}>
-                    <option value="">Sem categoria</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <span style={{ flex: 1, fontSize: typography.scale.base, color: selectedCat ? typography.color.primary : typography.color.muted }}>
-                    {selectedCat?.name ?? 'Sem categoria'}
-                  </span>
-                  <ChevronDown size={14} color={colors.gray.dimText} style={{ flexShrink: 0 }} />
-                </div>
+                <input
+                  className="svc-input"
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_DURATION}
+                  step={5}
+                  value={duration}
+                  onChange={e => setDuration(Number(e.target.value))}
+                  aria-label="Duração em minutos"
+                  style={{ maxWidth: 130 }}
+                />
+                <span style={{ fontSize: 13.5, color: colors.gray.dimText }}>
+                  minutos {duration >= 60 && `· ${formatDuration(duration)}`}
+                </span>
               </div>
             )}
           </div>
 
-          {/* Duração */}
+          {/* categoria */}
           <div style={fieldGap}>
-            <label style={labelStyle}>Duração *</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {[
-                { opts: HOUR_OPTIONS,   val: durationH, set: (v: number) => setDurationHM(v, durationM), fmt: (v: number) => `${v}h` },
-                { opts: MINUTE_OPTIONS, val: durationM, set: (v: number) => setDurationHM(durationH, v), fmt: (v: number) => `${v}min` },
-              ].map((sel, i) => (
-                <div key={i} style={{ position: 'relative', flex: 1 }}>
-                  <select className="svc-input svc-select" value={sel.val} onChange={e => sel.set(Number(e.target.value))}>
-                    {sel.opts.map((o: number) => <option key={o} value={o}>{sel.fmt(o)}</option>)}
-                  </select>
-                  <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: 10, color: colors.gray.dimText }}>▾</div>
-                </div>
-              ))}
-            </div>
+            <label style={labelStyle}>Categoria</label>
+            {categories.length === 0 ? (
+              <div style={{
+                padding: '12px 14px', borderRadius: radius.md,
+                border: `1px dashed ${colors.gray.borderMd}`,
+                fontSize: 13, color: colors.gray.dimText,
+              }}>
+                Nenhuma categoria cadastrada. Crie uma em &quot;Categorias&quot;, na página de serviços.
+              </div>
+            ) : (
+              <div className="svc-chips">
+                <button
+                  type="button"
+                  onClick={() => setCategoryId('')}
+                  aria-pressed={categoryId === ''}
+                  style={chipStyle(categoryId === '')}
+                >
+                  Sem categoria
+                </button>
+                {categories.map(c => {
+                  const active = categoryId === c.id
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCategoryId(c.id)}
+                      aria-pressed={active}
+                      style={chipStyle(active)}
+                    >
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 9, height: 9, borderRadius: '50%', flexShrink: 0,
+                          background: c.color ?? colors.gray.dimText,
+                        }}
+                      />
+                      {c.name}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Preço */}
+          {/* cor */}
           <div style={fieldGap}>
-            <label style={labelStyle}>Preço (R$)</label>
+            <label style={labelStyle}>Cor na agenda</label>
+            <ColorPicker selected={color} onSelect={setColor} />
+          </div>
+
+          {/* preco */}
+          <div style={fieldGap}>
+            <label style={labelStyle} htmlFor="svc-price">Preço (R$)</label>
             <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: typography.scale.sm, color: colors.gray.dimText, fontWeight: typography.weight.medium }}>R$</span>
-              <input className="svc-input" type="number" inputMode="decimal" min="0" step="0.01"
-                placeholder="0,00" value={price} onChange={e => setPrice(e.target.value)} style={{ paddingLeft: 40 }} />
+              <span style={{
+                position: 'absolute', left: 14, top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: 14, color: colors.gray.dimText,
+                fontWeight: typography.weight.medium,
+                pointerEvents: 'none',
+              }}>
+                R$
+              </span>
+              <input
+                id="svc-price"
+                className="svc-input"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                placeholder="0,00"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+                style={{ paddingLeft: 42 }}
+              />
             </div>
           </div>
 
-          {/* Descrição */}
+          {/* descricao */}
           <div style={fieldGap}>
-            <label style={labelStyle}>Descrição (opcional)</label>
-            <textarea className="svc-input" placeholder="Descreva o serviço para seus clientes..."
-              value={description} onChange={e => setDescription(e.target.value)}
-              rows={isMobile ? 3 : 2} style={{ resize: 'vertical', lineHeight: 1.5 }} />
+            <label style={labelStyle} htmlFor="svc-desc">Descrição (opcional)</label>
+            <textarea
+              id="svc-desc"
+              className="svc-input"
+              placeholder="Descreva o serviço para seus clientes…"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+            />
           </div>
 
-          {/* Profissionais */}
+          {/* profissionais */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <Users size={13} color={typography.color.muted} />
-              <label style={{ ...labelStyle, marginBottom: 0 }}>Profissionais que executam</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+              <Users size={14} color={colors.gray.dimText} />
+              <span style={{ ...labelStyle, marginBottom: 0 }}>Quem executa</span>
             </div>
-            <div style={{ fontSize: typography.scale.xs, color: typography.color.muted, marginBottom: 10 }}>
+            <div style={{ fontSize: 12.5, color: colors.gray.dimText, marginBottom: 12, lineHeight: 1.45 }}>
               Selecione quem pode realizar este serviço. Deixe vazio para todos.
             </div>
 
             {profsLoading ? (
-              <div style={{ fontSize: typography.scale.sm, color: typography.color.muted, padding: '8px 0' }}>Carregando...</div>
+              <div style={{ fontSize: 13, color: colors.gray.dimText, padding: '8px 0' }}>
+                Carregando…
+              </div>
             ) : allProfs.length === 0 ? (
               <div style={{
-                padding: '10px 14px', borderRadius: radius.md,
+                padding: '12px 14px', borderRadius: radius.md,
                 border: `1px dashed ${colors.gray.borderMd}`,
-                fontSize: typography.scale.sm, color: typography.color.muted,
+                fontSize: 13, color: colors.gray.dimText,
               }}>
                 Nenhum profissional cadastrado ainda.
               </div>
@@ -313,42 +464,52 @@ export default function ServiceModal({ service, categories, isMobile, onClose, o
                 {allProfs.map(prof => {
                   const selected = selectedProfs.has(prof.id)
                   return (
-                    <button key={prof.id} type="button" className="prof-chip"
+                    <button
+                      key={prof.id}
+                      type="button"
                       onClick={() => toggleProf(prof.id)}
+                      aria-pressed={selected}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 7,
-                        padding: '6px 12px 6px 6px', borderRadius: 99,
-                        border: `1.5px solid ${selected ? colors.red.DEFAULT : colors.gray.borderMd}`,
-                        background: selected ? colors.red.subtle : '#fff',
-                        cursor: 'pointer', fontFamily: 'inherit',
-                        transition: 'all 0.15s', WebkitTapHighlightColor: 'transparent',
+                        display:                 'flex',
+                        alignItems:              'center',
+                        gap:                     8,
+                        minHeight:               TAP,
+                        padding:                 '0 14px 0 7px',
+                        borderRadius:            999,
+                        border:                  `1.5px solid ${selected ? colors.red.DEFAULT : colors.gray.borderMd}`,
+                        background:              selected ? colors.red.subtle : '#fff',
+                        cursor:                  'pointer',
+                        fontFamily:              'inherit',
+                        WebkitTapHighlightColor: 'transparent',
                       }}
                     >
-                      {prof.avatarUrl ? (
-                        <img src={prof.avatarUrl} alt={prof.name} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                      ) : (
-                        <div style={{
-                          width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                          background: selected ? colors.red.DEFAULT : colors.gray.dimText,
-                          color: '#fff', fontSize: 9, fontWeight: 700,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {getInitials(prof.name)}
-                        </div>
-                      )}
+                      {/* background-image no lugar de <img>: mesma foto, sem a
+                          tag que o next reclama e sem exigir remotePatterns */}
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                          display: 'grid', placeItems: 'center',
+                          color: '#fff', fontSize: 10, fontWeight: 700,
+                          backgroundColor: selected ? colors.red.DEFAULT : colors.gray.dimText,
+                          backgroundImage: prof.avatarUrl ? `url(${prof.avatarUrl})` : undefined,
+                          backgroundSize:     'cover',
+                          backgroundPosition: 'center',
+                        }}
+                      >
+                        {!prof.avatarUrl && getInitials(prof.name)}
+                      </span>
+
                       <span style={{
-                        fontSize: typography.scale.sm,
-                        fontWeight: selected ? typography.weight.semibold : typography.weight.medium,
-                        color: selected ? colors.red.DEFAULT : typography.color.primary,
+                        fontSize:   13.5,
+                        fontWeight: selected ? typography.weight.bold : typography.weight.medium,
+                        color:      selected ? colors.red.DEFAULT : colors.gray[900],
                         whiteSpace: 'nowrap',
                       }}>
                         {prof.name}
                       </span>
-                      {selected && (
-                        <svg viewBox="0 0 12 12" width="10" height="10" style={{ flexShrink: 0 }}>
-                          <path d="M2 6.5L5 9L10 3" stroke={colors.red.DEFAULT} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
+
+                      {selected && <Check size={14} color={colors.red.DEFAULT} strokeWidth={3} />}
                     </button>
                   )
                 })}
@@ -356,40 +517,88 @@ export default function ServiceModal({ service, categories, isMobile, onClose, o
             )}
 
             {selectedProfs.size > 0 && (
-              <div style={{ marginTop: 8, fontSize: typography.scale.xs, color: typography.color.muted }}>
-                {selectedProfs.size} profissional{selectedProfs.size !== 1 ? 'is' : ''} selecionado{selectedProfs.size !== 1 ? 's' : ''}
+              <div style={{ marginTop: 10, fontSize: 12, color: colors.gray.dimText }}>
+                {selectedProfs.size} selecionado{selectedProfs.size !== 1 ? 's' : ''}
               </div>
             )}
           </div>
         </div>
 
-        {/* Footer */}
+        {/* rodape */}
         <div style={{
-          padding: isMobile ? '14px 20px max(20px, env(safe-area-inset-bottom))' : '14px 20px 20px',
-          borderTop: `1px solid ${colors.gray.border}`,
-          display: 'flex', gap: 8, flexShrink: 0, background: 'rgba(255,255,255,0.95)',
+          padding:    '14px 20px max(20px, env(safe-area-inset-bottom))',
+          borderTop:  `1px solid ${colors.gray.border}`,
+          display:    'flex',
+          gap:        8,
+          flexShrink: 0,
+          background: '#fff',
         }}>
-          <button onClick={handleSave} disabled={saving} style={{
-            flex: 1, padding: isMobile ? 14 : 13,
-            background: saving ? 'rgba(220,38,38,0.25)' : colors.red.gradient,
-            color: '#fff', border: 'none', borderRadius: radius.md,
-            fontWeight: typography.weight.semibold, fontSize: isMobile ? 15 : 14,
-            cursor: saving ? 'not-allowed' : 'pointer',
-            boxShadow: saving ? 'none' : shadows.redMd, transition: 'all 0.2s',
-          }}>
-            {saving ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Criar serviço'}
-          </button>
-          <button onClick={onClose} style={{
-            padding: isMobile ? '14px 20px' : '13px 20px',
-            background: 'rgba(0,0,0,0.05)', border: `1px solid ${colors.gray.borderMd}`,
-            borderRadius: radius.md, fontSize: typography.scale.base,
-            cursor: 'pointer', color: typography.color.muted,
-          }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              minHeight:               TAP,
+              padding:                 '0 20px',
+              borderRadius:            radius.md,
+              border:                  `1px solid ${colors.gray.borderMd}`,
+              background:              '#fff',
+              color:                   colors.gray[900],
+              fontSize:                14,
+              fontWeight:              typography.weight.semibold,
+              fontFamily:              'inherit',
+              cursor:                  'pointer',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
             Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            style={{
+              flex:                    1,
+              minHeight:               TAP,
+              borderRadius:            radius.md,
+              border:                  'none',
+              background:              saving ? 'rgba(220,38,38,0.25)' : colors.red.gradient,
+              color:                   '#fff',
+              fontSize:                14.5,
+              fontWeight:              typography.weight.bold,
+              fontFamily:              'inherit',
+              cursor:                  saving ? 'not-allowed' : 'pointer',
+              boxShadow:               saving ? 'none' : `0 4px 14px ${colors.red.glow}`,
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            {saving ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Criar serviço'}
           </button>
         </div>
       </div>
     </>,
-    document.body
+    document.body,
   )
+}
+
+function chipStyle(active: boolean): React.CSSProperties {
+  return {
+    flexShrink:              0,
+    minHeight:               TAP,
+    display:                 'inline-flex',
+    alignItems:              'center',
+    gap:                     6,
+    padding:                 '0 15px',
+    borderRadius:            999,
+    border:                  active
+      ? `1.5px solid ${colors.red.DEFAULT}`
+      : `1px solid ${colors.gray.borderMd}`,
+    background:              active ? colors.red.subtle : '#fff',
+    color:                   active ? colors.red.DEFAULT : colors.gray[900],
+    fontSize:                13.5,
+    fontWeight:              700,
+    fontFamily:              'inherit',
+    cursor:                  'pointer',
+    whiteSpace:              'nowrap',
+    WebkitTapHighlightColor: 'transparent',
+  }
 }

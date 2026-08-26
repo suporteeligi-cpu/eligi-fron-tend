@@ -161,7 +161,6 @@ export default function ServicosPage() {
         <ServiceModal
           service={editingService}
           categories={categories}
-          isMobile={false}
           onClose={() => setModal(null)}
           onSaved={handleSaved}
         />
