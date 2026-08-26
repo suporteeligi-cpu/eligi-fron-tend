@@ -1,20 +1,32 @@
 'use client'
 // src/app/dashboard/configuracoes/mensagens/page.tsx
 // @eligi:confirmsg-page
+// @eligi:confirmsg-a2-light
 //
-// Configuracao da mensagem de confirmacao de agendamento (Direcao C).
+// Configuracao da mensagem de confirmacao de agendamento (Direcao A2).
 //
-// A previa E o editor: bloco ligado vira linha real da mensagem e abre a folha
-// ao toque; bloco desligado aparece tracejado abaixo do balao.
+// v2: a previa deixa de ser o editor.
 //
-// Decisoes:
-//  - sem isMobile em JS: a folha vira modal por @media, como a tela anterior
-//  - sem Google Fonts: o projeto nao carrega Space Grotesk; a tipografia grande
-//    sai do stack do sistema (typography.fontFamily)
-//  - sem toast: nao existe helper no repo, feedback e inline
-//  - sem NAVBAR_OFFSET: o layout de configuracoes ja cuida do topo
+// Antes a bolha era o WhatsApp em TEMA ESCURO (#0b141a de fundo, #005c4b de
+// bolha) e cada bloco virava uma linha clicavel desenhada com
+// rgba(255,255,255,0.05) por cima do verde escuro. Resultado: texto verde-claro
+// sobre verde-escuro, blocos quase invisiveis, e o link do Google Maps ocupando
+// quatro linhas empurrava os botoes para fora da tela.
+//
+// Agora:
+//  - WhatsApp em TEMA CLARO, que e o que a maioria dos clientes ve: bolha
+//    #d9fdd3 com texto #111b21 sobre #efeae2. Contraste ~14:1 contra ~4:1.
+//  - a bolha e uma MENSAGEM DE VERDADE: texto corrido, link em azul, horario
+//    com os dois ticks. Nada de caixinha dentro dela.
+//  - os blocos saem da bolha e viram uma LISTA abaixo, com chave liga-desliga.
+//    Conferir e editar deixam de disputar o mesmo espaco.
+//
+// Decisoes preservadas da versao anterior:
+//  - sem isMobile em JS: a folha vira modal por @media
 //  - a previa usa confirmMessageSegments, a MESMA funcao que monta o texto
-//    enviado — nao existe formatacao paralela para divergir
+//    enviado — nao existe formatacao paralela para divergir. O unico enfeite e
+//    pintar de azul o que ja e uma URL no texto; o conteudo e identico.
+//  - sem NAVBAR_OFFSET: o layout de configuracoes ja cuida do topo
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
@@ -29,12 +41,10 @@ import {
   Lock,
   MapPin,
   MessageCircle,
-  Plus,
   QrCode,
   Save,
   Send,
   Tag,
-  X,
   type LucideIcon,
 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
@@ -43,7 +53,6 @@ import {
   bookingConfirmationMessage,
   confirmMessageSegments,
   waShareLink,
-  type ConfirmBlockKey,
 } from '@/shared/utils/whatsapp'
 import {
   DEFAULT_CONFIRM_SETTINGS,
@@ -63,10 +72,19 @@ const TEXT_MAX = 140
 const PIX_KEY_MAX = 80
 const PIX_HOLDER_MAX = 80
 
-const WA_BG = '#0b141a'
-const WA_BUBBLE = '#005c4b'
-const WA_INK = '#e9edef'
-const WA_DIM = '#8696a0'
+/** WhatsApp tema CLARO. O escuro era bonito e ilegivel. */
+const WA_BG = '#efeae2'
+const WA_BUBBLE = '#d9fdd3'
+const WA_INK = '#111b21'
+const WA_DIM = '#667781'
+const WA_LINK = '#027eb5'
+
+/** Chave liga-desliga no verde do WhatsApp. */
+const SWITCH_ON = 'linear-gradient(135deg, #22c55e, #16a34a)'
+const SWITCH_OFF = 'rgba(17,17,20,0.16)'
+
+/** Alvo minimo de toque. */
+const TAP = 44
 
 type BlockKey = 'price' | 'address' | 'pix' | 'reschedule' | 'policy' | 'note' | 'signature'
 
@@ -81,6 +99,8 @@ interface BlockMeta {
   rail: string
   tint: string
   field: keyof BookingMessageSettings
+  /** Falso quando o dado vem do cadastro e nao ha o que configurar. */
+  configurable: boolean
 }
 
 /** Rail de cor por categoria: dinheiro verde, local azul, link roxo, aviso ambar.
@@ -90,49 +110,44 @@ const BLOCK_META: Record<BlockKey, BlockMeta> = {
     icon: DollarSign, label: 'Valor do serviço',
     hint: 'Preço do que foi agendado',
     rail: inkLight.ok.text, tint: inkLight.ok.bg, field: 'showPrice',
+    configurable: false,
   },
   address: {
     icon: MapPin, label: 'Endereço + mapa',
     hint: 'Do cadastro do estabelecimento',
     rail: inkLight.info.text, tint: inkLight.info.bg, field: 'showAddress',
+    configurable: false,
   },
   pix: {
     icon: QrCode, label: 'Pagamento por PIX',
     hint: 'Chave, tipo e nome do titular',
     rail: inkLight.ok.text, tint: inkLight.ok.bg, field: 'showPix',
+    configurable: true,
   },
   reschedule: {
     icon: Calendar, label: 'Remarcar ou cancelar',
     hint: 'Link do seu agendamento online',
     rail: '#7c3aed', tint: 'rgba(124,58,237,0.10)', field: 'showRescheduleLink',
+    configurable: false,
   },
   policy: {
     icon: Clock, label: 'Política de cancelamento',
     hint: `Texto livre, até ${TEXT_MAX} caracteres`,
     rail: inkLight.warn.text, tint: inkLight.warn.bg, field: 'showPolicy',
+    configurable: true,
   },
   note: {
     icon: FileText, label: 'Observação livre',
     hint: 'Estacionamento, o que trazer…',
     rail: inkLight.neutral.text, tint: inkLight.neutral.bg, field: 'showNote',
+    configurable: true,
   },
   signature: {
     icon: Tag, label: 'Assinatura',
     hint: 'Nome do estabelecimento no fim',
     rail: inkLight.neutral.text, tint: inkLight.neutral.bg, field: 'showSignature',
+    configurable: false,
   },
-}
-
-/** Chave do segmento devolvido pelo compositor -> bloco editavel da tela.
- *  'closing' nao aparece aqui: e fixo, nao configuravel. */
-const SEGMENT_TO_BLOCK: Partial<Record<ConfirmBlockKey, BlockKey>> = {
-  price: 'price',
-  address: 'address',
-  pix: 'pix',
-  reschedule: 'reschedule',
-  policy: 'policy',
-  note: 'note',
-  signature: 'signature',
 }
 
 const PIX_TYPES: readonly PixKeyType[] = ['CPF', 'CNPJ', 'EMAIL', 'PHONE', 'RANDOM']
@@ -151,7 +166,6 @@ const CSS = `
 @keyframes cfmsgSpin { to { transform: rotate(360deg) } }
 .cfmsg-spin { animation: cfmsgSpin 0.9s linear infinite; }
 .cfmsg-grab { width: 40px; height: 5px; border-radius: 999px; background: #dcdce2; margin: 8px auto 16px; }
-.cfmsg-slots { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .cfmsg-acts { display: flex; flex-direction: column; gap: 10px; }
 @media (min-width: 900px) {
   .cfmsg-sheet {
@@ -161,12 +175,31 @@ const CSS = `
     animation: cfmsgIn 0.2s ease;
   }
   .cfmsg-grab { display: none; }
-  .cfmsg-slots { grid-template-columns: 1fr 1fr; }
   .cfmsg-acts { flex-direction: row-reverse; }
   .cfmsg-acts > button { flex: 1 1 0; }
 }
 .cfmsg-pre { white-space: pre-wrap; word-break: break-word; }
+.cfmsg-row { transition: background 0.14s ease; }
+@media (hover: hover) { .cfmsg-row:hover { background: rgba(0,0,0,0.02); } }
+@media (prefers-reduced-motion: reduce) {
+  .cfmsg-sheet { animation: none; }
+  .cfmsg-row { transition: none; }
+}
 `
+
+/** Pinta de azul o que ja e URL no texto. Presentacao pura: o conteudo
+ *  renderizado e exatamente o mesmo que vai para o wa.me. */
+function renderWithLinks(text: string) {
+  return text.split(/(https?:\/\/\S+)/g).map((part, i) =>
+    /^https?:\/\//.test(part)
+      ? (
+        <span key={i} style={{ color: WA_LINK, textDecoration: 'underline' }}>
+          {part}
+        </span>
+      )
+      : <span key={i}>{part}</span>,
+  )
+}
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
@@ -232,10 +265,6 @@ export default function ConfirmMessagePage() {
   const used = fullText.length
   const over = used > CONFIRM_BODY_MAX
 
-  const activeSegments = segments.filter(s => SEGMENT_TO_BLOCK[s.key])
-  const closing = segments.find(s => s.key === 'closing')
-  const offBlocks = BLOCK_ORDER.filter(k => !settings[BLOCK_META[k].field])
-
   const handleSave = useCallback(async () => {
     setSaving(true)
     setError(null)
@@ -257,6 +286,7 @@ export default function ConfirmMessagePage() {
   }, [fullText])
 
   const meterTone = over ? inkLight.bad : used > CONFIRM_BODY_MAX * 0.8 ? inkLight.warn : inkLight.ok
+  const activeCount = BLOCK_ORDER.filter(k => settings[BLOCK_META[k].field]).length
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 4px 48px' }}>
@@ -267,7 +297,7 @@ export default function ConfirmMessagePage() {
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14,
           color: inkLight.label, fontSize: 13, fontWeight: 600, textDecoration: 'none',
-          minHeight: 44,
+          minHeight: TAP,
         }}
       >
         <ChevronLeft size={16} /> Configurações
@@ -288,7 +318,7 @@ export default function ConfirmMessagePage() {
       </h1>
       <p style={{ margin: '0 0 20px', color: colors.gray[500], fontSize: 15, maxWidth: '52ch' }}>
         É o que o cliente recebe quando você toca no botão do WhatsApp na agenda.
-        Toque em qualquer parte da mensagem para editar.
+        Ligue e desligue os blocos abaixo para montar a sua.
       </p>
 
       {loading ? (
@@ -319,7 +349,7 @@ export default function ConfirmMessagePage() {
               </b>
               <small style={{ display: 'block', fontSize: 12.5, color: inkLight.faint, marginTop: 2 }}>
                 {over
-                  ? 'Remova um bloco para poder salvar'
+                  ? 'Desligue um bloco para poder salvar'
                   : 'Acima de 500 o WhatsApp corta no meio'}
               </small>
               <div style={{ height: 6, borderRadius: 999, background: 'rgba(0,0,0,0.07)', overflow: 'hidden', marginTop: 9 }}>
@@ -334,12 +364,12 @@ export default function ConfirmMessagePage() {
             </div>
           </div>
 
-          {/* previa editavel */}
-          <div style={{ background: WA_BG, borderRadius: 22, padding: 14, marginBottom: 16, boxShadow: shadows.lg }}>
+          {/* previa: uma mensagem de verdade, nada clicavel dentro */}
+          <div style={{ background: WA_BG, borderRadius: 22, padding: 14, marginBottom: 18, boxShadow: shadows.lg }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 4px 14px', color: WA_INK }}>
               <div
                 style={{
-                  width: 36, height: 36, borderRadius: '50%', background: '#2a3942', flexShrink: 0,
+                  width: 36, height: 36, borderRadius: '50%', background: '#d3d9de', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', color: WA_DIM,
                 }}
               >
@@ -353,116 +383,149 @@ export default function ConfirmMessagePage() {
                 style={{
                   marginLeft: 'auto', flexShrink: 0, whiteSpace: 'nowrap',
                   fontSize: 10.5, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
-                  color: '#a8f0c6', background: 'rgba(37,211,102,0.14)',
-                  border: '1px solid rgba(37,211,102,0.30)', padding: '5px 9px', borderRadius: 999,
+                  color: '#0f6e56', background: 'rgba(37,211,102,0.16)',
+                  border: '1px solid rgba(37,211,102,0.35)', padding: '5px 9px', borderRadius: 999,
                 }}
               >
                 Prévia real
               </span>
             </div>
 
-            <div style={{ background: WA_BUBBLE, borderRadius: '14px 14px 6px 14px', padding: 6 }}>
-              <div style={{ padding: '9px 11px', color: WA_INK, fontSize: 15, lineHeight: 1.55 }}>
-                <span
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5,
-                    fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase',
-                    color: '#9ed6c4', marginBottom: 7, opacity: 0.85,
-                  }}
-                >
-                  <Lock size={11} /> Sempre incluído
-                </span>
-                <span className="cfmsg-pre" style={{ display: 'block' }}>{head}</span>
-              </div>
+            <div
+              style={{
+                background: WA_BUBBLE,
+                borderRadius: '14px 14px 6px 14px',
+                padding: '9px 11px 6px',
+                boxShadow: '0 1px 1px rgba(0,0,0,0.13)',
+                maxWidth: '96%',
+                marginLeft: 'auto',
+              }}
+            >
+              <span
+                className="cfmsg-pre"
+                style={{ display: 'block', color: WA_INK, fontSize: 15, lineHeight: 1.5 }}
+              >
+                {renderWithLinks(
+                  [head, ...segments.map(s => s.text)].filter(Boolean).join('\n\n'),
+                )}
+              </span>
+              <span
+                style={{
+                  display: 'block', textAlign: 'right', fontSize: 11,
+                  color: WA_DIM, marginTop: 3,
+                }}
+              >
+                {sample.timeLabel} ✓✓
+              </span>
+            </div>
+          </div>
 
-              {activeSegments.map(seg => {
-                const key = SEGMENT_TO_BLOCK[seg.key] as BlockKey
-                const meta = BLOCK_META[key]
-                const Icon = meta.icon
-                return (
-                  <div
-                    key={seg.key}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setEditing(key)}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setEditing(key) }}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 11, width: '100%',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.09)',
-                      borderLeft: `4px solid ${meta.rail}`,
-                      borderRadius: 10, padding: '11px 12px', marginTop: 7, cursor: 'pointer',
-                      color: WA_INK, fontSize: 15, lineHeight: 1.55, minHeight: 52,
-                    }}
-                  >
-                    <Icon size={19} color={meta.rail} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span className="cfmsg-pre" style={{ flex: '1 1 0', minWidth: 0 }}>{seg.text}</span>
-                    <button
-                      type="button"
-                      aria-label={`Remover ${meta.label}`}
-                      onClick={e => { e.stopPropagation(); toggle(key, false) }}
-                      style={{
-                        flexShrink: 0, width: 32, height: 32, borderRadius: '50%', border: 'none',
-                        background: 'rgba(255,255,255,0.09)', color: WA_DIM, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )
-              })}
+          {/* blocos */}
+          <p
+            style={{
+              margin: '0 0 9px 2px', fontSize: 11, fontWeight: 700, letterSpacing: '0.9px',
+              textTransform: 'uppercase', color: inkLight.faint,
+            }}
+          >
+            Blocos da mensagem · {activeCount} de {BLOCK_ORDER.length} ligados
+          </p>
 
-              {closing && (
-                <div style={{ padding: '9px 11px', color: WA_INK, fontSize: 15, lineHeight: 1.55 }}>
-                  <span className="cfmsg-pre">{closing.text}</span>
-                </div>
-              )}
+          <div style={{ ...glassCard, padding: 0, overflow: 'hidden', marginBottom: 18 }}>
+            {/* fixo, sem chave */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderLeft: '4px solid rgba(17,17,20,0.14)' }}>
+              <span style={{ flexShrink: 0, color: inkLight.faint }}><Lock size={18} /></span>
+              <span style={{ flex: '1 1 0', minWidth: 0 }}>
+                <b style={{ display: 'block', fontSize: 14.5, color: inkLight.strong }}>
+                  Saudação, data e serviço
+                </b>
+                <small style={{ display: 'block', fontSize: 12, color: inkLight.faint, marginTop: 1 }}>
+                  Sempre incluído — é o motivo da mensagem existir
+                </small>
+              </span>
             </div>
 
-            {offBlocks.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <p
+            {BLOCK_ORDER.map(key => {
+              const meta = BLOCK_META[key]
+              const Icon = meta.icon
+              const on = Boolean(settings[meta.field])
+
+              return (
+                <div
+                  key={key}
+                  className="cfmsg-row"
                   style={{
-                    margin: '0 0 9px 2px', fontSize: 11, fontWeight: 700, letterSpacing: '0.7px',
-                    textTransform: 'uppercase', color: WA_DIM,
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '11px 15px 11px 0',
+                    borderTop: `1px solid ${colors.gray.border}`,
+                    borderLeft: `4px solid ${on ? meta.rail : 'transparent'}`,
                   }}
                 >
-                  Disponível para adicionar
-                </p>
-                <div className="cfmsg-slots">
-                  {offBlocks.map(key => {
-                    const meta = BLOCK_META[key]
-                    const Icon = meta.icon
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => {
-                          toggle(key, true)
-                          if (key === 'pix' || key === 'policy' || key === 'note') setEditing(key)
-                        }}
+                  <button
+                    type="button"
+                    onClick={() => setEditing(key)}
+                    aria-label={`Abrir ${meta.label}`}
+                    style={{
+                      flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 12,
+                      background: 'transparent', border: 'none', padding: '0 0 0 11px',
+                      minHeight: TAP, textAlign: 'left', cursor: 'pointer',
+                      fontFamily: typography.fontFamily,
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    <span style={{ flexShrink: 0, color: on ? meta.rail : inkLight.faint }}>
+                      <Icon size={19} />
+                    </span>
+                    <span style={{ flex: '1 1 0', minWidth: 0 }}>
+                      <b
                         style={{
-                          display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
-                          background: 'transparent', border: '1.5px dashed rgba(255,255,255,0.20)',
-                          borderRadius: 12, padding: 12, cursor: 'pointer', color: WA_DIM,
-                          font: 'inherit', fontSize: 14.5, fontWeight: 600, minHeight: 56,
+                          display: 'block', fontSize: 14.5,
+                          color: on ? inkLight.strong : inkLight.faint,
                         }}
                       >
-                        <Icon size={19} color={meta.rail} style={{ flexShrink: 0 }} />
-                        <span style={{ flex: '1 1 0', minWidth: 0 }}>
-                          {meta.label}
-                          <small style={{ display: 'block', fontWeight: 400, fontSize: 12, opacity: 0.75, marginTop: 1 }}>
-                            {meta.hint}
-                          </small>
-                        </span>
-                        <Plus size={19} style={{ flexShrink: 0, opacity: 0.7 }} />
-                      </button>
-                    )
-                  })}
+                        {meta.label}
+                      </b>
+                      <small style={{ display: 'block', fontSize: 12, color: inkLight.faint, marginTop: 1 }}>
+                        {meta.hint}
+                      </small>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={on}
+                    aria-label={`${on ? 'Desligar' : 'Ligar'} ${meta.label}`}
+                    onClick={() => {
+                      toggle(key, !on)
+                      if (!on && meta.configurable) setEditing(key)
+                    }}
+                    style={{
+                      width: TAP, height: TAP, flexShrink: 0, marginRight: 6,
+                      display: 'grid', placeItems: 'center',
+                      background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: 'relative', display: 'block', width: 46, height: 28,
+                        borderRadius: 999, background: on ? SWITCH_ON : SWITCH_OFF,
+                        transition: 'background 0.16s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          position: 'absolute', top: 3, left: on ? 21 : 3,
+                          width: 22, height: 22, borderRadius: '50%', background: '#fff',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                          transition: 'left 0.16s cubic-bezier(0.22,1,0.36,1)',
+                        }}
+                      />
+                    </span>
+                  </button>
                 </div>
-              </div>
-            )}
+              )
+            })}
           </div>
 
           {settings.showPrice && (
@@ -518,6 +581,7 @@ export default function ConfirmMessagePage() {
                 minHeight: 52, cursor: saving || over ? 'not-allowed' : 'pointer',
                 background: over ? '#d9d9de' : colors.red.DEFAULT, color: '#fff',
                 boxShadow: over ? 'none' : shadows.redMd,
+                fontFamily: typography.fontFamily,
               }}
             >
               {saving ? <Loader2 size={19} className="cfmsg-spin" /> : <Save size={19} />}
@@ -531,6 +595,7 @@ export default function ConfirmMessagePage() {
                 border: `1px solid ${colors.gray.border}`, borderRadius: 14, padding: 15,
                 fontSize: 16, fontWeight: 700, minHeight: 52, cursor: 'pointer',
                 background: '#fff', color: inkLight.strong,
+                fontFamily: typography.fontFamily,
               }}
             >
               <Send size={19} /> Testar no meu WhatsApp
@@ -565,6 +630,7 @@ interface BlockSheetProps {
 function BlockSheet({ blockKey, settings, onPatch, onRemove, onClose }: BlockSheetProps) {
   const meta = BLOCK_META[blockKey]
   const Icon = meta.icon
+  const isOn = Boolean(settings[meta.field])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -730,17 +796,19 @@ function BlockSheet({ blockKey, settings, onPatch, onRemove, onClose }: BlockShe
         )}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-          <button
-            type="button"
-            onClick={onRemove}
-            style={{
-              flex: '1 1 0', border: `1px solid ${colors.gray.border}`, borderRadius: 14,
-              padding: 15, fontSize: 16, fontWeight: 700, minHeight: 52, cursor: 'pointer',
-              background: '#fff', color: inkLight.strong, fontFamily: typography.fontFamily,
-            }}
-          >
-            Remover
-          </button>
+          {isOn && (
+            <button
+              type="button"
+              onClick={onRemove}
+              style={{
+                flex: '1 1 0', border: `1px solid ${colors.gray.border}`, borderRadius: 14,
+                padding: 15, fontSize: 16, fontWeight: 700, minHeight: 52, cursor: 'pointer',
+                background: '#fff', color: inkLight.strong, fontFamily: typography.fontFamily,
+              }}
+            >
+              Desligar
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
