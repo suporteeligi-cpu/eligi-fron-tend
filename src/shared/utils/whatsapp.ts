@@ -6,6 +6,8 @@
 // Regra de telefone: <= 11 digitos = nacional (DDD + numero) -> prefixa DDI 55.
 // E.164 (13 digitos, ja com 55) passa direto.
 
+import { firstName } from './messageTemplate' // @eligi:wa-firstname-import
+
 /** Digitos prontos pro wa.me (com DDI). */
 export function waDigits(phone: string): string {
   let d = phone.replace(/\D/g, '')
@@ -39,4 +41,37 @@ export function clubPaymentMessage(
  */
 export function waShareLink(message: string): string {
   return `https://wa.me/?text=${encodeURIComponent(message)}`
+}
+
+// @eligi:wa-booking-confirm-msg
+/**
+ * Mensagem de confirmacao de horario, pre-preenchida no botao do
+ * BookingViewPanel.
+ *
+ * Recebe rotulos JA formatados de proposito: este helper nao importa dayjs.
+ * A formatacao de data mora no painel, que ja carrega utc + timezone e o
+ * locale pt-br. Aqui fica so a composicao do texto, que e a parte que
+ * precisa de fonte unica.
+ *
+ * Sem link publico de agendamento: o cliente ja esta agendado, convidar de
+ * novo e ruido. Por isso NAO passa pelo renderTemplate, que anexa {link}
+ * no fim por regra dura.
+ */
+export function bookingConfirmationMessage(input: {
+  clientName: string
+  dateLabel: string
+  timeLabel: string
+  serviceLabel: string
+}): string {
+  return [
+    `Olá, ${firstName(input.clientName)}! 👋`,
+    '',
+    'Seu horário está confirmado:',
+    '',
+    `📅 ${input.dateLabel}`,
+    `⏰ ${input.timeLabel}`,
+    `📋 ${input.serviceLabel}`,
+    '',
+    'Qualquer imprevisto, é só me avisar por aqui. Até lá!',
+  ].join('\n')
 }

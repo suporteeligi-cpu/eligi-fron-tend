@@ -25,6 +25,7 @@ import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAge
 import { Sale } from '@/features/sales/types'
 import SaleReceiptModal from '@/features/sales/components/SaleReceiptModal'
 import NfseBookingAction from '@/features/fiscal/components/NfseBookingAction' // @eligi:nfse-booking-action
+import { waLink, bookingConfirmationMessage } from '@/shared/utils/whatsapp' // @eligi:bvp-wa-shared-import
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc from 'dayjs/plugin/utc'
@@ -186,10 +187,37 @@ function fmtPhone(p: string) {
   if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
   return p
 }
-function waLink(p: string) {
-  let d = p.replace(/\D/g, '')
-  if (d.length <= 11) d = `55${d}` // nacional (DDD+numero) -> adiciona DDI Brasil
-  return `https://wa.me/${d}`
+// @eligi:bvp-confirm-text
+/**
+ * Texto pre-preenchido do botao de WhatsApp.
+ *
+ * SO CONFIRMED recebe texto. Mandar "seu horario esta confirmado" num
+ * booking cancelado, no-show ou ja finalizado seria constrangedor — nesses
+ * estados o botao volta ao comportamento antigo (abre a conversa vazia).
+ *
+ * Funcao pura de modulo: nao le relogio (so d.startAt), entao pode ser
+ * chamada no render sem violar react-hooks/purity.
+ */
+function buildConfirmText(d: BookingDetail, s: string): string | undefined {
+  if (s !== 'CONFIRMED') return undefined
+
+  const start = dayjs(d.startAt).tz('America/Sao_Paulo')
+  const dateLabel = start.format('dddd, DD/MM').replace(/^\w/, c => c.toUpperCase())
+  const timeLabel = start.format('HH:mm')
+
+  const withProf = d.professional?.name ? ` com ${d.professional.name}` : ''
+  const siblings = (d.groupItems ?? []).filter(gi => gi.status === 'CONFIRMED').length
+  const others = siblings > 1 ? siblings - 1 : 0
+  const extra = others > 0
+    ? ` e mais ${others} ${others === 1 ? 'serviço' : 'serviços'}`
+    : ''
+
+  return bookingConfirmationMessage({
+    clientName:   d.clientName,
+    dateLabel,
+    timeLabel,
+    serviceLabel: `${d.service.name}${withProf}${extra}`,
+  })
 }
 
 const STATUS_CFG: Record<BookingStatus, { label: string; gradient: string; icon: typeof CheckCircle }> = {
@@ -734,7 +762,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
               </div>
               {detail?.clientPhone && (
                 <a
-                  href={waLink(detail.clientPhone)}
+                  href={waLink(detail.clientPhone, buildConfirmText(detail, status))}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}

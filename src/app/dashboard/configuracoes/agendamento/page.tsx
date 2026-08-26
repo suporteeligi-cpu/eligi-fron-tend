@@ -13,6 +13,7 @@ interface BookingSettings {
   minBookingNotice:       number
   maxFutureBookingDays:   number
   rescheduleNotice:       number
+  requireClientCpf:       boolean
 }
 
 const NOTICE_OPTIONS = [
@@ -155,6 +156,40 @@ function ToggleRow({ label, description, checked, onChange, last = false }: {
   )
 }
 
+// @eligi:cpf-policy-consequence
+// Bloco que reescreve o efeito ao vivo: o lojista le o impacto antes de ligar.
+const CPF_ON_LINES = [
+  'Cliente novo só conclui o agendamento com um CPF válido.',
+  'Cliente que já está no seu cadastro segue agendando sem informar nada.',
+  'As notas fiscais desses atendimentos saem no nome do cliente.',
+]
+
+const CPF_OFF_LINES = [
+  'O cliente informa nome e telefone. O CPF continua no formulário, como opcional.',
+  'Sem CPF, a nota fiscal sai sem tomador identificado — e pode ser substituída em até 72h.',
+]
+
+function CpfConsequence({ on }: { on: boolean }) {
+  const lines = on ? CPF_ON_LINES : CPF_OFF_LINES
+  return (
+    <div style={{
+      padding: '14px 20px 16px',
+      borderTop: '1px dashed rgba(0,0,0,0.09)',
+      display: 'flex', flexDirection: 'column', gap: 9,
+    }}>
+      {lines.map(text => (
+        <div key={text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: '50%', marginTop: 7, flexShrink: 0,
+            background: on ? '#dc2626' : 'rgba(0,0,0,0.22)',
+          }} />
+          <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'rgba(0,0,0,0.5)' }}>{text}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function SelectRow({ label, value, onChange, options, last = false }: {
   label: string; value: number; onChange: (v: number) => void
   options: { label: string; value: number }[]; last?: boolean
@@ -195,6 +230,7 @@ export default function AgendamentoConfigPage() {
   const [settings, setSettings] = useState<BookingSettings>({
     autoConfirm: true, avoidGapsBetweenVisits: true,
     minBookingNotice: 15, maxFutureBookingDays: 7, rescheduleNotice: 60,
+    requireClientCpf: true,
   })
   const [original, setOriginal] = useState<BookingSettings | null>(null)
   const [loading,  setLoading]  = useState(true)
@@ -355,6 +391,19 @@ export default function AgendamentoConfigPage() {
               options={RESCHEDULE_OPTIONS}
               last
             />
+          </Card>
+
+          {/* @eligi:cpf-policy-card */}
+          <Card>
+            <CardHeader label="Identificação do cliente" />
+            <ToggleRow
+              label="Exigir CPF no agendamento online"
+              description="Clientes novos precisam informar um CPF válido para concluir a reserva. Quem já está no seu cadastro não é afetado."
+              checked={settings.requireClientCpf}
+              onChange={v => update('requireClientCpf', v)}
+              last
+            />
+            <CpfConsequence on={settings.requireClientCpf} />
           </Card>
 
           {/* Info */}
