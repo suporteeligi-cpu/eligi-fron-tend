@@ -70,7 +70,7 @@ const MODULES: ModuleGroup[] = [
     group: 'Serviços',
     items: [
       {
-        href:        '/dashboard/configuracoes/servicos',
+        href:        '/dashboard/servicos',
         icon:        Scissors,
         label:       'Configurações de serviços',
         description: 'Crie, edite e organize os serviços oferecidos pelo seu negócio.',
