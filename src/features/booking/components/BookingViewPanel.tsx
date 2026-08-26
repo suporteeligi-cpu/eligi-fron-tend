@@ -26,6 +26,11 @@ import { Sale } from '@/features/sales/types'
 import SaleReceiptModal from '@/features/sales/components/SaleReceiptModal'
 import NfseBookingAction from '@/features/fiscal/components/NfseBookingAction' // @eligi:nfse-booking-action
 import { waLink, bookingConfirmationMessage } from '@/shared/utils/whatsapp' // @eligi:bvp-wa-shared-import
+import {
+  blocksFromSettings,
+  useConfirmMessageSettings,
+  type ConfirmMessagePayload,
+} from '@/features/booking/hooks/useConfirmMessageSettings' // @eligi:confirmsg-bvp-import
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc from 'dayjs/plugin/utc'
@@ -198,7 +203,12 @@ function fmtPhone(p: string) {
  * Funcao pura de modulo: nao le relogio (so d.startAt), entao pode ser
  * chamada no render sem violar react-hooks/purity.
  */
-function buildConfirmText(d: BookingDetail, s: string): string | undefined {
+// @eligi:confirmsg-bvp-build
+function buildConfirmText(
+  d: BookingDetail,
+  s: string,
+  cfg: ConfirmMessagePayload | null,
+): string | undefined {
   if (s !== 'CONFIRMED') return undefined
 
   const start = dayjs(d.startAt).tz('America/Sao_Paulo')
@@ -212,11 +222,18 @@ function buildConfirmText(d: BookingDetail, s: string): string | undefined {
     ? ` e mais ${others} ${others === 1 ? 'serviço' : 'serviços'}`
     : ''
 
+  // cfg null = ainda carregando ou rede caiu: a mensagem sai so com os blocos
+  // fixos, que e o comportamento anterior a esta feature. O botao nunca quebra.
+  const price = typeof d.service.price === 'number'
+    ? d.service.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : null
+
   return bookingConfirmationMessage({
     clientName:   d.clientName,
     dateLabel,
     timeLabel,
     serviceLabel: `${d.service.name}${withProf}${extra}`,
+    blocks: cfg ? blocksFromSettings(cfg.settings, cfg.business, { price }) : undefined,
   })
 }
 
@@ -317,6 +334,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
   const [creatingSale, setCreatingSale] = useState(false)
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null)
   const [loadingReceipt, setLoadingReceipt] = useState(false)
+  const msgCfg = useConfirmMessageSettings() // @eligi:confirmsg-bvp-state
 
   const bookingId    = booking.id
   const bookingStart = booking.start
@@ -762,7 +780,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
               </div>
               {detail?.clientPhone && (
                 <a
-                  href={waLink(detail.clientPhone, buildConfirmText(detail, status))}
+                  href={waLink(detail.clientPhone, buildConfirmText(detail, status, msgCfg))}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}

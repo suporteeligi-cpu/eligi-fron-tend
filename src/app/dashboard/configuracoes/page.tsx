@@ -91,9 +91,9 @@ const MODULES: ModuleGroup[] = [
       {
         href:        '/dashboard/configuracoes/mensagens',
         icon:        MessageSquare,
-        label:       'Mensagens de saudacao',
-        description: 'Modelos prontos pra chamar seu cliente no WhatsApp com seu link de agendamento.',
-        available:   true, // @eligi:msgtpl-nav-item
+        label:       'Mensagem de confirmação',
+        description: 'Escolha o que vai junto quando você confirmar o horário do cliente no WhatsApp.',
+        available:   true, // @eligi:confirmsg-nav
       },
       {
         href:        '/dashboard/configuracoes/equipe',

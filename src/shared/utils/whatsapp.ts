@@ -43,27 +43,63 @@ export function waShareLink(message: string): string {
   return `https://wa.me/?text=${encodeURIComponent(message)}`
 }
 
-// @eligi:wa-booking-confirm-msg
-/**
- * Mensagem de confirmacao de horario, pre-preenchida no botao do
- * BookingViewPanel.
- *
- * Recebe rotulos JA formatados de proposito: este helper nao importa dayjs.
- * A formatacao de data mora no painel, que ja carrega utc + timezone e o
- * locale pt-br. Aqui fica so a composicao do texto, que e a parte que
- * precisa de fonte unica.
- *
- * Sem link publico de agendamento: o cliente ja esta agendado, convidar de
- * novo e ruido. Por isso NAO passa pelo renderTemplate, que anexa {link}
- * no fim por regra dura.
- */
-export function bookingConfirmationMessage(input: {
+// @eligi:confirmsg-segments
+/** Teto do corpo. 500 nao e estetica: o texto viaja em wa.me?text= depois de
+ *  encodeURIComponent, e emoji custa ~12 caracteres codificados. */
+export const CONFIRM_BODY_MAX = 500
+
+/** Blocos opcionais da mensagem de confirmacao. Todos ja formatados: este
+ *  arquivo nao importa dayjs nem sabe o que e um agendamento. */
+export interface ConfirmMessageBlocks {
+  price?: string | null
+  address?: string | null
+  mapsUrl?: string | null
+  pix?: { type: string; key: string; holder: string } | null
+  rescheduleLabel?: string | null
+  policy?: string | null
+  note?: string | null
+  signature?: string | null
+}
+
+export type ConfirmBlockKey =
+  | 'price'
+  | 'address'
+  | 'pix'
+  | 'reschedule'
+  | 'policy'
+  | 'note'
+  | 'closing'
+  | 'signature'
+
+export interface ConfirmMessageInput {
   clientName: string
   dateLabel: string
   timeLabel: string
   serviceLabel: string
-}): string {
-  return [
+  blocks?: ConfirmMessageBlocks
+}
+
+/**
+ * Mensagem de confirmacao em PARTES.
+ *
+ * Existe para que a tela de configuracao desenhe bloco a bloco (cada um
+ * clicavel) e o WhatsApp receba o texto inteiro, sem duas formatacoes
+ * paralelas que um dia divergiriam. A previa e literalmente o que sai.
+ *
+ * Ordem fixa e deliberada: dinheiro, onde, como pagar, como remarcar, avisos,
+ * despedida, assinatura. Nao e configuravel — ninguem abre a tela querendo o
+ * PIX na terceira linha.
+ *
+ * Emoji aqui e CONTEUDO indo pro WhatsApp, nao interface: a regra de usar
+ * Lucide vale para a UI, nao para o texto enviado. O icone de servico e
+ * neutro de segmento (a plataforma atende clinica e podologia).
+ */
+export function confirmMessageSegments(input: ConfirmMessageInput): {
+  head: string
+  blocks: { key: ConfirmBlockKey; text: string }[]
+} {
+  const b = input.blocks ?? {}
+  const head = [
     `Olá, ${firstName(input.clientName)}! 👋`,
     '',
     'Seu horário está confirmado:',
@@ -71,7 +107,43 @@ export function bookingConfirmationMessage(input: {
     `📅 ${input.dateLabel}`,
     `⏰ ${input.timeLabel}`,
     `📋 ${input.serviceLabel}`,
-    '',
-    'Qualquer imprevisto, é só me avisar por aqui. Até lá!',
   ].join('\n')
+
+  const blocks: { key: ConfirmBlockKey; text: string }[] = []
+
+  if (b.price) blocks.push({ key: 'price', text: `💰 ${b.price}` })
+
+  if (b.address) {
+    blocks.push({
+      key: 'address',
+      text: b.mapsUrl ? `📍 ${b.address}\n${b.mapsUrl}` : `📍 ${b.address}`,
+    })
+  }
+
+  if (b.pix) {
+    blocks.push({
+      key: 'pix',
+      text: `💳 Pagamento por PIX\n${b.pix.type}: ${b.pix.key}\nTitular: ${b.pix.holder}`,
+    })
+  }
+
+  if (b.rescheduleLabel) {
+    blocks.push({ key: 'reschedule', text: `🔗 Remarcar ou cancelar: ${b.rescheduleLabel}` })
+  }
+
+  if (b.policy) blocks.push({ key: 'policy', text: `⚠️ ${b.policy}` })
+  if (b.note) blocks.push({ key: 'note', text: `📝 ${b.note}` })
+
+  // Despedida sempre presente: mensagem que termina em chave PIX soa cobranca.
+  blocks.push({ key: 'closing', text: 'Qualquer imprevisto, é só me avisar por aqui. Até lá!' })
+
+  if (b.signature) blocks.push({ key: 'signature', text: `— ${b.signature}` })
+
+  return { head, blocks }
+}
+
+/** Texto final entregue ao wa.me. Join dos mesmos segmentos da previa. */
+export function bookingConfirmationMessage(input: ConfirmMessageInput): string {
+  const { head, blocks } = confirmMessageSegments(input)
+  return [head, ...blocks.map(s => s.text)].join('\n\n')
 }
