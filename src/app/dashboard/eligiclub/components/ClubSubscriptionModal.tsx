@@ -1,24 +1,33 @@
-'use client'
+"use client"
 // src/app/dashboard/eligiclub/components/ClubSubscriptionModal.tsx
 //
-// Assinar membro no EligiClub — escolhe cliente + plano + valor + método e cria
-// a assinatura (POST /club-subscriptions). A assinatura nasce ACTIVE com o 1º
-// pagamento registrado, então o membro já pode usar o clube no caixa.
-// Espelha a cromática do PackageEditorModal (portal, overlay blur, sheet, footer).
+// ASSINAR MEMBRO NO ELIGICLUB — cobranca recorrente no cartao.
 //
-// NOTA: assume GET /clients => array de { id, name, phone, cpf?, email? } e filtra
-// client-side (sem busca server-side). Se o endpoint tiver shape/busca diferente,
-// é ajuste localizado no fetch + no filtro.
+// Fluxo unico: cliente + plano -> POST /club-subscriptions/recurring (CREDIT_CARD).
+// A assinatura nasce PENDING; o cliente cadastra o cartao no checkout hospedado
+// do Asaas e a partir dai a cobranca se repete sozinha todo mes.
+// O registro manual saiu de cena de proposito: gerava assinatura sem recorrencia,
+// obrigando o lojista a cobrar na mao todo mes.
+//
+// Ao criar, o modal ja mostra o LINK e o botao de WhatsApp — o lojista nao precisa
+// ir em Configuracoes pra enviar.
+//
+// Padrao visual do redesign: @media (nunca isMobile pra layout), alvos >= 44px,
+// inputs 16px (sem zoom no iOS), planos como cartoes (nunca <select> nativo),
+// numeros em Space Grotesk com fallback, sem window.confirm/alert.
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Loader2, AlertCircle, Search, Check, User, Banknote, Smartphone, CreditCard } from 'lucide-react'
-
+import {
+  X, Loader2, AlertCircle, Search, Check, CreditCard, Link2, MessageCircle, ShieldCheck,
+} from 'lucide-react'
 import api from '@/shared/lib/apiClient'
-import { colors, typography, transitions, radius } from '@/shared/theme'
+import { colors, typography } from '@/shared/theme'
+import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
 
 // ── tipos ───────────────────────────────────────────────────────────────────
 type SubStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
+
 interface ClubSubscription {
   id: string
   status: SubStatus
@@ -32,37 +41,41 @@ interface ClubSubscription {
   payments?: { id: string; amount: number; periodKey: string; method: string | null; paidAt: string | null }[]
   _count?: { payments: number; fichas: number }
 }
-interface ClientLite { id: string; name: string; phone: string | null }
+interface ClientLite { id: string; name: string; phone: string | null; cpf: string | null }
 interface PlanLite { id: string; name: string; price: number; color: string | null; active: boolean }
-
-type Method = 'DINHEIRO' | 'PIX' | 'CARTAO'
-const METHODS: { key: Method; label: string; Icon: typeof Banknote }[] = [
-  { key: 'DINHEIRO', label: 'Dinheiro', Icon: Banknote },
-  { key: 'PIX',      label: 'PIX',      Icon: Smartphone },
-  { key: 'CARTAO',   label: 'Cartão',   Icon: CreditCard },
-]
-const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-interface Props {
-  isMobile: boolean
-  onSaved:  (sub: ClubSubscription) => void
-  onClose:  () => void
+interface PaymentLink {
+  checkoutUrl: string | null
+  businessName: string
+  clientName: string
+  clientPhone: string | null
 }
 
-export default function ClubSubscriptionModal({ isMobile, onSaved, onClose }: Props) {
+const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const NUM_FONT = `'Space Grotesk', ${typography.fontFamily}`
+
+interface Props {
+  /** mantido por compatibilidade com o page.tsx — o layout usa @media */
+  isMobile?: boolean
+  onSaved: (sub: ClubSubscription) => void
+  onClose: () => void
+}
+
+export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
   const [clients, setClients] = useState<ClientLite[]>([])
-  const [plans,   setPlans]   = useState<PlanLite[]>([])
+  const [plans, setPlans] = useState<PlanLite[]>([])
   const [loadingData, setLoadingData] = useState(true)
 
-  const [clientId,    setClientId]    = useState<string | null>(null)
-  const [planId,      setPlanId]      = useState<string | null>(null)
-  const [valueStr,    setValueStr]    = useState('')
-  const [method,      setMethod]      = useState<Method>('DINHEIRO')
+  const [clientId, setClientId] = useState<string | null>(null)
+  const [planId, setPlanId] = useState<string | null>(null)
   const [clientQuery, setClientQuery] = useState('')
 
-  const [saving,  setSaving]  = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
+
+  // pos-criacao: link de pagamento pra enviar ao cliente
+  const [done, setDone] = useState<PaymentLink | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 10)
@@ -71,246 +84,423 @@ export default function ClubSubscriptionModal({ isMobile, onSaved, onClose }: Pr
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([api.get('/club'), api.get('/clients')]).then(([planRes, cliRes]) => {
-      if (cancelled) return
-      const planData = planRes.data?.data ?? planRes.data
-      const cliData  = cliRes.data?.data ?? cliRes.data
-      const planList: PlanLite[] = (Array.isArray(planData) ? planData : planData.plans ?? [])
-        .map((p: { id: string; name: string; price: number; color?: string | null; active?: boolean }) => ({
-          id: p.id, name: p.name, price: p.price, color: p.color ?? null, active: p.active !== false,
-        }))
-        .filter((p: PlanLite) => p.active)
-      const cliList: ClientLite[] = (Array.isArray(cliData) ? cliData : cliData.clients ?? [])
-        .map((c: { id: string; name: string; phone?: string | null }) => ({ id: c.id, name: c.name, phone: c.phone ?? null }))
-      setPlans(planList)
-      setClients(cliList)
-    }).catch(() => {}).finally(() => { if (!cancelled) setLoadingData(false) })
+    Promise.all([api.get('/club'), api.get('/clients')])
+      .then(([planRes, cliRes]) => {
+        if (cancelled) return
+        const planData = planRes.data?.data ?? planRes.data
+        const cliData = cliRes.data?.data ?? cliRes.data
+
+        const planList: PlanLite[] = (Array.isArray(planData) ? planData : planData.plans ?? [])
+          .map((p: { id: string; name: string; price: number; color?: string | null; active?: boolean }) => ({
+            id: p.id, name: p.name, price: p.price, color: p.color ?? null, active: p.active !== false,
+          }))
+          .filter((p: PlanLite) => p.active)
+
+        const cliList: ClientLite[] = (Array.isArray(cliData) ? cliData : cliData.clients ?? [])
+          .map((c: { id: string; name: string; phone?: string | null; cpf?: string | null }) => ({
+            id: c.id, name: c.name, phone: c.phone ?? null, cpf: c.cpf ?? null,
+          }))
+
+        setPlans(planList)
+        setClients(cliList)
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingData(false) })
     return () => { cancelled = true }
   }, [])
 
-  function handleClose() {
+  const handleClose = useCallback(() => {
     setMounted(false)
     setTimeout(onClose, 200)
-  }
-
-  function selectPlan(id: string) {
-    setPlanId(id)
-    const p = plans.find(pl => pl.id === id)
-    if (p) setValueStr(String(p.price))
-  }
+  }, [onClose])
 
   const selectedClient = clients.find(c => c.id === clientId) ?? null
-  const selectedPlan   = plans.find(p => p.id === planId) ?? null
+  const selectedPlan = plans.find(p => p.id === planId) ?? null
 
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase()
     const base = q
       ? clients.filter(c => c.name.toLowerCase().includes(q) || (c.phone ?? '').toLowerCase().includes(q))
       : clients
-    return base.slice(0, 50)
+    return base.slice(0, 40)
   }, [clients, clientQuery])
 
-  const valueNum = parseFloat(valueStr.replace(',', '.')) || 0
+  const semCpf = clients.filter(c => !c.cpf).length
 
   const submit = useCallback(async () => {
     setError(null)
-    if (!clientId)      { setError('Selecione um cliente'); return }
-    if (!planId)        { setError('Selecione um plano'); return }
-    if (valueNum < 0)   { setError('Valor inválido'); return }
+    if (!clientId) { setError('Selecione o cliente que vai assinar.'); return }
+    if (!planId) { setError('Escolha o plano do clube.'); return }
 
     setSaving(true)
     try {
-      const res = await api.post('/club-subscriptions', { clientId, planId, amount: valueNum, method })
-      const data = res.data?.data ?? res.data
-      onSaved(data)
-      handleClose()
+      const res = await api.post('/club-subscriptions/recurring', {
+        clientId, planId, billingType: 'CREDIT_CARD',
+      })
+      const payload = (res.data?.data ?? res.data) as { subscription?: ClubSubscription } & ClubSubscription
+      const sub = (payload.subscription ?? payload) as ClubSubscription
+      onSaved(sub)
+
+      // busca o link + dados pra montar a mensagem de WhatsApp
+      if (sub?.id) {
+        try {
+          const lk = await api.get(`/club-subscriptions/${sub.id}/payment-link`)
+          setDone((lk.data?.data ?? null) as PaymentLink | null)
+        } catch {
+          setDone(null)
+        }
+      }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao assinar')
+      setError(e.response?.data?.error ?? 'Não foi possível criar a assinatura.')
+    } finally {
       setSaving(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId, planId, valueNum, method])
+  }, [clientId, planId, onSaved])
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: 11, fontWeight: 700, color: colors.gray.dimText,
-    textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 6,
-  }
-  const inputStyle: React.CSSProperties = {
-    width: '100%', boxSizing: 'border-box', padding: isMobile ? '11px 13px' : '10px 13px',
-    borderRadius: 9, fontSize: 13, border: `1px solid ${colors.gray.borderMd}`, outline: 'none',
-    fontFamily: typography.fontFamily, color: colors.gray[900], background: '#fff',
-  }
+  const copyLink = useCallback(async () => {
+    if (!done?.checkoutUrl) return
+    try {
+      await navigator.clipboard.writeText(done.checkoutUrl)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2200)
+    } catch {
+      setError('Não foi possível copiar. Link: ' + done.checkoutUrl)
+    }
+  }, [done])
+
+  const sendWhats = useCallback(() => {
+    if (!done?.checkoutUrl || !done.clientPhone) return
+    const msg = clubPaymentMessage(done.clientName, done.businessName, done.checkoutUrl)
+    window.open(waLink(done.clientPhone, msg), '_blank', 'noopener,noreferrer')
+  }, [done])
+
+  const podeSalvar = !!clientId && !!planId && !saving
 
   const content = (
     <div
       onClick={handleClose}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)',
-        zIndex: 9998, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center',
-        opacity: mounted ? 1 : 0, transition: 'opacity 0.2s ease', fontFamily: typography.fontFamily,
-      }}
+      className="ecs-overlay"
+      style={{ opacity: mounted ? 1 : 0 }}
     >
+      <style>{`
+        .ecs-overlay{
+          position:fixed; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(3px);
+          z-index:9998; display:flex; align-items:flex-end; justify-content:center;
+          transition:opacity .2s ease;
+        }
+        .ecs-sheet{
+          background:#fff; width:100%; max-height:94vh; border-radius:22px 22px 0 0;
+          display:flex; flex-direction:column; overflow:hidden;
+          box-shadow:0 -12px 48px rgba(0,0,0,.22);
+          transition:transform .28s cubic-bezier(.34,1.56,.64,1);
+        }
+        .ecs-body{ overflow-y:auto; -webkit-overflow-scrolling:touch; padding:4px 18px 18px; }
+        .ecs-foot{ padding:14px 18px calc(14px + env(safe-area-inset-bottom)); border-top:1px solid rgba(17,17,20,.07); background:#fff; }
+        .ecs-label{ font-size:11.5px; font-weight:700; color:#8a8a93; text-transform:uppercase; letter-spacing:.08em; margin:20px 0 9px; }
+        .ecs-input{
+          width:100%; box-sizing:border-box; padding:14px 14px 14px 40px; border-radius:12px;
+          font-size:16px; border:1px solid rgba(17,17,20,.12); outline:none; background:#fff;
+          color:#111114; min-height:50px;
+        }
+        .ecs-input:focus{ border-color:#dc2626; }
+        .ecs-row{
+          display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+          padding:13px 14px; border-radius:12px; border:1px solid rgba(17,17,20,.08);
+          background:#fff; cursor:pointer; min-height:56px; font-family:inherit;
+          transition:border-color .15s ease, background .15s ease;
+        }
+        .ecs-row:disabled{ cursor:not-allowed; opacity:.55; }
+        .ecs-row[data-on="1"]{ border-color:#dc2626; background:rgba(220,38,38,.05); }
+        .ecs-btn{
+          width:100%; min-height:54px; border:none; border-radius:14px; cursor:pointer;
+          font-size:16px; font-weight:600; font-family:inherit;
+          display:flex; align-items:center; justify-content:center; gap:8px;
+          background:linear-gradient(135deg,#dc2626,#b91c1c); color:#fff;
+        }
+        .ecs-btn:disabled{ opacity:.5; cursor:not-allowed; }
+        .ecs-mini{
+          flex:1; min-height:48px; border-radius:12px; cursor:pointer; font-family:inherit;
+          font-size:14px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:7px;
+          border:1px solid rgba(17,17,20,.12); background:#fff; color:#4b4b52;
+        }
+        @keyframes ecs-spin{ to{ transform:rotate(360deg) } }
+        .ecs-spin{ animation:ecs-spin .9s linear infinite; }
+        @media (min-width: 768px){
+          .ecs-overlay{ align-items:center; }
+          .ecs-sheet{ width:520px; max-width:calc(100vw - 32px); max-height:90vh; border-radius:20px; }
+          .ecs-body{ padding:4px 24px 22px; }
+          .ecs-foot{ padding:16px 24px; }
+        }
+      `}</style>
+
       <div
         onClick={e => e.stopPropagation()}
+        className="ecs-sheet"
         style={{
-          background: '#fff', width: isMobile ? '100%' : 480, maxWidth: '100%',
-          maxHeight: isMobile ? '94vh' : '90vh', borderRadius: isMobile ? '20px 20px 0 0' : radius.lg,
-          overflow: 'hidden', display: 'flex', flexDirection: 'column',
-          transform: mounted ? 'translateY(0)' : isMobile ? 'translateY(100%)' : 'scale(0.97)',
-          transition: `transform 0.25s ${transitions.spring ?? 'cubic-bezier(0.34,1.56,0.64,1)'}`,
-          boxShadow: '0 -8px 40px rgba(0,0,0,0.20)',
+          transform: mounted ? 'translateY(0)' : 'translateY(100%)',
+          fontFamily: typography.fontFamily,
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '16px 20px', borderBottom: `1px solid ${colors.gray.border}`, flexShrink: 0 }}>
-          <button onClick={handleClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, marginRight: 10, display: 'flex', WebkitTapHighlightColor: 'transparent' }}>
-            <X size={20} color={colors.gray[700]} strokeWidth={2} />
+        {/* ── header ── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '18px 18px 14px', borderBottom: '1px solid rgba(17,17,20,.07)', flexShrink: 0,
+        }}>
+          <span style={{
+            width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+            background: 'linear-gradient(135deg,rgba(220,38,38,.12),rgba(185,28,28,.07))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <CreditCard size={19} color="#dc2626" strokeWidth={2} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.02em', color: '#111114' }}>
+              {done ? 'Assinatura criada' : 'Novo assinante'}
+            </div>
+            <div style={{ fontSize: 12.5, color: '#8a8a93', marginTop: 1 }}>
+              {done ? 'Envie o link para o cliente pagar' : 'Cobrança automática no cartão'}
+            </div>
+          </div>
+          <button
+            onClick={handleClose}
+            aria-label="Fechar"
+            style={{
+              width: 40, height: 40, borderRadius: 11, border: 'none', cursor: 'pointer',
+              background: 'rgba(17,17,20,.05)', color: '#4b4b52', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <X size={18} strokeWidth={2} />
           </button>
-          <h2 style={{ flex: 1, margin: 0, fontSize: 17, fontWeight: 700, color: colors.gray[900], letterSpacing: '-0.01em' }}>
-            Assinar membro
-          </h2>
         </div>
 
-        {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: isMobile ? 16 : 22, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {/* 1. CLIENTE */}
-          <div>
-            <label style={labelStyle}>Cliente *</label>
-            {selectedClient ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', background: 'rgba(220,38,38,0.04)', border: `1px solid ${colors.red.border}`, borderRadius: 10 }}>
-                <span style={{ width: 34, height: 34, borderRadius: '50%', background: colors.red.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <User size={17} color="#fff" />
+        {/* ── corpo ── */}
+        <div className="ecs-body">
+          {done ? (
+            /* ═══ SUCESSO: link pronto pra enviar ═══ */
+            <>
+              <div style={{
+                display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 16,
+                background: '#ecfdf5', border: '1px solid rgba(16,185,129,.25)',
+                borderRadius: 14, padding: '14px 15px',
+              }}>
+                <Check size={17} color="#10B981" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontSize: 13.5, color: '#065f46', lineHeight: 1.55 }}>
+                  <b>{done.clientName}</b> já está no clube. Falta ele cadastrar o cartão —
+                  depois disso a cobrança acontece sozinha todo mês.
+                </div>
+              </div>
+
+              <div className="ecs-label">Link de pagamento</div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: '#f5f5f7', border: '1px solid rgba(17,17,20,.08)',
+                borderRadius: 12, padding: '13px 14px',
+              }}>
+                <Link2 size={15} color="#8a8a93" style={{ flexShrink: 0 }} />
+                <span style={{
+                  flex: 1, fontSize: 12.5, color: '#4b4b52', fontFamily: 'ui-monospace,monospace',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {done.checkoutUrl?.replace(/^https?:\/\//, '') ?? '—'}
                 </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: colors.gray[900], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedClient.name}</div>
-                  {selectedClient.phone && <div style={{ fontSize: 11, color: colors.gray.dimText }}>{selectedClient.phone}</div>}
-                </div>
-                <button onClick={() => { setClientId(null); setClientQuery('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', color: colors.gray.dimText, fontSize: 11, fontWeight: 700, WebkitTapHighlightColor: 'transparent' }}>
-                  Trocar
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                <button onClick={() => void copyLink()} className="ecs-mini">
+                  {copied ? <Check size={15} color="#10B981" /> : <Link2 size={15} />}
+                  {copied ? 'Copiado' : 'Copiar'}
                 </button>
+                {done.clientPhone && (
+                  <button
+                    onClick={sendWhats}
+                    className="ecs-mini"
+                    style={{ borderColor: 'rgba(16,185,129,.4)', background: '#ecfdf5', color: '#0b7a53' }}
+                  >
+                    <MessageCircle size={15} /> WhatsApp
+                  </button>
+                )}
               </div>
-            ) : (
-              <>
-                <div style={{ position: 'relative' }}>
-                  <Search size={15} color={colors.gray.dimText} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                  <input value={clientQuery} onChange={e => setClientQuery(e.target.value)} placeholder="Buscar por nome ou telefone" style={{ ...inputStyle, paddingLeft: 36 }} />
-                </div>
-                <div style={{ marginTop: 8, border: `1px solid ${colors.gray.border}`, borderRadius: 10, maxHeight: 190, overflowY: 'auto', background: colors.background.page }}>
-                  {loadingData ? (
-                    <div style={{ padding: 16, textAlign: 'center', color: colors.gray.dimText, fontSize: 12 }}>Carregando…</div>
-                  ) : clients.length === 0 ? (
-                    <div style={{ padding: 16, textAlign: 'center', color: colors.gray.dimText, fontSize: 12 }}>Nenhum cliente cadastrado. Cadastre em Clientes primeiro.</div>
-                  ) : filteredClients.length === 0 ? (
-                    <div style={{ padding: 16, textAlign: 'center', color: colors.gray.dimText, fontSize: 12 }}>Nenhum cliente encontrado.</div>
-                  ) : (
-                    filteredClients.map(c => (
-                      <button key={c.id} onClick={() => setClientId(c.id)} style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
-                        background: 'transparent', border: 'none', borderBottom: `1px solid ${colors.gray.border}`,
-                        cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
-                      }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#fff')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 600, color: colors.gray[900], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
-                          {c.phone && <div style={{ fontSize: 10.5, color: colors.gray.dimText }}>{c.phone}</div>}
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </>
-            )}
-          </div>
 
-          {/* 2. PLANO */}
-          <div>
-            <label style={labelStyle}>Plano de clube *</label>
-            {loadingData ? (
-              <div style={{ padding: 14, textAlign: 'center', color: colors.gray.dimText, fontSize: 12 }}>Carregando…</div>
-            ) : plans.length === 0 ? (
-              <div style={{ padding: '16px 12px', textAlign: 'center', background: colors.background.page, borderRadius: 10, border: `1px dashed ${colors.gray.borderMd}`, color: colors.gray.dimText, fontSize: 12 }}>
-                Nenhum plano ativo. Crie um plano na aba Planos.
+              <div style={{
+                display: 'flex', gap: 8, alignItems: 'center', marginTop: 18,
+                fontSize: 11.5, color: '#8a8a93', lineHeight: 1.5,
+              }}>
+                <ShieldCheck size={14} style={{ flexShrink: 0 }} />
+                <span>Os dados do cartão são tratados pelo Asaas — o Eligi nunca os armazena.</span>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {plans.map(p => {
-                  const sel = planId === p.id
-                  return (
-                    <button key={p.id} onClick={() => selectPlan(p.id)} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', borderRadius: 10,
-                      border: `1px solid ${sel ? colors.red.border : colors.gray.border}`,
-                      background: sel ? 'rgba(220,38,38,0.04)' : '#fff', cursor: 'pointer', textAlign: 'left',
-                      fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent', position: 'relative', overflow: 'hidden',
-                    }}>
-                      <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 3, background: p.color ?? colors.red.DEFAULT }} />
-                      <div style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: colors.gray[900], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                        <div style={{ fontSize: 11, color: colors.gray.dimText, fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(p.price)}/mês</div>
-                      </div>
-                      {sel && <Check size={18} color={colors.red.DEFAULT} strokeWidth={2.6} style={{ flexShrink: 0 }} />}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* 3. VALOR + 4. MÉTODO */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={labelStyle}>Valor cobrado *</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: colors.gray.dimText, fontWeight: 600 }}>R$</span>
-                <input value={valueStr} onChange={e => setValueStr(e.target.value.replace(/[^\d,.]/g, ''))} placeholder="0,00" inputMode="decimal" style={{ ...inputStyle, paddingLeft: 36, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }} />
-              </div>
-              {selectedPlan && valueNum !== selectedPlan.price && (
-                <div style={{ fontSize: 10, marginTop: 4, color: colors.gray.dimText }}>plano: {fmtBRL(selectedPlan.price)}</div>
+            </>
+          ) : loadingData ? (
+            <div style={{ padding: '44px 0', textAlign: 'center', color: '#8a8a93', fontSize: 14 }}>
+              <Loader2 size={22} className="ecs-spin" style={{ marginBottom: 10 }} />
+              <div>Carregando…</div>
+            </div>
+          ) : (
+            /* ═══ FORMULÁRIO ═══ */
+            <>
+              {error && (
+                <div style={{
+                  display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 16,
+                  background: 'rgba(220,38,38,.07)', border: '1px solid rgba(220,38,38,.2)',
+                  borderRadius: 12, padding: '13px 14px', fontSize: 13, color: '#b91c1c', lineHeight: 1.5,
+                }}>
+                  <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span>{error}</span>
+                </div>
               )}
-            </div>
-            <div>
-              <label style={labelStyle}>Pagamento</label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {METHODS.map(({ key, label, Icon }) => {
-                  const sel = method === key
+
+              {/* CLIENTE */}
+              <div className="ecs-label">Cliente</div>
+              <div style={{ position: 'relative' }}>
+                <Search
+                  size={16}
+                  color="#8a8a93"
+                  style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}
+                />
+                <input
+                  className="ecs-input"
+                  value={clientQuery}
+                  onChange={e => setClientQuery(e.target.value)}
+                  placeholder="Buscar por nome ou telefone"
+                  inputMode="search"
+                />
+              </div>
+
+              {semCpf > 0 && (
+                <div style={{
+                  fontSize: 11.5, color: '#b45309', background: '#fffbeb',
+                  border: '1px solid rgba(180,83,9,.2)', borderRadius: 10,
+                  padding: '10px 12px', marginTop: 10, lineHeight: 1.5,
+                }}>
+                  {semCpf} cliente(s) sem CPF não aparecem disponíveis — o CPF é exigido
+                  para cobrança no cartão. Cadastre o CPF na ficha do cliente.
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                {filteredClients.length === 0 && (
+                  <div style={{ fontSize: 13, color: '#8a8a93', padding: '14px 2px' }}>
+                    Nenhum cliente encontrado.
+                  </div>
+                )}
+                {filteredClients.map(c => {
+                  const on = clientId === c.id
+                  const bloqueado = !c.cpf
                   return (
-                    <button key={key} onClick={() => setMethod(key)} title={label} style={{
-                      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
-                      padding: '8px 4px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
-                      border: `1px solid ${sel ? colors.red.border : colors.gray.borderMd}`,
-                      background: sel ? 'rgba(220,38,38,0.06)' : '#fff',
-                      color: sel ? colors.red.DEFAULT : colors.gray[700],
-                    }}>
-                      <Icon size={16} strokeWidth={2} />
-                      <span style={{ fontSize: 9.5, fontWeight: 700 }}>{label}</span>
+                    <button
+                      key={c.id}
+                      className="ecs-row"
+                      data-on={on ? '1' : '0'}
+                      disabled={bloqueado}
+                      onClick={() => setClientId(c.id)}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontSize: 15, fontWeight: 600, color: bloqueado ? '#8a8a93' : '#111114',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {c.name}
+                        </div>
+                        <div style={{ fontSize: 12, color: bloqueado ? '#b45309' : '#8a8a93', marginTop: 2 }}>
+                          {bloqueado ? 'Sem CPF cadastrado' : c.phone ?? 'Sem telefone'}
+                        </div>
+                      </div>
+                      {on && <Check size={18} color="#dc2626" style={{ flexShrink: 0 }} />}
                     </button>
                   )
                 })}
               </div>
-            </div>
-          </div>
 
-          {error && (
-            <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.06)', border: `1px solid ${colors.red.border}`, borderRadius: 8, fontSize: 12, color: colors.red.DEFAULT, display: 'flex', alignItems: 'center', gap: 7 }}>
-              <AlertCircle size={14} strokeWidth={2.4} />{error}
-            </div>
+              {/* PLANO */}
+              <div className="ecs-label">Plano</div>
+              {plans.length === 0 ? (
+                <div style={{
+                  fontSize: 13, color: '#b45309', background: '#fffbeb',
+                  border: '1px solid rgba(180,83,9,.2)', borderRadius: 12,
+                  padding: '14px 15px', lineHeight: 1.55,
+                }}>
+                  Nenhum plano ativo. Crie um plano do clube antes de assinar um cliente.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                  {plans.map(p => {
+                    const on = planId === p.id
+                    return (
+                      <button
+                        key={p.id}
+                        className="ecs-row"
+                        data-on={on ? '1' : '0'}
+                        onClick={() => setPlanId(p.id)}
+                      >
+                        <span style={{
+                          width: 8, height: 38, borderRadius: 5, flexShrink: 0,
+                          background: p.color ?? '#dc2626',
+                        }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 15, fontWeight: 600, color: '#111114',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {p.name}
+                          </div>
+                          <div style={{
+                            fontSize: 19, fontWeight: 700, color: '#111114',
+                            fontFamily: NUM_FONT, letterSpacing: '-.02em', marginTop: 2,
+                          }}>
+                            {fmtBRL(p.price)}
+                            <span style={{ fontSize: 12.5, fontWeight: 500, color: '#8a8a93' }}> /mês</span>
+                          </div>
+                        </div>
+                        {on && <Check size={18} color="#dc2626" style={{ flexShrink: 0 }} />}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* explicação */}
+              <div style={{
+                display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 20,
+                background: '#f5f5f7', borderRadius: 14, padding: '14px 15px',
+              }}>
+                <CreditCard size={17} color="#4b4b52" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontSize: 13, color: '#4b4b52', lineHeight: 1.6 }}>
+                  Você envia um link, o cliente cadastra o cartão dele e a mensalidade
+                  passa a ser cobrada <b>automaticamente todo mês</b>.
+                </div>
+              </div>
+            </>
           )}
         </div>
 
-        {/* Footer */}
-        <div style={{ flexShrink: 0, padding: '14px 20px', paddingBottom: isMobile ? 'calc(14px + env(safe-area-inset-bottom))' : 14, borderTop: `1px solid ${colors.gray.border}`, background: '#fff', display: 'flex', gap: 10 }}>
-          <button onClick={handleClose} style={{ padding: '12px 20px', borderRadius: 10, border: `1px solid ${colors.gray.borderMd}`, background: '#fff', fontSize: 13, fontWeight: 700, color: colors.gray[700], cursor: 'pointer', fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}>
-            Cancelar
-          </button>
-          <button onClick={submit} disabled={saving} style={{ flex: 1, padding: '12px 20px', borderRadius: 10, border: 'none', background: saving ? colors.gray.borderMd : colors.red.gradient, color: '#fff', fontSize: 13, fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit', letterSpacing: '.03em', textTransform: 'uppercase', boxShadow: saving ? 'none' : `0 4px 14px ${colors.red.glow}`, WebkitTapHighlightColor: 'transparent' }}>
-            {saving ? <><Loader2 size={14} style={{ animation: 'club-spin 0.8s linear infinite' }} />Assinando</> : 'Assinar'}
-          </button>
+        {/* ── rodapé ── */}
+        <div className="ecs-foot">
+          {done ? (
+            <button onClick={handleClose} className="ecs-btn">Concluir</button>
+          ) : (
+            <>
+              {selectedClient && selectedPlan && (
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                  marginBottom: 11, fontSize: 13, color: '#4b4b52',
+                }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selectedClient.name}
+                  </span>
+                  <span style={{ fontFamily: NUM_FONT, fontWeight: 700, fontSize: 16, color: '#111114', flexShrink: 0 }}>
+                    {fmtBRL(selectedPlan.price)}<span style={{ fontSize: 12, fontWeight: 500, color: '#8a8a93' }}>/mês</span>
+                  </span>
+                </div>
+              )}
+              <button onClick={() => void submit()} disabled={!podeSalvar} className="ecs-btn">
+                {saving && <Loader2 size={17} className="ecs-spin" />}
+                {saving ? 'Criando…' : 'Criar assinatura'}
+              </button>
+            </>
+          )}
         </div>
       </div>
-
-      <style>{`@keyframes club-spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 
