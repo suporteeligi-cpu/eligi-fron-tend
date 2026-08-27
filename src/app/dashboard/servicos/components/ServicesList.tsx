@@ -174,8 +174,15 @@ export default function ServicesList({
                   </span>
                 </span>
 
+                {/* @eligi:pricemode-list — piso declarado fica visivel na lista.
+                    Coluna em vez de chip: a linha de metadados ja carrega duracao
+                    e contagem de profissionais. */}
                 <span style={{
                   flexShrink:         0,
+                  display:            'flex',
+                  flexDirection:      'column',
+                  alignItems:         'flex-end',
+                  lineHeight:         1.15,
                   fontFamily:         "'Space Grotesk', " + typography.fontFamily,
                   fontSize:           16,
                   fontWeight:         700,
@@ -187,6 +194,17 @@ export default function ServicesList({
                   whiteSpace:         'nowrap',
                   paddingTop:         1,
                 }}>
+                  {s.priceMode === 'FROM' && s.price != null && (
+                    <span style={{
+                      fontFamily:    typography.fontFamily,
+                      fontSize:      9,
+                      fontWeight:    700,
+                      letterSpacing: '.04em',
+                      color:         colors.gray.dimText,
+                    }}>
+                      a partir de
+                    </span>
+                  )}
                   {formatPrice(s.price)}
                 </span>
               </button>
