@@ -14,8 +14,8 @@
 // mudou; a pagina refaz GET /dashboard/overview. Receita nao pode ter dois
 // donos — recalcular no front duplicaria regra de negocio que vive no back.
 //
-// Limite conhecido: venda de produto puro (sem bookingId) nao emite evento
-// nenhum no back hoje, entao esse caso ainda depende de recarregar a pagina.
+// Venda de produto puro (sem bookingId) e coberta desde que o back passou a
+// emitir 'sale:changed' em shared/socket/events.ts.
 
 import { useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
@@ -25,6 +25,11 @@ const REFRESH_EVENTS = [
   'booking:created',
   'booking:updated',
   'booking:canceled',
+  // @eligi:realtime-sale-changed
+  // Emitido por shared/socket/events.ts em confirmar, cancelar e nota de
+  // credito. Cobre a venda de produto puro, que nao tem booking e por isso
+  // nao aparecia em nenhum booking:*.
+  'sale:changed',
 ] as const
 
 /**
