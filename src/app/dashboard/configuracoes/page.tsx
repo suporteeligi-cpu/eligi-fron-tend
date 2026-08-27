@@ -67,18 +67,6 @@ const MODULES: ModuleGroup[] = [
     ],
   },
   {
-    group: 'Serviços',
-    items: [
-      {
-        href:        '/dashboard/servicos',
-        icon:        Scissors,
-        label:       'Configurações de serviços',
-        description: 'Crie, edite e organize os serviços oferecidos pelo seu negócio.',
-        available:   true,
-      },
-    ],
-  },
-  {
     group: 'Negócio',
     items: [
       {
