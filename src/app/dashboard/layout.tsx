@@ -10,7 +10,6 @@ import { DASHBOARD_ROLES } from '@/app/components/navigation/navigation.config'
 import { resolveAccessRedirect } from '@/app/components/navigation/routeAccess'
 import Sidebar from '@/app/components/navigation/Sidebar'
 import CommandPalette from '@/app/components/search/CommandPalette'
-import { DashboardProvider } from '@/app/dashboard/DashboardContext'
 import BillingGuard from './components/BillingGuard'
 import AnnouncementModal from './components/AnnouncementModal' // @eligi:announcement-module
 
@@ -110,25 +109,23 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <BillingGuard>
-      <DashboardProvider>
       <AnnouncementModal />{/* @eligi:announcement-module */}
-        <AppNavbar />
-        <Sidebar />
+      <AppNavbar />
+      <Sidebar />
 
-        <main style={{
-          marginTop: `${NAVBAR_HEIGHT}px`,
-          marginLeft: 'var(--sidebar-width, 64px)',
-          minHeight: `calc(100dvh - ${NAVBAR_HEIGHT}px)`,
-          padding: '32px',
-          paddingBottom: 'calc(32px + var(--bottom-nav-h, 0px))',
-          transition: 'margin-left 230ms cubic-bezier(.4,0,.2,1)',
-          position: 'relative',
-        }}>
-          {children}
-        </main>
+      <main style={{
+        marginTop: `${NAVBAR_HEIGHT}px`,
+        marginLeft: 'var(--sidebar-width, 64px)',
+        minHeight: `calc(100dvh - ${NAVBAR_HEIGHT}px)`,
+        padding: '32px',
+        paddingBottom: 'calc(32px + var(--bottom-nav-h, 0px))',
+        transition: 'margin-left 230ms cubic-bezier(.4,0,.2,1)',
+        position: 'relative',
+      }}>
+        {children}
+      </main>
 
-        <CommandPalette />
-      </DashboardProvider>
+      <CommandPalette />
     </BillingGuard>
   )
 }
