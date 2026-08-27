@@ -10,7 +10,7 @@ import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
 import { PasswordChecklist } from '../components/auth/PasswordChecklist'
 import { mapAuthError }     from '@/lib/auth.error.map'
 import { firstPasswordError } from '@/lib/passwordRules'
-import styles from './Register.module.css'
+import styles from '../components/auth/auth.module.css'
 
 /* ── Types ── */
 interface ApiError {
@@ -138,6 +138,20 @@ export default function RegisterForm() {
         </button>
       </div>
 
+      {/* @eligi:auth-google-first — quem entra com Google nao deveria
+          rolar ate o rodape para descobrir que da. */}
+      <div className={styles.googleWrapper}>
+        <GoogleAuthButton
+          onClick={handleGoogleClick}
+          loading={loading}
+          label="Criar conta com Google"
+        />
+      </div>
+
+      <div className={styles.divider}>
+        <span className={styles.dividerLabel}>ou preencha seus dados</span>
+      </div>
+
       {/* Form */}
       <form className={styles.authForm} onSubmit={handleSubmit} noValidate>
         <AuthInput
@@ -179,19 +193,6 @@ export default function RegisterForm() {
         </AuthButton>
       </form>
 
-      {/* Divider */}
-      <div className={styles.divider}>
-        <span className={styles.dividerLabel}>ou continue com</span>
-      </div>
-
-      {/* Google */}
-      <div className={styles.googleWrapper}>
-        <GoogleAuthButton
-          onClick={handleGoogleClick}
-          loading={loading}
-          label="Registrar com Google"
-        />
-      </div>
     </AuthCard>
   )
 }

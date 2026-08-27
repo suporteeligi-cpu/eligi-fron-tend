@@ -47,7 +47,6 @@ export function AuthInput({
     <div className={styles.authInput}>
       <label htmlFor={id} className={styles.label}>
         {label}
-        {required && <span aria-hidden style={{ color: '#dc2626', marginLeft: '2px' }}>*</span>}
       </label>
 
       <div className={styles.inputWrapper}>

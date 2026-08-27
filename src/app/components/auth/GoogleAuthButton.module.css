@@ -1,28 +1,39 @@
+/* ============================================================
+   GOOGLE AUTH BUTTON — @eligi:google-btn-neutral
+   Era #D32F2F com o logo do Google pintado de branco. Isso descaracteriza a
+   marca (as Google Sign-In Branding Guidelines pedem fundo branco, cinza
+   claro ou preto) e criava um segundo botao vermelho competindo com o CTA.
+   ============================================================ */
+
 .btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
-  padding: 13px;
-  background: #D32F2F;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
+  min-height: 52px;
+  padding: 0 16px;
+  background: #ffffff;
+  color: #1f1f27;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 14px;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
   font-family: inherit;
+  touch-action: manipulation;
 }
 
 .btn:hover:not(:disabled) {
-  background: #B71C1C;
+  background: #fafafa;
+  border-color: rgba(0, 0, 0, 0.20);
 }
 
 .btn:active:not(:disabled) {
-  transform: scale(0.98);
-  background: #B71C1C;
+  transform: scale(0.985);
+  background: #f4f4f6;
 }
 
 .btn:disabled {
@@ -31,7 +42,23 @@
 }
 
 .icon {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   flex-shrink: 0;
+}
+
+/* ── Dark ── */
+:global(html.dark) .btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+:global(html.dark) .btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+:global(html.dark) .btn:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
 }

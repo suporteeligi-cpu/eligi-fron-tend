@@ -8,7 +8,7 @@ import { AuthInput }        from '../components/auth/AuthInput'
 import { AuthButton }       from '../components/auth/AuthButton'
 import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
 import { mapAuthError }     from '@/lib/auth.error.map'
-import styles from './Login.module.css'
+import styles from '../components/auth/auth.module.css'
 
 /* ── Types ── */
 type ApiError = { code?: string; message?: string }
@@ -119,6 +119,20 @@ export default function LoginForm() {
         </button>
       </div>
 
+      {/* @eligi:auth-google-first — quem entra com Google nao deveria
+          rolar ate o rodape para descobrir que da. */}
+      <div className={styles.googleWrapper}>
+        <GoogleAuthButton
+          onClick={handleGoogleClick}
+          loading={loading}
+          label="Entrar com Google"
+        />
+      </div>
+
+      <div className={styles.divider}>
+        <span className={styles.dividerLabel}>ou entre com e-mail</span>
+      </div>
+
       {/* Form */}
       <form className={styles.authForm} onSubmit={handleSubmit} noValidate>
         <AuthInput
@@ -158,19 +172,6 @@ export default function LoginForm() {
         </AuthButton>
       </form>
 
-      {/* Divider */}
-      <div className={styles.divider}>
-        <span className={styles.dividerLabel}>ou continue com</span>
-      </div>
-
-      {/* Google */}
-      <div className={styles.googleWrapper}>
-        <GoogleAuthButton
-          onClick={handleGoogleClick}
-          loading={loading}
-          label="Entrar com Google"
-        />
-      </div>
     </AuthCard>
   )
 }
