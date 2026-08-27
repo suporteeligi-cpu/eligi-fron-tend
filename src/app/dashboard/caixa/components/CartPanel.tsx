@@ -165,6 +165,22 @@ export default function CartPanel({
     }
   }
 
+  // @eligi:pricemode-cart-handler
+  // Mesmo formato do changeItemQty. O back rejeita com 403 quando o role nao
+  // pode alterar valor — a mensagem dele cai direto no setError.
+  async function changeItemPrice(itemId: string, unitPriceOverride: number) {
+    setUpdatingItemId(itemId)
+    setError(null)
+    try {
+      await api.patch(`/sales/${sale.id}/items/${itemId}`, { unitPriceOverride })
+      await refetchSale()
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } }
+      setError(e.response?.data?.error ?? 'Erro ao atualizar valor do item')
+    } finally {
+      setUpdatingItemId(null)
+    }
+  }
   async function changeItemProf(itemId: string, profId: string | null) {
     setUpdatingItemId(itemId)
     setError(null)
@@ -257,7 +273,20 @@ export default function CartPanel({
     }
   }
 
-  const canCheckout = sale.items.length > 0
+  // @eligi:pricemode-checkout-gate
+  // Servico "a partir de" so libera o fechamento depois que alguem definiu o
+  // valor cobrado. Sem isso a venda fecha no piso por esquecimento — que e
+  // exatamente o problema que o modo FROM existe para resolver.
+  // Cobertura por pacote/assinatura usa o MESMO criterio do `isCovered` do
+  // CartItemRow: item coberto vale R$0 e nao precisa de valor final.
+  const pendingPriceItems = sale.items.filter(
+    it => it.type === 'SERVICE'
+      && it.service?.priceMode === 'FROM'
+      && it.priceOverridden !== true
+      && it.appliedPackageCardId == null
+      && it.appliedMembershipCardId == null,
+  )
+  const canCheckout = sale.items.length > 0 && pendingPriceItems.length === 0
 
   // ⭐ Venda 100% paga via pacote (ou desconto) — sem modal de pagamento
   const isFreeCheckout = canCheckout && sale.total === 0
@@ -507,6 +536,7 @@ export default function CartPanel({
                     isMobile={isMobile}
                     onChangeQty={qty => changeItemQty(item.id, qty)}
                     onChangeProf={pid => changeItemProf(item.id, pid)}
+                    onChangePrice={v => changeItemPrice(item.id, v)}
                     onRemove={() => removeItem(item.id)}
                     onRemovePackage={() => removePackageFromItem(item.id)}
                     onRemoveMembership={() => removeMembershipFromItem(item.id)}

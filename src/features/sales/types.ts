@@ -22,6 +22,12 @@ export interface SaleItem {
   quantity:          number
   total:             number
 
+  // @eligi:pricemode-sale-item-type
+  // priceOverridden = alguem DIGITOU este valor (nao "difere da tabela").
+  // catalogUnitPrice = valor de tabela vigente no momento em que digitou.
+  priceOverridden?:  boolean
+  catalogUnitPrice?: number | null
+
   professionalId?:   string | null
   commissionType?:   CommissionType | null
   commissionValue?:  number | null
@@ -64,6 +70,8 @@ export interface SaleItem {
     name:     string
     duration: number
     color?:   string | null
+    // @eligi:pricemode-sale-item-service
+    priceMode?: 'FIXED' | 'FROM'
   } | null
   package?: {
     id:    string
@@ -177,6 +185,8 @@ export interface CatalogService {
   name:     string
   duration: number
   price:    number | null
+  // @eligi:pricemode-catalog-service — em FROM, `price` e o PISO.
+  priceMode?: 'FIXED' | 'FROM'
   color?:   string | null
   category?: string | null
   active?:  boolean

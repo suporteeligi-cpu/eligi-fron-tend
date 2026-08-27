@@ -4,7 +4,9 @@
 // Item do carrinho. Cobertura (R$0) por PACOTE (verde + Layers) ou ASSINATURA (verde + Ticket).
 // "Coberto" desabilita qty/prof e zera o preço. Cada cobertura tem seu próprio badge + remover.
 
-import { Minus, Plus, Trash2, Tag, Package, Layers, Ticket, XCircle } from 'lucide-react'
+// @eligi:pricemode-cart-imports
+import { useState } from 'react'
+import { Minus, Plus, Trash2, Tag, Package, Layers, Ticket, XCircle, Pencil } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { SaleItem, ProfLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
@@ -17,6 +19,8 @@ interface Props {
   isMobile:       boolean
   onChangeQty:    (newQty: number) => void
   onChangeProf:   (profId: string | null) => void
+  /* @eligi:pricemode-cart-props — valor final de servico "a partir de" */
+  onChangePrice?: (unitPrice: number) => void
   onRemove:       () => void
   onRemovePackage?: () => void        // remove só o pacote aplicado
   onRemoveMembership?: () => void     // ⭐ remove só a assinatura aplicada
@@ -27,7 +31,7 @@ interface Props {
 
 export default function CartItemRow({
   item, professionals, isMobile,
-  onChangeQty, onChangeProf, onRemove, onRemovePackage, onRemoveMembership,
+  onChangeQty, onChangeProf, onChangePrice, onRemove, onRemovePackage, onRemoveMembership,
   suggestion, onUsePackage, disabled,
 }: Props) {
   const { user } = useAuth()
@@ -48,6 +52,32 @@ export default function CartItemRow({
   const hasPackageApplied    = item.appliedPackageCardId != null
   const hasMembershipApplied = item.appliedMembershipCardId != null
   const isCovered            = hasPackageApplied || hasMembershipApplied
+
+  // @eligi:pricemode-cart-state
+  // `priceOverridden` significa "alguem digitou este valor" — ver updateItem no
+  // back. Por isso cobrar exatamente o piso tambem conta como valor definido.
+  const isFromPrice  = item.type === 'SERVICE' && item.service?.priceMode === 'FROM'
+  const priceDefined = item.priceOverridden === true
+  const needsPrice   = isFromPrice && !priceDefined && !isCovered
+  const canEditPrice = isFromPrice && !isCovered && !isCheckoutOnly && !disabled
+
+  const [priceDraft, setPriceDraft] = useState<string>(
+    () => (item.unitPrice > 0 ? String(item.unitPrice) : ''),
+  )
+
+  function commitPrice() {
+    if (!onChangePrice) return
+    const parsed = Number(priceDraft.replace(',', '.'))
+    // Valor invalido volta ao que o servidor tem — nunca envia lixo.
+    if (!(parsed > 0)) {
+      setPriceDraft(item.unitPrice > 0 ? String(item.unitPrice) : '')
+      return
+    }
+    // Sem mudanca E ja definido = nada a fazer. Se ainda NAO foi definido, envia
+    // mesmo com valor igual: e assim que o piso vira uma escolha explicita.
+    if (priceDefined && Math.abs(parsed - item.unitPrice) < 0.005) return
+    onChangePrice(parsed)
+  }
 
   return (
     <div style={{
@@ -304,6 +334,74 @@ export default function CartItemRow({
             </div>
           </div>
         </button>
+      )}
+
+      {/* @eligi:pricemode-cart-ui — valor final de servico "a partir de" */}
+      {isFromPrice && !isCovered && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '7px 10px',
+          background: needsPrice ? 'rgba(220,38,38,0.05)' : colors.background.page,
+          border: needsPrice
+            ? '1px dashed rgba(220,38,38,0.35)'
+            : `1px solid ${colors.gray.border}`,
+          borderRadius: 8,
+        }}>
+          <Pencil
+            size={12}
+            color={needsPrice ? colors.red.DEFAULT : colors.gray.dimText}
+            strokeWidth={2.4}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 800,
+              color: needsPrice ? colors.red.DEFAULT : colors.gray.dimText,
+              letterSpacing: '.04em', textTransform: 'uppercase',
+            }}>
+              {needsPrice ? 'Defina o valor cobrado' : 'Valor definido'}
+            </div>
+            <div style={{ fontSize: 10, color: colors.gray[700] }}>
+              {isCheckoutOnly
+                ? 'Só um responsável pode alterar este valor'
+                : `A partir de ${formatBRL(item.catalogUnitPrice ?? item.unitPrice)}`}
+            </div>
+          </div>
+          <div style={{ position: 'relative', width: 104, flexShrink: 0 }}>
+            <span style={{
+              position: 'absolute', left: 8, top: '50%',
+              transform: 'translateY(-50%)',
+              fontSize: 11, fontWeight: 600,
+              color: colors.gray.dimText,
+              pointerEvents: 'none',
+            }}>R$</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={priceDraft}
+              disabled={!canEditPrice}
+              onChange={e => setPriceDraft(e.target.value.replace(/[^\d,.]/g, ''))}
+              onBlur={commitPrice}
+              placeholder="0,00"
+              aria-label="Valor cobrado"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '7px 8px 7px 28px',
+                borderRadius: 7,
+                border: `1px solid ${needsPrice ? colors.red.DEFAULT : colors.gray.borderMd}`,
+                fontSize: 12, fontWeight: 700,
+                textAlign: 'right',
+                outline: 'none',
+                fontVariantNumeric: 'tabular-nums',
+                fontFamily: 'inherit',
+                background: canEditPrice ? '#fff' : colors.background.page,
+                color: canEditPrice ? colors.gray[900] : colors.gray.dimText,
+                cursor: canEditPrice ? 'text' : 'not-allowed',
+                opacity: canEditPrice ? 1 : 0.55,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Linha inferior: qty + prof */}
