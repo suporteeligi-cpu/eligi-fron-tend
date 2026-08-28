@@ -62,6 +62,7 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
   const [payAmountStr, setPayAmountStr] = useState(String(initialSub.value ?? initialSub.plan.price))
   const [payMethod, setPayMethod] = useState<Method>('DINHEIRO')
   const [paying, setPaying] = useState(false)
+  const [paySuccess, setPaySuccess] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
 
   const [confirmCancel, setConfirmCancel] = useState(false)
@@ -102,6 +103,10 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
       const data = res.data?.data ?? res.data
       setSub(data)
       onUpdated(data)
+      // feedback explicito: sem isso o lojista nao sabia se deu certo e
+      // clicava de novo (aconteceu em prod — pagamento em duplicidade).
+      setPaySuccess(true)
+      window.setTimeout(() => setPaySuccess(false), 3000)
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
       setPayError(e.response?.data?.error ?? 'Erro ao registrar pagamento')
@@ -224,15 +229,30 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
                   <AlertCircle size={13} strokeWidth={2.4} />{payError}
                 </div>
               )}
-              <button onClick={registerPayment} disabled={paying} style={{
+              <button onClick={registerPayment} disabled={paying || paySuccess} style={{
                 width: '100%', padding: '11px', borderRadius: 10, border: 'none',
-                background: paying ? colors.gray.borderMd : colors.red.gradient, color: '#fff',
+                background: paySuccess ? '#10B981' : paying ? colors.gray.borderMd : colors.red.gradient,
+                color: '#fff',
                 fontSize: 12.5, fontWeight: 800, letterSpacing: '.03em', textTransform: 'uppercase',
-                cursor: paying ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                fontFamily: 'inherit', boxShadow: paying ? 'none' : `0 4px 14px ${colors.red.glow}`, WebkitTapHighlightColor: 'transparent',
+                cursor: (paying || paySuccess) ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                fontFamily: 'inherit',
+                boxShadow: (paying || paySuccess) ? 'none' : `0 4px 14px ${colors.red.glow}`,
+                transition: 'background .2s ease', WebkitTapHighlightColor: 'transparent',
               }}>
-                {paying ? <><Loader2 size={14} style={{ animation: 'club-spin 0.8s linear infinite' }} />Registrando</> : 'Registrar pagamento'}
+                {paySuccess
+                  ? <><Check size={15} strokeWidth={2.6} />Pagamento registrado</>
+                  : paying
+                    ? <><Loader2 size={14} style={{ animation: 'club-spin 0.8s linear infinite' }} />Registrando</>
+                    : 'Registrar pagamento'}
               </button>
+              {paySuccess && (
+                <div style={{
+                  fontSize: 11.5, color: '#0b7a53', textAlign: 'center', marginTop: 8, lineHeight: 1.5,
+                }}>
+                  Ciclo renovado por mais 1 mês. Não precisa registrar de novo.
+                </div>
+              )}
             </div>
           )}
 
