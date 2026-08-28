@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ChevronRight, Clock, Check, Search, Plus, Star, Trash2, Calendar, ChevronDown, User, Loader2 , StickyNote } from 'lucide-react'
+import { X, ChevronRight, Clock, Check, Search, Plus, Star, Trash2, Calendar, ChevronDown, User, Loader2 , StickyNote , TriangleAlert } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc      from 'dayjs/plugin/utc'
@@ -362,7 +362,7 @@ function highlight(text: string, term: string) {
 }
 
 function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
-  selected:Client|null; onSelect:(c:Client|null)=>void; onClose:()=>void; onCreateNew:()=>void
+  selected:Client|null; onSelect:(c:Client|null)=>void; onClose:()=>void; onCreateNew:(prefillName?:string)=>void
 }) {
   const [query,   setQuery]   = useState('')
   const [clients, setClients] = useState<ClientRow[]>([])
@@ -531,7 +531,7 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
         </div>
 
         <div style={{flexShrink:0,borderTop:`1px solid ${colors.gray.border}`,padding:'12px 18px',paddingBottom:isMobile?'max(12px,env(safe-area-inset-bottom))':12}}>
-          <button onClick={()=>{onClose();onCreateNew()}} style={{width:'100%',minHeight:54,borderRadius:16,border:`1.5px dashed ${colors.red.border}`,background:'rgba(220,38,38,0.03)',color:colors.red.DEFAULT,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:9,fontSize:16.5,fontWeight:700,letterSpacing:'-0.015em',fontFamily:typography.fontFamily}}>
+          <button onClick={()=>{onClose();onCreateNew(term)}} style={{width:'100%',minHeight:54,borderRadius:16,border:`1.5px dashed ${colors.red.border}`,background:'rgba(220,38,38,0.03)',color:colors.red.DEFAULT,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:9,fontSize:16.5,fontWeight:700,letterSpacing:'-0.015em',fontFamily:typography.fontFamily}}>
             <Plus size={19} strokeWidth={2.2}/>
             {term ? `Cadastrar "${titleCase(term)}"` : 'Cadastrar novo cliente'}
           </button>
@@ -543,41 +543,105 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
 }
 
 // ─── CreateClientSheet ────────────────────────────────────────────────────────
-function CreateClientSheet({ onCreated, onClose }: {
-  onCreated:(c:Client)=>void; onClose:()=>void
+// ─── CreateClientSheet ────────────────────────────────────────────────────────
+// @eligi:create-client-v2
+//
+// O que mudou:
+//   - o nome nasce preenchido com o que foi digitado na busca. Antes o botao
+//     dizia Cadastrar "Anderson" e o modal abria vazio.
+//   - os erros do back deixam de virar "tente novamente". Ele manda
+//     DUPLICATE_PHONE, INVALID_PHONE e INVALID_CPF, e o caso mais comum e o
+//     cliente ja existir -- tentar de novo nunca ia resolver.
+//   - inputs com 16px: abaixo disso o Safari no iOS da zoom ao focar.
+//   - telefone com mascara enquanto digita.
+//
+// O aviso de "sem telefone" foi mantido como estava: e uma decisao de produto
+// boa, so ganhou tipografia maior.
+
+/** (11) 99999-9999 conforme digita. Trunca em 11 digitos. */
+function maskPhoneBR(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 2)  return d
+  if (d.length <= 6)  return `(${d.slice(0,2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
+}
+
+/** Traduz o erro do back. Le o code; cai no texto quando o handler global
+ *  nao propaga o code. Nunca devolve "tente novamente" as cegas. */
+function mapCreateClientError(err: unknown): string {
+  const r = (err as { response?: { data?: { code?: string; error?: string; message?: string } } })?.response?.data
+  const code = r?.code
+  const text = (r?.error ?? r?.message ?? '').toLowerCase()
+
+  if (code === 'DUPLICATE_PHONE' || text.includes('telefone')) {
+    if (code === 'INVALID_PHONE' || text.includes('invalid')) return 'Telefone invalido. Confira o numero.'
+    return 'Ja existe um cliente com esse telefone. Volte e busque por ele.'
+  }
+  if (code === 'INVALID_PHONE') return 'Telefone invalido. Confira o numero.'
+  if (code === 'INVALID_CPF')   return 'CPF invalido.'
+  return 'Nao foi possivel criar o cliente. Tente novamente.'
+}
+
+function CreateClientSheet({ onCreated, onClose, prefillName = '' }: {
+  onCreated:(c:Client)=>void; onClose:()=>void; prefillName?:string
 }) {
   const isMobile = useIsMobile()
-  const [name,  setName]  = useState('')
+  const [name,  setName]  = useState(prefillName)
   const [phone, setPhone] = useState('')
-  const [saving,setSaving]= useState('')
+  const [saving,setSaving]= useState<'idle'|'saving'>('idle')
+  const [error, setError] = useState<string|null>(null)
   const [showNoPhoneWarn, setShowNoPhoneWarn] = useState(false)
+  const nameRef  = useRef<HTMLInputElement>(null)
   const phoneRef = useRef<HTMLInputElement>(null)
 
-  // Cria de fato (chamado direto quando há telefone, ou pelo "Agora não" do aviso).
+  // Nome ja veio da busca: o cursor pertence ao campo que falta preencher.
+  useEffect(() => {
+    const alvo = prefillName.trim() ? phoneRef : nameRef
+    const t = setTimeout(()=>alvo.current?.focus(), 120)
+    return () => clearTimeout(t)
+  }, [prefillName])
+
   async function doCreate() {
     if (!name.trim()) return
     try {
       setShowNoPhoneWarn(false)
       setSaving('saving')
-      const trimmedPhone = phone.trim()
+      setError(null)
+      const trimmedPhone = phone.replace(/\D/g,'')
       const res = await api.post('/clients', {
         name:  name.trim(),
         phone: trimmedPhone || undefined,   // vazio -> undefined; back grava null
       })
       const c = res.data?.data ?? res.data
       onCreated({ id: c.id, name: c.name, phone: c.phone ?? '' })
-    } catch { setSaving('error') }
+    } catch (err) {
+      setError(mapCreateClientError(err))
+      setSaving('idle')
+    }
   }
 
   function handleSave() {
     if (!name.trim()) return
-    // Sem telefone -> avisa antes (perder notificação / contato / no-show).
+    // Sem telefone -> avisa antes (perder notificacao / contato / no-show).
     if (!phone.trim()) { setShowNoPhoneWarn(true); return }
     doCreate()
   }
 
+  const field: React.CSSProperties = {
+    width:'100%', minHeight:54, padding:'0 15px', borderRadius:15,
+    border:`1px solid ${colors.gray.borderMd}`,
+    fontSize:16,           // 16px e o minimo que impede o zoom automatico do iOS
+    outline:'none', fontFamily:typography.fontFamily, boxSizing:'border-box',
+    color:colors.gray[900], background:'#fff',
+  }
+  const label: React.CSSProperties = {
+    fontSize:13, fontWeight:700, color:colors.gray.dimText,
+    textTransform:'uppercase', letterSpacing:'.05em', marginBottom:8,
+  }
+
   const style = isMobile ? {
-    position:'fixed' as const, left:0, right:0, bottom:0, height:'60dvh',
+    position:'fixed' as const, left:0, right:0, bottom:0, maxHeight:'80dvh',
     background:'rgba(255,255,255,0.99)', borderRadius:`${radius['2xl']}px ${radius['2xl']}px 0 0`,
     boxShadow:'0 -8px 40px rgba(0,0,0,0.15)', zIndex:11000,
     display:'flex', flexDirection:'column' as const, fontFamily:typography.fontFamily,
@@ -585,7 +649,7 @@ function CreateClientSheet({ onCreated, onClose }: {
     paddingBottom:'max(20px,env(safe-area-inset-bottom))',
   } : {
     position:'fixed' as const, top:'50%', left:'50%', transform:'translate(-50%,-50%)',
-    width:360, background:'rgba(255,255,255,0.99)', borderRadius:radius['2xl'],
+    width:420, maxWidth:'92vw', background:'rgba(255,255,255,0.99)', borderRadius:radius['2xl'],
     boxShadow:shadows.lg, zIndex:11000, fontFamily:typography.fontFamily,
     animation:'cmIn 0.22s cubic-bezier(0.34,1.56,0.64,1)', overflow:'hidden',
   }
@@ -595,46 +659,55 @@ function CreateClientSheet({ onCreated, onClose }: {
       {showNoPhoneWarn && (
         <>
           <div onClick={()=>setShowNoPhoneWarn(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',backdropFilter:'blur(8px)',zIndex:11001}}/>
-          <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:360,maxWidth:'88vw',background:'#fff',borderRadius:20,boxShadow:'0 32px 72px rgba(0,0,0,0.22)',zIndex:11002,padding:'26px 24px 20px',fontFamily:typography.fontFamily,animation:'cmIn 0.22s cubic-bezier(0.34,1.56,0.64,1)'}}>
-            <h3 style={{margin:'0 0 8px',fontSize:17,fontWeight:800,color:'#0f0f14',letterSpacing:'-0.02em'}}>Adicionar número de telefone</h3>
-            <p style={{margin:'0 0 14px',fontSize:13,color:colors.gray.dimText,lineHeight:1.5}}>Por que obter o telefone do cliente?</p>
-            <ul style={{margin:'0 0 22px',padding:0,listStyle:'none',display:'flex',flexDirection:'column',gap:9}}>
-              {['Para o cliente receber notificações de agendamento','Para você poder contatá-lo no futuro','Para proteger seu faturamento contra não comparecimento'].map((t,i)=>(
-                <li key={i} style={{display:'flex',gap:9,alignItems:'flex-start',fontSize:13,color:colors.gray[700],lineHeight:1.45}}>
-                  <span style={{color:colors.red.DEFAULT,fontWeight:800,flexShrink:0,marginTop:1}}>•</span>{t}
+          <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:400,maxWidth:'90vw',background:'#fff',borderRadius:22,boxShadow:'0 32px 72px rgba(0,0,0,0.22)',zIndex:11002,padding:'28px 26px 22px',fontFamily:typography.fontFamily,animation:'cmIn 0.22s cubic-bezier(0.34,1.56,0.64,1)'}}>
+            <h3 style={{margin:'0 0 8px',fontSize:20,fontWeight:800,color:'#0f0f14',letterSpacing:'-0.03em'}}>Cadastrar sem telefone?</h3>
+            <p style={{margin:'0 0 16px',fontSize:14.5,color:colors.gray.dimText,lineHeight:1.5}}>O numero e o que liga o cliente ao atendimento:</p>
+            <ul style={{margin:'0 0 24px',padding:0,listStyle:'none',display:'flex',flexDirection:'column',gap:11}}>
+              {['Ele recebe a confirmacao do agendamento','Voce consegue falar com ele depois','Reduz falta sem aviso, que custa a cadeira vazia'].map((t,i)=>(
+                <li key={i} style={{display:'flex',gap:10,alignItems:'flex-start',fontSize:14.5,color:colors.gray[700],lineHeight:1.45}}>
+                  <span style={{color:colors.red.DEFAULT,fontWeight:800,flexShrink:0,marginTop:1}}>&bull;</span>{t}
                 </li>
               ))}
             </ul>
-            <button onClick={()=>{setShowNoPhoneWarn(false);setTimeout(()=>phoneRef.current?.focus(),60)}} style={{width:'100%',padding:'14px',marginBottom:10,background:colors.red.gradient,color:'#fff',border:'none',borderRadius:13,fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'0.02em',boxShadow:'0 4px 16px rgba(220,38,38,0.28)'}}>Adicionar</button>
-            <button onClick={doCreate} style={{width:'100%',padding:'13px',background:'transparent',border:`1px solid ${colors.gray.borderMd}`,borderRadius:13,fontSize:14,cursor:'pointer',color:colors.gray.dimText,fontWeight:600}}>Agora não</button>
+            <button onClick={()=>{setShowNoPhoneWarn(false);setTimeout(()=>phoneRef.current?.focus(),60)}} style={{width:'100%',minHeight:54,marginBottom:10,background:colors.red.gradient,color:'#fff',border:'none',borderRadius:15,fontWeight:700,fontSize:16.5,cursor:'pointer',letterSpacing:'-0.01em',boxShadow:'0 6px 18px rgba(220,38,38,0.26)',fontFamily:typography.fontFamily}}>Adicionar telefone</button>
+            <button onClick={doCreate} style={{width:'100%',minHeight:50,background:'transparent',border:`1px solid ${colors.gray.borderMd}`,borderRadius:15,fontSize:15.5,cursor:'pointer',color:colors.gray.dimText,fontWeight:600,fontFamily:typography.fontFamily}}>Cadastrar assim mesmo</button>
           </div>
         </>
       )}
+
       <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.25)',backdropFilter:'blur(6px)',zIndex:10999}}/>
       <div style={style}>
         <style>{`@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes cmIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}`}</style>
         {isMobile&&<div style={{display:'flex',justifyContent:'center',padding:'12px 0 8px'}}><div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)'}}/></div>}
-        <div style={{padding:'16px 20px 14px',borderBottom:`1px solid ${colors.gray.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-          <h3 style={{margin:0,fontSize:16,fontWeight:700,color:colors.gray[900]}}>Novo cliente</h3>
-          <button onClick={onClose} style={{width:28,height:28,borderRadius:radius.full,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <X size={14} color={colors.gray.dimText}/>
+
+        <div style={{padding:'16px 20px 15px',borderBottom:`1px solid ${colors.gray.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexShrink:0}}>
+          <h3 style={{margin:0,fontSize:21,fontWeight:700,letterSpacing:'-0.03em',color:colors.gray[900]}}>Novo cliente</h3>
+          <button onClick={onClose} aria-label="Fechar" style={{width:40,height:40,borderRadius:13,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <X size={18} color={colors.gray.dimText}/>
           </button>
         </div>
-        <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:12,flex:1}}>
+
+        <div style={{padding:'18px 20px',display:'flex',flexDirection:'column',gap:16,flex:1,overflowY:'auto'}}>
           <div>
-            <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6}}>Nome *</div>
-            <input value={name} onChange={e=>setName(e.target.value)} placeholder="Nome completo" style={{width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${colors.gray.borderMd}`,fontSize:14,outline:'none',fontFamily:typography.fontFamily,boxSizing:'border-box'}}/>
+            <div style={label}>Nome</div>
+            <input ref={nameRef} value={name} onChange={e=>{setName(e.target.value);setError(null)}} placeholder="Nome do cliente" style={field}/>
           </div>
           <div>
-            <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6}}>Telefone <span style={{fontWeight:500,textTransform:'none',letterSpacing:0}}>(opcional)</span></div>
-            <input ref={phoneRef} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="(11) 99999-9999" style={{width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${colors.gray.borderMd}`,fontSize:14,outline:'none',fontFamily:typography.fontFamily,boxSizing:'border-box'}}/>
+            <div style={label}>Telefone <span style={{fontWeight:500,textTransform:'none',letterSpacing:0}}>(opcional)</span></div>
+            <input ref={phoneRef} value={phone} onChange={e=>{setPhone(maskPhoneBR(e.target.value));setError(null)}} placeholder="(11) 99999-9999" inputMode="numeric" style={field}/>
           </div>
-          {saving==='error'&&<div style={{fontSize:12,color:colors.red.DEFAULT}}>Erro ao criar cliente. Tente novamente.</div>}
+          {error && (
+            <div style={{display:'flex',gap:9,alignItems:'flex-start',padding:'12px 14px',borderRadius:13,background:'rgba(220,38,38,0.06)',border:`1px solid ${colors.red.border}`}}>
+              <TriangleAlert size={17} color={colors.red.DEFAULT} strokeWidth={2} style={{flexShrink:0,marginTop:1}}/>
+              <span style={{fontSize:14,color:colors.red.dark,lineHeight:1.45}}>{error}</span>
+            </div>
+          )}
         </div>
-        <div style={{padding:'0 20px 8px',display:'flex',gap:8}}>
-          <button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',fontSize:13,cursor:'pointer',color:colors.gray[700],fontWeight:600}}>Cancelar</button>
-          <button onClick={handleSave} disabled={!name.trim()||saving==='saving'} style={{flex:2,padding:'12px',borderRadius:10,border:'none',background:colors.red.gradient,color:'#fff',fontSize:13,cursor:'pointer',fontWeight:700,boxShadow:shadows.redSm,opacity:!name.trim()?0.5:1}}>
-            {saving==='saving'?'Salvando...':'Criar cliente'}
+
+        <div style={{padding:'0 20px 16px',display:'flex',gap:10,flexShrink:0}}>
+          <button onClick={onClose} style={{flex:1,minHeight:54,borderRadius:15,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',fontSize:16,cursor:'pointer',color:colors.gray[700],fontWeight:700,fontFamily:typography.fontFamily}}>Cancelar</button>
+          <button onClick={handleSave} disabled={!name.trim()||saving==='saving'} style={{flex:2,minHeight:54,borderRadius:15,border:'none',background:colors.red.gradient,color:'#fff',fontSize:16.5,cursor:!name.trim()?'not-allowed':'pointer',fontWeight:700,letterSpacing:'-0.01em',boxShadow:shadows.redSm,opacity:!name.trim()?0.5:1,fontFamily:typography.fontFamily}}>
+            {saving==='saving'?'Salvando...':'Cadastrar'}
           </button>
         </div>
       </div>
@@ -686,6 +759,7 @@ export default function SideCheckoutPanel({
   const [openProfIdx,   setOpenProfIdx]    = useState<number|null>(null)
   const [showClientSheet,setShowClientSheet]= useState(false)
   const [showCreateClient,setShowCreateClient]= useState(false)
+  const [clientPrefill,   setClientPrefill]   = useState('')
 
   // Notas e mensagem (aba Informações)
   const [internalNote, setInternalNote] = useState('')
@@ -1222,11 +1296,12 @@ export default function SideCheckoutPanel({
           selected={selectedClient}
           onSelect={c=>{setSelectedClient(c);setShowClientSheet(false)}}
           onClose={()=>setShowClientSheet(false)}
-          onCreateNew={()=>setShowCreateClient(true)}
+          onCreateNew={(prefillName)=>{setClientPrefill(prefillName ?? '');setShowCreateClient(true)}}
         />
       )}
       {showCreateClient && (
         <CreateClientSheet
+          prefillName={clientPrefill}
           onCreated={c=>{setSelectedClient(c);setShowCreateClient(false)}}
           onClose={()=>setShowCreateClient(false)}
         />
