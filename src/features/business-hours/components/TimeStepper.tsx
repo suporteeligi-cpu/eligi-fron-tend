@@ -55,11 +55,13 @@ interface TimeStepperProps {
   editable?: boolean
   /** 'md' no horario de funcionamento, 'lg' no painel de agendamento. */
   size?:     'md' | 'lg'
+  /** Preenche a largura do pai. Sem isto o stepper e inline e nao estica. */
+  block?:    boolean
 }
 
 export default function TimeStepper({
   value, onChange, disabled = false, invalid = false, label,
-  step = STEP_MINUTES, editable = true, size = 'md',
+  step = STEP_MINUTES, editable = true, size = 'md', block = false,
 }: TimeStepperProps) {
   const [holding, setHolding] = useState<'down' | 'up' | null>(null)
   const [draft, setDraft]     = useState<string | null>(null)
@@ -142,8 +144,10 @@ export default function TimeStepper({
     <div
       className="bh-stepper"
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: big ? 6 : 2,
-        padding: big ? 5 : 3, borderRadius: big ? 17 : 14, flexShrink: 0,
+        display: block ? 'flex' : 'inline-flex', alignItems: 'center',
+        width: block ? '100%' : undefined, gap: big ? 6 : 2,
+        padding: big ? 5 : 3, borderRadius: big ? 17 : 14,
+        flexShrink: block ? 1 : 0, boxSizing: 'border-box',
         background: draft !== null ? '#fff' : disabled ? 'rgba(0,0,0,0.03)' : 'rgba(0,0,0,0.045)',
         border: draft !== null
           ? '1.5px solid #dc2626'

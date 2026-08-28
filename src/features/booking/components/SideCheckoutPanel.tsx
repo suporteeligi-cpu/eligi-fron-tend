@@ -1298,8 +1298,8 @@ export default function SideCheckoutPanel({
                         <ChevronRight size={15} color={item.service?colors.red.DEFAULT:colors.gray.dimText}/>
                       </button>
 
-                      <div data-eligi="booking-times-wrap" style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                        <div style={{flex:'1 1 240px',minWidth:0,padding:'8px 12px'}}>
+                      <div data-eligi="booking-times-row" style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+                        <div style={{flex:'1 1 0',minWidth:0,padding:'8px 8px'}}>
                           <div style={{fontSize:12,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Início</div>
                           {/* @eligi:booking-stepper-start */}
                           <TimeStepper
@@ -1307,10 +1307,11 @@ export default function SideCheckoutPanel({
                             onChange={v=>updateItemTime(idx,'startTime',v)}
                             label="inicio"
                             step={5}
-                            size="lg"
+                            size="md"
+                            block
                           />
                         </div>
-                        <div style={{flex:'1 1 240px',minWidth:0,padding:'8px 12px'}}>
+                        <div style={{flex:'1 1 0',minWidth:0,padding:'8px 8px'}}>
                           <div style={{fontSize:12,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Fim</div>
                           {/* @eligi:booking-stepper-end */}
                           <TimeStepper
@@ -1318,7 +1319,8 @@ export default function SideCheckoutPanel({
                             onChange={v=>updateItemTime(idx,'endTime',v)}
                             label="fim"
                             step={5}
-                            size="lg"
+                            size="md"
+                            block
                           />
                           {item.service && (
                             <div style={{fontSize:12,color:colors.gray.dimText,marginTop:6}}>
