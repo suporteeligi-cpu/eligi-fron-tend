@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ChevronRight, Clock, Check, Search, Plus, Star, Trash2, Calendar, ChevronDown, User, Loader2 } from 'lucide-react'
+import { X, ChevronRight, Clock, Check, Search, Plus, Star, Trash2, Calendar, ChevronDown, User, Loader2 , StickyNote } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc      from 'dayjs/plugin/utc'
@@ -532,7 +532,7 @@ export default function SideCheckoutPanel({
   const isMobile = useIsMobile()
   const { setPreview, setSelectedDate } = useAgendaStore()
 
-  const [tab,           setTab]          = useState<'booking'|'info'>('booking')
+  const [showNotes,     setShowNotes]    = useState(false)
   const [selectedClient,setSelectedClient]= useState<Client|null>(null)
   const [services,      setServices]     = useState<Service[]>([])
   const [servicesLoad,  setServicesLoad] = useState(false)
@@ -595,7 +595,7 @@ export default function SideCheckoutPanel({
     // Já inicializado nesta abertura → NÃO re-roda (trocar selectedDate cai aqui).
     if (initedRef.current) return
     initedRef.current = true
-    setTab('booking')
+    setShowNotes(false)
     setSuccess(false); setError(null); setPendingOverlap(false)
     setInternalNote(''); setClientMessage('')
 
@@ -1045,8 +1045,8 @@ export default function SideCheckoutPanel({
         .scp-wa-pulse{animation:scp-waRing 2.1s ease-out 3}
         .scp-wa:active{transform:scale(0.92)}
         @media(prefers-reduced-motion:reduce){.scp-wa-pulse{animation:none}}
-        .cp-tab{flex:1;padding:12px 8px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${colors.gray.dimText};border-bottom:2px solid transparent;transition:all ${transitions.fast};font-family:${typography.fontFamily};letter-spacing:.04em}
-        .cp-tab.active{color:${colors.red.DEFAULT};border-bottom-color:${colors.red.DEFAULT}}
+        .cp-acc{width:100%;display:flex;align-items:center;gap:12;min-height:60px;padding:12px 14px;border-radius:${radius.md}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};cursor:pointer;font-family:${typography.fontFamily};transition:border-color ${transitions.fast}}
+        .cp-acc:hover{border-color:${colors.red.borderHover}}
         .cp-lbl{display:block;font-size:13px;font-weight:700;color:${colors.gray.dimText};text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
         .cp-field{padding:11px 14px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-family:${typography.fontFamily}}
         .cp-svc{width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};cursor:pointer;text-align:left;transition:border-color ${transitions.fast};font-family:${typography.fontFamily}}
@@ -1185,11 +1185,6 @@ export default function SideCheckoutPanel({
             </button>
           </div>
 
-          {/* Tabs */}
-          <div style={{display:'flex',borderTop:`1px solid ${colors.gray.border}`}}>
-            <button className={`cp-tab${tab==='booking'?' active':''}`} onClick={()=>setTab('booking')}>AGENDAMENTO</button>
-            <button className={`cp-tab${tab==='info'?' active':''}`} onClick={()=>setTab('info')}>INFORMAÇÕES</button>
-          </div>
         </div>
 
         {/* Body */}
@@ -1204,7 +1199,6 @@ export default function SideCheckoutPanel({
               {error && <div style={{marginBottom:12,padding:'9px 12px',borderRadius:radius.sm,background:'rgba(220,38,38,0.06)',border:`1px solid ${colors.red.border}`,color:colors.red.dark,fontSize:13}}>{error}</div>}
               {success && <div style={{marginBottom:12,padding:'9px 12px',borderRadius:radius.sm,background:'rgba(22,163,74,0.06)',border:'1px solid rgba(22,163,74,0.2)',color:'#15803d',fontSize:13,display:'flex',alignItems:'center',gap:6}}><Check size={13}/> {isEdit ? 'Agendamento atualizado!' : 'Agendamento confirmado!'}</div>}
 
-              {tab === 'booking' ? (
                 <div style={{display:'flex',flexDirection:'column',gap:16}}>
 
                   {/* Data — clicável */}
@@ -1367,8 +1361,21 @@ export default function SideCheckoutPanel({
                   )}
 
                 </div>
-              ) : (
-                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              
+                {/* @eligi:booking-notes-inline
+                    A aba INFORMACOES tinha dois campos e meia tela vazia, e
+                    obrigava trocar de contexto para escrever uma nota. */}
+                <div style={{marginTop:18}}>
+                  <button type="button" className="cp-acc" onClick={()=>setShowNotes(v=>!v)}>
+                    <StickyNote size={18} color={colors.gray.dimText} strokeWidth={1.9}/>
+                    <span style={{flex:1,minWidth:0,textAlign:'left'}}>
+                      <span style={{display:'block',fontSize:15.5,fontWeight:700,letterSpacing:'-0.01em',color:colors.gray[900]}}>Observacoes</span>
+                      <span style={{display:'block',fontSize:13,color:colors.gray.dimText,marginTop:1}}>Nota interna e mensagem para o cliente</span>
+                    </span>
+                    <ChevronDown size={18} color={colors.gray.dimText} style={{transform:showNotes?'rotate(180deg)':'none',transition:`transform ${transitions.fast}`}}/>
+                  </button>
+                  {showNotes && (
+                    <div style={{display:'flex',flexDirection:'column',gap:14,marginTop:14}}>
                   <div>
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
                       <span className="cp-lbl" style={{margin:0}}>Nota interna</span>
@@ -1379,9 +1386,10 @@ export default function SideCheckoutPanel({
                   <div>
                     <span className="cp-lbl">Mensagem para o cliente</span>
                     <textarea className="cp-note" value={clientMessage} onChange={e=>setClientMessage(e.target.value)} placeholder="Mensagem para o cliente"/>
-                  </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
             </>
           )}
         </div>
