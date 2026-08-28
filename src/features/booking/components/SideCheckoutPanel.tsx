@@ -1026,7 +1026,7 @@ export default function SideCheckoutPanel({
     display:'flex', flexDirection:'column' as const, fontFamily:typography.fontFamily,
     animation:'sheetUp 0.32s cubic-bezier(0.34,1.2,0.64,1)',
   } : {
-    position:'fixed' as const, top:0, right:0, bottom:0, width:460, maxWidth:'100vw',
+    position:'fixed' as const, top:0, right:0, bottom:0, width:'var(--cp-w,460px)' as unknown as number, maxWidth:'100vw',
     background:glass.surface.modal.background, backdropFilter:glass.surface.modal.backdropFilter,
     WebkitBackdropFilter:glass.surface.modal.backdropFilter,
     borderLeft:`1px solid ${colors.gray.borderMd}`,
@@ -1069,6 +1069,23 @@ export default function SideCheckoutPanel({
         .cp-prof-row.sel{background:${colors.red.subtle};color:${colors.red.dark}}
         .add-svc-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 14px;border-radius:${radius.sm}px;border:1.5px dashed ${colors.red.border};background:transparent;cursor:pointer;color:${colors.red.DEFAULT};font-size:16px;font-weight:700;transition:all ${transitions.fast};font-family:${typography.fontFamily}}
         .add-svc-btn:hover{background:${colors.red.subtle};border-color:${colors.red.DEFAULT}}
+        /* @eligi:booking-summary-css
+           O resumo repete o que esta no formulario ao lado, de proposito:
+           conferir antes de salvar e uma leitura diferente de preencher.
+           Mas so aparece quando SOBRA espaco. Abaixo de 1280px o painel
+           continua com 460px e nada muda. */
+        .cp-panel{--cp-w:460px}
+        .cp-summary{display:none}
+        @media (min-width:1280px){
+          .cp-panel{--cp-w:880px}
+          .cp-summary{display:block;width:340px;flex-shrink:0;overflow-y:auto;padding:20px 22px;border-left:1px solid ${colors.gray.border};background:${colors.background.page}}
+        }
+        .cp-sum-row{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid ${colors.gray.border}}
+        .cp-sum-row:last-of-type{border-bottom:none}
+        .cp-sum-k{font-size:12.5px;font-weight:700;letter-spacing:.045em;text-transform:uppercase;color:${colors.gray.dimText};width:84px;flex-shrink:0;padding-top:2px}
+        .cp-sum-v{flex:1;min-width:0;font-size:16px;font-weight:700;letter-spacing:-.02em;color:${colors.gray[900]}}
+        .cp-sum-v small{display:block;font-size:13px;font-weight:500;color:${colors.gray.dimText};margin-top:2px;letter-spacing:0}
+        .cp-sum-v.none{color:${colors.gray.dimTextLight};font-weight:600}
         .cp-seg-btn{flex:1;padding:8px 6px;border-radius:9px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-size:12px;font-weight:600;cursor:pointer;color:${colors.gray[700]};transition:all ${transitions.fast};font-family:${typography.fontFamily};white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:4px}
         .cp-seg-btn.sel{background:${colors.red.gradient};color:#fff;border-color:transparent;box-shadow:0 2px 8px ${colors.red.glow}}
       `}</style>
@@ -1116,7 +1133,7 @@ export default function SideCheckoutPanel({
 
       <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9994,background:colors.background.overlay}}/>
 
-      <div style={panelStyle}>
+      <div className="cp-panel" style={panelStyle}>
         {isMobile && <div style={{display:'flex',justifyContent:'center',padding:'10px 0 4px',flexShrink:0}}><div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)'}}/></div>}
 
         {/* Header */}
@@ -1176,7 +1193,8 @@ export default function SideCheckoutPanel({
         </div>
 
         {/* Body */}
-        <div style={{flex:1,overflowY:'auto',padding:'16px 20px'}}>
+        <div style={{flex:1,display:'flex',minHeight:0}}>
+        <div style={{flex:1,minWidth:0,overflowY:'auto',padding:'16px 20px'}}>
           {loadingBooking ? (
             <div style={{display:'flex',justifyContent:'center',alignItems:'center',padding:60}}>
               <Loader2 size={28} color={colors.red.DEFAULT} style={{animation:'scp-spin 0.8s linear infinite'}}/>
@@ -1366,6 +1384,58 @@ export default function SideCheckoutPanel({
               )}
             </>
           )}
+        </div>
+
+        <aside className="cp-summary">
+          <div className="cp-lbl">Resumo</div>
+          <div className="cp-sum-row">
+            <span className="cp-sum-k">Cliente</span>
+            {selectedClient ? (
+              <span className="cp-sum-v">{selectedClient.name}
+                {selectedClient.phone && <small>{fmtPhone(selectedClient.phone)}</small>}
+              </span>
+            ) : (
+              <span className="cp-sum-v none">Chegada<small>Sem cadastro</small></span>
+            )}
+          </div>
+          <div className="cp-sum-row">
+            <span className="cp-sum-k">Quando</span>
+            <span className="cp-sum-v">{dateLabel}
+              {firstItem?.startTime && (
+                <small>{firstItem.startTime}
+                  {firstItem.endTime ? ` as ${firstItem.endTime}` : ''}
+                </small>
+              )}
+            </span>
+          </div>
+          <div className="cp-sum-row">
+            <span className="cp-sum-k">Servicos</span>
+            {items.some(it => it.service) ? (
+              <span className="cp-sum-v">
+                {items.filter(it => it.service).map((it, i) => (
+                  <span key={i} style={{display:'block',marginTop:i?8:0}}>
+                    {it.service.name}
+                    <small>
+                      {professionals.find(p => p.id === it.profId)?.name ?? 'Sem profissional'}
+                      {it.service.price != null && ` \u00b7 R$ ${it.service.price.toFixed(2).replace('.',',')}`}
+                    </small>
+                  </span>
+                ))}
+              </span>
+            ) : (
+              <span className="cp-sum-v none">Nenhum ainda</span>
+            )}
+          </div>
+          <div style={{marginTop:16,paddingTop:16,borderTop:`2px solid ${colors.gray[900]}`}}>
+            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:10}}>
+              <span style={{fontSize:14,fontWeight:700,color:colors.gray[900]}}>Total</span>
+              <span style={{fontSize:27,fontWeight:700,letterSpacing:'-0.03em',color:colors.gray[900],fontVariantNumeric:'tabular-nums'}}>R$ {total.toFixed(2).replace('.',',')}</span>
+            </div>
+            <p style={{margin:'8px 0 0',fontSize:13,color:colors.gray.dimText,lineHeight:1.5}}>
+              {isDisabled ? 'Escolha um servico para liberar o salvamento.' : 'Cobranca no caixa, ao finalizar o atendimento.'}
+            </p>
+          </div>
+        </aside>
         </div>
 
         {/* Footer */}
