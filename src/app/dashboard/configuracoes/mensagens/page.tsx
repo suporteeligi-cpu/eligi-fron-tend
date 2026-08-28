@@ -58,6 +58,7 @@ import {
   DEFAULT_CONFIRM_SETTINGS,
   PIX_TYPE_LABEL,
   blocksFromSettings,
+  buildAddressLine,
   invalidateConfirmMessageSettings,
   type BookingMessageSettings,
   type ConfirmMessageBusiness,
@@ -68,7 +69,12 @@ import { colors, glassCard, inkLight, radius, shadows, typography } from '@/shar
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const TEXT_MAX = 140
+// @eligi:confirmsg-limits2
+// Tetos diferentes de proposito: politica e uma frase de regra, observacao
+// costuma carregar estacionamento, referencia de local, o que trazer.
+// Espelham POLICY_MAX / NOTE_MAX do controller. Divergir aqui devolve 422.
+const POLICY_MAX = 140
+const NOTE_MAX = 180
 const PIX_KEY_MAX = 80
 const PIX_HOLDER_MAX = 80
 
@@ -132,13 +138,13 @@ const BLOCK_META: Record<BlockKey, BlockMeta> = {
   },
   policy: {
     icon: Clock, label: 'Política de cancelamento',
-    hint: `Texto livre, até ${TEXT_MAX} caracteres`,
+    hint: `Texto livre, até ${POLICY_MAX} caracteres`,
     rail: inkLight.warn.text, tint: inkLight.warn.bg, field: 'showPolicy',
     configurable: true,
   },
   note: {
     icon: FileText, label: 'Observação livre',
-    hint: 'Estacionamento, o que trazer…',
+    hint: `Estacionamento, o que trazer… (até ${NOTE_MAX})`,
     rail: inkLight.neutral.text, tint: inkLight.neutral.bg, field: 'showNote',
     configurable: true,
   },
@@ -151,6 +157,42 @@ const BLOCK_META: Record<BlockKey, BlockMeta> = {
 }
 
 const PIX_TYPES: readonly PixKeyType[] = ['CPF', 'CNPJ', 'EMAIL', 'PHONE', 'RANDOM']
+
+// @eligi:confirmsg-missing
+/**
+ * Por que um bloco LIGADO nao esta entrando na mensagem.
+ *
+ * blocksFromSettings descarta bloco sem conteudo (rede de seguranca correta),
+ * entao a chave fica ligada e a bolha nao muda — sem explicacao nenhuma, e
+ * com 422 no salvar. Esta funcao transforma esse silencio em texto.
+ *
+ * Espelha o superRefine do controller. Divergir aqui devolve o 422 de volta.
+ */
+function missingContent(
+  key: BlockKey,
+  s: BookingMessageSettings,
+  b: ConfirmMessageBusiness,
+): string | null {
+  switch (key) {
+    case 'pix':
+      if (!s.pixKeyType) return 'Falta escolher o tipo da chave PIX'
+      if (!s.pixKey?.trim()) return 'Falta informar a chave PIX'
+      if (!s.pixHolder?.trim()) return 'Falta o nome do titular'
+      return null
+    case 'policy':
+      return s.policyText?.trim() ? null : 'Falta escrever o texto'
+    case 'note':
+      return s.noteText?.trim() ? null : 'Falta escrever o texto'
+    case 'address':
+      return buildAddressLine(b) ? null : 'Cadastre o endereço em Configurações › Empresa'
+    case 'reschedule':
+      return b.slug ? null : 'Seu link público de agendamento ainda não existe'
+    case 'signature':
+      return b.name ? null : 'Cadastre o nome do estabelecimento'
+    default:
+      return null
+  }
+}
 
 const CSS = `
 .cfmsg-sheet {
@@ -287,6 +329,14 @@ export default function ConfirmMessagePage() {
 
   const meterTone = over ? inkLight.bad : used > CONFIRM_BODY_MAX * 0.8 ? inkLight.warn : inkLight.ok
   const activeCount = BLOCK_ORDER.filter(k => settings[BLOCK_META[k].field]).length
+
+  // @eligi:confirmsg-pending
+  const pending = BLOCK_ORDER
+    .filter(k => settings[BLOCK_META[k].field])
+    .map(k => ({ key: k, missing: missingContent(k, settings, business) }))
+    .filter((p): p is { key: BlockKey; missing: string } => p.missing !== null)
+
+  const blocked = over || pending.length > 0
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 4px 48px' }}>
@@ -448,6 +498,10 @@ export default function ConfirmMessagePage() {
               const meta = BLOCK_META[key]
               const Icon = meta.icon
               const on = Boolean(settings[meta.field])
+              // @eligi:confirmsg-row-missing
+              // Ligado e sem conteudo: o bloco nao entra na mensagem. O motivo
+              // aparece no lugar da dica, em ambar, em vez de virar 422.
+              const missing = on ? missingContent(key, settings, business) : null
 
               return (
                 <div
@@ -457,7 +511,9 @@ export default function ConfirmMessagePage() {
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '11px 15px 11px 0',
                     borderTop: `1px solid ${colors.gray.border}`,
-                    borderLeft: `4px solid ${on ? meta.rail : 'transparent'}`,
+                    borderLeft: `4px solid ${
+                      missing ? inkLight.warn.text : on ? meta.rail : 'transparent'
+                    }`, // @eligi:confirmsg-row-rail
                   }}
                 >
                   <button
@@ -484,8 +540,14 @@ export default function ConfirmMessagePage() {
                       >
                         {meta.label}
                       </b>
-                      <small style={{ display: 'block', fontSize: 12, color: inkLight.faint, marginTop: 1 }}>
-                        {meta.hint}
+                      <small
+                        style={{
+                          display: 'block', fontSize: 12, marginTop: 1,
+                          color: missing ? inkLight.warn.text : inkLight.faint,
+                          fontWeight: missing ? 600 : 400,
+                        }}
+                      >
+                        {missing ?? meta.hint}
                       </small>
                     </span>
                   </button>
@@ -574,18 +636,24 @@ export default function ConfirmMessagePage() {
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving || over}
+              disabled={saving || blocked} // @eligi:confirmsg-save-gate
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
                 border: 'none', borderRadius: 14, padding: 15, fontSize: 16, fontWeight: 700,
-                minHeight: 52, cursor: saving || over ? 'not-allowed' : 'pointer',
-                background: over ? '#d9d9de' : colors.red.DEFAULT, color: '#fff',
-                boxShadow: over ? 'none' : shadows.redMd,
+                minHeight: 52, cursor: saving || blocked ? 'not-allowed' : 'pointer',
+                background: blocked ? '#d9d9de' : colors.red.DEFAULT, color: '#fff',
+                boxShadow: blocked ? 'none' : shadows.redMd,
                 fontFamily: typography.fontFamily,
               }}
             >
               {saving ? <Loader2 size={19} className="cfmsg-spin" /> : <Save size={19} />}
-              {over ? 'Reduza para salvar' : saving ? 'Salvando…' : 'Salvar mensagem'}
+              {over
+                ? 'Reduza para salvar'
+                : pending.length > 0
+                  ? `Falta preencher: ${BLOCK_META[pending[0].key].label}`
+                  : saving
+                    ? 'Salvando…'
+                    : 'Salvar mensagem'}
             </button>
             <button
               type="button"
@@ -749,7 +817,7 @@ function BlockSheet({ blockKey, settings, onPatch, onRemove, onClose }: BlockShe
             </label>
             <textarea
               value={(blockKey === 'policy' ? settings.policyText : settings.noteText) ?? ''}
-              maxLength={TEXT_MAX}
+              maxLength={blockKey === 'policy' ? POLICY_MAX : NOTE_MAX}
               onChange={e =>
                 onPatch(blockKey === 'policy'
                   ? { policyText: e.target.value }
@@ -758,7 +826,7 @@ function BlockSheet({ blockKey, settings, onPatch, onRemove, onClose }: BlockShe
               style={{ ...inputStyle, minHeight: 96, resize: 'vertical', lineHeight: 1.5 }}
             />
             <div style={{ textAlign: 'right', fontSize: 12, color: inkLight.faint, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>
-              {((blockKey === 'policy' ? settings.policyText : settings.noteText) ?? '').length}/{TEXT_MAX}
+              {((blockKey === 'policy' ? settings.policyText : settings.noteText) ?? '').length}/{blockKey === 'policy' ? POLICY_MAX : NOTE_MAX}
             </div>
           </div>
         )}
