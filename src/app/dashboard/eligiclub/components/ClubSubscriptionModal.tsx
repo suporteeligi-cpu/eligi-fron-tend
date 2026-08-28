@@ -16,7 +16,7 @@
 // inputs 16px (sem zoom no iOS), planos como cartoes (nunca <select> nativo),
 // numeros em Space Grotesk com fallback, sem window.confirm/alert.
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, Loader2, AlertCircle, Search, Check, CreditCard, Link2, MessageCircle, ShieldCheck,
@@ -68,6 +68,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
   const [clientId, setClientId] = useState<string | null>(null)
   const [planId, setPlanId] = useState<string | null>(null)
   const [clientQuery, setClientQuery] = useState('')
+  const [searching, setSearching] = useState(false)
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -84,30 +85,52 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([api.get('/club'), api.get('/clients')])
-      .then(([planRes, cliRes]) => {
+    api.get('/club')
+      .then(planRes => {
         if (cancelled) return
         const planData = planRes.data?.data ?? planRes.data
-        const cliData = cliRes.data?.data ?? cliRes.data
-
         const planList: PlanLite[] = (Array.isArray(planData) ? planData : planData.plans ?? [])
           .map((p: { id: string; name: string; price: number; color?: string | null; active?: boolean }) => ({
             id: p.id, name: p.name, price: p.price, color: p.color ?? null, active: p.active !== false,
           }))
           .filter((p: PlanLite) => p.active)
-
-        const cliList: ClientLite[] = (Array.isArray(cliData) ? cliData : cliData.clients ?? [])
-          .map((c: { id: string; name: string; phone?: string | null; cpf?: string | null }) => ({
-            id: c.id, name: c.name, phone: c.phone ?? null, cpf: c.cpf ?? null,
-          }))
-
         setPlans(planList)
-        setClients(cliList)
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingData(false) })
     return () => { cancelled = true }
   }, [])
+
+  // ── BUSCA DE CLIENTES NO SERVIDOR ──────────────────────────────────────────
+  // Antes carregavamos so a 1a pagina (30 de 1.100+) e filtravamos no cliente —
+  // quem nao estivesse nessa fatia simplesmente nao existia na busca.
+  // Agora consulta /clients?search=... com debounce e cancelamento da anterior.
+  useEffect(() => {
+    const ctrl = new AbortController()
+    const termo = clientQuery.trim()
+    setSearching(true)
+
+    const t = setTimeout(() => {
+      const qs = termo
+        ? `?search=${encodeURIComponent(termo)}&limit=30&orderBy=name&order=asc`
+        : '?limit=30&orderBy=createdAt&order=desc'
+
+      api.get(`/clients${qs}`, { signal: ctrl.signal })
+        .then(res => {
+          const raw = res.data?.data ?? res.data
+          const arr = Array.isArray(raw) ? raw : raw?.clients ?? []
+          setClients(
+            arr.map((c: { id: string; name: string; phone?: string | null; cpf?: string | null }) => ({
+              id: c.id, name: c.name, phone: c.phone ?? null, cpf: c.cpf ?? null,
+            })),
+          )
+        })
+        .catch(() => { /* abortada ou falha: mantem a lista atual */ })
+        .finally(() => setSearching(false))
+    }, termo ? 350 : 0)
+
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [clientQuery])
 
   const handleClose = useCallback(() => {
     setMounted(false)
@@ -117,15 +140,8 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
   const selectedClient = clients.find(c => c.id === clientId) ?? null
   const selectedPlan = plans.find(p => p.id === planId) ?? null
 
-  const filteredClients = useMemo(() => {
-    const q = clientQuery.trim().toLowerCase()
-    const base = q
-      ? clients.filter(c => c.name.toLowerCase().includes(q) || (c.phone ?? '').toLowerCase().includes(q))
-      : clients
-    return base.slice(0, 40)
-  }, [clients, clientQuery])
-
-  const semCpf = clients.filter(c => !c.cpf).length
+  // o servidor ja devolve filtrado e paginado
+  const filteredClients = clients
 
   const submit = useCallback(async () => {
     setError(null)
@@ -362,26 +378,32 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                   className="ecs-input"
                   value={clientQuery}
                   onChange={e => setClientQuery(e.target.value)}
-                  placeholder="Buscar por nome ou telefone"
+                  placeholder="Digite o nome do cliente"
                   inputMode="search"
                 />
               </div>
 
-              {semCpf > 0 && (
-                <div style={{
-                  fontSize: 11.5, color: '#b45309', background: '#fffbeb',
-                  border: '1px solid rgba(180,83,9,.2)', borderRadius: 10,
-                  padding: '10px 12px', marginTop: 10, lineHeight: 1.5,
-                }}>
-                  {semCpf} cliente(s) sem CPF não aparecem disponíveis — o CPF é exigido
-                  para cobrança no cartão. Cadastre o CPF na ficha do cliente.
-                </div>
-              )}
+              <div style={{
+                fontSize: 11.5, color: '#8a8a93', marginTop: 9, lineHeight: 1.5,
+              }}>
+                Clientes sem CPF aparecem bloqueados — o CPF é exigido para cobrança
+                no cartão. Cadastre na ficha do cliente para liberar.
+              </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                {filteredClients.length === 0 && (
-                  <div style={{ fontSize: 13, color: '#8a8a93', padding: '14px 2px' }}>
-                    Nenhum cliente encontrado.
+                {searching && filteredClients.length === 0 && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    fontSize: 13, color: '#8a8a93', padding: '14px 2px',
+                  }}>
+                    <Loader2 size={15} className="ecs-spin" /> Buscando…
+                  </div>
+                )}
+                {!searching && filteredClients.length === 0 && (
+                  <div style={{ fontSize: 13, color: '#8a8a93', padding: '14px 2px', lineHeight: 1.5 }}>
+                    {clientQuery.trim()
+                      ? `Nenhum cliente encontrado para "${clientQuery.trim()}".`
+                      : 'Nenhum cliente cadastrado ainda.'}
                   </div>
                 )}
                 {filteredClients.map(c => {
