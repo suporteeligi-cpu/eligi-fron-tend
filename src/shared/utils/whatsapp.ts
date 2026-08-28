@@ -6,7 +6,14 @@
 // Regra de telefone: <= 11 digitos = nacional (DDD + numero) -> prefixa DDI 55.
 // E.164 (13 digitos, ja com 55) passa direto.
 
-import { firstName } from './messageTemplate' // @eligi:wa-firstname-import
+// @eligi:wa-firstname-own
+// Movido de messageTemplate.ts na faxina do modulo de templates.
+// O arquivo de origem foi apagado; esta e a unica implementacao no repo.
+/** Primeiro nome, com fallback para a string inteira. */
+export function firstName(fullName: string): string {
+  const trimmed = fullName.trim()
+  return trimmed.split(' ')[0] || trimmed
+}
 
 /** Digitos prontos pro wa.me (com DDI). */
 export function waDigits(phone: string): string {
