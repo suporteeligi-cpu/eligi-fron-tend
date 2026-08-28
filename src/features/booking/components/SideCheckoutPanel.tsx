@@ -1045,7 +1045,7 @@ export default function SideCheckoutPanel({
         @media(prefers-reduced-motion:reduce){.scp-wa-pulse{animation:none}}
         .cp-tab{flex:1;padding:12px 8px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${colors.gray.dimText};border-bottom:2px solid transparent;transition:all ${transitions.fast};font-family:${typography.fontFamily};letter-spacing:.04em}
         .cp-tab.active{color:${colors.red.DEFAULT};border-bottom-color:${colors.red.DEFAULT}}
-        .cp-lbl{display:block;font-size:11px;font-weight:700;color:${colors.gray.dimText};text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+        .cp-lbl{display:block;font-size:13px;font-weight:700;color:${colors.gray.dimText};text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
         .cp-field{padding:11px 14px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-family:${typography.fontFamily}}
         .cp-svc{width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};cursor:pointer;text-align:left;transition:border-color ${transitions.fast};font-family:${typography.fontFamily}}
         .cp-svc:hover,.cp-svc.has-value{border-color:${colors.red.borderHover}}
@@ -1124,17 +1124,20 @@ export default function SideCheckoutPanel({
           {/* Seleção de cliente */}
           <div style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 20px 14px'}}>
             <button onClick={()=>setShowClientSheet(true)} style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:12,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',padding:0}}>
-              <div style={{width:40,height:40,borderRadius:'50%',border:`1.5px dashed ${selectedClient?'transparent':colors.gray.borderMd}`,background:selectedClient?colors.red.gradient:colors.background.page,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,fontWeight:700,color:selectedClient?'#fff':colors.gray.dimText,boxShadow:selectedClient?`0 2px 8px ${colors.red.glow}`:'none',transition:`all ${transitions.spring}`}}>
+              <div style={{width:44,height:44,borderRadius:'50%',border:`1.5px dashed ${selectedClient?'transparent':colors.gray.borderMd}`,background:selectedClient?colors.red.gradient:colors.background.page,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,fontWeight:700,color:selectedClient?'#fff':colors.gray.dimText,boxShadow:selectedClient?`0 2px 8px ${colors.red.glow}`:'none',transition:`all ${transitions.spring}`}}>
                 {selectedClient ? getInitials(selectedClient.name) : <User size={16} color={colors.gray.dimText} strokeWidth={1.8}/>}
               </div>
               <div style={{flex:1,minWidth:0}}>
                 {selectedClient ? (
                   <>
-                    <div style={{fontSize:14,fontWeight:700,color:colors.gray[900],whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{selectedClient.name}</div>
-                    {selectedClient.phone&&<div style={{fontSize:12,color:colors.gray.dimText}}>{fmtPhone(selectedClient.phone)}</div>}
+                    <div style={{fontSize:17,fontWeight:700,color:colors.gray[900],letterSpacing:'-0.02em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{selectedClient.name}</div>
+                    {selectedClient.phone&&<div style={{fontSize:13.5,color:colors.gray.dimText,marginTop:1}}>{fmtPhone(selectedClient.phone)}</div>}
                   </>
                 ) : (
-                  <span style={{fontSize:13,color:colors.gray.dimText}}>Selecione um cliente ou deixe em branco para chegada</span>
+                  <>
+                      <div style={{fontSize:17,fontWeight:700,color:colors.gray.dimText,letterSpacing:'-0.02em'}}>Cliente</div>
+                      <div style={{fontSize:13.5,color:colors.gray.dimText,marginTop:1}}>Buscar, cadastrar ou deixar como chegada</div>
+                    </>
                 )}
               </div>
             </button>
@@ -1180,10 +1183,10 @@ export default function SideCheckoutPanel({
                   {/* Data — clicável */}
                   <div>
                     <span className="cp-lbl">Data</span>
-                    <button className="cp-field" onClick={()=>setShowDatePicker(true)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page,borderRadius:radius.sm,padding:'11px 14px'}}>
+                    <button className="cp-field" onClick={()=>setShowDatePicker(true)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page,borderRadius:radius.md,padding:'15px 16px'}}>
                       <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <Calendar size={15} color={colors.red.DEFAULT} strokeWidth={2}/>
-                        <span style={{fontSize:14,fontWeight:600,color:colors.gray[900]}}>{dateLabel}</span>
+                        <Calendar size={19} color={colors.red.DEFAULT} strokeWidth={2}/>
+                        <span style={{fontSize:17,fontWeight:700,letterSpacing:'-0.02em',color:colors.gray[900]}}>{dateLabel}</span>
                       </div>
                       <ChevronDown size={14} color={colors.gray.dimText}/>
                     </button>
@@ -1212,7 +1215,7 @@ export default function SideCheckoutPanel({
                   {items.map((item, idx) => (
                     <div key={idx} style={{borderRadius:radius.sm,border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page,overflow:'hidden'}}>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderBottom:`1px solid ${colors.gray.border}`}}>
-                        <span className="cp-lbl" style={{margin:0}}>Serviço {items.length>1?`${idx+1}`:'*'}</span>
+                        <span className="cp-lbl" style={{margin:0}}>Serviço{items.length>1?` ${idx+1}`:''}</span>
                         {idx>0&&<button onClick={()=>removeItem(idx)} style={{background:'none',border:'none',cursor:'pointer',padding:2,display:'flex'}}><Trash2 size={14} color={colors.gray.dimText}/></button>}
                       </div>
 
@@ -1327,15 +1330,13 @@ export default function SideCheckoutPanel({
 
         {/* Footer */}
         <div style={{padding:'12px 20px 20px',borderTop:`1px solid ${colors.gray.border}`,flexShrink:0,background:colors.background.surface,backdropFilter:glass.blur.sm}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:12}}>
-            <div>
-              <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:2}}>Total</div>
-              <div style={{fontSize:22,fontWeight:700,color:colors.gray[900],fontVariantNumeric:'tabular-nums'}}>R$ {total.toFixed(2).replace('.',',')}</div>
-            </div>
-            <div style={{textAlign:'right'}}>
-              <div style={{fontSize:11,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:2}}>A ser pago</div>
-              <div style={{fontSize:22,fontWeight:700,color:colors.gray[900],fontVariantNumeric:'tabular-nums'}}>R$ {total.toFixed(2).replace('.',',')}</div>
-            </div>
+          {/* @eligi:booking-total-unico
+              O rodape imprimia a variavel `total` duas vezes, com rotulos
+              diferentes. Enquanto nao existir pagamento parcial neste painel,
+              o segundo numero e ruido. */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:12,gap:12}}>
+            <div style={{fontSize:13,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.05em'}}>Total</div>
+            <div style={{fontSize:28,fontWeight:700,color:colors.gray[900],letterSpacing:'-0.03em',fontVariantNumeric:'tabular-nums'}}>R$ {total.toFixed(2).replace('.',',')}</div>
           </div>
           <div style={{display:'flex',gap:8}}>
             <button className="cp-discard" onClick={onClose}>DESCARTAR</button>
