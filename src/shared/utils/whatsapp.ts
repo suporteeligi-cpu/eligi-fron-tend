@@ -51,9 +51,28 @@ export function waShareLink(message: string): string {
 }
 
 // @eligi:confirmsg-segments
-/** Teto do corpo. 500 nao e estetica: o texto viaja em wa.me?text= depois de
- *  encodeURIComponent, e emoji custa ~12 caracteres codificados. */
-export const CONFIRM_BODY_MAX = 500
+/**
+ * Teto do corpo da mensagem. // @eligi:confirmsg-max-1200
+ *
+ * Era 500, herdado do TEMPLATE_BODY_MAX do modulo de templates — onde fazia
+ * sentido, porque o lojista digitava o texto a mao e curto = legivel. No
+ * compositor por blocos o numero virou incoerente: so o cabecalho fixo (107)
+ * mais endereco com mapa (138), remarcar (53), despedida (55), assinatura (14)
+ * e a politica cheia (145) ja dao 512. O produto oferecia 180 caracteres de
+ * observacao dentro de um orcamento que nao comportava 140 de politica.
+ *
+ * O limite real NAO e o WhatsApp: a mensagem no app aceita dezenas de milhares
+ * de caracteres. E o comprimento da URL do wa.me?text=, que aperta na passagem
+ * navegador -> app no iOS/Android.
+ *
+ * Medicao: todos os blocos ligados = 791 chars de texto, 1190 de URL. Portugues
+ * com acento e emoji encoda a ~1.6x, entao 1200 de texto dao ~1950 de URL,
+ * ainda abaixo da linha segura classica de 2000.
+ *
+ * POLICY_MAX (140) e NOTE_MAX (180) continuam como estao: o problema era o teto
+ * global, nao os campos.
+ */
+export const CONFIRM_BODY_MAX = 1200
 
 /** Blocos opcionais da mensagem de confirmacao. Todos ja formatados: este
  *  arquivo nao importa dayjs nem sabe o que e um agendamento. */
