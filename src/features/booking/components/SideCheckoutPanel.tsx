@@ -7,7 +7,7 @@
 // - Save em edit faz PATCH /bookings/:id (cancela Sale OPEN linkada automaticamente)
 // - Em edit, "adicionar outro serviço" é bloqueado (1 booking = 1 serviço)
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X, ChevronRight, Clock, Check, Search, Plus, Star, Trash2, Calendar, ChevronDown, User, Loader2 } from 'lucide-react'
 import dayjs from 'dayjs'
@@ -19,6 +19,7 @@ import { AgendaProfessional, AgendaBooking } from '@/features/agenda/types'
 import { colors, glass, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAgendaStore'
+import ProfAvatar from '@/features/agenda/components/shared/ProfAvatar' // @eligi:booking-profavatar
 import TimeStepper from '@/features/business-hours/components/TimeStepper' // @eligi:booking-stepper-import
 
 dayjs.extend(utc)
@@ -563,6 +564,7 @@ export default function SideCheckoutPanel({
 
   const [showSvcSheet,  setShowSvcSheet]   = useState(false)
   const [addingSvcIdx,  setAddingSvcIdx]   = useState<number>(-1)
+  const [openProfIdx,   setOpenProfIdx]    = useState<number|null>(null)
   const [showClientSheet,setShowClientSheet]= useState(false)
   const [showCreateClient,setShowCreateClient]= useState(false)
 
@@ -1058,7 +1060,14 @@ export default function SideCheckoutPanel({
         .cp-save:not(:disabled):hover{transform:translateY(-1px);box-shadow:${shadows.redMd}}
         .cp-note{width:100%;padding:12px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-size:13px;resize:none;outline:none;font-family:${typography.fontFamily};color:${colors.gray[900]};box-sizing:border-box;transition:border-color ${transitions.fast};min-height:96px}
         .cp-note:focus{border-color:${colors.red.borderHover}}
-        .add-svc-btn{width:100%;display:flex;align-items:center;gap:8;padding:11px 14px;border-radius:${radius.sm}px;border:1.5px dashed ${colors.red.border};background:transparent;cursor:pointer;color:${colors.red.DEFAULT};font-size:13px;font-weight:600;transition:all ${transitions.fast};font-family:${typography.fontFamily}}
+        .cp-prof-sel{width:100%;display:flex;align-items:center;gap:11px;padding:10px 14px;min-height:62px;border-radius:${radius.md}px;border:1px solid ${colors.gray.borderMd};background:#fff;cursor:pointer;font-family:${typography.fontFamily};transition:border-color ${transitions.fast}}
+        .cp-prof-sel:hover{border-color:${colors.red.borderHover}}
+        .cp-prof-list{border:1px solid ${colors.gray.borderMd};border-radius:${radius.md}px;overflow:hidden;background:#fff}
+        .cp-prof-row{width:100%;display:flex;align-items:center;gap:11px;padding:10px 14px;min-height:60px;border:none;background:#fff;cursor:pointer;font-family:${typography.fontFamily};color:${colors.gray[900]}}
+        .cp-prof-row+.cp-prof-row{border-top:1px solid ${colors.gray.border}}
+        .cp-prof-row:hover{background:${colors.background.page}}
+        .cp-prof-row.sel{background:${colors.red.subtle};color:${colors.red.dark}}
+        .add-svc-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 14px;border-radius:${radius.sm}px;border:1.5px dashed ${colors.red.border};background:transparent;cursor:pointer;color:${colors.red.DEFAULT};font-size:16px;font-weight:700;transition:all ${transitions.fast};font-family:${typography.fontFamily}}
         .add-svc-btn:hover{background:${colors.red.subtle};border-color:${colors.red.DEFAULT}}
         .cp-seg-btn{flex:1;padding:8px 6px;border-radius:9px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-size:12px;font-weight:600;cursor:pointer;color:${colors.gray[700]};transition:all ${transitions.fast};font-family:${typography.fontFamily};white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:4px}
         .cp-seg-btn.sel{background:${colors.red.gradient};color:#fff;border-color:transparent;box-shadow:0 2px 8px ${colors.red.glow}}
@@ -1229,20 +1238,20 @@ export default function SideCheckoutPanel({
 
                       <button className={`cp-svc${item.service?' has-value':''}`} style={{borderRadius:0,border:'none',borderBottom:`1px solid ${colors.gray.border}`}} onClick={()=>{setAddingSvcIdx(idx);setShowSvcSheet(true)}}>
                         <div>
-                          <div style={{fontSize:14,fontWeight:item.service?600:400,color:item.service?colors.gray[900]:colors.gray.dimTextLight}}>
+                          <div style={{fontSize:17,fontWeight:item.service?700:600,letterSpacing:'-0.02em',color:item.service?colors.gray[900]:colors.gray.dimTextLight}}>
                             {item.service?item.service.name:'Selecione o serviço'}
                           </div>
-                          {item.service&&<div style={{fontSize:11,color:colors.gray.dimText,marginTop:2,display:'flex',alignItems:'center',gap:3}}>
-                            <Clock size={10} strokeWidth={2} color={colors.gray.dimText}/>{item.service.duration}min
+                          {item.service&&<div style={{fontSize:13.5,color:colors.gray.dimText,marginTop:3,display:'flex',alignItems:'center',gap:5}}>
+                            <Clock size={14} strokeWidth={2} color={colors.gray.dimText}/>{item.service.duration}min
                             {item.service.price!=null&&<> · R$ {item.service.price.toFixed(2).replace('.',',')}</>}
                           </div>}
                         </div>
-                        <ChevronRight size={15} color={item.service?colors.red.DEFAULT:colors.gray.dimText}/>
+                        <ChevronRight size={19} color={item.service?colors.red.DEFAULT:colors.gray.dimText}/>
                       </button>
 
                       <div data-eligi="booking-times-row" style={{display:'flex',gap:8,alignItems:'flex-start'}}>
                         <div style={{flex:'1 1 0',minWidth:0,padding:'8px 8px'}}>
-                          <div style={{fontSize:12,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Início</div>
+                          <div style={{fontSize:13,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Início</div>
                           {/* @eligi:booking-stepper-start */}
                           <TimeStepper
                             value={item.startTime||'09:00'}
@@ -1254,7 +1263,7 @@ export default function SideCheckoutPanel({
                           />
                         </div>
                         <div style={{flex:'1 1 0',minWidth:0,padding:'8px 8px'}}>
-                          <div style={{fontSize:12,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Fim</div>
+                          <div style={{fontSize:13,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Fim</div>
                           {/* @eligi:booking-stepper-end */}
                           <TimeStepper
                             value={item.endTime||addMinutes(item.startTime||'09:00', item.service?.duration ?? 30)}
@@ -1273,13 +1282,44 @@ export default function SideCheckoutPanel({
                       </div>
 
                       {professionals.length > 1 && (
-                        <div style={{padding:'10px 12px',borderTop:`1px solid ${colors.gray.border}`}}>
-                          <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Funcionário</div>
-                          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                            {getAvailableProfs(professionals, item.service?.id, serviceProfMap).map(p=>(
-                              <button key={p.id} className={`cp-prof${item.profId===p.id?' sel':''}`} onClick={()=>setItems(prev=>{const n=[...prev];n[idx]={...n[idx],profId:p.id};return n})}>{p.name.split(' ')[0]}</button>
-                            ))}
-                          </div>
+                        <div style={{padding:'12px 14px',borderTop:`1px solid ${colors.gray.border}`}}>
+                          {/* @eligi:booking-prof-collapse
+                              Fechado ocupa 62px com 3 ou com 12 profissionais. Os chips
+                              antigos mostravam so o primeiro nome: dois "Carlos" na
+                              equipe viravam dois botoes identicos. */}
+                          <div style={{fontSize:13,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>Funcionário</div>
+                          {(() => {
+                            const avail = getAvailableProfs(professionals, item.service?.id, serviceProfMap)
+                            const cur   = avail.find(p => p.id === item.profId) ?? avail[0]
+                            const open  = openProfIdx === idx
+                            const pick  = (id: string) => {
+                              setItems(prev=>{const n=[...prev];n[idx]={...n[idx],profId:id};return n})
+                              setOpenProfIdx(null)
+                            }
+                            if (!open) {
+                              return (
+                                <button type="button" className="cp-prof-sel" onClick={()=>setOpenProfIdx(idx)}>
+                                  <ProfAvatar name={cur?.name ?? '?'} avatarUrl={cur?.avatarUrl} size={40} />
+                                  <span style={{flex:1,minWidth:0,textAlign:'left'}}>
+                                    <span style={{display:'block',fontSize:16.5,fontWeight:700,letterSpacing:'-0.015em',color:colors.gray[900],whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{cur?.name ?? 'Escolher'}</span>
+                                    <span style={{display:'block',fontSize:13,color:colors.gray.dimText,marginTop:1}}>Toque para trocar</span>
+                                  </span>
+                                  <ChevronDown size={19} color={colors.gray.dimText}/>
+                                </button>
+                              )
+                            }
+                            return (
+                              <div className="cp-prof-list">
+                                {avail.map(p => (
+                                  <button key={p.id} type="button" className={`cp-prof-row${item.profId===p.id?' sel':''}`} onClick={()=>pick(p.id)}>
+                                    <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={36} />
+                                    <span style={{flex:1,minWidth:0,textAlign:'left',fontSize:16,fontWeight:item.profId===p.id?700:600,letterSpacing:'-0.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</span>
+                                    {item.profId===p.id && <Check size={19} color={colors.red.DEFAULT}/>}
+                                  </button>
+                                ))}
+                              </div>
+                            )
+                          })()}
                         </div>
                       )}
                     </div>
