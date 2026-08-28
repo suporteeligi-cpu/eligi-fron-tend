@@ -65,6 +65,7 @@ export default function TimeStepper({
 }: TimeStepperProps) {
   const [holding, setHolding] = useState<'down' | 'up' | null>(null)
   const [draft, setDraft]     = useState<string | null>(null)
+  const [hover, setHover]     = useState<'down' | 'up' | null>(null)
 
   // Callback e valor em ref: trocar a funcao nao pode derrubar o intervalo,
   // e o tick precisa do valor mais recente sem recriar o efeito.
@@ -114,21 +115,35 @@ export default function TimeStepper({
   const btnW = big ? 52 : 40
   const btnH = big ? 56 : 44
 
-  const btnStyle: React.CSSProperties = {
-    width: btnW, height: btnH, borderRadius: big ? 13 : 11, border: 'none',
-    background: big ? '#fff' : 'transparent',
-    boxShadow: big ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: disabled ? 'default' : 'pointer', padding: 0, flexShrink: 0,
-    color: disabled ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.45)',
-    transition: 'background 0.15s, color 0.15s', touchAction: 'manipulation',
+  /** O feedback vive aqui, e nao em CSS de fora: o mesmo componente e usado
+   *  em telas que nao compartilham folha de estilo. */
+  const btnStyleFor = (dir: 'down' | 'up'): React.CSSProperties => {
+    const isHover   = hover === dir && !disabled && draft === null
+    const isPressed = holding === dir && !disabled
+
+    return {
+      width: btnW, height: btnH, borderRadius: big ? 13 : 10, border: 'none',
+      background: disabled ? 'rgba(255,255,255,0.55)' : '#fff',
+      boxShadow: isPressed
+        ? 'inset 0 1px 3px rgba(0,0,0,0.14)'
+        : isHover
+          ? '0 2px 6px rgba(220,38,38,0.18)'
+          : '0 1px 2px rgba(0,0,0,0.07)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      cursor: disabled ? 'default' : 'pointer', padding: 0, flexShrink: 0,
+      color: disabled ? 'rgba(0,0,0,0.18)' : isHover ? '#dc2626' : 'rgba(0,0,0,0.45)',
+      transform: isPressed ? 'scale(0.94)' : 'none',
+      transition: 'box-shadow 0.15s, color 0.15s, transform 0.1s',
+      touchAction: 'manipulation',
+    }
   }
 
   const holdProps = (dir: 'down' | 'up') => ({
     onPointerDown:   () => setHolding(dir),
     onPointerUp:     () => setHolding(null),
-    onPointerLeave:  () => setHolding(null),
     onPointerCancel: () => setHolding(null),
+    onPointerEnter:  () => setHover(dir),
+    onPointerLeave:  () => { setHolding(null); setHover(null) },
   })
 
   const valueStyle: React.CSSProperties = {
@@ -157,7 +172,7 @@ export default function TimeStepper({
     >
       <button
         type="button"
-        style={btnStyle}
+        style={btnStyleFor('down')}
         disabled={disabled || draft !== null}
         aria-label={`Diminuir ${label} em ${step} minutos`}
         onClick={() => bump(-step)}
@@ -199,7 +214,7 @@ export default function TimeStepper({
 
       <button
         type="button"
-        style={btnStyle}
+        style={btnStyleFor('up')}
         disabled={disabled || draft !== null}
         aria-label={`Aumentar ${label} em ${step} minutos`}
         onClick={() => bump(step)}
