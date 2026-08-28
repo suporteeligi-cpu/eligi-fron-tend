@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation'
 import {
   Search, X, Plus, ChevronRight, ChevronLeft, Loader2, Layers, Users, PiggyBank,
   Coins, CheckCircle2, CalendarClock, Hash, type LucideIcon,
-  User, RefreshCw, Wallet, Scissors, Bell, Pencil, CreditCard, ShieldCheck,
+  User, RefreshCw, Wallet, Scissors, Bell, Pencil, CreditCard, ShieldCheck, ArrowUp, ArrowDown,
 } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
@@ -146,11 +146,12 @@ const SUB_STATUS: Record<SubStatus, { label: string; fg: string; bg: string }> =
   CANCELED: { label: 'Cancelado', fg: '#9AA1AC', bg: 'rgba(17,17,20,.05)' },
 }
 
-type Tab = 'planos' | 'membros' | 'fechamento'
+type Tab = 'planos' | 'membros' | 'fechamento' | 'financeiro'
 const TABS: { id: Tab; label: string; Icon: LucideIcon }[] = [
   { id: 'planos',     label: 'Planos',     Icon: Layers },
   { id: 'membros',    label: 'Membros',    Icon: Users },
   { id: 'fechamento', label: 'Fechamento', Icon: PiggyBank },
+  { id: 'financeiro', label: 'Financeiro', Icon: Wallet },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -192,6 +193,246 @@ function CobrancaShortcut({
       <span style={{ flex: 1, fontSize: isMobile ? 13 : 13.5, fontWeight: 600 }}>{cfg.label}</span>
       <ChevronRight size={16} style={{ flexShrink: 0, opacity: 0.55 }} />
     </button>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FINANCEIRO — saldo da subconta, resumo do mes e extrato.
+// Saldo/extrato vem do Asaas; "entrou no mes" e "a receber" vem do nosso banco
+// (numeros exatos do CLUBE, nao da conta inteira). Fora do render (Compiler).
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface FinanceTx {
+  id: string
+  date: string | null
+  description: string
+  value: number
+  type: string
+}
+interface ClubFinanceData {
+  connected: boolean
+  approved: boolean
+  balance: number | null
+  receivedMonth: number
+  receivedCount: number
+  pendingValue: number
+  pendingCount: number
+  transactions: FinanceTx[]
+}
+
+const NUM_FF = `'Space Grotesk', ${typography.fontFamily}`
+const money = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+function fmtTxDate(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const hoje = new Date()
+  if (d.toDateString() === hoje.toDateString()) {
+    return `hoje, ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+  }
+  const ontem = new Date(hoje.getTime() - 86400000)
+  if (d.toDateString() === ontem.toDateString()) return 'ontem'
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+}
+
+function FinanceMini({ label, value, foot, tone }: {
+  label: string; value: string; foot: string; tone?: 'green'
+}) {
+  return (
+    <div style={{
+      background: '#fff', border: '1px solid rgba(17,17,20,.07)', borderRadius: 15,
+      padding: 14, minWidth: 0,
+    }}>
+      <div style={{
+        fontSize: 10.5, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase',
+        color: '#8a8a93', marginBottom: 6,
+      }}>{label}</div>
+      <div style={{
+        fontSize: 20, fontWeight: 700, fontFamily: NUM_FF, letterSpacing: '-.02em',
+        color: tone === 'green' ? '#0b7a53' : '#111114',
+        overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{value}</div>
+      <div style={{ fontSize: 11, color: '#8a8a93', marginTop: 3 }}>{foot}</div>
+    </div>
+  )
+}
+
+function FinanceiroTab({ onToast }: { onToast: (m: string) => void }) {
+  const [fin, setFin] = useState<ClubFinanceData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const load = useCallback(async (force = false) => {
+    if (force) setRefreshing(true)
+    try {
+      const res = await api.get(`/club-subscriptions/asaas/finance${force ? '?force=1' : ''}`)
+      setFin((res.data?.data ?? null) as ClubFinanceData | null)
+    } catch {
+      onToast('Não foi possível carregar o financeiro agora.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [onToast])
+
+  useEffect(() => { void load() }, [load])
+
+  if (loading) {
+    return (
+      <div style={{ padding: '48px 0', textAlign: 'center', color: '#8a8a93', fontSize: 14 }}>
+        <Loader2 size={22} style={{ animation: 'club-spin .9s linear infinite', marginBottom: 10 }} />
+        <div>Carregando…</div>
+      </div>
+    )
+  }
+
+  if (!fin?.connected) {
+    return (
+      <div style={{
+        background: '#fffbeb', border: '1px solid rgba(180,83,9,.2)', borderRadius: 16,
+        padding: '18px 18px', fontSize: 13.5, color: '#b45309', lineHeight: 1.6,
+        animation: 'club-panel .3s ease both',
+      }}>
+        Ative a cobrança automática em <b>Configurações → EligiClub</b> para acompanhar
+        o dinheiro do clube por aqui.
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ animation: 'club-panel .3s ease both' }}>
+      {/* SALDO */}
+      <div style={{
+        background: 'linear-gradient(150deg,#111114,#232329)', borderRadius: 20,
+        padding: '22px 20px', color: '#fff', marginBottom: 12,
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', right: -30, top: -30, width: 140, height: 140,
+          borderRadius: '50%', background: 'rgba(220,38,38,.18)', filter: 'blur(30px)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase',
+          color: 'rgba(255,255,255,.55)',
+        }}>
+          Saldo disponível
+        </div>
+        <div style={{
+          fontSize: 36, fontWeight: 700, fontFamily: NUM_FF, letterSpacing: '-.02em',
+          margin: '8px 0 2px', lineHeight: 1,
+        }}>
+          {fin.balance !== null ? money(fin.balance) : '—'}
+        </div>
+        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.6)' }}>
+          {fin.approved ? 'Conta Asaas do seu negócio' : 'Conta em análise'}
+        </div>
+
+        <button
+          onClick={() => void load(true)}
+          disabled={refreshing}
+          style={{
+            marginTop: 16, width: '100%', minHeight: 48, border: '1px solid rgba(255,255,255,.18)',
+            borderRadius: 13, background: 'rgba(255,255,255,.08)', color: '#fff',
+            fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            opacity: refreshing ? .6 : 1,
+          }}
+        >
+          {refreshing
+            ? <Loader2 size={15} style={{ animation: 'club-spin .9s linear infinite' }} />
+            : <RefreshCw size={15} />}
+          {refreshing ? 'Atualizando…' : 'Atualizar saldo'}
+        </button>
+      </div>
+
+      {/* RESUMO DO CLUBE */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 6 }}>
+        <FinanceMini
+          label="Entrou no mês"
+          value={money(fin.receivedMonth)}
+          foot={`${fin.receivedCount} mensalidade${fin.receivedCount === 1 ? '' : 's'}`}
+          tone="green"
+        />
+        <FinanceMini
+          label="A receber"
+          value={money(fin.pendingValue)}
+          foot={`${fin.pendingCount} aguardando`}
+        />
+      </div>
+
+      {/* EXTRATO */}
+      <div style={{
+        fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+        color: '#8a8a93', margin: '22px 0 10px',
+      }}>
+        Últimas movimentações
+      </div>
+
+      {fin.transactions.length === 0 ? (
+        <div style={{
+          background: '#fff', border: '1px solid rgba(17,17,20,.07)', borderRadius: 16,
+          padding: '22px 18px', fontSize: 13, color: '#8a8a93', textAlign: 'center', lineHeight: 1.6,
+        }}>
+          Nenhuma movimentação ainda.<br />
+          Assim que um assinante pagar, aparece aqui.
+        </div>
+      ) : (
+        <div style={{
+          background: '#fff', border: '1px solid rgba(17,17,20,.07)', borderRadius: 16,
+          overflow: 'hidden',
+        }}>
+          {fin.transactions.map((t, i) => {
+            const credito = t.value > 0
+            return (
+              <div
+                key={t.id || i}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '14px 15px',
+                  borderBottom: i < fin.transactions.length - 1 ? '1px solid rgba(17,17,20,.05)' : 'none',
+                }}
+              >
+                <span style={{
+                  width: 36, height: 36, borderRadius: 11, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: credito ? '#ecfdf5' : '#f3f4f6',
+                }}>
+                  {credito
+                    ? <ArrowUp size={16} color="#10B981" strokeWidth={2.2} />
+                    : <ArrowDown size={16} color="#8a8a93" strokeWidth={2.2} />}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 13.5, fontWeight: 600, color: '#111114',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {t.description || (credito ? 'Recebimento' : 'Movimentação')}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#8a8a93', marginTop: 1 }}>
+                    {fmtTxDate(t.date)}
+                  </div>
+                </div>
+                <div style={{
+                  fontSize: 14.5, fontWeight: 700, fontFamily: NUM_FF, flexShrink: 0,
+                  color: credito ? '#0b7a53' : '#4b4b52',
+                }}>
+                  {credito ? '+' : '−'}{money(Math.abs(t.value)).replace('R$', '').trim()}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div style={{
+        textAlign: 'center', fontSize: 11.5, color: '#8a8a93',
+        marginTop: 18, lineHeight: 1.6, paddingBottom: 8,
+      }}>
+        Conta e movimentações mantidas pelo Asaas<br />
+        Gestão Financeira Instituição de Pagamentos S.A.
+      </div>
+    </div>
   )
 }
 
@@ -264,6 +505,11 @@ export default function EligiClubPage() {
         @keyframes club-fade-up { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
         @keyframes club-panel   { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:translateY(0) } }
         @keyframes club-spin     { to { transform: rotate(360deg) } }
+        /* 4 abas nao cabem no mobile com texto: so a ativa mostra o rotulo */
+        @media (max-width: 560px) {
+          .ec-tab-lbl { display: none; }
+          .ec-tab-lbl.on { display: inline; }
+        }
         @keyframes club-sheen    { 0% { transform:translateX(-120%) } 55%,100% { transform:translateX(120%) } }
         .ec-pote-meta { color: rgba(255,255,255,0.92) !important; -webkit-text-fill-color: rgba(255,255,255,0.92) !important; }
         .ec-pote-meta b { color: #FF6B6B !important; -webkit-text-fill-color: #FF6B6B !important; }
@@ -312,7 +558,8 @@ export default function EligiClubPage() {
             return (
               <button key={id} data-tab={id} onClick={() => setTab(id)}
                 style={{ flex: 1, position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 8px', border: 'none', borderRadius: 10, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: on ? 700 : 600, letterSpacing: '-0.01em', color: on ? (isFech ? colors.red.DEFAULT : colors.gray[900]) : colors.gray.dimText, transition: `color ${transitions.fast}`, WebkitTapHighlightColor: 'transparent' }}>
-                <Icon size={15} strokeWidth={2.2} />{label}
+                <Icon size={15} strokeWidth={2.2} />
+                <span className={on ? 'ec-tab-lbl on' : 'ec-tab-lbl'}>{label}</span>
               </button>
             )
           })}
@@ -321,6 +568,7 @@ export default function EligiClubPage() {
         {tab === 'planos' && <PlanosTab isMobile={isMobile} onToast={setToast} />}
         {tab === 'membros' && <MembrosTab isMobile={isMobile} onToast={setToast} />}
         {tab === 'fechamento' && <FechamentoTab onToast={setToast} isMobile={isMobile} />}
+        {tab === 'financeiro' && <FinanceiroTab onToast={setToast} />}
       </div>
     </>
   )
