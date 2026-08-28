@@ -1298,8 +1298,8 @@ export default function SideCheckoutPanel({
                         <ChevronRight size={15} color={item.service?colors.red.DEFAULT:colors.gray.dimText}/>
                       </button>
 
-                      <div style={{display:'flex',gap:0}}>
-                        <div style={{flex:1,padding:'8px 12px',borderRight:`1px solid ${colors.gray.border}`}}>
+                      <div data-eligi="booking-times-wrap" style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                        <div style={{flex:'1 1 240px',minWidth:0,padding:'8px 12px'}}>
                           <div style={{fontSize:12,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Início</div>
                           {/* @eligi:booking-stepper-start */}
                           <TimeStepper
@@ -1310,7 +1310,7 @@ export default function SideCheckoutPanel({
                             size="lg"
                           />
                         </div>
-                        <div style={{flex:1,padding:'8px 12px'}}>
+                        <div style={{flex:'1 1 240px',minWidth:0,padding:'8px 12px'}}>
                           <div style={{fontSize:12,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Fim</div>
                           {/* @eligi:booking-stepper-end */}
                           <TimeStepper
