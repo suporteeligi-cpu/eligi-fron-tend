@@ -19,6 +19,7 @@ import { AgendaProfessional, AgendaBooking } from '@/features/agenda/types'
 import { colors, glass, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAgendaStore'
+import TimeStepper from '@/features/business-hours/components/TimeStepper' // @eligi:booking-stepper-import
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -1299,16 +1300,31 @@ export default function SideCheckoutPanel({
 
                       <div style={{display:'flex',gap:0}}>
                         <div style={{flex:1,padding:'8px 12px',borderRight:`1px solid ${colors.gray.border}`}}>
-                          <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Início</div>
-                          <div style={{border:`1px solid ${colors.gray.borderMd}`,borderRadius:8,overflow:'hidden',background:'#fff',display:'flex'}}>
-                            <TimeWheel value={item.startTime||'09:00'} onChange={v=>updateItemTime(idx,'startTime',v)}/>
-                          </div>
+                          <div style={{fontSize:12,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Início</div>
+                          {/* @eligi:booking-stepper-start */}
+                          <TimeStepper
+                            value={item.startTime||'09:00'}
+                            onChange={v=>updateItemTime(idx,'startTime',v)}
+                            label="inicio"
+                            step={5}
+                            size="lg"
+                          />
                         </div>
                         <div style={{flex:1,padding:'8px 12px'}}>
-                          <div style={{fontSize:10,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Fim</div>
-                          <div style={{border:`1px solid ${colors.gray.borderMd}`,borderRadius:8,overflow:'hidden',background:'#fff',display:'flex'}}>
-                            <TimeWheel value={item.endTime||addMinutes(item.startTime||'09:00', item.service?.duration ?? 30)} onChange={v=>updateItemTime(idx,'endTime',v)}/>
-                          </div>
+                          <div style={{fontSize:12,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Fim</div>
+                          {/* @eligi:booking-stepper-end */}
+                          <TimeStepper
+                            value={item.endTime||addMinutes(item.startTime||'09:00', item.service?.duration ?? 30)}
+                            onChange={v=>updateItemTime(idx,'endTime',v)}
+                            label="fim"
+                            step={5}
+                            size="lg"
+                          />
+                          {item.service && (
+                            <div style={{fontSize:12,color:colors.gray.dimText,marginTop:6}}>
+                              {item.service.duration} min de servico
+                            </div>
+                          )}
                         </div>
                       </div>
 
