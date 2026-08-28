@@ -209,6 +209,12 @@ interface FinanceTx {
   value: number
   type: string
 }
+interface RenewalDay {
+  date: string
+  count: number
+  total: number
+  names: string[]
+}
 interface ClubFinanceData {
   connected: boolean
   approved: boolean
@@ -218,6 +224,9 @@ interface ClubFinanceData {
   pendingValue: number
   pendingCount: number
   transactions: FinanceTx[]
+  renewals?: RenewalDay[]
+  renewalsTotal?: number
+  renewalsCount?: number
 }
 
 const NUM_FF = `'Space Grotesk', ${typography.fontFamily}`
@@ -234,6 +243,140 @@ function fmtTxDate(iso: string | null): string {
   const ontem = new Date(hoje.getTime() - 86400000)
   if (d.toDateString() === ontem.toDateString()) return 'ontem'
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+}
+
+const MES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+/** 'YYYY-MM-DD' -> dia/mes + distancia em dias (referencia: hoje em SP) */
+function parseRenewalDate(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const alvo = new Date(y ?? 2026, (m ?? 1) - 1, d ?? 1)
+  const sp = new Date(Date.now() - 3 * 60 * 60 * 1000)
+  const hoje = new Date(sp.getUTCFullYear(), sp.getUTCMonth(), sp.getUTCDate())
+  const diff = Math.round((alvo.getTime() - hoje.getTime()) / 86400000)
+  return { dia: String(d ?? 1), mes: MES_ABREV[(m ?? 1) - 1] ?? '', diff }
+}
+
+/** "Thiago, Marcos e mais 2" — so primeiros nomes, cabe no mobile */
+function resumoNomes(names: string[], count: number): string {
+  if (count === 0) return ''
+  const primeiros = names.map(n => n.trim().split(' ')[0])
+  const resto = count - names.length
+  if (resto <= 0) return primeiros.join(', ')
+  return `${primeiros.join(', ')} e mais ${resto}`
+}
+
+/**
+ * Calendario de assinaturas — proximas renovacoes agrupadas por dia.
+ * Colapsavel: aberto no desktop, fechado no mobile (a aba ja tem muito conteudo).
+ * O estado inicial e resolvido uma unica vez via matchMedia (nao usa isMobile).
+ */
+function RenovacoesCard({ renewals, total, count }: {
+  renewals: RenewalDay[]
+  total: number
+  count: number
+}) {
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return !window.matchMedia('(max-width: 767px)').matches
+  })
+
+  if (count === 0) return null
+
+  return (
+    <div style={{ marginTop: 22 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+          background: '#fff', border: '1px solid rgba(17,17,20,.07)',
+          borderRadius: open ? '16px 16px 0 0' : 16,
+          borderBottomColor: open ? 'transparent' : 'rgba(17,17,20,.07)',
+          padding: '15px 16px', cursor: 'pointer', fontFamily: 'inherit', minHeight: 62,
+        }}
+      >
+        <span style={{
+          width: 36, height: 36, borderRadius: 11, background: '#f3f4f6', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <CalendarClock size={17} color="#4b4b52" strokeWidth={2} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#111114' }}>
+            Próximas renovações
+          </span>
+          <span style={{ display: 'block', fontSize: 11.5, color: '#8a8a93', marginTop: 1 }}>
+            {count} nos próximos 45 dias · {money(total)}
+          </span>
+        </span>
+        <ChevronRight
+          size={17}
+          color="#8a8a93"
+          style={{
+            flexShrink: 0,
+            transform: open ? 'rotate(-90deg)' : 'rotate(90deg)',
+            transition: 'transform .22s cubic-bezier(.34,1.56,.64,1)',
+          }}
+        />
+      </button>
+
+      {open && (
+        <div style={{
+          background: '#fff', border: '1px solid rgba(17,17,20,.07)', borderTop: 'none',
+          borderRadius: '0 0 16px 16px', padding: '4px 12px 12px',
+        }}>
+          {renewals.map(d => {
+            const { dia, mes, diff } = parseRenewalDate(d.date)
+            const hoje = diff === 0
+            const amanha = diff === 1
+            return (
+              <div
+                key={d.date}
+                style={{
+                  display: 'flex', gap: 12, alignItems: 'center',
+                  padding: '13px 12px', marginTop: 8, borderRadius: 14,
+                  border: `1px solid ${hoje ? 'rgba(220,38,38,.28)' : 'rgba(17,17,20,.07)'}`,
+                  background: hoje ? 'rgba(220,38,38,.03)' : '#fff',
+                }}
+              >
+                <div style={{ width: 44, flexShrink: 0, textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: 21, fontWeight: 700, lineHeight: 1, fontFamily: NUM_FF,
+                    color: hoje ? '#dc2626' : '#111114',
+                  }}>
+                    {dia}
+                  </div>
+                  <div style={{
+                    fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
+                    color: '#8a8a93', marginTop: 2,
+                  }}>
+                    {mes}
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: '#111114' }}>
+                    {hoje ? 'Hoje' : amanha ? 'Amanhã' : `${d.count} renovaç${d.count === 1 ? 'ão' : 'ões'}`}
+                    {(hoje || amanha) && d.count > 1 ? ` · ${d.count} renovações` : ''}
+                  </div>
+                  <div style={{
+                    fontSize: 11.5, color: '#8a8a93', marginTop: 2,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {resumoNomes(d.names, d.count)}
+                  </div>
+                </div>
+                <div style={{
+                  fontSize: 14.5, fontWeight: 700, fontFamily: NUM_FF, color: '#0b7a53', flexShrink: 0,
+                }}>
+                  {money(d.total)}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function FinanceMini({ label, value, foot, tone }: {
@@ -361,6 +504,13 @@ function FinanceiroTab({ onToast }: { onToast: (m: string) => void }) {
           foot={`${fin.pendingCount} aguardando`}
         />
       </div>
+
+      {/* CALENDÁRIO DE ASSINATURAS */}
+      <RenovacoesCard
+        renewals={fin.renewals ?? []}
+        total={fin.renewalsTotal ?? 0}
+        count={fin.renewalsCount ?? 0}
+      />
 
       {/* EXTRATO */}
       <div style={{
