@@ -309,13 +309,66 @@ function ServiceSheet({ services, selected, loading, onSelect, onClose }: {
 }
 
 // ─── ClientSearchSheet ────────────────────────────────────────────────────────
+// ─── ClientSearchSheet ────────────────────────────────────────────────────────
+// @eligi:client-sheet-v2
+//
+// A lista antiga mostrava avatar cinza igual para todos, nome como veio do
+// banco ("amanda santana") e o telefone em E.164 cru. O botao de cadastrar
+// ficava no topo, empurrando o primeiro cliente para baixo em toda abertura.
+//
+// Agora: cor estavel por nome, nome capitalizado na exibicao, telefone pelo
+// fmtPhone que ja existia neste arquivo, contagem de visitas (a API sempre
+// mandou totalBookings e ninguem lia), indice A-Z e o cadastro no rodape.
+
+/** Client + o contador que GET /clients ja devolve. Tipar aqui evita mexer
+ *  no tipo compartilhado por outras cinco telas. */
+type ClientRow = Client & { totalBookings?: number }
+
+const AVATAR_HUES = [
+  ['#0ea5e9', '#0369a1'], ['#f59e0b', '#b45309'], ['#8b5cf6', '#6d28d9'],
+  ['#10b981', '#047857'], ['#ef4444', '#b91c1c'], ['#ec4899', '#be185d'],
+  ['#6366f1', '#4338ca'], ['#14b8a6', '#0f766e'],
+] as const
+
+/** Hash simples e estavel: o mesmo cliente tem sempre a mesma cor. */
+function hueFor(name: string): readonly [string, string] {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0
+  return AVATAR_HUES[Math.abs(h) % AVATAR_HUES.length]
+}
+
+/** Corrige a caixa so na exibicao. O banco continua com o dado como veio. */
+function titleCase(name: string): string {
+  return name.trim().split(/\s+/)
+    .map(w => (w.length > 2 ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ')
+}
+
+/** Marca o trecho buscado sem usar dangerouslySetInnerHTML. */
+function highlight(text: string, term: string) {
+  const q = term.trim()
+  if (!q) return text
+  const i = text.toLowerCase().indexOf(q.toLowerCase())
+  if (i < 0) return text
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark style={{background:'rgba(220,38,38,0.16)',color:'inherit',borderRadius:3,padding:'0 1px'}}>
+        {text.slice(i, i + q.length)}
+      </mark>
+      {text.slice(i + q.length)}
+    </>
+  )
+}
+
 function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
   selected:Client|null; onSelect:(c:Client|null)=>void; onClose:()=>void; onCreateNew:()=>void
 }) {
   const [query,   setQuery]   = useState('')
-  const [clients, setClients] = useState<Client[]>([])
+  const [clients, setClients] = useState<ClientRow[]>([])
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef  = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
 
   useEffect(() => { setTimeout(()=>inputRef.current?.focus(),100) }, [])
@@ -324,7 +377,7 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
     const t = setTimeout(async () => {
       try {
         setLoading(true)
-        const res  = await api.get('/clients',{params:{search:query||undefined,limit:30}})
+        const res  = await api.get('/clients',{params:{search:query||undefined,limit:60}})
         const data = res.data?.data??res.data
         setClients(data.clients??[])
       } catch (err) { setClients([]); console.error('[ClientSearch] GET /clients falhou:', err) }
@@ -342,7 +395,7 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
     display:'flex', flexDirection:'column' as const, fontFamily:typography.fontFamily,
     animation:'sheetUp 0.28s cubic-bezier(0.34,1.2,0.64,1)',
   } : {
-    position:'fixed' as const, top:0, right:0, bottom:0, width:400,
+    position:'fixed' as const, top:0, right:0, bottom:0, width:460,
     background:glass.surface.modal.background, backdropFilter:glass.surface.modal.backdropFilter,
     WebkitBackdropFilter:glass.surface.modal.backdropFilter,
     borderLeft:`1px solid ${colors.gray.borderMd}`,
@@ -352,70 +405,136 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
   }
 
   const grouped = clients.reduce((acc, c) => {
-    const letter = c.name[0]?.toUpperCase() ?? '#'
+    const letter = titleCase(c.name)[0]?.toUpperCase() ?? '#'
     if (!acc[letter]) acc[letter] = []
     acc[letter].push(c)
     return acc
-  }, {} as Record<string,Client[]>)
+  }, {} as Record<string,ClientRow[]>)
+
+  const letters = Object.keys(grouped).sort()
+  const term    = query.trim()
+
+  const jumpTo = (letter: string) => {
+    listRef.current?.querySelector(`[data-letter="${letter}"]`)
+      ?.scrollIntoView({ behavior:'smooth', block:'start' })
+  }
 
   return createPortal(
     <>
       <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:10998,background:colors.background.overlay}}/>
       <div style={style}>
-        <style>{`@keyframes sheetIn{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+        <style>{`
+          @keyframes sheetIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+          @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+          .cs-row{width:100%;display:flex;align-items:center;gap:13px;padding:11px 18px;min-height:70px;
+            border:none;border-bottom:1px solid ${colors.gray.border};background:transparent;cursor:pointer;
+            text-align:left;font-family:${typography.fontFamily};transition:background ${transitions.fast}}
+          .cs-row:hover{background:${colors.gray.hover}}
+          .cs-row.sel,.cs-row.sel:hover{background:${colors.red.subtle}}
+          .cs-sec{position:sticky;top:0;z-index:2;padding:8px 18px;font-size:12.5px;font-weight:700;
+            letter-spacing:.09em;color:${colors.gray.dimText};background:${colors.background.page};
+            border-bottom:1px solid ${colors.gray.border}}
+          .cs-az{position:absolute;right:2px;top:0;bottom:0;display:flex;flex-direction:column;
+            justify-content:center;gap:1px;padding:6px 2px;z-index:3}
+          .cs-az button{border:none;background:transparent;font-family:${typography.fontFamily};
+            font-size:10.5px;font-weight:700;color:${colors.gray.dimText};cursor:pointer;
+            line-height:1.25;padding:0 4px}
+          .cs-az button:hover{color:${colors.red.DEFAULT}}
+        `}</style>
         {isMobile && <div style={{display:'flex',justifyContent:'center',padding:'12px 0 4px',flexShrink:0}}><div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)'}}/></div>}
-        <div style={{padding:'14px 20px 10px',flexShrink:0,display:'flex',alignItems:'center',gap:12}}>
-          <button onClick={onClose} style={{width:32,height:32,borderRadius:'50%',border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <ChevronRight size={16} color={colors.gray[700]} style={{transform:'rotate(180deg)'}} strokeWidth={2.5}/>
+
+        <div style={{padding:'14px 18px 12px',flexShrink:0,display:'flex',alignItems:'center',gap:12}}>
+          <button onClick={onClose} aria-label="Voltar" style={{width:40,height:40,borderRadius:13,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <ChevronRight size={19} color={colors.gray[700]} style={{transform:'rotate(180deg)'}} strokeWidth={2.2}/>
           </button>
-          <h3 style={{margin:0,fontSize:17,fontWeight:700,color:colors.gray[900]}}>Busca de clientes</h3>
+          <h3 style={{margin:0,fontSize:21,fontWeight:700,letterSpacing:'-0.03em',color:colors.gray[900]}}>Clientes</h3>
         </div>
-        <div style={{padding:'0 16px 10px',flexShrink:0}}>
-          <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',borderRadius:12,border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page}}>
-            <Search size={16} color={colors.gray.dimText}/>
-            <input ref={inputRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Digite o nome, número de telefone..." style={{flex:1,border:'none',outline:'none',fontSize:14,background:'transparent',color:colors.gray[900],fontFamily:typography.fontFamily}}/>
+
+        <div style={{padding:'0 18px 12px',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:11,padding:'0 15px',minHeight:54,borderRadius:16,border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page}}>
+            <Search size={19} color={colors.gray.dimText}/>
+            <input ref={inputRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Nome ou telefone" style={{flex:1,minWidth:0,border:'none',outline:'none',fontSize:16,background:'transparent',color:colors.gray[900],fontFamily:typography.fontFamily}}/>
+            {query && (
+              <button onClick={()=>{setQuery('');inputRef.current?.focus()}} aria-label="Limpar busca" style={{border:'none',background:'transparent',cursor:'pointer',padding:6,margin:'0 -6px 0 0',display:'flex'}}>
+                <X size={17} color={colors.gray.dimText}/>
+              </button>
+            )}
           </div>
         </div>
-        <div style={{flex:1,overflowY:'auto'}}>
-          <button onClick={()=>{onClose();onCreateNew()}} style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'14px 20px',border:'none',borderBottom:`1px solid ${colors.gray.border}`,background:'transparent',cursor:'pointer',textAlign:'left'}}
-            onMouseEnter={e=>(e.currentTarget.style.background=colors.gray.hover)}
-            onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
-          >
-            <div style={{width:40,height:40,borderRadius:'50%',border:`2px dashed ${colors.red.border}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <Plus size={18} color={colors.red.DEFAULT} strokeWidth={2}/>
-            </div>
-            <span style={{fontSize:14,fontWeight:600,color:colors.red.DEFAULT}}>Adicionar novo cliente</span>
-          </button>
 
-          {loading ? <div style={{padding:32,textAlign:'center',color:colors.gray.dimText}}>Buscando...</div>
-          : clients.length===0 ? (
-            <div style={{padding:'32px 20px',textAlign:'center',color:colors.gray.dimText}}>
-              <Search size={28} style={{opacity:0.2,marginBottom:8}}/>
-              <div style={{fontSize:14}}>Nenhum cliente encontrado</div>
+        <div ref={listRef} style={{flex:1,overflowY:'auto',position:'relative'}}>
+          {loading ? (
+            <div style={{padding:32,textAlign:'center',color:colors.gray.dimText,fontSize:14.5}}>Buscando...</div>
+          ) : clients.length===0 ? (
+            <div style={{padding:'44px 24px',textAlign:'center'}}>
+              <Search size={36} color={colors.gray.borderMd} strokeWidth={1.5} style={{margin:'0 auto 14px'}}/>
+              <div style={{fontSize:18,fontWeight:700,letterSpacing:'-0.02em',color:colors.gray[900],marginBottom:6}}>
+                {term ? `Nenhum cliente com "${term}"` : 'Nenhum cliente ainda'}
+              </div>
+              <p style={{margin:'0 0 20px',fontSize:14.5,color:colors.gray.dimText,lineHeight:1.55}}>
+                {term ? 'Confira a grafia ou cadastre agora mesmo.' : 'Cadastre o primeiro para agendar mais rapido depois.'}
+              </p>
             </div>
-          ) : Object.keys(grouped).sort().map(letter=>(
-            <div key={letter}>
-              <div style={{padding:'8px 20px 4px',fontSize:12,fontWeight:700,color:colors.gray.dimText,letterSpacing:'.07em',background:colors.background.page}}>{letter}</div>
-              {grouped[letter].map(c=>{
-                const isSel = selected?.id===c.id
-                return (
-                  <button key={c.id} onClick={()=>{onSelect(c);onClose()}} style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'12px 20px',border:'none',borderBottom:`1px solid ${colors.gray.border}`,background:isSel?colors.red.subtle:'transparent',cursor:'pointer',textAlign:'left',transition:`background ${transitions.fast}`}}
-                    onMouseEnter={e=>(e.currentTarget.style.background=isSel?colors.red.subtle:colors.gray.hover)}
-                    onMouseLeave={e=>(e.currentTarget.style.background=isSel?colors.red.subtle:'transparent')}
-                  >
-                    <div style={{width:40,height:40,borderRadius:'50%',background:isSel?colors.red.gradient:colors.background.page,border:`1px solid ${isSel?'transparent':colors.gray.borderMd}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:isSel?'#fff':colors.gray[700],flexShrink:0,boxShadow:isSel?`0 2px 8px ${colors.red.glow}`:'none'}}>
-                      {getInitials(c.name)}
-                    </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:14,fontWeight:600,color:colors.gray[900],whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.name}</div>
-                      {c.phone&&<div style={{fontSize:12,color:colors.gray.dimText,marginTop:1}}>{fmtPhone(c.phone)}</div>}
-                    </div>
-                    {isSel&&<Check size={16} color={colors.red.DEFAULT} strokeWidth={2.5}/>}
-                  </button>
-                )
-              })}
-            </div>
-          ))}
+          ) : (
+            <>
+              {term && (
+                <div className="cs-sec">
+                  {clients.length} {clients.length===1?'resultado':'resultados'} para &ldquo;{term}&rdquo;
+                </div>
+              )}
+              {letters.map(letter=>(
+                <div key={letter}>
+                  {!term && <div className="cs-sec" data-letter={letter}>{letter}</div>}
+                  {grouped[letter].map(c=>{
+                    const isSel = selected?.id===c.id
+                    const [c1,c2] = hueFor(c.name)
+                    const visits  = c.totalBookings ?? 0
+                    return (
+                      <button key={c.id} onClick={()=>{onSelect(c);onClose()}} className={`cs-row${isSel?' sel':''}`}>
+                        <span style={{width:46,height:46,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,letterSpacing:'-0.02em',color:'#fff',background:`linear-gradient(135deg,${c1},${c2})`,boxShadow:'0 2px 8px rgba(0,0,0,0.10)'}}>
+                          {getInitials(c.name)}
+                        </span>
+                        <span style={{flex:1,minWidth:0}}>
+                          <span style={{display:'block',fontSize:16.5,fontWeight:700,letterSpacing:'-0.015em',color:colors.gray[900],whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                            {highlight(titleCase(c.name), term)}
+                          </span>
+                          {c.phone && (
+                            <span style={{display:'block',fontSize:13.5,color:colors.gray.dimText,marginTop:2,fontVariantNumeric:'tabular-nums'}}>
+                              {fmtPhone(c.phone)}
+                            </span>
+                          )}
+                        </span>
+                        {visits > 0 ? (
+                          <span style={{flexShrink:0,fontSize:12.5,color:colors.gray.dimText,fontWeight:600,whiteSpace:'nowrap'}}>
+                            {visits} {visits===1?'visita':'visitas'}
+                          </span>
+                        ) : (
+                          <span style={{flexShrink:0,fontSize:11.5,fontWeight:700,letterSpacing:'.03em',textTransform:'uppercase',borderRadius:7,padding:'4px 8px',background:'rgba(16,185,129,0.10)',color:'#0f6e56'}}>
+                            novo
+                          </span>
+                        )}
+                        {isSel&&<Check size={18} color={colors.red.DEFAULT} strokeWidth={2.5}/>}
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+              {!term && letters.length > 3 && (
+                <div className="cs-az">
+                  {letters.map(l=>(
+                    <button key={l} onClick={()=>jumpTo(l)}>{l}</button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div style={{flexShrink:0,borderTop:`1px solid ${colors.gray.border}`,padding:'12px 18px',paddingBottom:isMobile?'max(12px,env(safe-area-inset-bottom))':12}}>
+          <button onClick={()=>{onClose();onCreateNew()}} style={{width:'100%',minHeight:54,borderRadius:16,border:`1.5px dashed ${colors.red.border}`,background:'rgba(220,38,38,0.03)',color:colors.red.DEFAULT,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:9,fontSize:16.5,fontWeight:700,letterSpacing:'-0.015em',fontFamily:typography.fontFamily}}>
+            <Plus size={19} strokeWidth={2.2}/>
+            {term ? `Cadastrar "${titleCase(term)}"` : 'Cadastrar novo cliente'}
+          </button>
         </div>
       </div>
     </>,
