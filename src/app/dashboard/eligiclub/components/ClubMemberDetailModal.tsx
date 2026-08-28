@@ -9,10 +9,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  X, Loader2, AlertCircle, Banknote, Smartphone, CreditCard, Hash, CalendarClock, Ban, Check,
-} from 'lucide-react'
+  X, Loader2, AlertCircle, Banknote, Smartphone, CreditCard, Hash, CalendarClock, Ban, Check, Link2, MessageCircle } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
+import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
 import { colors, typography, transitions, radius } from '@/shared/theme'
 
 // ── tipos (espelham o back / page.tsx) ──────────────────────────────────────
@@ -23,6 +23,7 @@ interface ClubSubscription {
   status: SubStatus
   value: number | null
   billingType: string | null
+  asaasSubscriptionId?: string | null
   startedAt: string | null
   currentPeriodEnd: string | null
   canceledAt: string | null
@@ -62,6 +63,10 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
   const [payAmountStr, setPayAmountStr] = useState(String(initialSub.value ?? initialSub.plan.price))
   const [payMethod, setPayMethod] = useState<Method>('DINHEIRO')
   const [paying, setPaying] = useState(false)
+  // link de pagamento (assinatura recorrente) — buscado ao abrir o modal
+  const [linkData, setLinkData] = useState<{ checkoutUrl: string | null; businessName: string; clientName: string; clientPhone: string | null } | null>(null)
+  const [linkLoading, setLinkLoading] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const [paySuccess, setPaySuccess] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
 
@@ -93,6 +98,38 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
   const payAmount = parseFloat(payAmountStr.replace(',', '.')) || 0
   const isCanceled = sub.status === 'CANCELED'
   const st = STATUS[sub.status]
+
+  // busca o link assim que o modal abre (so se a assinatura for recorrente)
+  useEffect(() => {
+    if (!sub.asaasSubscriptionId) return
+    let alive = true
+    setLinkLoading(true)
+    api.get(`/club-subscriptions/${sub.id}/payment-link`)
+      .then(res => {
+        if (!alive) return
+        setLinkData((res.data?.data ?? null) as typeof linkData)
+      })
+      .catch(() => { if (alive) setLinkData(null) })
+      .finally(() => { if (alive) setLinkLoading(false) })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub.id, sub.asaasSubscriptionId])
+
+  const copyLink = useCallback(async () => {
+    if (!linkData?.checkoutUrl) return
+    try {
+      await navigator.clipboard.writeText(linkData.checkoutUrl)
+      setLinkCopied(true)
+      window.setTimeout(() => setLinkCopied(false), 2200)
+    } catch { /* clipboard indisponivel */ }
+  }, [linkData])
+
+  const sendWhats = useCallback(() => {
+    if (!linkData?.checkoutUrl || !linkData.clientPhone) return
+    const msg = clubPaymentMessage(linkData.clientName, linkData.businessName, linkData.checkoutUrl)
+    window.open(waLink(linkData.clientPhone, msg), '_blank', 'noopener,noreferrer')
+  }, [linkData])
+
 
   const registerPayment = useCallback(async () => {
     setPayError(null)
@@ -198,6 +235,90 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
             <Stat icon={<Hash size={14} />} label="Fichas" value={String(sub._count?.fichas ?? 0)} />
             <Stat icon={<Check size={14} />} label="Pagamentos" value={String(sub._count?.payments ?? payments.length)} />
           </div>
+
+          {/* LINK DE PAGAMENTO — so para assinatura recorrente (tem id no Asaas).
+              Antes o link so aparecia ao criar a assinatura e na tela de
+              Configuracoes (e la, so para PENDING). O lojista que precisava
+              reenviar depois — troca de cartao, cliente perdeu — nao tinha de onde tirar. */}
+          {sub.asaasSubscriptionId && (
+            <div style={{
+              padding: 14, borderRadius: 12,
+              background: 'rgba(255,255,255,.85)',
+              border: '1px solid rgba(17,17,20,.07)',
+              boxShadow: '0 4px 20px rgba(17,17,20,.05)',
+            }}>
+              <label style={labelStyle}>Link de pagamento</label>
+
+              {linkLoading ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  fontSize: 12.5, color: '#8a8a93', padding: '6px 0',
+                }}>
+                  <Loader2 size={14} style={{ animation: 'club-spin 0.8s linear infinite' }} />
+                  Carregando link…
+                </div>
+              ) : linkData?.checkoutUrl ? (
+                <>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 9,
+                    background: '#f5f5f7', border: '1px solid rgba(17,17,20,.07)',
+                    borderRadius: 10, padding: '10px 12px', marginBottom: 9,
+                  }}>
+                    <Link2 size={14} style={{ color: '#8a8a93', flexShrink: 0 }} />
+                    <span style={{
+                      flex: 1, minWidth: 0, fontSize: 11.5, color: '#4b4b52',
+                      fontFamily: 'ui-monospace, monospace',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {linkData.checkoutUrl.replace(/^https?:\/\//, '')}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={copyLink}
+                      style={{
+                        flex: 1, minHeight: 44, borderRadius: 10, cursor: 'pointer',
+                        border: `1px solid ${linkCopied ? 'rgba(16,185,129,.4)' : 'rgba(17,17,20,.12)'}`,
+                        background: linkCopied ? '#ecfdf5' : '#fff',
+                        color: linkCopied ? '#0f6e56' : '#4b4b52',
+                        fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        transition: 'background .2s ease', WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      {linkCopied ? <Check size={14} /> : <Link2 size={14} />}
+                      {linkCopied ? 'Copiado' : 'Copiar'}
+                    </button>
+
+                    {linkData.clientPhone && (
+                      <button
+                        onClick={sendWhats}
+                        style={{
+                          flex: 1, minHeight: 44, borderRadius: 10, cursor: 'pointer',
+                          border: '1px solid rgba(16,185,129,.4)', background: '#ecfdf5',
+                          color: '#0f6e56', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        <MessageCircle size={14} /> WhatsApp
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: 11, color: '#8a8a93', marginTop: 9, lineHeight: 1.5 }}>
+                    Envie para o cliente cadastrar ou trocar o cartão. A cobrança passa a
+                    ser automática todo mês.
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 12, color: '#8a8a93', lineHeight: 1.5 }}>
+                  Link indisponível no momento.
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Registrar pagamento */}
           {!isCanceled && (
