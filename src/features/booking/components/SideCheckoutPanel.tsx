@@ -95,15 +95,6 @@ interface Props {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function generateTimeSlots(): string[] {
-  const s: string[] = []
-  for (let h = 6; h < 23; h++)
-    for (let m = 0; m < 60; m += 5)
-      s.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`)
-  return s
-}
-const TIME_SLOTS = generateTimeSlots()
-const ITEM_H = 28, VISIBLE = 3
 
 function addMinutes(time: string, min: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -182,58 +173,6 @@ function pickFreeProf(
   return professionals.find(p => !used.has(p.id))?.id ?? null
 }
 
-// ─── TimeWheel ────────────────────────────────────────────────────────────────
-function TimeWheel({ value, onChange }: { value: string; onChange: (t: string) => void }) {
-  const ref        = useRef<HTMLDivElement>(null)
-  const isDragging = useRef(false)
-  const startY     = useRef(0)
-  const startScroll= useRef(0)
-  const timer      = useRef<ReturnType<typeof setTimeout>|null>(null)
-  const idx        = TIME_SLOTS.indexOf(value)
-  const pad        = Math.floor(VISIBLE / 2)
-
-  const scrollTo = useCallback((i: number, smooth = true) => {
-    ref.current?.scrollTo({ top: i * ITEM_H, behavior: smooth ? 'smooth' : 'instant' })
-  }, [])
-
-  useEffect(() => { if (idx >= 0) scrollTo(idx, false) }, [idx, scrollTo])
-
-  const snap = useCallback(() => {
-    if (!ref.current) return
-    const i = Math.max(0, Math.min(Math.round(ref.current.scrollTop / ITEM_H), TIME_SLOTS.length-1))
-    scrollTo(i); onChange(TIME_SLOTS[i])
-  }, [onChange, scrollTo])
-
-  return (
-    <div style={{ position:'relative', height:VISIBLE*ITEM_H, userSelect:'none', flex:1 }}>
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:pad*ITEM_H, background:`linear-gradient(to bottom,${colors.background.page},transparent)`, zIndex:2, pointerEvents:'none' }} />
-      <div style={{ position:'absolute', top:pad*ITEM_H, left:0, right:0, height:ITEM_H, background:colors.red.subtle, borderTop:`1px solid ${colors.red.border}`, borderBottom:`1px solid ${colors.red.border}`, zIndex:2, pointerEvents:'none' }} />
-      <div style={{ position:'absolute', bottom:0, left:0, right:0, height:pad*ITEM_H, background:`linear-gradient(to top,${colors.background.page},transparent)`, zIndex:2, pointerEvents:'none' }} />
-      <div ref={ref}
-        onScroll={() => { if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(snap, 100) }}
-        onTouchStart={e => { startY.current=e.touches[0].clientY; startScroll.current=ref.current?.scrollTop??0 }}
-        onTouchMove={e => { if (ref.current) ref.current.scrollTop=startScroll.current+(startY.current-e.touches[0].clientY) }}
-        onTouchEnd={snap}
-        onMouseDown={e => { isDragging.current=true; startY.current=e.clientY; startScroll.current=ref.current?.scrollTop??0 }}
-        onMouseMove={e => { if (isDragging.current && ref.current) ref.current.scrollTop=startScroll.current+(startY.current-e.clientY) }}
-        onMouseUp={() => { isDragging.current=false; snap() }}
-        onMouseLeave={() => { isDragging.current=false; snap() }}
-        style={{ height:'100%', overflowY:'scroll', scrollbarWidth:'none', cursor:'grab' }}
-      >
-        <div style={{ height:pad*ITEM_H }} />
-        {TIME_SLOTS.map((t, i) => {
-          const dist = Math.abs(i - idx)
-          return (
-            <div key={t} onClick={() => { onChange(t); scrollTo(i) }} style={{ height:ITEM_H, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:dist===0?700:400, color:dist===0?colors.red.DEFAULT:colors.gray.dimText, opacity:dist===0?1:dist===1?0.6:0.28, transform:`scale(${dist===0?1:dist===1?0.9:0.8})`, transition:`all ${transitions.fast}`, cursor:'pointer', fontVariantNumeric:'tabular-nums' }}>
-              {t}
-            </div>
-          )
-        })}
-        <div style={{ height:pad*ITEM_H }} />
-      </div>
-    </div>
-  )
-}
 
 // ─── DatePickerModal ──────────────────────────────────────────────────────────
 function DatePickerModal({ date, onSelect, onClose, isMobile }: {
