@@ -26,6 +26,26 @@ const STYLE_DARK = "https://tiles.openfreemap.org/styles/dark";
 const STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
 const DEFAULT: [number, number] = [-23.55, -46.63];
 
+// @eligi:mappicker-pin
+// O marcador padrao do Leaflet depende de images/marker-icon.png, caminho
+// relativo dentro do leaflet.css que o bundler nao resolve -- por isso o pino
+// tinha sumido. Um divIcon nao depende dessas imagens.
+//
+// O pino tem bico e o anchor aponta para a ponta (20, 46), nao para o centro:
+// num seletor de localizacao a coordenada precisa ser o ponto que a pessoa ve.
+const PIN_HTML =
+  '<div style="position:relative;width:40px;height:46px;">' +
+  '<div style="width:40px;height:40px;border-radius:50%;overflow:hidden;' +
+  'border:2.5px solid #dc2626;background:#fff;box-sizing:border-box;' +
+  'box-shadow:0 3px 10px rgba(0,0,0,.35);">' +
+  '<img src="/eligi-globo.png" alt="" style="width:100%;height:100%;' +
+  'object-fit:contain;display:block;" />' +
+  '</div>' +
+  '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);' +
+  'width:0;height:0;border-left:6px solid transparent;' +
+  'border-right:6px solid transparent;border-top:8px solid #dc2626;"></div>' +
+  '</div>';
+
 interface Props {
   lat: number | null;
   lng: number | null;
@@ -76,7 +96,13 @@ export default function MapPicker({ lat, lng, address, onChange }: Props) {
         };
         withGL.maplibreGL({ style: isDark ? STYLE_DARK : STYLE_LIGHT }).addTo(map);
 
-        const marker = L.marker(start, { draggable: true }).addTo(map);
+        const icon = L.divIcon({
+          className: "eligi-map-pin",
+          html: PIN_HTML,
+          iconSize: [40, 46],
+          iconAnchor: [20, 46],
+        });
+        const marker = L.marker(start, { draggable: true, icon }).addTo(map);
         marker.on("dragend", () => {
           const p = marker.getLatLng();
           onChangeRef.current(p.lat, p.lng);
