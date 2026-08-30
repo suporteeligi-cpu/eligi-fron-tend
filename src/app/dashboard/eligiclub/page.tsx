@@ -621,7 +621,8 @@ export default function EligiClubPage() {
   }, [positionInd])
 
   // GATE: enquanto o EligiClub esta em desenvolvimento, so contas isentas (modo teste)
-  // veem o modulo. Lojista comum (isento=false) ve a tela "em desenvolvimento".
+  // @eligi:club-gate-doc — CORRIGIDO: o gate de acesso saiu em jul/2026 (ver abaixo).
+  // Hoje `isento` significa apenas: cobranca em modo console (teste), ligado pelo Brain.
   const [isento, setIsento] = useState<boolean | null>(null)
   // estado da conta de pagamentos (mesma chamada do gate — sem custo extra)
   const [billing, setBilling] = useState<{ connected: boolean; approved: boolean } | null>(null)
