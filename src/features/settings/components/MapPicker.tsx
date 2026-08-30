@@ -1,55 +1,30 @@
 "use client";
 // src/features/settings/components/MapPicker.tsx
+// @eligi:mappicker-openfreemap
 //
 // Mini mapa com pino arrastavel + geocode gratis (Nominatim/OSM).
-// Leaflet carregado via CDN em runtime - sem dependencia nova no build.
-// Dark-aware: dentro do onboarding (.ob-root) usa tile escuro (CARTO);
-// fora dele (settings) mantem o tile claro de sempre.
+//
+// O que mudou:
+//   - o tile escuro era raster da CARTO, que passou a exigir API key. Dentro do
+//     onboarding isso virava a marca dagua APIKEY REQUIRED no segundo passo do
+//     cadastro de todo lojista novo.
+//   - o Leaflet vinha do unpkg em runtime. Agora e dependencia de verdade,
+//     carregada por import() dinamico: sem CDN de terceiro no caminho e com os
+//     tipos reais, o que dispensa as interfaces escritas a mao.
+//
+// Estilo por contexto: 'dark' dentro do onboarding (.ob-root), 'positron' fora.
+// Os dois vem do OpenFreeMap, sem chave e sem cota.
 
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Search, Loader2 } from "lucide-react";
+import type * as LeafletNS from "leaflet";
+// CSS entra estatico: folha de estilo e resolvida em build, nao com import().
+import "leaflet/dist/leaflet.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 
-interface LMap {
-  setView(c: [number, number], z: number): LMap;
-  on(ev: string, cb: (e: { latlng: { lat: number; lng: number } }) => void): void;
-  remove(): void;
-  invalidateSize(): void;
-}
-interface LMarker {
-  on(ev: string, cb: () => void): void;
-  getLatLng(): { lat: number; lng: number };
-  setLatLng(c: [number, number]): LMarker;
-  addTo(m: LMap): LMarker;
-}
-interface LeafletLike {
-  map(el: HTMLElement, opts?: object): LMap;
-  tileLayer(url: string, opts?: object): { addTo(m: LMap): void };
-  marker(c: [number, number], opts?: object): LMarker;
-}
-function getL(): LeafletLike | undefined {
-  return (window as unknown as { L?: LeafletLike }).L;
-}
-let loader: Promise<void> | null = null;
-function loadLeaflet(): Promise<void> {
-  if (getL()) return Promise.resolve();
-  if (loader) return loader;
-  loader = new Promise<void>((resolve, reject) => {
-    const css = document.createElement("link");
-    css.rel = "stylesheet";
-    css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(css);
-    const s = document.createElement("script");
-    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("leaflet"));
-    document.head.appendChild(s);
-  });
-  return loader;
-}
-
+const STYLE_DARK = "https://tiles.openfreemap.org/styles/dark";
+const STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
 const DEFAULT: [number, number] = [-23.55, -46.63];
-const TILE_LIGHT = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const TILE_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
 
 interface Props {
   lat: number | null;
@@ -60,8 +35,12 @@ interface Props {
 
 export default function MapPicker({ lat, lng, address, onChange }: Props) {
   const elRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<LMap | null>(null);
-  const markerRef = useRef<LMarker | null>(null);
+  const mapRef = useRef<LeafletNS.Map | null>(null);
+  const markerRef = useRef<LeafletNS.Marker | null>(null);
+  // onChange em ref: trocar a funcao nao pode remontar o mapa.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; });
+
   const [ready, setReady] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -69,33 +48,62 @@ export default function MapPicker({ lat, lng, address, onChange }: Props) {
 
   useEffect(() => {
     let active = true;
-    loadLeaflet()
-      .then(() => {
+
+    async function init() {
+      try {
+        // O plugin do Leaflet le `maplibregl` do escopo global quando e
+        // avaliado. Imports ESM sao icados, entao a ordem so e garantida com
+        // import() dinamico.
+        const L = (await import("leaflet")).default;
+        const maplibregl = (await import("maplibre-gl")).default;
+        (window as unknown as { maplibregl: unknown }).maplibregl = maplibregl;
+        await import("@maplibre/maplibre-gl-leaflet");
+
         if (!active) return;
-        const L = getL();
         const el = elRef.current;
-        if (!L || !el || mapRef.current) { setReady(true); return; }
+        if (!el || mapRef.current) { setReady(true); return; }
+
         const isDark = !!el.closest(".ob-root");
         setDark(isDark);
-        const start: [number, number] = lat != null && lng != null ? [lat, lng] : DEFAULT;
-        const map = L.map(el, {}).setView(start, lat != null ? 16 : 11);
-        L.tileLayer(isDark ? TILE_DARK : TILE_LIGHT, {
-          maxZoom: 19,
-          subdomains: "abcd",
-          attribution: isDark ? "(c) OpenStreetMap (c) CARTO" : "(c) OpenStreetMap",
-        }).addTo(map);
+
+        const start: [number, number] =
+          lat != null && lng != null ? [lat, lng] : DEFAULT;
+        const map = L.map(el, { attributionControl: false })
+          .setView(start, lat != null ? 16 : 11);
+
+        const withGL = L as unknown as {
+          maplibreGL: (o: { style: string }) => LeafletNS.Layer;
+        };
+        withGL.maplibreGL({ style: isDark ? STYLE_DARK : STYLE_LIGHT }).addTo(map);
+
         const marker = L.marker(start, { draggable: true }).addTo(map);
-        marker.on("dragend", () => { const p = marker.getLatLng(); onChange(p.lat, p.lng); });
-        map.on("click", (e) => { marker.setLatLng([e.latlng.lat, e.latlng.lng]); onChange(e.latlng.lat, e.latlng.lng); });
+        marker.on("dragend", () => {
+          const p = marker.getLatLng();
+          onChangeRef.current(p.lat, p.lng);
+        });
+        map.on("click", (e: LeafletNS.LeafletMouseEvent) => {
+          marker.setLatLng([e.latlng.lat, e.latlng.lng]);
+          onChangeRef.current(e.latlng.lat, e.latlng.lng);
+        });
+
         mapRef.current = map;
         markerRef.current = marker;
         setTimeout(() => map.invalidateSize(), 80);
         setReady(true);
-      })
-      .catch(() => { setErr("Mapa indisponivel"); setReady(true); });
+      } catch {
+        if (active) { setErr("Mapa indisponivel"); setReady(true); }
+      }
+    }
+
+    void init();
+
     return () => {
       active = false;
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; markerRef.current = null; }
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -115,7 +123,7 @@ export default function MapPicker({ lat, lng, address, onChange }: Props) {
       const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(address);
       const res = await fetch(url, { headers: { Accept: "application/json" } });
       const data = (await res.json()) as Array<{ lat: string; lon: string }>;
-      if (data && data[0]) onChange(parseFloat(data[0].lat), parseFloat(data[0].lon));
+      if (data && data[0]) onChangeRef.current(parseFloat(data[0].lat), parseFloat(data[0].lon));
       else setErr("Endereco nao encontrado");
     } catch {
       setErr("Falha ao localizar");
