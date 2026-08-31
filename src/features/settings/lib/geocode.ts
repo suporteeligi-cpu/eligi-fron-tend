@@ -103,12 +103,23 @@ export async function searchAddress(
   const q = query.trim();
   if (q.length < 3) return [];
 
-  const url =
-    PHOTON +
-    '?q=' + encodeURIComponent(q) +
-    '&lang=pt&limit=6&bbox=' + BBOX_BR;
+  // @eligi:photon-lang-fix
+  // O Photon aceita apenas default, en, de e fr. Com lang=pt ele devolve 400 e
+  // nenhuma sugestao aparecia. 'default' retorna o nome LOCAL do lugar, que no
+  // Brasil ja e portugues.
+  const base = PHOTON + '?q=' + encodeURIComponent(q) + '&lang=default&limit=6';
 
-  const res = await fetch(url, { signal, headers: { Accept: 'application/json' } });
+  let res = await fetch(base + '&bbox=' + BBOX_BR, {
+    signal,
+    headers: { Accept: 'application/json' },
+  });
+
+  // Se o servidor recusou algum parametro, tenta sem a caixa do Brasil antes
+  // de desistir: perder o recorte geografico e melhor que perder a busca.
+  if (res.status === 400) {
+    res = await fetch(base, { signal, headers: { Accept: 'application/json' } });
+  }
+
   if (!res.ok) throw new Error('photon_' + res.status);
 
   const data = (await res.json()) as { features?: PhotonFeature[] };
