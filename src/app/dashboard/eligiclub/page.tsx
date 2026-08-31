@@ -24,7 +24,6 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
-import AsaasSeal from '@/shared/components/AsaasSeal' // @eligi:club-gate-seal
 import ClubPlanEditorModal from './components/ClubPlanEditorModal'
 import ClubSubscriptionModal from './components/ClubSubscriptionModal'
 import ClubMemberDetailModal from './components/ClubMemberDetailModal'
@@ -162,101 +161,6 @@ const TABS: { id: Tab; label: string; Icon: LucideIcon }[] = [
  * Atalho pra tela de cobranca do clube. O rotulo muda com o estado da conta:
  * nao provisionada (acao pendente) · em analise (falta documento) · ativa (status).
  */
-// @eligi:club-gate-screen
-// TELA DE ATIVACAO — aparece quando o negocio ainda nao tem subconta Asaas.
-// Teaser CURTO de proposito: a apresentacao completa (simulador de MRR,
-// comparativo, FAQ) vive em /dashboard/configuracoes/eligiclub. Repetir os dois
-// faria o lojista ler a mesma venda duas vezes seguidas.
-// Sem preco: a ativacao e gratuita (ver @eligi:club-activation-decision no CLAUDE.md).
-
-const CLUB_GATE_BENEFITS: { Icon: LucideIcon; title: string; text: string }[] = [
-  { Icon: CreditCard,    title: 'Cobranca no cartao, todo mes',  text: 'O cliente cadastra uma vez e a mensalidade se repete sozinha.' },
-  { Icon: PiggyBank,     title: 'Pote da equipe automatico',      text: 'Parte da mensalidade vira comissao e o rateio sai por atendimento.' },
-  { Icon: CalendarClock, title: 'Renovacoes na sua frente',       text: 'Quem renova hoje, amanha e nos proximos 45 dias.' },
-]
-
-function ClubGateScreen({ onGo, isMobile }: { onGo: () => void; isMobile: boolean }) {
-  return (
-    <div style={{
-      maxWidth: 560, margin: '0 auto', padding: isMobile ? '24px 16px 48px' : '40px 20px 60px',
-      fontFamily: typography.fontFamily,
-      animation: 'club-fade-up 380ms cubic-bezier(0.22,1,0.36,1) both',
-    }}>
-      <span style={{
-        width: 54, height: 54, borderRadius: 17, background: '#0E0E12', display: 'inline-flex',
-        alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 22px rgba(0,0,0,0.16)',
-      }}>
-        <EligiClubIcon size={30} color="#F4F2EC" />
-      </span>
-
-      <p style={{
-        fontSize: 10.5, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
-        color: colors.red.DEFAULT, margin: '18px 0 0',
-      }}>EligiClub</p>
-
-      <h2 style={{
-        fontSize: isMobile ? 27 : 31, fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.12,
-        color: typography.color.primary, margin: '10px 0 0',
-      }}>
-        Ative seu EligiClub
-      </h2>
-
-      <p style={{
-        fontSize: 15, lineHeight: 1.6, color: typography.color.muted, margin: '12px 0 0',
-      }}>
-        Clientes fieis pagam uma mensalidade e voltam sempre. O dia 1&#186; ja comeca com
-        dinheiro em caixa, sem voce cobrar ninguem.
-      </p>
-
-      <div style={{ display: 'grid', gap: 10, margin: '26px 0' }}>
-        {CLUB_GATE_BENEFITS.map(({ Icon, title, text }) => (
-          <div key={title} style={{
-            display: 'flex', gap: 13, alignItems: 'flex-start', background: '#fff',
-            border: `1px solid ${colors.gray.borderMd}`, borderRadius: 16, padding: 15,
-          }}>
-            <span style={{
-              width: 34, height: 34, flexShrink: 0, borderRadius: 11,
-              background: 'rgba(220,38,38,0.07)', display: 'inline-flex',
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Icon size={17} color="#b91c1c" />
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <b style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: '-0.015em', color: typography.color.primary }}>{title}</b>
-              <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5, color: typography.color.muted }}>{text}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <button
-        onClick={onGo}
-        style={{
-          width: '100%', minHeight: 54, borderRadius: 16, border: 0, cursor: 'pointer',
-          fontFamily: 'inherit', fontSize: 16.5, fontWeight: 700, letterSpacing: '-0.015em',
-          color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9,
-          background: 'linear-gradient(180deg,#dc2626,#b91c1c)',
-          boxShadow: '0 1px 2px rgba(185,28,28,0.30), 0 8px 22px rgba(220,38,38,0.26)',
-          transition: transitions.fast,
-        }}
-      >
-        Ativar cobranca automatica
-        <ChevronRight size={18} />
-      </button>
-
-      <p style={{
-        fontSize: 12.5, lineHeight: 1.55, color: typography.color.muted,
-        margin: '14px 0 20px', textAlign: 'center',
-      }}>
-        Sua conta de pagamentos e aberta no Asaas, em seu nome. A analise cadastral
-        leva ate 48h &#8212; voce acompanha por aqui.
-      </p>
-
-      <AsaasSeal variant="positivo" />
-    </div>
-  )
-}
-
 function CobrancaShortcut({
   billing, isMobile, onGo,
 }: {
@@ -739,21 +643,6 @@ export default function EligiClubPage() {
     void run()
     return () => { alive = false }
   }, [])
-
-  // @eligi:club-gate-check
-  // Sem subconta provisionada o modulo nao abre. Excecoes deliberadas:
-  //   isento        -> contas demo/teste seguem funcionando
-  //   billing null  -> falha de rede NAO bloqueia (fail-open)
-  // Olha `connected`, nunca `approved`: exigir aprovacao deixaria o lojista
-  // 48h de KYC sem o modulo que acabou de ativar.
-  if (isento === false && billing !== null && !billing.connected) {
-    return (
-      <ClubGateScreen
-        isMobile={isMobile}
-        onGo={() => router.push('/dashboard/configuracoes/eligiclub')}
-      />
-    )
-  }
 
   if (isento === null) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'rgba(0,0,0,0.4)' }}>Carregando…</div>
