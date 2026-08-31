@@ -248,8 +248,16 @@ function ClubGateScreen({ onGo, isMobile }: { onGo: () => void; isMobile: boolea
         fontSize: 12.5, lineHeight: 1.55, color: typography.color.muted,
         margin: '14px 0 20px', textAlign: 'center',
       }}>
-        Sua conta de pagamentos e aberta no Asaas, em seu nome. A analise cadastral
-        leva ate 48h &#8212; voce acompanha por aqui.
+        Taxa unica de <b style={{ color: '#b91c1c' }}>R$ 12,90</b> para abrir sua conta de
+        pagamentos, cobrada na sua proxima mensalidade do Eligi. Voce nao paga nada agora.
+        {/* @eligi:club-gate-fee */}
+      </p>
+
+      <p style={{
+        fontSize: 12.5, lineHeight: 1.55, color: typography.color.muted,
+        margin: '0 0 20px', textAlign: 'center',
+      }}>
+        A conta e aberta no Asaas, em seu nome. A analise cadastral leva ate 48h.
       </p>
 
       <AsaasSeal variant="positivo" />

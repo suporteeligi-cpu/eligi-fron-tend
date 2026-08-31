@@ -194,9 +194,12 @@ function StatusRow({ color, title, meta }: { color: string; title: string; meta:
 
 // @eligi:club-pitch-component
 // APRESENTACAO DO ELIGICLUB (estado 1 - nao conectado).
-// O lojista caia direto num formulario pedindo faturamento mensal sem nunca ter
-// lido o que o clube faz por ele. Esta secao vem ANTES do formulario e vende
-// receita recorrente; o preco da ativacao NAO aparece aqui (fatia separada).
+//
+// REDUZIDA em ago/2026: o modulo /dashboard/eligiclub ja mostra a tela de
+// ativacao (ClubGateScreen) com hero, tres beneficios e o valor. Quem chega
+// aqui JA leu aquilo e JA clicou. Repetir comparativo, passos e lista de
+// features fazia o lojista ler a mesma venda duas vezes seguidas.
+// Fica o que a outra tela nao tem: o simulador, o valor detalhado e a FAQ.
 //
 // O simulador e o argumento central: numero proprio convence mais que copy.
 // A nota de "estimativa" e obrigatoria - sem ela vira promessa de resultado
@@ -211,34 +214,12 @@ const PITCH_FEE_MIN = 29
 const PITCH_FEE_MAX = 499
 const PITCH_FEE_STEP = 10
 
+/** Valor da ativacao. Espelha CLUB_ACTIVATION_FEE no back (billing.service.ts). */
+const CLUB_ACTIVATION_FEE = 12.9
+
 const PITCH_NUM: React.CSSProperties = {
   fontFamily: "'Space Grotesk', -apple-system, system-ui, sans-serif",
   fontVariantNumeric: 'tabular-nums',
-}
-
-/** Barras do comparativo. Altura em % - o clube e o piso, nao o substituto. */
-const PITCH_CHAOS = [38, 64, 22, 48, 30, 70, 26, 44]
-const PITCH_CALM = [58, 60, 62, 64, 66, 68, 70, 72]
-
-function PitchBars({ values, tone }: { values: number[]; tone: 'gray' | 'green' }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 62 }}>
-      {values.map((h, i) => (
-        <span
-          key={i}
-          style={{
-            flex: 1,
-            height: h + '%',
-            borderRadius: '4px 4px 2px 2px',
-            display: 'block',
-            background: tone === 'green'
-              ? 'linear-gradient(180deg,#12c98d,#0f6e56)'
-              : 'linear-gradient(180deg,rgba(17,17,20,0.20),rgba(17,17,20,0.09))',
-          }}
-        />
-      ))}
-    </div>
-  )
 }
 
 function PitchStepper({
@@ -280,40 +261,6 @@ function PitchStepper({
   )
 }
 
-function PitchFeature({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-      <span style={{
-        width: 20, height: 20, flexShrink: 0, borderRadius: 7, background: '#ecfdf5',
-        border: '1px solid rgba(16,185,129,0.20)', display: 'inline-flex',
-        alignItems: 'center', justifyContent: 'center', marginTop: 1,
-      }}>
-        <Check size={11} color="#0f6e56" strokeWidth={3} />
-      </span>
-      <span style={{ fontSize: 13.5, lineHeight: 1.5, color: 'rgba(0,0,0,0.62)' }}>{children}</span>
-    </div>
-  )
-}
-
-function PitchStep({ n, title, text }: { n: string; title: string; text: string }) {
-  return (
-    <div style={{
-      display: 'flex', gap: 12, alignItems: 'flex-start', background: '#fff',
-      border: '1px solid rgba(17,17,20,0.07)', borderRadius: 14, padding: 13,
-    }}>
-      <span style={{
-        ...PITCH_NUM, width: 27, height: 27, flexShrink: 0, borderRadius: 9,
-        background: 'rgba(220,38,38,0.08)', color: '#b91c1c', display: 'inline-flex',
-        alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
-      }}>{n}</span>
-      <div style={{ minWidth: 0 }}>
-        <b style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.015em', color: '#111114' }}>{title}</b>
-        <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5, color: 'rgba(0,0,0,0.55)' }}>{text}</p>
-      </div>
-    </div>
-  )
-}
-
 function PitchFaq({ q, a }: { q: string; a: string }) {
   return (
     <div style={{ background: '#fff', padding: 14 }}>
@@ -342,44 +289,20 @@ function ClubPitch() {
 
   return (
     <div style={{ marginBottom: 18 }}>
-      {/* hero */}
-      <div style={{ marginBottom: 22 }}>
+      {/* hero curto */}
+      <div style={{ marginBottom: 20 }}>
         <p style={{ ...PITCH_EYEBROW, color: '#b91c1c' }}>EligiClub</p>
-        <h2 style={{ fontSize: 27, fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.12, color: '#111114', margin: '10px 0 0' }}>
-          O dia 1&#186; ja comeca<br /><span style={{ color: '#dc2626' }}>com dinheiro em caixa.</span>
+        <h2 style={{
+          fontSize: 24, fontWeight: 700, letterSpacing: '-0.032em', lineHeight: 1.15,
+          color: '#111114', margin: '10px 0 0',
+        }}>
+          Quanto o clube pode<br />render por mes
         </h2>
-        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: 'rgba(0,0,0,0.58)', margin: '11px 0 0' }}>
-          Seus clientes fieis pagam uma mensalidade no cartao e voltam sempre. A cobranca se
-          repete sozinha &#8212; voce nao precisa lembrar ninguem.
-        </p>
-      </div>
-
-      {/* comparativo */}
-      <div style={{ marginBottom: 22 }}>
-        <p style={PITCH_EYEBROW}>A diferenca</p>
-        <h3 style={PITCH_H2}>Do mes imprevisivel ao mes garantido</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
-          <div style={{ background: '#fff', border: '1px solid rgba(17,17,20,0.07)', borderRadius: 14, padding: 13 }}>
-            <PitchBars values={PITCH_CHAOS} tone="gray" />
-            <p style={{ margin: '10px 0 0', fontSize: 12, fontWeight: 600, color: 'rgba(0,0,0,0.45)' }}>
-              Hoje &#183; recomeca do zero
-            </p>
-          </div>
-          <div style={{ background: '#fff', border: '1px solid rgba(17,17,20,0.07)', borderRadius: 14, padding: 13 }}>
-            <PitchBars values={PITCH_CALM} tone="green" />
-            <p style={{ margin: '10px 0 0', fontSize: 12, fontWeight: 600, color: '#0f6e56' }}>
-              Com o clube &#183; base fixa
-            </p>
-          </div>
-        </div>
-        <p style={{ fontSize: 12, lineHeight: 1.5, color: 'rgba(0,0,0,0.42)', margin: '10px 0 0' }}>
-          O atendimento avulso continua igual. O clube e o piso que aparece embaixo dele.
-        </p>
       </div>
 
       {/* simulador */}
       <div style={{
-        borderRadius: 20, padding: 18, marginBottom: 22,
+        borderRadius: 20, padding: 18, marginBottom: 20,
         background: 'linear-gradient(165deg,#17171b,#26262d)',
         boxShadow: '0 16px 40px rgba(17,17,20,0.26)',
       }}>
@@ -412,9 +335,6 @@ function ClubPitch() {
           <div style={{ ...PITCH_NUM, fontSize: 42, fontWeight: 700, letterSpacing: '-0.045em', lineHeight: 1, color: '#fff' }}>
             {brl(mrr)}
           </div>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '8px 0 0', lineHeight: 1.5 }}>
-            Recebido no cartao, sem voce cobrar ninguem.
-          </p>
           <div style={{
             marginTop: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '11px 13px',
@@ -432,50 +352,44 @@ function ClubPitch() {
         </div>
       </div>
 
-      {/* como funciona */}
-      <div style={{ marginBottom: 22 }}>
-        <p style={PITCH_EYEBROW}>Como funciona</p>
-        <h3 style={PITCH_H2}>Tres passos, uma vez so</h3>
-        <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
-          <PitchStep n="1" title="Voce monta o plano"
-            text="Define o preco e quais servicos entram. Ex.: corte toda semana por R$ 89." />
-          <PitchStep n="2" title="O cliente cadastra o cartao"
-            text="Voce manda o link no WhatsApp. Ele paga numa pagina segura - o cartao nunca passa por voce." />
-          <PitchStep n="3" title="Repete sozinho"
-            text="Todo mes a cobranca sai automatica e o dinheiro cai na sua conta de pagamentos." />
+      {/* @eligi:club-pitch-fee — o valor, explicito e sem letra miuda */}
+      <div style={{
+        borderRadius: 18, padding: 17, marginBottom: 20, background: '#fff',
+        border: '1px solid rgba(220,38,38,0.22)',
+        boxShadow: '0 6px 20px rgba(220,38,38,0.07)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+          <b style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.018em', color: '#111114' }}>
+            Ativacao do EligiClub
+          </b>
+          <span style={{ ...PITCH_NUM, fontSize: 26, fontWeight: 700, letterSpacing: '-0.035em', color: '#b91c1c' }}>
+            {brl(CLUB_ACTIVATION_FEE)}
+          </span>
         </div>
-      </div>
-
-      {/* o que vem junto */}
-      <div style={{ marginBottom: 22 }}>
-        <p style={PITCH_EYEBROW}>O que vem junto</p>
-        <h3 style={{ ...PITCH_H2, marginBottom: 14 }}>O clube inteiro, nao so a cobranca</h3>
-        <div style={{ display: 'grid', gap: 9 }}>
-          <PitchFeature>
-            <b style={{ color: '#111114', fontWeight: 600 }}>Pote da equipe automatico.</b> Uma parte
-            da mensalidade vira comissao e o rateio sai por atendimento, sem planilha.
-          </PitchFeature>
-          <PitchFeature>
-            <b style={{ color: '#111114', fontWeight: 600 }}>Calendario de renovacoes.</b> Voce ve
-            quem renova hoje, amanha e nos proximos 45 dias.
-          </PitchFeature>
-          <PitchFeature>
-            <b style={{ color: '#111114', fontWeight: 600 }}>Ficha de cada membro.</b> Quantas vezes
-            usou o plano no mes, quem atendeu, quanto sobrou.
-          </PitchFeature>
-          <PitchFeature>
-            <b style={{ color: '#111114', fontWeight: 600 }}>Relatorio do clube.</b> Membros ativos,
-            cancelamentos e evolucao do pote, mes a mes.
-          </PitchFeature>
-          <PitchFeature>
-            <b style={{ color: '#111114', fontWeight: 600 }}>Conta de pagamentos propria.</b> Aberta
-            no Asaas em seu nome &#8212; o Eligi nao fica com o dinheiro em nenhum momento.
-          </PitchFeature>
+        <p style={{ margin: '9px 0 0', fontSize: 13.5, lineHeight: 1.55, color: 'rgba(0,0,0,0.62)' }}>
+          Cobrado <b>uma unica vez</b> para abrir sua conta de pagamentos. Voce nao paga
+          nada agora: o valor entra na <b>sua proxima mensalidade do Eligi</b>.
+        </p>
+        <div style={{
+          display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 12, paddingTop: 12,
+          borderTop: '1px solid rgba(17,17,20,0.07)',
+        }}>
+          <span style={{
+            width: 20, height: 20, flexShrink: 0, borderRadius: 7, background: '#ecfdf5',
+            border: '1px solid rgba(16,185,129,0.20)', display: 'inline-flex',
+            alignItems: 'center', justifyContent: 'center', marginTop: 1,
+          }}>
+            <Check size={11} color="#0f6e56" strokeWidth={3} />
+          </span>
+          <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'rgba(0,0,0,0.55)' }}>
+            Sem mensalidade extra depois. Se a analise do Asaas nao for aprovada, a
+            cobranca e cancelada antes de vencer.
+          </span>
         </div>
       </div>
 
       {/* faq */}
-      <div style={{ marginBottom: 22 }}>
+      <div style={{ marginBottom: 20 }}>
         <p style={PITCH_EYEBROW}>Antes de comecar</p>
         <h3 style={{ ...PITCH_H2, marginBottom: 14 }}>Tres duvidas que todo mundo tem</h3>
         <div style={{
