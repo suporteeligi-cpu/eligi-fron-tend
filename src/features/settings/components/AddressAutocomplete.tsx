@@ -24,6 +24,11 @@ interface Props {
   /** true dentro do onboarding, que tem fundo escuro. */
   dark?: boolean;
   label?: string;
+  /** Quando informado, o input passa a ser controlado por quem chama --
+   *  e assim o autocomplete VIRA o campo de endereco, em vez de ser um
+   *  segundo campo ao lado dele. */
+  value?: string;
+  onTextChange?: (v: string) => void;
 }
 
 export default function AddressAutocomplete({
@@ -31,8 +36,16 @@ export default function AddressAutocomplete({
   placeholder = 'Digite rua, bairro ou nome do lugar',
   dark = false,
   label,
+  value,
+  onTextChange,
 }: Props) {
-  const [query, setQuery] = useState('');
+  const [inner, setInner] = useState('');
+  const controlled = value !== undefined;
+  const query = controlled ? value : inner;
+  const setQuery = (v: string) => {
+    if (controlled) onTextChange?.(v);
+    else setInner(v);
+  };
   const [hits, setHits] = useState<AddressHit[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -89,7 +102,7 @@ export default function AddressAutocomplete({
   const muted = dark ? 'rgba(255,255,255,0.5)' : '#71717a';
 
   return (
-    <div ref={boxRef} style={{ position: 'relative' }}>
+    <div ref={boxRef} style={{ position: 'relative', zIndex: open ? 2000 : undefined }}>
       {label && (
         <div style={{ fontSize: 12.5, fontWeight: 600, color: muted, marginBottom: 6 }}>
           {label}
@@ -135,7 +148,10 @@ export default function AddressAutocomplete({
         <ul
           style={{
             listStyle: 'none', margin: '6px 0 0', padding: 4, position: 'absolute',
-            left: 0, right: 0, zIndex: 40, maxHeight: 264, overflowY: 'auto',
+            left: 0, right: 0, maxHeight: 264, overflowY: 'auto',
+            // O Leaflet monta camadas internas ate a casa das centenas.
+            // Abaixo disso o mapa cobre as sugestoes.
+            zIndex: 2000,
             borderRadius: 12,
             border: dark ? '1px solid rgba(255,255,255,0.14)' : '1px solid #e7e7ec',
             background: dark ? '#16161c' : '#fff',

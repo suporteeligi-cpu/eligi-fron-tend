@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 
 // src/features/settings/components/ProfileFields.tsx
 //
@@ -191,27 +192,59 @@ interface AddressProps {
 }
 
 export function AddressField({ address, lat, lng, onChangeAddress, onChangeCoords, showLabel = true }: AddressProps) {
+  // @eligi:address-one-box
+  // Uma caixa so: o autocomplete E o campo de endereco. Antes ele aparecia
+  // ACIMA do input antigo e os dois eram o mesmo campo.
+  //
+  // EXCECAO ao "sem estado proprio" declarado no topo deste arquivo: `base`
+  // guarda o endereco sem o numero, para recompor a string quando o numero
+  // muda. Adivinhar por heuristica onde a rua termina quebraria em nome de rua
+  // com virgula.
+  //
+  // O numero fica separado porque o Photon indexa OpenStreetMap, onde a rua
+  // costuma estar mapeada e o numero da casa nao. A busca acha a rua; o numero
+  // quem sabe e o lojista -- e e ele que decide o ponto exato no mapa.
+  const [base, setBase] = useState(address);
+  const [numero, setNumero] = useState('');
+
+  function compor(rua: string, num: string) {
+    const n = num.trim();
+    if (!rua.trim()) return n;
+    if (!n) return rua;
+    const [primeiro, ...resto] = rua.split(', ');
+    return [primeiro + ', ' + n, ...resto].join(', ');
+  }
+
   return (
     <div>
       {showLabel && <div style={glabel}>Endereço</div>}
-      {/* @eligi:address-settings
-          Escolher uma sugestao devolve endereco e coordenada juntos. Digitar
-          a mao continua valendo, mas so o pino do mapa fixa o ponto. */}
-      <div style={{ marginBottom: 8 }}>
-        <AddressAutocomplete
-          placeholder="Buscar endereco por rua, bairro ou lugar"
-          onPick={(h: AddressHit) => {
-            const linha = [
-              [h.street, h.houseNumber].filter(Boolean).join(', '),
-              h.district,
-              [h.city, h.state].filter(Boolean).join(' - '),
-            ].filter(Boolean).join(', ');
-            if (linha) onChangeAddress(linha);
-            onChangeCoords(h.lat, h.lng);
-          }}
+
+      <AddressAutocomplete
+        value={base}
+        onTextChange={(v) => { setBase(v); onChangeAddress(compor(v, numero)); }}
+        placeholder="Rua, bairro ou nome do lugar"
+        onPick={(h: AddressHit) => {
+          const rua = [
+            h.street,
+            h.district,
+            [h.city, h.state].filter(Boolean).join(' - '),
+          ].filter(Boolean).join(', ');
+          setBase(rua);
+          if (h.houseNumber && !numero) setNumero(h.houseNumber);
+          onChangeAddress(compor(rua, h.houseNumber || numero));
+          onChangeCoords(h.lat, h.lng);
+        }}
+      />
+
+      <div style={{ marginTop: 8 }}>
+        <input
+          value={numero}
+          onChange={(e) => { setNumero(e.target.value); onChangeAddress(compor(base, e.target.value)); }}
+          placeholder="Número e complemento (ex.: 980, sala 2)"
+          style={inp}
         />
       </div>
-      <input value={address} onChange={e => onChangeAddress(e.target.value)} placeholder="Rua, número — bairro, cidade - UF" style={inp} />
+
       <div style={{ marginTop: 8 }}>
         <MapPicker lat={lat} lng={lng} address={address} onChange={onChangeCoords} />
       </div>
