@@ -17,6 +17,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Search, Loader2 } from "lucide-react";
+import { geocodeOnce } from "../lib/geocode";
 import type * as LeafletNS from "leaflet";
 // CSS entra estatico: folha de estilo e resolvida em build, nao com import().
 import "leaflet/dist/leaflet.css";
@@ -146,10 +147,10 @@ export default function MapPicker({ lat, lng, address, onChange }: Props) {
     setErr(null);
     setGeocoding(true);
     try {
-      const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(address);
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      const data = (await res.json()) as Array<{ lat: string; lon: string }>;
-      if (data && data[0]) onChangeRef.current(parseFloat(data[0].lat), parseFloat(data[0].lon));
+      // Photon no lugar do Nominatim: a politica do servico publico do
+      // Nominatim desencoraja requisicoes periodicas vindas de aplicativos.
+      const hit = await geocodeOnce(address);
+      if (hit) onChangeRef.current(hit.lat, hit.lng);
       else setErr("Endereco nao encontrado");
     } catch {
       setErr("Falha ao localizar");

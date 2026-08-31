@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, ArrowLeft, Loader2, CheckCircle2, MapPin, Home, Bike } from 'lucide-react';
 
 import MapPicker from '@/features/settings/components/MapPicker';
+import AddressAutocomplete from '@/features/settings/components/AddressAutocomplete';
+import { geocodeOnce, type AddressHit } from '@/features/settings/lib/geocode';
 import { useOnboardingStore } from '../../store';
 import { api } from '@/lib/api';
 
@@ -29,6 +31,7 @@ export default function LocationStep() {
 
   const [cep, setCep] = useState('');
   const [logradouro, setLogradouro] = useState('');
+  const [bairro, setBairro] = useState('');
   const [numero, setNumero] = useState('');
   const [city, setCity] = useState('');
   const [uf, setUf] = useState('');
@@ -55,6 +58,7 @@ export default function LocationStep() {
         return;
       }
       setLogradouro(data.logradouro || '');
+      setBairro(data.bairro || '');
       setCity(data.localidade || '');
       setUf(data.uf || '');
     } catch {
@@ -64,9 +68,43 @@ export default function LocationStep() {
     }
   }
 
-  const addressForGeocode = [logradouro, numero, city, uf, 'Brasil']
+  const addressForGeocode = [logradouro, numero, bairro, city, uf, 'Brasil']
     .filter(Boolean)
     .join(', ');
+
+  // @eligi:address-autocomplete
+  // Escolher uma sugestao preenche endereco E coordenada de uma vez.
+  function aplicarSugestao(h: AddressHit) {
+    if (h.street) setLogradouro(h.street);
+    if (h.houseNumber) setNumero(h.houseNumber);
+    if (h.district) setBairro(h.district);
+    if (h.city) setCity(h.city);
+    if (h.state) setUf(h.state);
+    if (h.postcode) setCep(h.postcode);
+    setLat(h.lat);
+    setLng(h.lng);
+    setError(null);
+  }
+
+  // Depois que o CEP preencheu os campos, o pino se posiciona sozinho.
+  // Antes isso dependia de clicar em "Localizar no mapa" -- e ninguem
+  // clicava, entao o cadastro seguia sem coordenada nenhuma.
+  useEffect(() => {
+    if (isMobile) return;
+    if (lat != null && lng != null) return;
+    if (!logradouro || !city || !uf) return;
+
+    let vivo = true;
+    const t = setTimeout(async () => {
+      try {
+        const h = await geocodeOnce(addressForGeocode);
+        if (vivo && h) { setLat(h.lat); setLng(h.lng); }
+      } catch {
+        // silencioso: o pino continua ajustavel na mao
+      }
+    }, 600);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [isMobile, lat, lng, logradouro, city, uf, addressForGeocode]);
 
   async function handleContinue() {
     if (loading) return;
@@ -75,6 +113,15 @@ export default function LocationStep() {
         isMobile
           ? 'Informe a cidade e o estado da sua área de atuação.'
           : 'Busque o CEP para preencher cidade e estado.'
+      );
+      return;
+    }
+
+    // Local fixo sem coordenada nao serve: o cliente nao acha o lugar no
+    // mapa e o Como chegar aponta para lugar nenhum.
+    if (!isMobile && (lat == null || lng == null)) {
+      setError(
+        'Escolha uma sugestão de endereço ou arraste o pino no mapa para marcar o ponto.'
       );
       return;
     }
@@ -190,6 +237,14 @@ export default function LocationStep() {
       ) : (
         // ===== Modo local fixo: fluxo de CEP + mapa (igual ao de hoje) =====
         <>
+          <div className="ob-field ob-anim" style={{ animationDelay: '.13s' }}>
+            <AddressAutocomplete
+              dark
+              label="Buscar endereço"
+              onPick={aplicarSugestao}
+            />
+          </div>
+
           <div className="ob-field ob-anim" style={{ animationDelay: '.15s' }}>
             <label className="ob-label">CEP</label>
             <div className="ob-input-wrap">
