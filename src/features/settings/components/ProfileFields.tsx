@@ -28,6 +28,8 @@ import {
   coverBackground,
 } from '@/shared/profileTheme';
 import MapPicker from './MapPicker';
+import AddressAutocomplete from './AddressAutocomplete';
+import type { AddressHit } from '../lib/geocode';
 
 export type CropTarget = 'logo' | 'cover' | 'gallery';
 
@@ -192,6 +194,23 @@ export function AddressField({ address, lat, lng, onChangeAddress, onChangeCoord
   return (
     <div>
       {showLabel && <div style={glabel}>Endereço</div>}
+      {/* @eligi:address-settings
+          Escolher uma sugestao devolve endereco e coordenada juntos. Digitar
+          a mao continua valendo, mas so o pino do mapa fixa o ponto. */}
+      <div style={{ marginBottom: 8 }}>
+        <AddressAutocomplete
+          placeholder="Buscar endereco por rua, bairro ou lugar"
+          onPick={(h: AddressHit) => {
+            const linha = [
+              [h.street, h.houseNumber].filter(Boolean).join(', '),
+              h.district,
+              [h.city, h.state].filter(Boolean).join(' - '),
+            ].filter(Boolean).join(', ');
+            if (linha) onChangeAddress(linha);
+            onChangeCoords(h.lat, h.lng);
+          }}
+        />
+      </div>
       <input value={address} onChange={e => onChangeAddress(e.target.value)} placeholder="Rua, número — bairro, cidade - UF" style={inp} />
       <div style={{ marginTop: 8 }}>
         <MapPicker lat={lat} lng={lng} address={address} onChange={onChangeCoords} />
