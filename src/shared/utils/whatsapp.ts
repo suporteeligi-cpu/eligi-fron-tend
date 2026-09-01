@@ -34,8 +34,40 @@ export function clubPaymentMessage(
   businessName: string,
   link: string,
 ): string {
-  const first = clientName.trim().split(' ')[0] || clientName
+  // @eligi:wa-firstname-reuse — usava split(' ')[0] na mao, com firstName() logo acima
+  const first = firstName(clientName)
   return `Oi, ${first}! 👋 Aqui é da ${businessName}. Pra ativar sua assinatura do clube, é só cadastrar seu cartão neste link: ${link}\n\nQualquer dúvida, me chama!`
+}
+
+// @eligi:wa-club-welcome
+/**
+ * Boas-vindas ao clube (assinatura MANUAL, que ja nasce ACTIVE).
+ *
+ * Nao existe equivalente para o caminho cartao: la a assinatura nasce PENDING e
+ * so vira membro quando o webhook confirma o pagamento.
+ *
+ * "Proxima renovacao", nunca "expira": boas-vindas que anunciam vencimento soam
+ * cobranca — mesma razao da despedida obrigatoria em confirmMessageSegments.
+ *
+ * Recebe rotulos JA FORMATADOS. Este arquivo nao importa dayjs nem sabe o que e
+ * uma assinatura; so compoe texto.
+ */
+export function clubWelcomeMessage(
+  clientName: string,
+  planName: string,
+  startLabel: string,
+  renewLabel: string,
+): string {
+  return [
+    `Oi, ${firstName(clientName)}! 🎉`,
+    '',
+    `Voce agora faz parte do *${planName}*!`,
+    '',
+    `📅 Comecou em ${startLabel}`,
+    `🔄 Proxima renovacao em ${renewLabel}`,
+    '',
+    'Qualquer duvida, e so me chamar por aqui!',
+  ].join('\n')
 }
 
 // @eligi:msgtpl-wa-share

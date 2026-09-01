@@ -38,7 +38,7 @@ import {
 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
-import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
+import { waLink, clubPaymentMessage, clubWelcomeMessage } from '@/shared/utils/whatsapp' // @eligi:club-wa-welcome-import
 
 // ── tipos ───────────────────────────────────────────────────────────────────
 type SubStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
@@ -77,6 +77,9 @@ interface ManualDone {
   planName: string
   price: number
   nextDue: string | null
+  // @eligi:club-wa-welcome-type — necessarios para a mensagem de boas-vindas
+  startedAt: string | null
+  phone: string | null
 }
 
 const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -212,6 +215,11 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
           planName: selectedPlan?.name ?? '',
           price: selectedPlan?.price ?? 0,
           nextDue: sub?.currentPeriodEnd ?? null,
+          // @eligi:club-wa-welcome-fill
+          startedAt: sub?.startedAt ?? null,
+          // do cliente selecionado: `/clients` mascara contato por cargo, entao
+          // pode vir null mesmo com telefone cadastrado
+          phone: selectedClient?.phone ?? null,
         })
         return
       }
@@ -407,6 +415,37 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                   ultimo
                 />
               </div>
+
+              {/* @eligi:club-wa-welcome-btn */}
+              {manualDone.phone ? (
+                <button
+                  onClick={() => {
+                    const msg = clubWelcomeMessage(
+                      manualDone.clientName,
+                      manualDone.planName,
+                      fmtDia(manualDone.startedAt) ?? 'hoje',
+                      fmtDia(manualDone.nextDue) ?? 'daqui a um mes',
+                    )
+                    window.open(waLink(manualDone.phone!, msg), '_blank', 'noopener,noreferrer')
+                  }}
+                  className="ecs-mini"
+                  style={{
+                    width: '100%', marginTop: 12, minHeight: 50,
+                    borderColor: 'rgba(16,185,129,.4)', background: '#ecfdf5', color: '#0f6e56',
+                    fontSize: 15,
+                  }}
+                >
+                  <MessageCircle size={16} /> Dar boas-vindas no WhatsApp
+                </button>
+              ) : (
+                <div style={{
+                  display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12,
+                  fontSize: 11.5, color: '#8a8a93', lineHeight: 1.5,
+                }}>
+                  <Phone size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span>Sem telefone disponivel para este cliente — nao da para enviar por aqui.</span>
+                </div>
+              )}
 
               <div style={{
                 display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 18,
