@@ -1,25 +1,40 @@
 "use client"
 // src/app/dashboard/eligiclub/components/ClubSubscriptionModal.tsx
+// @eligi:club-sub-modal-v2
 //
-// ASSINAR MEMBRO NO ELIGICLUB — cobranca recorrente no cartao.
+// ASSINAR MEMBRO NO ELIGICLUB — dois caminhos, escolha explicita.
 //
-// Fluxo unico: cliente + plano -> POST /club-subscriptions/recurring (CREDIT_CARD).
-// A assinatura nasce PENDING; o cliente cadastra o cartao no checkout hospedado
-// do Asaas e a partir dai a cobranca se repete sozinha todo mes.
-// O registro manual saiu de cena de proposito: gerava assinatura sem recorrencia,
-// obrigando o lojista a cobrar na mao todo mes.
+//   CARTAO   -> POST /club-subscriptions/recurring (CREDIT_CARD). Nasce PENDING,
+//               o cliente cadastra o cartao no checkout do Asaas e a cobranca se
+//               repete sozinha. Exige CPF (regra do Asaas).
+//   MANUAL   -> POST /club-subscriptions. Nasce ACTIVE com +1 mes, billingType
+//               'MANUAL' e SEM asaasSubscriptionId. Quem cobra e o lojista, todo
+//               mes, registrando o pagamento na ficha do membro.
 //
-// Ao criar, o modal ja mostra o LINK e o botao de WhatsApp — o lojista nao precisa
-// ir em Configuracoes pra enviar.
+// POR QUE O MANUAL VOLTOU (e por que ele e diferente de antes):
+// Ele foi removido em ago/2026 porque parecia igual ao recorrente — o ZERO9
+// vendeu dois clubes sem recorrencia e ficou cobrando na mao sem perceber. O
+// problema nao era existir, era nao avisar. Agora cada opcao declara a
+// consequencia ANTES do clique, e a escolha e obrigatoria (nasce sem default).
 //
-// Padrao visual do redesign: @media (nunca isMobile pra layout), alvos >= 44px,
-// inputs 16px (sem zoom no iOS), planos como cartoes (nunca <select> nativo),
-// numeros em Space Grotesk com fallback, sem window.confirm/alert.
+// CPF: a restricao vive na COBRANCA, nao no cliente. Manual nao passa pelo
+// Asaas, entao nao precisa de CPF — bloquear o cliente na busca matava
+// justamente o caso de uso do manual (quem paga em dinheiro no balcao).
+//
+// CONTATO: telefone, e-mail e CPF aparecem no resultado da busca para nao
+// assinar o cliente errado. Campo ausente e OMITIDO, nunca declarado ausente:
+// `/clients` mascara contato por cargo (`canSeeContact`), entao null pode
+// significar "sem permissao" e nao "sem cadastro".
+//
+// Padrao visual: @media (nunca isMobile pra layout), alvos >= 44px, inputs 16px
+// (sem zoom no iOS), planos e modos como cartoes (nunca <select> nativo),
+// numeros em Space Grotesk, sem window.confirm/alert.
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  X, Loader2, AlertCircle, Search, Check, CreditCard, Link2, MessageCircle, ShieldCheck,
+  X, Loader2, AlertCircle, Search, Check, CreditCard, Link2, MessageCircle,
+  ShieldCheck, Phone, Mail, Wallet, CalendarClock,
 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
@@ -27,6 +42,7 @@ import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
 
 // ── tipos ───────────────────────────────────────────────────────────────────
 type SubStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
+type PayMode = 'CARD' | 'MANUAL'
 
 interface ClubSubscription {
   id: string
@@ -41,7 +57,13 @@ interface ClubSubscription {
   payments?: { id: string; amount: number; periodKey: string; method: string | null; paidAt: string | null }[]
   _count?: { payments: number; fichas: number }
 }
-interface ClientLite { id: string; name: string; phone: string | null; cpf: string | null }
+interface ClientLite {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  cpf: string | null
+}
 interface PlanLite { id: string; name: string; price: number; color: string | null; active: boolean }
 interface PaymentLink {
   checkoutUrl: string | null
@@ -49,9 +71,24 @@ interface PaymentLink {
   clientName: string
   clientPhone: string | null
 }
+/** Resultado do caminho manual: nao ha link, ha uma data que o lojista precisa lembrar. */
+interface ManualDone {
+  clientName: string
+  planName: string
+  price: number
+  nextDue: string | null
+}
 
 const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const NUM_FONT = `'Space Grotesk', ${typography.fontFamily}`
+
+/** dd/mm — a data que o lojista vai precisar lembrar de cobrar. */
+function fmtDia(iso: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+}
 
 interface Props {
   /** mantido por compatibilidade com o page.tsx — o layout usa @media */
@@ -67,6 +104,8 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
 
   const [clientId, setClientId] = useState<string | null>(null)
   const [planId, setPlanId] = useState<string | null>(null)
+  // sem default: a escolha da forma de cobranca e' deliberada, nao herdada
+  const [mode, setMode] = useState<PayMode | null>(null)
   const [clientQuery, setClientQuery] = useState('')
   const [searching, setSearching] = useState(false)
 
@@ -74,8 +113,8 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 
-  // pos-criacao: link de pagamento pra enviar ao cliente
   const [done, setDone] = useState<PaymentLink | null>(null)
+  const [manualDone, setManualDone] = useState<ManualDone | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -104,7 +143,6 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
   // ── BUSCA DE CLIENTES NO SERVIDOR ──────────────────────────────────────────
   // Antes carregavamos so a 1a pagina (30 de 1.100+) e filtravamos no cliente —
   // quem nao estivesse nessa fatia simplesmente nao existia na busca.
-  // Agora consulta /clients?search=... com debounce e cancelamento da anterior.
   useEffect(() => {
     const ctrl = new AbortController()
     const termo = clientQuery.trim()
@@ -120,8 +158,15 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
           const raw = res.data?.data ?? res.data
           const arr = Array.isArray(raw) ? raw : raw?.clients ?? []
           setClients(
-            arr.map((c: { id: string; name: string; phone?: string | null; cpf?: string | null }) => ({
-              id: c.id, name: c.name, phone: c.phone ?? null, cpf: c.cpf ?? null,
+            arr.map((c: {
+              id: string; name: string
+              phone?: string | null; email?: string | null; cpf?: string | null
+            }) => ({
+              id: c.id,
+              name: c.name,
+              phone: c.phone ?? null,
+              email: c.email ?? null,
+              cpf: c.cpf ?? null,
             })),
           )
         })
@@ -140,16 +185,38 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
   const selectedClient = clients.find(c => c.id === clientId) ?? null
   const selectedPlan = plans.find(p => p.id === planId) ?? null
 
-  // o servidor ja devolve filtrado e paginado
-  const filteredClients = clients
+  // CPF so importa no cartao: o manual nao cria customer no Asaas.
+  const cartaoBloqueado = !!selectedClient && !selectedClient.cpf
+
+  // trocar de cliente pode invalidar o modo ja escolhido
+  useEffect(() => {
+    if (mode === 'CARD' && cartaoBloqueado) setMode(null)
+  }, [mode, cartaoBloqueado])
 
   const submit = useCallback(async () => {
     setError(null)
     if (!clientId) { setError('Selecione o cliente que vai assinar.'); return }
     if (!planId) { setError('Escolha o plano do clube.'); return }
+    if (!mode) { setError('Escolha como o cliente vai pagar.'); return }
 
     setSaving(true)
     try {
+      if (mode === 'MANUAL') {
+        // ── caminho manual: assinatura nasce ACTIVE, sem Asaas ──
+        const res = await api.post('/club-subscriptions', { clientId, planId })
+        const payload = (res.data?.data ?? res.data) as { subscription?: ClubSubscription } & ClubSubscription
+        const sub = (payload.subscription ?? payload) as ClubSubscription
+        onSaved(sub)
+        setManualDone({
+          clientName: selectedClient?.name ?? 'Cliente',
+          planName: selectedPlan?.name ?? '',
+          price: selectedPlan?.price ?? 0,
+          nextDue: sub?.currentPeriodEnd ?? null,
+        })
+        return
+      }
+
+      // ── caminho cartao: recorrencia no Asaas ──
       const res = await api.post('/club-subscriptions/recurring', {
         clientId, planId, billingType: 'CREDIT_CARD',
       })
@@ -157,7 +224,6 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
       const sub = (payload.subscription ?? payload) as ClubSubscription
       onSaved(sub)
 
-      // busca o link + dados pra montar a mensagem de WhatsApp
       if (sub?.id) {
         try {
           const lk = await api.get(`/club-subscriptions/${sub.id}/payment-link`)
@@ -172,7 +238,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
     } finally {
       setSaving(false)
     }
-  }, [clientId, planId, onSaved])
+  }, [clientId, planId, mode, onSaved, selectedClient, selectedPlan])
 
   const copyLink = useCallback(async () => {
     if (!done?.checkoutUrl) return
@@ -191,14 +257,18 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
     window.open(waLink(done.clientPhone, msg), '_blank', 'noopener,noreferrer')
   }, [done])
 
-  const podeSalvar = !!clientId && !!planId && !saving
+  const concluido = !!done || !!manualDone
+  const podeSalvar = !!clientId && !!planId && !!mode && !saving
+
+  const headerTitle = manualDone ? 'Assinatura registrada'
+    : done ? 'Assinatura criada'
+    : 'Novo assinante'
+  const headerSub = manualDone ? 'Você cobra este membro todo mês'
+    : done ? 'Envie o link para o cliente pagar'
+    : 'Escolha o cliente, o plano e a forma de pagamento'
 
   const content = (
-    <div
-      onClick={handleClose}
-      className="ecs-overlay"
-      style={{ opacity: mounted ? 1 : 0 }}
-    >
+    <div onClick={handleClose} className="ecs-overlay" style={{ opacity: mounted ? 1 : 0 }}>
       <style>{`
         .ecs-overlay{
           position:fixed; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(3px);
@@ -228,6 +298,19 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
         }
         .ecs-row:disabled{ cursor:not-allowed; opacity:.55; }
         .ecs-row[data-on="1"]{ border-color:#dc2626; background:rgba(220,38,38,.05); }
+        .ecs-mode{
+          width:100%; text-align:left; padding:15px; border-radius:16px; cursor:pointer;
+          border:1.5px solid rgba(17,17,20,.09); background:#fff; font-family:inherit;
+          transition:border-color .15s ease, box-shadow .15s ease;
+        }
+        .ecs-mode[data-on="1"]{ border-color:#dc2626; box-shadow:0 0 0 3px rgba(220,38,38,.08); }
+        .ecs-mode:disabled{ cursor:not-allowed; opacity:.6; }
+        .ecs-rd{
+          width:20px; height:20px; flex-shrink:0; border-radius:50%; border:2px solid rgba(17,17,20,.2);
+          display:flex; align-items:center; justify-content:center;
+        }
+        .ecs-mode[data-on="1"] .ecs-rd{ border-color:#dc2626; }
+        .ecs-mode[data-on="1"] .ecs-rd::after{ content:''; width:10px; height:10px; border-radius:50%; background:#dc2626; }
         .ecs-btn{
           width:100%; min-height:54px; border:none; border-radius:14px; cursor:pointer;
           font-size:16px; font-weight:600; font-family:inherit;
@@ -240,6 +323,8 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
           font-size:14px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:7px;
           border:1px solid rgba(17,17,20,.12); background:#fff; color:#4b4b52;
         }
+        .ecs-meta{ display:flex; flex-wrap:wrap; gap:3px 12px; margin-top:5px; }
+        .ecs-meta span{ display:inline-flex; align-items:center; gap:5px; font-size:11.5px; color:#8a8a93; font-weight:500; }
         @keyframes ecs-spin{ to{ transform:rotate(360deg) } }
         .ecs-spin{ animation:ecs-spin .9s linear infinite; }
         @media (min-width: 768px){
@@ -253,10 +338,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
       <div
         onClick={e => e.stopPropagation()}
         className="ecs-sheet"
-        style={{
-          transform: mounted ? 'translateY(0)' : 'translateY(100%)',
-          fontFamily: typography.fontFamily,
-        }}
+        style={{ transform: mounted ? 'translateY(0)' : 'translateY(100%)', fontFamily: typography.fontFamily }}
       >
         {/* ── header ── */}
         <div style={{
@@ -265,18 +347,20 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
         }}>
           <span style={{
             width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-            background: 'linear-gradient(135deg,rgba(220,38,38,.12),rgba(185,28,28,.07))',
+            background: manualDone
+              ? 'linear-gradient(135deg,rgba(180,83,9,.14),rgba(180,83,9,.07))'
+              : 'linear-gradient(135deg,rgba(220,38,38,.12),rgba(185,28,28,.07))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <CreditCard size={19} color="#dc2626" strokeWidth={2} />
+            {manualDone
+              ? <Wallet size={19} color="#b45309" strokeWidth={2} />
+              : <CreditCard size={19} color="#dc2626" strokeWidth={2} />}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.02em', color: '#111114' }}>
-              {done ? 'Assinatura criada' : 'Novo assinante'}
+              {headerTitle}
             </div>
-            <div style={{ fontSize: 12.5, color: '#8a8a93', marginTop: 1 }}>
-              {done ? 'Envie o link para o cliente pagar' : 'Cobrança automática no cartão'}
-            </div>
+            <div style={{ fontSize: 12.5, color: '#8a8a93', marginTop: 1 }}>{headerSub}</div>
           </div>
           <button
             onClick={handleClose}
@@ -293,8 +377,50 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
 
         {/* ── corpo ── */}
         <div className="ecs-body">
-          {done ? (
-            /* ═══ SUCESSO: link pronto pra enviar ═══ */
+          {manualDone ? (
+            /* ═══ SUCESSO MANUAL: nao ha link, ha uma data ═══ */
+            <>
+              <div style={{
+                display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 16,
+                background: '#fffbeb', border: '1px solid rgba(180,83,9,.22)',
+                borderRadius: 14, padding: '14px 15px',
+              }}>
+                <Wallet size={17} color="#b45309" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontSize: 13.5, color: '#78350f', lineHeight: 1.55 }}>
+                  <b>{manualDone.clientName}</b> entrou no clube com pagamento manual.
+                  Esta assinatura <b>não renova sozinha</b> — você cobra e registra o
+                  pagamento na ficha do membro todo mês.
+                </div>
+              </div>
+
+              <div className="ecs-label">Resumo</div>
+              <div style={{
+                background: '#f5f5f7', borderRadius: 14, padding: '4px 15px',
+              }}>
+                <ResumoLinha rotulo="Plano" valor={manualDone.planName} />
+                <ResumoLinha rotulo="Valor" valor={fmtBRL(manualDone.price)} mono />
+                <ResumoLinha rotulo="Cobrança" valor="Manual · você cobra" destaque="#b45309" />
+                <ResumoLinha
+                  rotulo="Próxima cobrança"
+                  valor={fmtDia(manualDone.nextDue) ?? 'em 1 mês'}
+                  destaque="#b45309"
+                  ultimo
+                />
+              </div>
+
+              <div style={{
+                display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 18,
+                fontSize: 11.5, color: '#8a8a93', lineHeight: 1.5,
+              }}>
+                <CalendarClock size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>
+                  O membro aparece marcado como <b>MANUAL</b> na lista, com a data em que
+                  você precisa cobrar.
+                </span>
+              </div>
+            </>
+          ) : done ? (
+            /* ═══ SUCESSO CARTAO: link pronto pra enviar ═══ */
             <>
               <div style={{
                 display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 16,
@@ -332,7 +458,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                   <button
                     onClick={sendWhats}
                     className="ecs-mini"
-                    style={{ borderColor: 'rgba(16,185,129,.4)', background: '#ecfdf5', color: '#0b7a53' }}
+                    style={{ borderColor: 'rgba(16,185,129,.4)', background: '#ecfdf5', color: '#0f6e56' }}
                   >
                     <MessageCircle size={15} /> WhatsApp
                   </button>
@@ -366,7 +492,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                 </div>
               )}
 
-              {/* CLIENTE */}
+              {/* ── CLIENTE ── */}
               <div className="ecs-label">Cliente</div>
               <div style={{ position: 'relative' }}>
                 <Search
@@ -383,15 +509,8 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                 />
               </div>
 
-              <div style={{
-                fontSize: 11.5, color: '#8a8a93', marginTop: 9, lineHeight: 1.5,
-              }}>
-                Clientes sem CPF aparecem bloqueados — o CPF é exigido para cobrança
-                no cartão. Cadastre na ficha do cliente para liberar.
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                {searching && filteredClients.length === 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                {searching && clients.length === 0 && (
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     fontSize: 13, color: '#8a8a93', padding: '14px 2px',
@@ -399,33 +518,36 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                     <Loader2 size={15} className="ecs-spin" /> Buscando…
                   </div>
                 )}
-                {!searching && filteredClients.length === 0 && (
+                {!searching && clients.length === 0 && (
                   <div style={{ fontSize: 13, color: '#8a8a93', padding: '14px 2px', lineHeight: 1.5 }}>
                     {clientQuery.trim()
                       ? `Nenhum cliente encontrado para "${clientQuery.trim()}".`
                       : 'Nenhum cliente cadastrado ainda.'}
                   </div>
                 )}
-                {filteredClients.map(c => {
+                {clients.map(c => {
                   const on = clientId === c.id
-                  const bloqueado = !c.cpf
                   return (
                     <button
                       key={c.id}
                       className="ecs-row"
                       data-on={on ? '1' : '0'}
-                      disabled={bloqueado}
                       onClick={() => setClientId(c.id)}
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
-                          fontSize: 15, fontWeight: 600, color: bloqueado ? '#8a8a93' : '#111114',
+                          fontSize: 15, fontWeight: 600, color: '#111114',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}>
                           {c.name}
                         </div>
-                        <div style={{ fontSize: 12, color: bloqueado ? '#b45309' : '#8a8a93', marginTop: 2 }}>
-                          {bloqueado ? 'Sem CPF cadastrado' : c.phone ?? 'Sem telefone'}
+                        {/* campo ausente e OMITIDO: null pode ser mascara de cargo */}
+                        <div className="ecs-meta">
+                          {c.phone && <span><Phone size={12} /> {c.phone}</span>}
+                          {c.email && <span><Mail size={12} /> {c.email}</span>}
+                          {c.cpf
+                            ? <span><ShieldCheck size={12} /> CPF {c.cpf}</span>
+                            : <span style={{ color: '#b45309', fontWeight: 600 }}>sem CPF · só manual</span>}
                         </div>
                       </div>
                       {on && <Check size={18} color="#dc2626" style={{ flexShrink: 0 }} />}
@@ -434,7 +556,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                 })}
               </div>
 
-              {/* PLANO */}
+              {/* ── PLANO ── */}
               <div className="ecs-label">Plano</div>
               {plans.length === 0 ? (
                 <div style={{
@@ -481,16 +603,70 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                 </div>
               )}
 
-              {/* explicação */}
-              <div style={{
-                display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 20,
-                background: '#f5f5f7', borderRadius: 14, padding: '14px 15px',
-              }}>
-                <CreditCard size={17} color="#4b4b52" style={{ flexShrink: 0, marginTop: 1 }} />
-                <div style={{ fontSize: 13, color: '#4b4b52', lineHeight: 1.6 }}>
-                  Você envia um link, o cliente cadastra o cartão dele e a mensalidade
-                  passa a ser cobrada <b>automaticamente todo mês</b>.
-                </div>
+              {/* ── COMO ELE PAGA ── */}
+              <div className="ecs-label">Como ele paga</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button
+                  className="ecs-mode"
+                  data-on={mode === 'CARD' ? '1' : '0'}
+                  disabled={cartaoBloqueado}
+                  onClick={() => setMode('CARD')}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <span className="ecs-rd" />
+                    <b style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.018em', color: '#111114', flex: 1 }}>
+                      Cartão recorrente
+                    </b>
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, letterSpacing: '.05em', flexShrink: 0,
+                      padding: '4px 8px', borderRadius: 7, background: '#ecfdf5', color: '#0f6e56',
+                    }}>
+                      RECOMENDADO
+                    </span>
+                  </div>
+                  <ul style={{ listStyle: 'none', margin: '11px 0 0', padding: '0 0 0 31px', display: 'grid', gap: 6 }}>
+                    <ModoItem cor="#0f6e56">O cliente cadastra o cartão <b>uma vez</b>, numa página segura do Asaas.</ModoItem>
+                    <ModoItem cor="#0f6e56">A cobrança <b>se repete sozinha</b> todo mês.</ModoItem>
+                    <ModoItem cor="#0f6e56">Você não precisa lembrar de nada.</ModoItem>
+                  </ul>
+                  {cartaoBloqueado && (
+                    <div style={{
+                      display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 11,
+                      marginLeft: 31, background: '#fffbeb', border: '1px solid rgba(180,83,9,.2)',
+                      borderRadius: 10, padding: '9px 11px',
+                    }}>
+                      <AlertCircle size={13} color="#b45309" style={{ flexShrink: 0, marginTop: 1 }} />
+                      <span style={{ fontSize: 11.5, color: '#b45309', lineHeight: 1.45, fontWeight: 500 }}>
+                        {selectedClient?.name} está sem CPF. O Asaas exige CPF para cobrar no
+                        cartão — cadastre na ficha do cliente ou use o registro manual.
+                      </span>
+                    </div>
+                  )}
+                </button>
+
+                <button
+                  className="ecs-mode"
+                  data-on={mode === 'MANUAL' ? '1' : '0'}
+                  onClick={() => setMode('MANUAL')}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <span className="ecs-rd" />
+                    <b style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.018em', color: '#111114', flex: 1 }}>
+                      Registro manual
+                    </b>
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, letterSpacing: '.05em', flexShrink: 0,
+                      padding: '4px 8px', borderRadius: 7, background: '#fffbeb', color: '#b45309',
+                    }}>
+                      VOCÊ COBRA
+                    </span>
+                  </div>
+                  <ul style={{ listStyle: 'none', margin: '11px 0 0', padding: '0 0 0 31px', display: 'grid', gap: 6 }}>
+                    <ModoItem cor="#b45309">Para quem paga em <b>dinheiro ou PIX no balcão</b>.</ModoItem>
+                    <ModoItem cor="#b45309"><b>Não renova sozinho.</b> Todo mês você cobra e registra o pagamento aqui.</ModoItem>
+                    <ModoItem cor="#b45309">Se esquecer, o plano do cliente <b>vence e para</b>.</ModoItem>
+                  </ul>
+                </button>
               </div>
             </>
           )}
@@ -498,7 +674,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
 
         {/* ── rodapé ── */}
         <div className="ecs-foot">
-          {done ? (
+          {concluido ? (
             <button onClick={handleClose} className="ecs-btn">Concluir</button>
           ) : (
             <>
@@ -517,7 +693,11 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
               )}
               <button onClick={() => void submit()} disabled={!podeSalvar} className="ecs-btn">
                 {saving && <Loader2 size={17} className="ecs-spin" />}
-                {saving ? 'Criando…' : 'Criar assinatura'}
+                {saving
+                  ? 'Criando…'
+                  : mode === 'MANUAL'
+                    ? 'Registrar assinatura'
+                    : 'Criar assinatura'}
               </button>
             </>
           )}
@@ -528,4 +708,41 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
 
   if (typeof document === 'undefined') return null
   return createPortal(content, document.body)
+}
+
+// ── subcomponentes (escopo de modulo — React Compiler) ──────────────────────
+
+function ModoItem({ cor, children }: { cor: string; children: React.ReactNode }) {
+  return (
+    <li style={{ fontSize: 12.5, lineHeight: 1.45, color: '#4b4b52', display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+      <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, marginTop: 6, background: cor }} />
+      <span>{children}</span>
+    </li>
+  )
+}
+
+function ResumoLinha({
+  rotulo, valor, mono, destaque, ultimo,
+}: {
+  rotulo: string
+  valor: string
+  mono?: boolean
+  destaque?: string
+  ultimo?: boolean
+}) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12,
+      padding: '11px 0',
+      borderBottom: ultimo ? 'none' : '1px solid rgba(17,17,20,.07)',
+    }}>
+      <span style={{ fontSize: 13, color: '#8a8a93' }}>{rotulo}</span>
+      <span style={{
+        fontSize: 13.5, fontWeight: 700, color: destaque ?? '#111114', textAlign: 'right',
+        fontFamily: mono ? NUM_FONT : 'inherit', letterSpacing: mono ? '-.01em' : undefined,
+      }}>
+        {valor}
+      </span>
+    </div>
+  )
 }
