@@ -55,8 +55,8 @@ export default function HeroSection() {
               <Image
                 src="/images/hero-desk-v2.png"
                 alt="Agenda do Eligi aberta no computador"
-                width={1800}
-                height={1008}
+                width={3200}
+                height={1800}
                 priority
                 sizes="(max-width: 900px) 1px, 640px"
                 className={styles.mockup}
@@ -67,8 +67,8 @@ export default function HeroSection() {
               <Image
                 src="/images/hero-phone-v2.png"
                 alt="Agenda do Eligi aberta no celular"
-                width={415}
-                height={809}
+                width={1290}
+                height={2796}
                 priority
                 sizes="(max-width: 900px) 86vw, 210px"
                 className={styles.mockup}
