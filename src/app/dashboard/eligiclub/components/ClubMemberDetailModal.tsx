@@ -17,7 +17,16 @@ import { colors, typography, transitions, radius } from '@/shared/theme'
 
 // ── tipos (espelham o back / page.tsx) ──────────────────────────────────────
 type SubStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
-interface ClubPayment { id: string; amount: number; periodKey: string; method: string | null; paidAt: string | null }
+// @eligi:pote-cancel-tipo — excludedFromPoolAt ja vem do back (SUB_INCLUDE
+// inclui payments sem `select`, entao o Prisma devolve todos os escalares)
+interface ClubPayment {
+  id: string
+  amount: number
+  periodKey: string
+  method: string | null
+  paidAt: string | null
+  excludedFromPoolAt?: string | null
+}
 interface ClubSubscription {
   id: string
   status: SubStatus
@@ -46,6 +55,26 @@ const STATUS: Record<SubStatus, { label: string; color: string; bg: string }> = 
   CANCELED: { label: 'Cancelado', color: '#6B7280', bg: 'rgba(107,114,128,0.14)' },
 }
 const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+// @eligi:pote-cancel-helpers
+/**
+ * periodKey do mes corrente em BRT — mesmo formato do back (YYYY-MM).
+ * NAO usar toISOString(): ele devolve UTC, e no dia 31 as 22h de Brasilia ja e
+ * dia 1 do mes seguinte em UTC — o pagamento seria comparado com o mes errado.
+ */
+function currentPeriodKeyBR(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit',
+  }).format(new Date()).slice(0, 7)
+}
+
+/** Quanto esta assinatura colocou no pote do mes corrente e ainda conta. */
+function poteDoMes(payments: ClubPayment[], staffSharePct: number): { valor: number; qtd: number } {
+  const atual = currentPeriodKeyBR()
+  const noMes = payments.filter(p => p.periodKey === atual && !p.excludedFromPoolAt)
+  const valor = noMes.reduce((s, p) => s + p.amount * (staffSharePct / 100), 0)
+  return { valor: Math.round(valor * 100) / 100, qtd: noMes.length }
+}
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
@@ -71,6 +100,8 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
   const [payError, setPayError] = useState<string | null>(null)
 
   const [confirmCancel, setConfirmCancel] = useState(false)
+  // @eligi:pote-cancel-state — sem default: com dinheiro em jogo a escolha e deliberada
+  const [poolAction, setPoolAction] = useState<'KEEP' | 'REMOVE' | null>(null)
   const [canceling, setCanceling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
 
@@ -157,7 +188,9 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
     setCancelError(null)
     setCanceling(true)
     try {
-      const res = await api.post(`/club-subscriptions/${sub.id}/cancel`, {})
+      // @eligi:pote-cancel-send — sem valor no pote, o back usa o default KEEP
+      const res = await api.post(`/club-subscriptions/${sub.id}/cancel`,
+        poolAction ? { poolAction } : {})
       const data = res.data?.data ?? res.data
       setSub(data)
       onUpdated(data)
@@ -169,7 +202,8 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
       setCanceling(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sub.id])
+    // @eligi:pote-cancel-deps
+  }, [sub.id, poolAction])
 
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 700, color: colors.gray.dimText,
@@ -183,6 +217,8 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
   const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
 
   const payments = sub.payments ?? []
+  // @eligi:pote-cancel-calc
+  const pote = poteDoMes(payments, sub.plan.staffSharePct)
 
   const content = (
     <div
@@ -418,11 +454,41 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
                 <div style={{ fontSize: 12.5, color: colors.gray[700], textAlign: 'center' }}>
                   Cancelar a assinatura de <b>{sub.client.name}</b>? O membro perde o acesso ao clube.
                 </div>
+
+                {/* @eligi:pote-cancel-ui — so aparece quando ha dinheiro em jogo */}
+                {pote.valor > 0 && (
+                  <div style={{
+                    padding: 12, borderRadius: 11,
+                    background: colors.background.page,
+                    border: `1px solid ${colors.gray.border}`,
+                  }}>
+                    <div style={{ fontSize: 12, color: colors.gray[700], lineHeight: 1.55, marginBottom: 10 }}>
+                      Este mês {sub.client.name.trim().split(' ')[0]} pagou e{' '}
+                      <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(pote.valor)}</b>{' '}
+                      disso {pote.qtd > 1 ? 'estão' : 'está'} no pote da equipe.
+                    </div>
+
+                    <PoolOption
+                      on={poolAction === 'KEEP'}
+                      onClick={() => setPoolAction('KEEP')}
+                      titulo="O pagamento foi real"
+                      texto="O valor fica no pote. A equipe atendeu este mês."
+                      cor="#0f6e56"
+                    />
+                    <PoolOption
+                      on={poolAction === 'REMOVE'}
+                      onClick={() => setPoolAction('REMOVE')}
+                      titulo="Foi teste ou engano"
+                      texto={`Tira ${fmtBRL(pote.valor)} do pote deste mês. O registro do pagamento não é apagado.`}
+                      cor="#b45309"
+                    />
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => setConfirmCancel(false)} disabled={canceling} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${colors.gray.borderMd}`, background: '#fff', fontSize: 12.5, fontWeight: 700, color: colors.gray[700], cursor: 'pointer', fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}>
                     Voltar
                   </button>
-                  <button onClick={cancelSub} disabled={canceling} style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 12.5, fontWeight: 800, cursor: canceling ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}>
+                  <button onClick={cancelSub} disabled={canceling || (pote.valor > 0 && !poolAction)} /* @eligi:pote-cancel-gate */ style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', opacity: (pote.valor > 0 && !poolAction) ? 0.45 : 1 /* @eligi:pote-cancel-opacity */, fontSize: 12.5, fontWeight: 800, cursor: canceling ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}>
                     {canceling ? <><Loader2 size={14} style={{ animation: 'club-spin 0.8s linear infinite' }} />Cancelando</> : 'Sim, cancelar'}
                   </button>
                 </div>
@@ -442,6 +508,44 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
 
   if (typeof document === 'undefined') return null
   return createPortal(content, document.body)
+}
+
+// @eligi:pote-cancel-option — escopo de modulo (React Compiler)
+function PoolOption({
+  on, onClick, titulo, texto, cor,
+}: {
+  on: boolean
+  onClick: () => void
+  titulo: string
+  texto: string
+  cor: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%', textAlign: 'left', display: 'flex', gap: 10, alignItems: 'flex-start',
+        padding: '11px 12px', marginBottom: 7, minHeight: 44,
+        borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+        background: '#fff',
+        border: `1.5px solid ${on ? cor : colors.gray.borderMd}`,
+        boxShadow: on ? `0 0 0 3px ${cor}14` : 'none',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      <span style={{
+        width: 17, height: 17, flexShrink: 0, marginTop: 1, borderRadius: '50%',
+        border: `2px solid ${on ? cor : 'rgba(17,17,20,0.22)'}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {on && <span style={{ width: 8, height: 8, borderRadius: '50%', background: cor }} />}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <b style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: colors.gray[900] }}>{titulo}</b>
+        <span style={{ display: 'block', fontSize: 11.5, color: colors.gray.dimText, lineHeight: 1.45, marginTop: 2 }}>{texto}</span>
+      </span>
+    </button>
+  )
 }
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
