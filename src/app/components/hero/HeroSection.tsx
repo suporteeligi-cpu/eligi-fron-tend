@@ -43,14 +43,38 @@ export default function HeroSection() {
         </div>
 
         <div className={styles.visual}>
-          <Image
-            src="/images/hero-mockup.png"
-            alt="Eligi no computador e no celular"
-            width={2114}
-            height={1447}
-            priority
-            className={styles.mockup}
-          />
+          <div className={styles.devices}>
+            {/* @eligi:hero-browser-frame */}
+            <div className={styles.browser}>
+              <div className={styles.chrome} aria-hidden>
+                <span className={styles.dot} />
+                <span className={styles.dot} />
+                <span className={styles.dot} />
+                <span className={styles.url}>eligi.com.br</span>
+              </div>
+              <Image
+                src="/images/hero-desk-v2.png"
+                alt="Agenda do Eligi aberta no computador"
+                width={1800}
+                height={1008}
+                priority
+                sizes="(max-width: 900px) 1px, 640px"
+                className={styles.mockup}
+              />
+            </div>
+
+            <div className={styles.phone}>
+              <Image
+                src="/images/hero-phone-v2.png"
+                alt="Agenda do Eligi aberta no celular"
+                width={415}
+                height={809}
+                priority
+                sizes="(max-width: 900px) 86vw, 210px"
+                className={styles.mockup}
+              />
+            </div>
+          </div>
 
           {/* Card "ao vivo" — assinatura. Se colidir com o mockup, apague este bloco. */}
           <div className={styles.floatCard} aria-hidden>
