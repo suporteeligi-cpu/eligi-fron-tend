@@ -26,6 +26,10 @@ interface ClubPayment {
   method: string | null
   paidAt: string | null
   excludedFromPoolAt?: string | null
+  // @eligi:recebivel-tipo — chegam do SUB_INCLUDE (payments sem `select`)
+  creditDate?: string | null
+  netValue?: number | null
+  billingTypeReal?: string | null
 }
 interface ClubSubscription {
   id: string
@@ -75,6 +79,38 @@ function poteDoMes(payments: ClubPayment[], staffSharePct: number): { valor: num
   const valor = noMes.reduce((s, p) => s + p.amount * (staffSharePct / 100), 0)
   return { valor: Math.round(valor * 100) / 100, qtd: noMes.length }
 }
+// @eligi:recebivel-helpers
+/** Forma que o CLIENTE escolheu no checkout. Cai pro `method` no registro manual. */
+const FORMA: Record<string, string> = {
+  CREDIT_CARD: 'Crédito',
+  DEBIT_CARD:  'Débito',
+  PIX:         'Pix',
+  BOLETO:      'Boleto',
+  DINHEIRO:    'Dinheiro',
+  CARTAO:      'Cartão',
+  MANUAL:      'Manual',
+}
+function formaLabel(billingTypeReal?: string | null, method?: string | null): string | null {
+  const bruto = billingTypeReal ?? method ?? null
+  if (!bruto || bruto === 'ASAAS' || bruto === 'UNDEFINED') return null
+  return FORMA[bruto] ?? bruto
+}
+/**
+ * dd/mm. creditDate foi gravado como MEIO-DIA UTC no back justamente para nao
+ * deslocar o dia aqui — data pura do Asaas convertida com new Date(str) daria
+ * meia-noite UTC, que em BRT e o dia anterior.
+ */
+// @eligi:recebivel-agora
+// Date.now() NAO pode ser chamado no corpo de um componente (React Compiler
+// purity — 4a vez que esse erro aparece no projeto). Aqui ele roda uma vez no
+// carregamento do modulo, fora de qualquer render.
+// O valor so muda de significado quando vira o dia; aba aberta na virada
+// mantem o rotulo ate recarregar, o que e' irrelevante para "entra em 30/09".
+const AGORA_MS = Date.now()
+
+const fmtDia = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : null
+
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
@@ -426,7 +462,9 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, border: `1px solid ${colors.gray.border}` }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12.5, fontWeight: 700, color: colors.gray[900], fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(p.amount)}</div>
-                      <div style={{ fontSize: 10.5, color: colors.gray.dimText }}>{fmtDate(p.paidAt)} · {p.periodKey}{p.method ? ` · ${p.method}` : ''}</div>
+                      <div style={{ fontSize: 10.5, color: colors.gray.dimText }}>{fmtDate(p.paidAt)} · {p.periodKey}{formaLabel(p.billingTypeReal, p.method) ? ` · ${formaLabel(p.billingTypeReal, p.method)}` : ''}</div>
+                        {/* @eligi:recebivel-linha */}
+                        <RecebivelLinha p={p} />
                     </div>
                   </div>
                 ))}
@@ -511,6 +549,44 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
 }
 
 // @eligi:pote-cancel-option — escopo de modulo (React Compiler)
+// @eligi:recebivel-componente — escopo de modulo (React Compiler)
+/**
+ * Onde o dinheiro esta. Tres estados:
+ *   ja entrou  (creditDate no passado)  verde
+ *   a caminho  (creditDate no futuro)   ambar  <- o caso que confundiu o ZERO9
+ *   sem data   (registro manual, ou o Asaas ainda nao calculou)  nada
+ */
+function RecebivelLinha({ p }: { p: ClubPayment }) {
+  const dia = fmtDia(p.creditDate)
+  if (!dia && p.netValue == null) return null
+
+  const entrou = p.creditDate ? new Date(p.creditDate).getTime() <= AGORA_MS : false
+  const cor = !dia ? colors.gray.dimText : entrou ? '#0f6e56' : '#b45309'
+  const texto = !dia
+    ? 'Liberação em processamento'
+    : entrou
+      ? `Na conta desde ${dia}`
+      : `Entra em ${dia}`
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+      fontSize: 10.5, color: cor, fontWeight: 600, marginTop: 3,
+    }}>
+      <span style={{
+        width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+        background: cor, opacity: dia ? 1 : 0.5,
+      }} />
+      <span>{texto}</span>
+      {p.netValue != null && (
+        <span style={{ color: colors.gray.dimText, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+          · líquido {fmtBRL(p.netValue)}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function PoolOption({
   on, onClick, titulo, texto, cor,
 }: {
