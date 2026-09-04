@@ -5,7 +5,7 @@
 // Produtos com trackStock=true mostram badge de status + saldo + atalho rápido.
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Search, X, PackageOpen, Plus } from 'lucide-react'
+import { Search, X, PackageOpen, Plus, ClipboardList } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
@@ -21,6 +21,7 @@ import ProductRow from './components/ProductRow'
 import ProductModal from './components/ProductModal'
 import QuickStockSheet from './components/QuickStockSheet'
 import Toast, { ToastKind } from './components/Toast'
+import StockCountMode from './components/StockCountMode'
 
 export default function EstoquePage() {
   const mode = useDeviceMode()
@@ -37,6 +38,9 @@ export default function EstoquePage() {
 
   // Atalho rápido de movimentação
   const [quickMoveProduct, setQuickMoveProduct] = useState<Product | null>(null)
+
+  // @eligi:stock-count-mode
+  const [counting, setCounting] = useState(false)
 
   const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null)
 
@@ -164,6 +168,17 @@ export default function EstoquePage() {
     refetchSummary()
   }
 
+  // A conferencia devolve os saldos novos: aplica sem refazer o fetch da
+  // lista inteira, mas o resumo vem do servidor porque ele conhece o custo.
+  function handleCounted(updates: Array<{ id: string; stock: number }>, resumo: string) {
+    setProducts(prev => {
+      const mapa = new Map(updates.map(u => [u.id, u.stock]))
+      return prev.map(p => (mapa.has(p.id) ? { ...p, stock: mapa.get(p.id)! } : p))
+    })
+    setToast({ message: resumo, kind: 'success' })
+    refetchSummary()
+  }
+
   function handleCloseModal() {
     setModalOpen(false)
     setTimeout(() => setModalProduct(null), 250)
@@ -194,6 +209,15 @@ export default function EstoquePage() {
           isMobile={isMobile}
           onMoved={handleStockMoved}
           onClose={() => setQuickMoveProduct(null)}
+        />
+      )}
+
+      {counting && (
+        <StockCountMode
+          products={products}
+          isMobile={isMobile}
+          onClose={() => setCounting(false)}
+          onSaved={handleCounted}
         />
       )}
 
@@ -236,6 +260,27 @@ export default function EstoquePage() {
               </p>
             )}
           </div>
+
+          {/* Conferencia so faz sentido com produto que controla estoque. */}
+          {products.some(p => p.trackStock) && (
+            <button
+              onClick={() => setCounting(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: isMobile ? '9px 12px' : '9px 16px',
+                borderRadius: 12,
+                border: `1px solid ${colors.gray.borderMd}`,
+                background: 'rgba(255,255,255,0.85)',
+                color: colors.gray[700],
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                letterSpacing: '.02em', flexShrink: 0,
+                WebkitTapHighlightColor: 'transparent', fontFamily: 'inherit',
+              }}
+            >
+              <ClipboardList size={15} strokeWidth={2.2} />
+              {isMobile ? 'Conferir' : 'Conferir estoque'}
+            </button>
+          )}
 
           <button
             onClick={handleAdd}
