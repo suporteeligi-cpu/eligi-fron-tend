@@ -171,6 +171,23 @@ export default function ServicesList({
                         {profs} {profs === 1 ? 'profissional' : 'profissionais'}
                       </span>
                     )}
+
+                    {/* @eligi:svconline-chip
+                        Invertido em relacao ao chip "online" do TeamList: la
+                        quem atende online e minoria e merece destaque; aqui o
+                        padrao e true, entao marcar todo mundo pintaria a lista
+                        inteira. Sinal so vale quando e excecao.
+                        `=== false` e explicito: o campo e opcional no tipo, e
+                        `!s.availableOnline` marcaria tambem undefined. */}
+                    {s.availableOnline === false && (
+                      <span style={{
+                        ...metaChip,
+                        background: 'rgba(17,17,20,0.07)',
+                        color:      colors.gray[900],
+                      }}>
+                        fora do link online
+                      </span>
+                    )}
                   </span>
                 </span>
 

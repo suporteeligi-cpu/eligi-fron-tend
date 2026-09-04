@@ -74,6 +74,8 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
   const [price,       setPrice]       = useState<string>(service?.price != null ? String(service.price) : '')
   /* @eligi:pricemode-state */
   const [priceMode,   setPriceMode]   = useState<'FIXED' | 'FROM'>(service?.priceMode ?? 'FIXED')
+  /* @eligi:svconline-state */
+  const [availableOnline, setAvailableOnline] = useState(service?.availableOnline ?? true)
   const [description, setDescription] = useState(service?.description ?? '')
   const [color,       setColor]       = useState<string>(service?.color ?? DEFAULT_SERVICE_COLOR)
   const [saving,      setSaving]      = useState(false)
@@ -141,6 +143,7 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
         duration,
         price:       price !== '' ? Number(price) : undefined,
         priceMode,   // @eligi:pricemode-payload
+        availableOnline, // @eligi:svconline-payload
         description: description.trim() || undefined,
         categoryId:  categoryId || null,
         category:    selectedCat?.name ?? undefined,
@@ -617,6 +620,71 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
                 {selectedProfs.size} selecionado{selectedProfs.size !== 1 ? 's' : ''}
               </div>
             )}
+          </div>
+
+          {/* @eligi:svconline-ui
+              Ultima secao do form, como os switches do ProfEditModal: e uma
+              decisao de distribuicao, nao de cadastro. O subtitulo diz o que
+              NAO muda — sem isso o lojista teme que desligar aqui suma da
+              agenda, e nao desliga nunca. */}
+          <div style={fieldGap}>
+            <label style={labelStyle}>Agendamento online</label>
+            <button
+              type="button"
+              onClick={() => setAvailableOnline(!availableOnline)}
+              aria-pressed={availableOnline}
+              style={{
+                display:                 'flex',
+                alignItems:              'center',
+                gap:                     12,
+                width:                   '100%',
+                minHeight:               TAP,
+                padding:                 '12px 14px',
+                textAlign:               'left',
+                borderRadius:            radius.md,
+                border:                  `1.5px solid ${availableOnline ? colors.red.DEFAULT : colors.gray.borderMd}`,
+                background:              availableOnline ? colors.red.subtle : '#fff',
+                cursor:                  'pointer',
+                fontFamily:              'inherit',
+                transition:              'border-color .15s, background .15s',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  width: 40, height: 22, borderRadius: 11, flexShrink: 0,
+                  position: 'relative',
+                  background: availableOnline ? colors.red.DEFAULT : colors.gray.borderMd,
+                  transition: 'background .15s',
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 2,
+                  left: availableOnline ? 'calc(100% - 20px)' : 2,
+                  width: 18, height: 18, borderRadius: '50%',
+                  background: '#fff',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                  transition: 'left .15s',
+                }} />
+              </span>
+              <span>
+                <span style={{
+                  display:      'block',
+                  fontSize:     13.5,
+                  fontWeight:   typography.weight.medium,
+                  color:        availableOnline ? colors.red.DEFAULT : colors.gray[900],
+                  marginBottom: 2,
+                }}>
+                  {availableOnline ? 'Visível no link online' : 'Oculto no link online'}
+                </span>
+                <span style={{ display: 'block', fontSize: 12, color: colors.gray.dimText, lineHeight: 1.45 }}>
+                  {availableOnline
+                    ? 'Clientes podem escolher este serviço pelo link público.'
+                    : 'Continua na agenda e no caixa. Só não aparece para o cliente.'}
+                </span>
+              </span>
+            </button>
           </div>
         </div>
 
