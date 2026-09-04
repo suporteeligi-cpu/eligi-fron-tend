@@ -308,6 +308,7 @@ export default function EstoquePage() {
 
         {/* KPIs */}
         <StockSummaryCards
+          products={products}
           summary={summary}
           loading={loading}
           isMobile={isMobile}

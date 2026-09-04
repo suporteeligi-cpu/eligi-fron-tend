@@ -36,8 +36,11 @@ export default function StockFilterTabs({ current, onChange, counts }: Props) {
       borderRadius: 12,
       border: `1px solid ${colors.gray.border}`,
       marginBottom: 12,
-      overflowX: 'auto',
-      WebkitOverflowScrolling: 'touch',
+      // @eligi:stock-tabs-wrap
+      // Era overflowX: 'auto' com flex '1 0 auto': no celular os cinco filtros
+      // nao cabiam e "Esgotado" ficava cortado fora da tela. Quebrar linha
+      // mostra todos.
+      flexWrap: 'wrap',
       fontFamily: typography.fontFamily,
     }}>
       {tabs.map(t => {
@@ -47,7 +50,7 @@ export default function StockFilterTabs({ current, onChange, counts }: Props) {
             key={t.id}
             onClick={() => onChange(t.id)}
             style={{
-              flex: '1 0 auto',
+              flex: '1 1 auto',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               padding: '8px 12px',
               borderRadius: 9,

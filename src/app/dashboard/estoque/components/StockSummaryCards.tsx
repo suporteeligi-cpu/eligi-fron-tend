@@ -13,6 +13,11 @@ interface Props {
   summary:   StockSummary | null
   loading:   boolean
   isMobile:  boolean
+  /** @eligi:stock-kpi-fix
+   *  A page ja carrega os produtos com cost. Calcular aqui permite
+   *  dizer quantos ficaram de fora do total -- coisa que o resumo do
+   *  servidor nao informa. */
+  products?: Array<{ trackStock?: boolean; stock?: number; cost?: number | null }>
 }
 
 /** Formata valor compacto pro chip mobile: R$ 2.400 → R$ 2,4k */
@@ -24,15 +29,32 @@ function compactBRL(v: number): string {
   return `R$ ${Math.round(v)}`
 }
 
-export default function StockSummaryCards({ summary, loading, isMobile }: Props) {
+export default function StockSummaryCards({ summary, loading, isMobile, products }: Props) {
   // ═══════════════════════════════════════════════════════════
   // MOBILE: faixa de chips
   // ═══════════════════════════════════════════════════════════
+  // @eligi:stock-kpi-fix
+  // O resumo do servidor soma stock * cost e devolve 0 quando ninguem preencheu
+  // o custo, que e opcional. Um card mostrando R$ 0,00 com a prateleira cheia
+  // ensina o lojista a desconfiar da tela inteira.
+  const valorEstoque = (() => {
+    const lista = products ?? []
+    let total = 0
+    let semCusto = 0
+    for (const p of lista) {
+      if (!p.trackStock) continue
+      const custo = p.cost ?? 0
+      if (custo > 0) total += (p.stock ?? 0) * custo
+      else if ((p.stock ?? 0) > 0) semCusto++
+    }
+    return { total, semCusto }
+  })()
+
   if (isMobile) {
     const chips = [
       {
         value: summary ? `${summary.trackedProducts}` : '—',
-        label: 'com estoque',
+        label: 'controlados',
         fg:    '#1d4ed8',
         bg:    'rgba(59,130,246,0.10)',
       },
@@ -49,8 +71,10 @@ export default function StockSummaryCards({ summary, loading, isMobile }: Props)
         bg:    'rgba(220,38,38,0.10)',
       },
       {
-        value: summary ? compactBRL(summary.totalValue) : '—',
-        label: 'em estoque',
+        value: compactBRL(valorEstoque.total),
+        label: valorEstoque.semCusto > 0
+          ? `${valorEstoque.semCusto} s/ custo`
+          : 'em estoque',
         fg:    '#15803d',
         bg:    'rgba(22,163,74,0.10)',
       },
@@ -111,7 +135,7 @@ export default function StockSummaryCards({ summary, loading, isMobile }: Props)
   // ═══════════════════════════════════════════════════════════
   const cards = [
     {
-      label: 'Produtos com estoque',
+      label: 'Itens controlados',
       value: summary ? `${summary.trackedProducts}` : '—',
       sub:   summary ? `de ${summary.totalProducts} total` : '',
       icon:  Package,
@@ -136,8 +160,12 @@ export default function StockSummaryCards({ summary, loading, isMobile }: Props)
     },
     {
       label: 'Valor em estoque',
-      value: summary ? formatBRL(summary.totalValue) : '—',
-      sub:   'baseado no custo',
+      value: valorEstoque.total > 0 || valorEstoque.semCusto === 0
+        ? formatBRL(valorEstoque.total)
+        : formatBRL(0),
+      sub:   valorEstoque.semCusto > 0
+        ? `${valorEstoque.semCusto} sem custo informado`
+        : 'a preço de custo',
       icon:  DollarSign,
       color: '#15803d',
       bg:    'rgba(22,163,74,0.10)',
