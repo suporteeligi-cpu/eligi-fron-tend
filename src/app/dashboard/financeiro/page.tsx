@@ -54,15 +54,6 @@ export default function FinanceiroPage() {
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gap: 12,
         }}>
-          {/* Relatórios — em breve */}
-          <ModuleCard
-            title="Relatórios"
-            description="Análises, gráficos e exportações"
-            Icon={BarChart3}
-            gradient="linear-gradient(135deg, #0891b2, #0e7490)"
-            phaseLabel="Fase 7"
-          />
-
           {/* Vendas — ATIVO */}
           <ModuleCard
             title="Vendas"
