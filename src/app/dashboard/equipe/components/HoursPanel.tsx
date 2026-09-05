@@ -8,6 +8,8 @@ import { colors, typography } from '@/shared/theme'
 import { HourSlot } from '@/features/professionals/types'
 
 import HoursEditor from './HoursEditor'
+// @eligi:lunch-panel-import
+import LunchCard, { LunchRule } from './LunchCard'
 
 interface Props {
   profId:   string
@@ -83,6 +85,82 @@ export default function HoursPanel({ profId, profName }: Props) {
     }
   }, [slots, loading, triggerSave])
 
+  /* =========================================
+     @eligi:lunch-panel-state — pausa para almoco
+
+     Mesmo padrao do bloco acima, com timer e lastPushed proprios: horario de
+     trabalho e almoco vao para endpoints diferentes, e salvar os dois quando
+     so um mudou seria uma requisicao jogada fora. O SaveState e compartilhado
+     de proposito — um unico indicador na tela.
+  ========================================= */
+  const [lunch, setLunch] = useState<LunchRule | null>(null)
+  const [lunchLoading, setLunchLoading] = useState(true)
+
+  const lunchTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lunchPushed  = useRef<string>('')
+  const lunchMounted = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    api.get(`/equipe/${profId}/lunch`)
+      .then(res => {
+        if (cancelled) return
+        const data = (res.data?.data ?? null) as LunchRule | null
+        setLunch(data)
+        lunchPushed.current = JSON.stringify(data)
+        setLunchLoading(false)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLunch(null)
+          setLunchLoading(false)
+        }
+      })
+    return () => { cancelled = true }
+  }, [profId])
+
+  const triggerLunchSave = useCallback(() => {
+    if (lunchTimer.current) clearTimeout(lunchTimer.current)
+    lunchTimer.current = setTimeout(async () => {
+      const serialized = JSON.stringify(lunch)
+      if (serialized === lunchPushed.current) return
+
+      // Guarda de estado incompleto: o back recusa com 400 e o indicador ficaria
+      // vermelho enquanto a pessoa ainda esta escolhendo os dias.
+      if (lunch && (lunch.weekdays.length === 0 || lunch.startTime >= lunch.endTime)) return
+
+      try {
+        setSaveState('saving')
+        if (lunch === null) {
+          await api.delete(`/equipe/${profId}/lunch`)
+        } else {
+          await api.put(`/equipe/${profId}/lunch`, lunch)
+        }
+        lunchPushed.current = serialized
+        setSaveState('saved')
+        setTimeout(() => setSaveState('idle'), 1400)
+      } catch {
+        setSaveState('error')
+      }
+    }, SAVE_DEBOUNCE_MS)
+  }, [profId, lunch])
+
+  useEffect(() => {
+    if (lunchLoading) return
+    if (!lunchMounted.current) {
+      lunchMounted.current = true
+      return
+    }
+    triggerLunchSave()
+    return () => {
+      if (lunchTimer.current) clearTimeout(lunchTimer.current)
+    }
+  }, [lunch, lunchLoading, triggerLunchSave])
+
+  // Dias com expediente, para apagar os de folga no card de almoco. Sai do
+  // estado que o painel ja tem — nenhuma requisicao a mais.
+  const workingWeekdays = Array.from(new Set(slots.map(s => s.weekday))).sort((a, b) => a - b)
+
   if (loading) return (
     <div style={{
       padding: '40px 20px', textAlign: 'center',
@@ -125,6 +203,16 @@ export default function HoursPanel({ profId, profName }: Props) {
       </div>
 
       <HoursEditor slots={slots} onChange={setSlots} />
+
+      {/* @eligi:lunch-panel-render */}
+      {!lunchLoading && (
+        <LunchCard
+          value={lunch}
+          onChange={setLunch}
+          workingWeekdays={workingWeekdays}
+          profName={profName}
+        />
+      )}
     </div>
   )
 }
