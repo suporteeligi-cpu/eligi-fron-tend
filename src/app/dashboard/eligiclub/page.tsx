@@ -17,8 +17,7 @@ import { useRouter } from 'next/navigation'
 import {
   Search, X, Plus, ChevronRight, ChevronLeft, Loader2, Layers, Users, PiggyBank,
   Coins, CheckCircle2, CalendarClock, Hash, type LucideIcon,
-  User, RefreshCw, Wallet, Scissors, Bell, Pencil, CreditCard, ShieldCheck, ArrowUp, ArrowDown,
-} from 'lucide-react'
+  User, RefreshCw, Wallet, Scissors, Bell, Pencil, CreditCard, ShieldCheck, ArrowUp, ArrowDown, Check } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
@@ -328,6 +327,8 @@ interface ClubFinanceData {
   pendingValue: number
   pendingCount: number
   transactions: FinanceTx[]
+  payoutKeyMasked?: string | null
+  payoutKeyType?: string | null
   renewals?: RenewalDay[]
   renewalsTotal?: number
   renewalsCount?: number
@@ -483,6 +484,533 @@ function RenovacoesCard({ renewals, total, count }: {
   )
 }
 
+// ── SAQUE ───────────────────────────────────────────────────────────────────
+type PixKeyType = 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'EVP'
+
+const PIX_TIPOS: { key: PixKeyType; label: string; ph: string }[] = [
+  { key: 'CPF',   label: 'CPF',       ph: '000.000.000-00' },
+  { key: 'CNPJ',  label: 'CNPJ',      ph: '00.000.000/0000-00' },
+  { key: 'EMAIL', label: 'E-mail',    ph: 'voce@email.com' },
+  { key: 'PHONE', label: 'Telefone',  ph: '(11) 99999-9999' },
+  { key: 'EVP',   label: 'Aleatória', ph: 'chave aleatória' },
+]
+const LABEL_TIPO: Record<string, string> = {
+  CPF: 'CPF', CNPJ: 'CNPJ', EMAIL: 'e-mail', PHONE: 'telefone', EVP: 'chave aleatória',
+}
+
+interface PayoutItem {
+  id: string
+  date: string | null
+  value: number
+  netValue: number
+  fee: number
+  status: string
+  confirmedAt: string | null
+  failReason: string | null
+  receiptUrl: string | null
+}
+
+const PAYOUT_STATUS: Record<string, { label: string; cor: string; bg: string }> = {
+  DONE:            { label: 'Concluído',   cor: '#0f6e56', bg: '#ecfdf5' },
+  PENDING:         { label: 'Processando', cor: '#b45309', bg: '#fffbeb' },
+  BANK_PROCESSING: { label: 'No banco',    cor: '#b45309', bg: '#fffbeb' },
+  BLOCKED:         { label: 'Bloqueado',   cor: '#b91c1c', bg: 'rgba(220,38,38,.07)' },
+  FAILED:          { label: 'Falhou',      cor: '#b91c1c', bg: 'rgba(220,38,38,.07)' },
+  CANCELLED:       { label: 'Cancelado',   cor: '#4b4b52', bg: '#f3f4f6' },
+}
+function payoutStatus(s: string) {
+  return PAYOUT_STATUS[s] ?? { label: s, cor: '#4b4b52', bg: '#f3f4f6' }
+}
+
+function soDigitos(v: string) { return v.replace(/\D/g, '') }
+function mascaraValor(v: string): string {
+  const d = soDigitos(v)
+  if (!d) return ''
+  return (Number(d) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+function valorParaNumero(v: string) { return Number(soDigitos(v)) / 100 }
+
+/** Onde o lojista recebe: cadastro/alteração da chave Pix de destino. */
+function DestinoSaque({ keyMasked, keyType, onSaved }: {
+  keyMasked: string | null
+  keyType: string | null
+  onSaved: () => void
+}) {
+  const [editando, setEditando] = useState(!keyMasked)
+  const [tipo, setTipo] = useState<PixKeyType>('CPF')
+  const [chave, setChave] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  const salvar = useCallback(async () => {
+    if (!chave.trim()) { setErro('Informe a chave Pix.'); return }
+    setErro(null); setSalvando(true)
+    try {
+      await api.patch('/club-subscriptions/asaas/payout-key', {
+        pixKey: chave.trim(), pixKeyType: tipo,
+      })
+      setChave('')
+      setEditando(false)
+      onSaved()
+    } catch (e: unknown) {
+      const r = (e as { response?: { data?: { error?: string } } })?.response?.data
+      setErro(r?.error ?? 'Não foi possível salvar a chave.')
+    } finally {
+      setSalvando(false)
+    }
+  }, [chave, tipo, onSaved])
+
+  const ph = PIX_TIPOS.find(t => t.key === tipo)?.ph ?? ''
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,.85)', border: '1px solid rgba(17,17,20,.07)',
+      borderRadius: 16, padding: 16, marginTop: 12,
+      boxShadow: '0 4px 20px rgba(17,17,20,.05)',
+    }}>
+      {!editando && keyMasked ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{
+            width: 38, height: 38, borderRadius: 11, background: '#ecfdf5', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Check size={17} color="#10B981" strokeWidth={2.4} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#111114' }}>
+              Você recebe no {LABEL_TIPO[keyType ?? ''] ?? 'Pix'}
+            </div>
+            <div style={{
+              fontSize: 11.5, color: '#8a8a93', marginTop: 1,
+              fontVariantNumeric: 'tabular-nums',
+            }}>
+              {keyMasked}
+            </div>
+          </div>
+          <button
+            onClick={() => setEditando(true)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 12.5, fontWeight: 600, color: '#dc2626', padding: '8px 4px',
+              minHeight: 40, flexShrink: 0,
+            }}
+          >
+            Alterar
+          </button>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+            <span style={{
+              width: 38, height: 38, borderRadius: 11, background: '#f3f4f6', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Wallet size={17} color="#4b4b52" strokeWidth={2} />
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Onde você recebe</div>
+              <div style={{ fontSize: 11.5, color: '#8a8a93', marginTop: 1 }}>
+                Cadastre sua chave Pix para poder sacar
+              </div>
+            </div>
+          </div>
+
+          {erro && (
+            <div style={{
+              background: 'rgba(220,38,38,.07)', border: '1px solid rgba(220,38,38,.2)',
+              borderRadius: 10, padding: '10px 12px', fontSize: 12.5, color: '#b91c1c',
+              margin: '12px 0 0', lineHeight: 1.5,
+            }}>
+              {erro}
+            </div>
+          )}
+
+          <div style={{
+            fontSize: 11.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+            color: '#8a8a93', margin: '16px 0 8px',
+          }}>
+            Tipo de chave
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {PIX_TIPOS.map(t => {
+              const on = tipo === t.key
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTipo(t.key)}
+                  style={{
+                    padding: '9px 13px', minHeight: 42, borderRadius: 10, cursor: 'pointer',
+                    fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600,
+                    border: `1px solid ${on ? '#dc2626' : 'rgba(17,17,20,.12)'}`,
+                    background: on ? 'rgba(220,38,38,.05)' : '#fff',
+                    color: on ? '#dc2626' : '#4b4b52',
+                  }}
+                >
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div style={{
+            fontSize: 11.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+            color: '#8a8a93', marginBottom: 8,
+          }}>
+            Chave Pix
+          </div>
+          <input
+            value={chave}
+            onChange={e => setChave(e.target.value)}
+            placeholder={ph}
+            inputMode={tipo === 'EMAIL' ? 'email' : tipo === 'EVP' ? 'text' : 'numeric'}
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: 14, minHeight: 50,
+              border: '1px solid rgba(17,17,20,.12)', borderRadius: 12,
+              fontSize: 16, fontFamily: 'inherit', outline: 'none', background: '#fff',
+            }}
+          />
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            {keyMasked && (
+              <button
+                onClick={() => { setEditando(false); setErro(null) }}
+                style={{
+                  minHeight: 50, padding: '0 18px', borderRadius: 13, cursor: 'pointer',
+                  border: '1px solid rgba(17,17,20,.12)', background: '#fff',
+                  color: '#4b4b52', fontSize: 14.5, fontWeight: 600, fontFamily: 'inherit',
+                }}
+              >
+                Cancelar
+              </button>
+            )}
+            <button
+              onClick={() => void salvar()}
+              disabled={salvando}
+              style={{
+                flex: 1, minHeight: 50, border: 'none', borderRadius: 13, cursor: 'pointer',
+                background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff',
+                fontSize: 15, fontWeight: 600, fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                opacity: salvando ? .6 : 1,
+              }}
+            >
+              {salvando && <Loader2 size={16} style={{ animation: 'club-spin .9s linear infinite' }} />}
+              {salvando ? 'Salvando…' : 'Salvar chave'}
+            </button>
+          </div>
+
+          <div style={{ fontSize: 11, color: '#8a8a93', marginTop: 10, lineHeight: 1.5 }}>
+            A chave precisa estar no seu nome ou no CNPJ do seu negócio.
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Modal de transferência: valor editável + atalhos + destino confirmado. */
+function TransferirModal({ saldo, keyMasked, keyType, onClose, onDone }: {
+  saldo: number
+  keyMasked: string
+  keyType: string | null
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [valorStr, setValorStr] = useState(() =>
+    saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  )
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [ok, setOk] = useState(false)
+
+  const valor = valorParaNumero(valorStr)
+  const atalhos = [100, 500].filter(v => v <= saldo)
+
+  const confirmar = useCallback(async () => {
+    if (!valor || valor <= 0) { setErro('Informe um valor.'); return }
+    if (valor > saldo) { setErro('O valor é maior que o saldo disponível.'); return }
+    setErro(null); setEnviando(true)
+    try {
+      await api.post('/club-subscriptions/asaas/transfer', { value: valor })
+      setOk(true)
+      window.setTimeout(() => { onDone(); onClose() }, 1600)
+    } catch (e: unknown) {
+      const r = (e as { response?: { data?: { error?: string } } })?.response?.data
+      setErro(r?.error ?? 'Não foi possível solicitar a transferência.')
+    } finally {
+      setEnviando(false)
+    }
+  }, [valor, saldo, onClose, onDone])
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(3px)',
+        zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 20, padding: 20, width: '100%', maxWidth: 400,
+          boxShadow: '0 12px 48px rgba(0,0,0,.16)', fontFamily: typography.fontFamily,
+        }}
+      >
+        {ok ? (
+          <div style={{ textAlign: 'center', padding: '18px 0' }}>
+            <span style={{
+              width: 52, height: 52, borderRadius: '50%', background: '#ecfdf5',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+            }}>
+              <Check size={26} color="#10B981" strokeWidth={2.6} />
+            </span>
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.02em' }}>
+              Transferência solicitada
+            </div>
+            <div style={{ fontSize: 13, color: '#8a8a93', marginTop: 6, lineHeight: 1.55 }}>
+              Acompanhe pelo histórico de saques.
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.02em' }}>
+              Transferir saldo
+            </div>
+            <div style={{ fontSize: 12.5, color: '#8a8a93', marginTop: 2, marginBottom: 16 }}>
+              O dinheiro cai na sua conta em instantes
+            </div>
+
+            <div style={{ background: '#f5f5f7', borderRadius: 14, padding: 16, marginBottom: 12 }}>
+              <div style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+                color: '#8a8a93', textAlign: 'center',
+              }}>
+                Valor a transferir
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'baseline', justifyContent: 'center',
+                gap: 4, marginTop: 8,
+              }}>
+                <span style={{ fontSize: 18, fontWeight: 600, color: '#8a8a93' }}>R$</span>
+                <input
+                  value={valorStr}
+                  onChange={e => setValorStr(mascaraValor(e.target.value))}
+                  inputMode="numeric"
+                  style={{
+                    border: 'none', outline: 'none', background: 'transparent',
+                    fontSize: 30, fontWeight: 700, fontFamily: NUM_FF, letterSpacing: '-.02em',
+                    color: '#111114', width: `${Math.max(4, valorStr.length + 1)}ch`,
+                    textAlign: 'center', padding: 0, fontVariantNumeric: 'tabular-nums',
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 12 }}>
+                {atalhos.map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setValorStr(v.toLocaleString('pt-BR', { minimumFractionDigits: 2 }))}
+                    style={{
+                      padding: '8px 13px', minHeight: 38, borderRadius: 20, cursor: 'pointer',
+                      border: '1px solid rgba(17,17,20,.12)', background: '#fff',
+                      fontSize: 12, fontWeight: 600, color: '#4b4b52', fontFamily: 'inherit',
+                    }}
+                  >
+                    {money(v)}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setValorStr(saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 }))}
+                  style={{
+                    padding: '8px 13px', minHeight: 38, borderRadius: 20, cursor: 'pointer',
+                    border: '1px solid rgba(220,38,38,.3)', background: 'rgba(220,38,38,.05)',
+                    fontSize: 12, fontWeight: 600, color: '#dc2626', fontFamily: 'inherit',
+                  }}
+                >
+                  Tudo
+                </button>
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              background: '#ecfdf5', border: '1px solid rgba(16,185,129,.22)',
+              borderRadius: 12, padding: '12px 13px', fontSize: 12.5, color: '#0f6e56',
+              marginBottom: 14,
+            }}>
+              <Check size={15} style={{ flexShrink: 0 }} />
+              <span>
+                Para o {LABEL_TIPO[keyType ?? ''] ?? 'Pix'}{' '}
+                <b style={{ fontVariantNumeric: 'tabular-nums' }}>{keyMasked}</b>
+              </span>
+            </div>
+
+            {erro && (
+              <div style={{
+                background: 'rgba(220,38,38,.07)', border: '1px solid rgba(220,38,38,.2)',
+                borderRadius: 12, padding: '12px 13px', fontSize: 12.5, color: '#b91c1c',
+                marginBottom: 14, lineHeight: 1.5,
+              }}>
+                {erro}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={onClose}
+                style={{
+                  minHeight: 52, padding: '0 18px', borderRadius: 13, cursor: 'pointer',
+                  border: '1px solid rgba(17,17,20,.12)', background: '#fff',
+                  color: '#4b4b52', fontSize: 14.5, fontWeight: 600, fontFamily: 'inherit',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void confirmar()}
+                disabled={enviando}
+                style={{
+                  flex: 1, minHeight: 52, border: 'none', borderRadius: 13, cursor: 'pointer',
+                  background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff',
+                  fontSize: 15, fontWeight: 600, fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  opacity: enviando ? .6 : 1,
+                }}
+              >
+                {enviando && <Loader2 size={16} style={{ animation: 'club-spin .9s linear infinite' }} />}
+                {enviando ? 'Enviando…' : 'Confirmar transferência'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Histórico de saques — lazy: só busca quando o lojista abre. */
+function HistoricoSaques({ recarregar }: { recarregar: number }) {
+  const [open, setOpen] = useState(false)
+  const [itens, setItens] = useState<PayoutItem[]>([])
+  const [carregando, setCarregando] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    // setState sincrono no corpo do effect quebra a regra do React Compiler:
+    // tudo dentro de um run() async, disparado com void.
+    async function run() {
+      setCarregando(true)
+      try {
+        const r = await api.get('/club-subscriptions/asaas/transfers')
+        if (alive) setItens((r.data?.data ?? []) as PayoutItem[])
+      } catch {
+        if (alive) setItens([])
+      } finally {
+        if (alive) setCarregando(false)
+      }
+    }
+    void run()
+    return () => { alive = false }
+  }, [open, recarregar])
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+          background: '#fff', border: '1px solid rgba(17,17,20,.07)',
+          borderRadius: open ? '16px 16px 0 0' : 16,
+          borderBottomColor: open ? 'transparent' : 'rgba(17,17,20,.07)',
+          padding: '15px 16px', cursor: 'pointer', fontFamily: 'inherit', minHeight: 62,
+        }}
+      >
+        <span style={{
+          width: 36, height: 36, borderRadius: 11, background: '#f3f4f6', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <ArrowDown size={17} color="#4b4b52" strokeWidth={2} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#111114' }}>
+            Histórico de saques
+          </span>
+          <span style={{ display: 'block', fontSize: 11.5, color: '#8a8a93', marginTop: 1 }}>
+            Transferências para sua conta
+          </span>
+        </span>
+        <ChevronRight
+          size={17}
+          color="#8a8a93"
+          style={{
+            flexShrink: 0,
+            transform: open ? 'rotate(-90deg)' : 'rotate(90deg)',
+            transition: 'transform .22s cubic-bezier(.34,1.56,.64,1)',
+          }}
+        />
+      </button>
+
+      {open && (
+        <div style={{
+          background: '#fff', border: '1px solid rgba(17,17,20,.07)', borderTop: 'none',
+          borderRadius: '0 0 16px 16px', padding: '4px 14px 14px',
+        }}>
+          {carregando ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '16px 2px',
+              fontSize: 13, color: '#8a8a93',
+            }}>
+              <Loader2 size={15} style={{ animation: 'club-spin .9s linear infinite' }} /> Carregando…
+            </div>
+          ) : itens.length === 0 ? (
+            <div style={{ padding: '16px 2px', fontSize: 13, color: '#8a8a93', lineHeight: 1.55 }}>
+              Nenhum saque ainda. Quando você transferir, aparece aqui.
+            </div>
+          ) : (
+            itens.map(p => {
+              const st = payoutStatus(p.status)
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '13px 0', borderBottom: '1px solid rgba(17,17,20,.05)',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 14.5, fontWeight: 700, fontFamily: NUM_FF,
+                      fontVariantNumeric: 'tabular-nums', color: '#111114',
+                    }}>
+                      {money(p.value)}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#8a8a93', marginTop: 2 }}>
+                      {p.date ? new Date(p.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : ''}
+                      {p.fee > 0 ? ` · taxa ${money(p.fee)}` : ''}
+                    </div>
+                    {p.failReason && (
+                      <div style={{ fontSize: 11.5, color: '#b91c1c', marginTop: 3, lineHeight: 1.45 }}>
+                        {p.failReason}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20,
+                    background: st.bg, color: st.cor, flexShrink: 0,
+                  }}>
+                    {st.label}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function FinanceMini({ label, value, foot, tone }: {
   label: string; value: string; foot: string; tone?: 'green'
 }) {
@@ -509,6 +1037,8 @@ function FinanceiroTab({ onToast }: { onToast: (m: string) => void }) {
   const [fin, setFin] = useState<ClubFinanceData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [saqueOpen, setSaqueOpen] = useState(false)
+  const [histVersao, setHistVersao] = useState(0)
 
   const load = useCallback(async (force = false) => {
     if (force) setRefreshing(true)
@@ -547,6 +1077,17 @@ function FinanceiroTab({ onToast }: { onToast: (m: string) => void }) {
     )
   }
 
+  const saldo = fin.balance ?? 0
+  const temChave = !!fin.payoutKeyMasked
+  const podeSacar = fin.approved && temChave && saldo > 0
+  const motivoSaque = !fin.approved
+    ? 'Conta em análise'
+    : !temChave
+      ? 'Cadastre sua chave Pix'
+      : saldo <= 0
+        ? 'Sem saldo para transferir'
+        : 'Transferir para minha conta'
+
   return (
     <div style={{ animation: 'club-panel .3s ease both' }}>
       {/* SALDO */}
@@ -576,20 +1117,38 @@ function FinanceiroTab({ onToast }: { onToast: (m: string) => void }) {
           {fin.approved ? 'Conta Asaas do seu negócio' : 'Conta em análise'}
         </div>
 
+        {/* transferir: so com saldo, conta aprovada e chave cadastrada */}
+        <button
+          onClick={() => setSaqueOpen(true)}
+          disabled={!podeSacar}
+          style={{
+            marginTop: 16, width: '100%', minHeight: 50, borderRadius: 13,
+            border: podeSacar ? 'none' : '1px solid rgba(255,255,255,.15)',
+            background: podeSacar ? '#fff' : 'rgba(255,255,255,.1)',
+            color: podeSacar ? '#111114' : 'rgba(255,255,255,.45)',
+            fontSize: 15, fontWeight: 600, fontFamily: 'inherit',
+            cursor: podeSacar ? 'pointer' : 'not-allowed',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          {podeSacar && <ArrowDown size={17} strokeWidth={2.2} />}
+          {motivoSaque}
+        </button>
+
         <button
           onClick={() => void load(true)}
           disabled={refreshing}
           style={{
-            marginTop: 16, width: '100%', minHeight: 48, border: '1px solid rgba(255,255,255,.18)',
-            borderRadius: 13, background: 'rgba(255,255,255,.08)', color: '#fff',
-            fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            marginTop: 8, width: '100%', minHeight: 42, border: 'none',
+            borderRadius: 11, background: 'transparent', color: 'rgba(255,255,255,.6)',
+            fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
             opacity: refreshing ? .6 : 1,
           }}
         >
           {refreshing
-            ? <Loader2 size={15} style={{ animation: 'club-spin .9s linear infinite' }} />
-            : <RefreshCw size={15} />}
+            ? <Loader2 size={13} style={{ animation: 'club-spin .9s linear infinite' }} />
+            : <RefreshCw size={13} />}
           {refreshing ? 'Atualizando…' : 'Atualizar saldo'}
         </button>
       </div>
@@ -608,6 +1167,29 @@ function FinanceiroTab({ onToast }: { onToast: (m: string) => void }) {
           foot={`${fin.pendingCount} aguardando`}
         />
       </div>
+
+      {/* ONDE VOCÊ RECEBE */}
+      {fin.approved && (
+        <DestinoSaque
+          keyMasked={fin.payoutKeyMasked ?? null}
+          keyType={fin.payoutKeyType ?? null}
+          onSaved={() => void load(true)}
+        />
+      )}
+
+      {/* HISTÓRICO DE SAQUES */}
+      {fin.approved && <HistoricoSaques recarregar={histVersao} />}
+
+      {/* MODAL DE TRANSFERÊNCIA */}
+      {saqueOpen && fin.payoutKeyMasked && (
+        <TransferirModal
+          saldo={saldo}
+          keyMasked={fin.payoutKeyMasked}
+          keyType={fin.payoutKeyType ?? null}
+          onClose={() => setSaqueOpen(false)}
+          onDone={() => { setHistVersao(v => v + 1); void load(true) }}
+        />
+      )}
 
       {/* CALENDÁRIO DE ASSINATURAS */}
       <RenovacoesCard
