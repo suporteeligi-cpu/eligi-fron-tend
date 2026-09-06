@@ -13,8 +13,11 @@
 // o stopPropagation daqui, o lojista edita o horario, salva e leva erro.
 // A fatia 4b-2 troca este stopPropagation pelo menu de excecao.
 
+import { useState } from 'react'
 import { AgendaBlock } from '../types'
 import { Utensils } from 'lucide-react'
+// @eligi:lunch-band-menu-import
+import LunchExceptionMenu from './LunchExceptionMenu'
 
 interface Props {
   block:       AgendaBlock
@@ -32,6 +35,9 @@ const INK_2 = 'rgba(120,113,108,0.80)'
 const EDGE  = 'rgba(168,162,158,0.85)'
 
 export default function LunchBand({ block, totalHeight }: Props) {
+  // @eligi:lunch-band-state
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+
   const isMicro   = totalHeight <= H_MICRO
   const isCompact = totalHeight > H_MICRO && totalHeight <= H_COMPACT
   const showLabel = totalHeight >= H_FULL
@@ -39,9 +45,15 @@ export default function LunchBand({ block, totalHeight }: Props) {
   return (
     <div
       aria-label={`Almoço, ${block.startTime} às ${block.endTime}`}
-      // Impede que o clique chegue ao <div> do layout, que abriria o
-      // BlockEditModal com um id que nao existe no banco.
-      onClick={e => e.stopPropagation()}
+      // @eligi:lunch-band-menu
+      // O stopPropagation continua sendo essencial: sem ele o clique sobe para
+      // o <div> do layout e abre o BlockEditModal, que salvaria com um id
+      // sintetico que nao existe no banco. O que mudou e que agora, alem de
+      // barrar, o clique abre o menu de excecao.
+      onClick={e => {
+        e.stopPropagation()
+        setMenu({ x: e.clientX, y: e.clientY })
+      }}
       style={{
         position: 'relative',
         width: '100%', height: '100%',
@@ -62,6 +74,17 @@ export default function LunchBand({ block, totalHeight }: Props) {
         gap: 2,
       }}
     >
+      {/* @eligi:lunch-band-render — o menu usa portal, entao a posicao aqui
+          dentro nao afeta o layout da faixa. */}
+      {menu && (
+        <LunchExceptionMenu
+          block={block}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+        />
+      )}
+
       {/* Barra lateral. Sem listras: rotina nao usa hachura de alerta. */}
       <div aria-hidden style={{
         position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
