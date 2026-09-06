@@ -32,4 +32,10 @@ export type AgendaBlock = {
   startTime:      string   // "HH:mm"
   endTime:        string   // "HH:mm"
   reason:         string | null
+  // @eligi:lunch-agenda-kind
+  // OPCIONAL: ausente = BLOCK. O back manda desde a fatia 4a, mas manter
+  // opcional evita quebrar qualquer AgendaBlock montado a mao no repo.
+  // 'LUNCH' tem id sintetico (lunch:<prof>:<data>) e NAO e linha de tabela —
+  // nunca mande esse id para PUT/DELETE /blocks.
+  kind?:          'BLOCK' | 'LUNCH'
 }

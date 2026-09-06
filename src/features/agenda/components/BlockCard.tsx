@@ -4,6 +4,8 @@
 
 import { AgendaBlock } from '../types'
 import { Ban } from 'lucide-react'
+// @eligi:lunch-card-import
+import LunchBand from './LunchBand'
 
 interface Props {
   block:       AgendaBlock
@@ -21,6 +23,14 @@ const H_COMPACT = 32
 const H_FULL    = 44
 
 export default function BlockCard({ block, totalHeight, onDelete }: Props) {
+  // @eligi:lunch-card-early
+  // Almoco tem visual e comportamento proprios: sem hachura de alerta e sem
+  // abrir o BlockEditModal, que salvaria com um id que nao existe no banco.
+  // Early return em vez de condicionais espalhadas — cada card evolui sozinho.
+  if (block.kind === 'LUNCH') {
+    return <LunchBand block={block} totalHeight={totalHeight} />
+  }
+
   const isMicro   = totalHeight <= H_MICRO
   const isCompact = totalHeight > H_MICRO   && totalHeight <= H_COMPACT
   const showMotivo = totalHeight >= H_FULL
