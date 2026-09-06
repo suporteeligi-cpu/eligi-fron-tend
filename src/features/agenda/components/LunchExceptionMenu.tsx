@@ -280,8 +280,19 @@ export default function LunchExceptionMenu({ block, x, y, onClose }: Props) {
       <>
         <style>{`@keyframes lxUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
         {spin}
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(6px)', zIndex: 9998 }} />
-        <div style={{
+        {/* @eligi:lunchmenu-stop-mob-overlay
+            stopPropagation antes do onClose: na arvore React este overlay e
+            filho do LunchBand, entao sem ele o clique fecha e REABRE o menu. */}
+        <div
+          onClick={e => { e.stopPropagation(); onClose() }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(6px)', zIndex: 9998 }}
+        />
+        <div
+          // @eligi:lunchmenu-stop-mob-sheet
+          // Sem isto, clicar DENTRO do sheet tambem sobe ate o LunchBand e
+          // reabre o menu por cima de si mesmo.
+          onClick={e => e.stopPropagation()}
+          style={{
           position: 'fixed', left: 0, right: 0, bottom: 0,
           background: glass.surface.modal.background,
           backdropFilter: glass.surface.modal.backdropFilter,
@@ -330,8 +341,15 @@ export default function LunchExceptionMenu({ block, x, y, onClose }: Props) {
     <>
       <style>{`@keyframes lxFade{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}`}</style>
       {spin}
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 9997 }} />
-      <div style={{
+      {/* @eligi:lunchmenu-stop-desk-overlay */}
+      <div
+        onClick={e => { e.stopPropagation(); onClose() }}
+        style={{ position: 'fixed', inset: 0, zIndex: 9997 }}
+      />
+      <div
+        // @eligi:lunchmenu-stop-desk-menu
+        onClick={e => e.stopPropagation()}
+        style={{
         position: 'fixed', left: posX, top: posY, width: menuW,
         background: glass.surface.modal.background,
         backdropFilter: glass.surface.modal.backdropFilter,

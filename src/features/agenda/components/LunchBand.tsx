@@ -54,6 +54,18 @@ export default function LunchBand({ block, totalHeight }: Props) {
         e.stopPropagation()
         setMenu({ x: e.clientX, y: e.clientY })
       }}
+      /* @eligi:lunchband-hover
+         currentTarget.style direto, como o SlotContextMenu faz: sem estado,
+         sem re-render e sem uma <style> duplicada por instancia — a agenda
+         desenha uma faixa por profissional por dia. */
+      onMouseEnter={e => {
+        e.currentTarget.style.background = 'rgba(245,245,244,0.95)'
+        e.currentTarget.style.borderColor = 'rgba(214,211,209,0.95)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = 'rgba(250,249,247,0.82)'
+        e.currentTarget.style.borderColor = 'rgba(231,229,228,0.9)'
+      }}
       style={{
         position: 'relative',
         width: '100%', height: '100%',
@@ -65,8 +77,9 @@ export default function LunchBand({ block, totalHeight }: Props) {
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.75)',
         overflow: 'hidden',
         boxSizing: 'border-box',
-        cursor: 'default',
+        cursor: 'pointer',
         userSelect: 'none',
+        transition: 'background 0.15s ease, border-color 0.15s ease',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: (isMicro || isCompact) ? 'center' : 'flex-start',
