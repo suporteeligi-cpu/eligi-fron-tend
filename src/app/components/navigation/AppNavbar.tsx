@@ -505,11 +505,25 @@ export default function AppNavbar() {
   }, [toast])
 
   /* ── Socket: notification:created em tempo real ── */
-  const onNotifRef = useRef<(n: NotifItem) => void>(() => {})
+  // @eligi:notif-signal-ref — o evento virou SINAL: so traz o id.
+  const onNotifRef = useRef<(n: { id: string }) => void>(() => {})
   useLayoutEffect(() => {
-    onNotifRef.current = (n: NotifItem) => {
-      setUnreadCount(c => c + 1)
-      setToast({ kind: 'item', notif: n })
+    // @eligi:notif-signal-handler — o payload nao e mais fonte de dado.
+    onNotifRef.current = (n: { id: string }) => {
+      // @eligi:notif-signal-fetch — o conteudo vem do GET autorizado, que ja
+      // filtra por recipientId no servidor. Se a notificacao nao for deste
+      // usuario, ela nao volta na lista e nenhum toast e exibido.
+      // O contador tambem passa a ser verdade do servidor, nao incremento otimista.
+      void (async () => {
+        try {
+          const res = await api.get('/notifications', { params: { limit: 1 } })
+          setUnreadCount(res.data?.unread ?? 0)
+          const first: NotifItem | undefined = res.data?.items?.[0]
+          if (first && first.id === n.id) setToast({ kind: 'item', notif: first })
+        } catch {
+          /* silencioso: o sino se corrige no proximo fetch */
+        }
+      })()
       setRefreshKey(k => k + 1)
     }
   })
@@ -529,7 +543,8 @@ export default function AppNavbar() {
     })
     socket.on('connect',   () => socket.emit('join:business', businessId))
     socket.on('reconnect', () => socket.emit('join:business', businessId))
-    socket.on('notification:created', (n: NotifItem) => onNotifRef.current(n))
+    // @eligi:notif-signal-listener — payload reduzido a { id }.
+    socket.on('notification:created', (n: { id: string }) => onNotifRef.current(n))
     const ping = setInterval(() => { if (socket.connected) socket.emit('ping') }, 25_000)
     return () => {
       clearInterval(ping)
