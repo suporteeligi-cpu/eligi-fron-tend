@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+// @eligi:gallery-max-ui — mesmo teto do editor e do back.
+const GALLERY_MAX = 12
 
 // src/features/settings/components/ProfileFields.tsx
 //
@@ -299,14 +301,14 @@ export function TeamAndPhotosFields({ gallery, onPickFile, onRemovePhoto, showTe
             </button>
           </div>
         ))}
-        {gallery.length < 3 && (
+        {gallery.length < GALLERY_MAX && (
           <label style={{ aspectRatio: '1', borderRadius: 11, border: '1.5px dashed #e7e7ec', display: 'grid', placeItems: 'center', cursor: 'pointer', color: '#a1a1aa' }}>
             <UploadCloud size={18} />
             <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) onPickFile(f, 'gallery'); e.target.value = ''; }} />
           </label>
         )}
       </div>
-      <div style={{ fontSize: 11, color: '#a1a1aa', marginTop: 8 }}>Cada foto passa pelo recortador (quadrada).</div>
+      <div style={{ fontSize: 11, color: '#a1a1aa', marginTop: 8 }}>Até 12 fotos. Cada uma passa pelo recortador (quadrada).</div>
     </div>
   );
 }

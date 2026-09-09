@@ -85,7 +85,7 @@ const SLOTS: Record<PreviewSlot, SlotConfig> = {
   },
   photos: {
     title: 'Fotos do espaço',
-    subtitle: 'Até 3 fotos, que o cliente vê antes de agendar.',
+    subtitle: 'Até 12 fotos, que o cliente vê antes de agendar.',
     saveLabel: 'Salvar fotos',
     icon: <Camera size={18} />,
     sections: ['gallery'],

@@ -87,6 +87,13 @@ function extractPalette(img: HTMLImageElement, count = 6): string[] {
 // @eligi:walls-nos-fields — a lista de papeis de parede vive em ProfileFields.
 
 type TabId = 'id' | 'perfil' | 'equipe' | 'cores';
+/** @eligi:gallery-max-ui
+ *  Espelha GALLERY_MAX do back (shared/theme). Se o front deixar subir
+ *  mais que isso, o sanitizeGallery corta no save e a foto some sem
+ *  aviso -- que foi o que ja aconteceu quando a galeria passou a
+ *  aceitar URL do bucket. */
+const GALLERY_MAX = 12
+
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'id', label: 'Identidade' },
   { id: 'perfil', label: 'Perfil' },
@@ -219,7 +226,7 @@ export function ProfileThemeEditor({
     } else if (target === 'cover') {
       setCoverUrl(dataUrl);
     } else if (target === 'gallery') {
-      setGallery(g => [...g, dataUrl].slice(0, 3));
+      setGallery(g => [...g, dataUrl].slice(0, GALLERY_MAX));
     }
 
     if (src) URL.revokeObjectURL(src);
