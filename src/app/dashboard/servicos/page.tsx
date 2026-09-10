@@ -161,6 +161,7 @@ export default function ServicosPage() {
         <ServiceModal
           service={editingService}
           categories={categories}
+          onCategoryCreated={cat => setCategories(prev => [...prev, cat])}
           onClose={() => setModal(null)}
           onSaved={handleSaved}
         />

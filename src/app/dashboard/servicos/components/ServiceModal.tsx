@@ -21,7 +21,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Users, Check, Clock } from 'lucide-react'
+import { X, Users, Check, Clock , Tag, Plus } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, radius } from '@/shared/theme'
@@ -40,6 +40,9 @@ interface ProfLite {
 interface Props {
   service:    Service | null
   categories: ServiceCategory[]
+  /** Avisa a pagina da categoria criada aqui dentro: sem isso ela nao
+   *  apareceria na lista de tras nem no filtro. */
+  onCategoryCreated?: (cat: ServiceCategory) => void
   onClose:    () => void
   onSaved:    (s: Service, isNew: boolean) => void
 }
@@ -65,7 +68,11 @@ function getInitials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase()
 }
 
-export default function ServiceModal({ service, categories, onClose, onSaved }: Props) {
+/** Paleta do criador embutido. O CategoryManager tem a dele; aqui sao
+ *  poucas opcoes de proposito -- a escolha fina fica para la. */
+const CAT_COLORS = ['#dc2626', '#f59e0b', '#8b5cf6', '#0ea5e9', '#16a34a', '#ec4899']
+
+export default function ServiceModal({ service, categories, onClose, onSaved, onCategoryCreated }: Props) {
   const isEdit = !!service
 
   const [name,        setName]        = useState(service?.name        ?? '')
@@ -80,6 +87,14 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
   const [color,       setColor]       = useState<string>(service?.color ?? DEFAULT_SERVICE_COLOR)
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState<string | null>(null)
+
+  /* Criador de categoria embutido. Mandar o lojista para outra tela
+     significaria abandonar o formulario ja preenchido. */
+  const [catOpen,  setCatOpen]  = useState(false)
+  const [catName,  setCatName]  = useState('')
+  const [catColor, setCatColor] = useState(CAT_COLORS[0])
+  const [catBusy,  setCatBusy]  = useState(false)
+  const [catErr,   setCatErr]   = useState<string | null>(null)
 
   /** Duracao fora da lista de chips abre o campo livre, ja preenchido. */
   const [customOpen, setCustomOpen] = useState(
@@ -145,7 +160,10 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
         priceMode,   // @eligi:pricemode-payload
         availableOnline, // @eligi:svconline-payload
         description: description.trim() || undefined,
-        categoryId:  categoryId || null,
+        // @eligi:cat-inline
+        // null quebrava a criacao: o createServiceSchema so aceitava
+        // string ou undefined. undefined funciona nos dois lados.
+        categoryId:  categoryId || undefined,
         category:    selectedCat?.name ?? undefined,
         color,
       }
@@ -164,6 +182,24 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       setError(msg ?? 'Erro ao salvar serviço')
     } finally { setSaving(false) }
+  }
+
+  async function criarCategoria() {
+    const nome = catName.trim()
+    if (nome.length < 1) { setCatErr('Dê um nome à categoria'); return }
+    if (catBusy) return
+    try {
+      setCatBusy(true); setCatErr(null)
+      const res = await api.post('/services/categories', { name: nome, color: catColor })
+      const nova = (res.data?.data ?? res.data) as ServiceCategory
+      onCategoryCreated?.(nova)
+      setCategoryId(nova.id)   // nasce ja escolhida
+      setCatOpen(false)
+      setCatName('')
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setCatErr(msg ?? 'Não foi possível criar a categoria.')
+    } finally { setCatBusy(false) }
   }
 
   if (typeof document === 'undefined') return null
@@ -371,13 +407,99 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
           {/* categoria */}
           <div style={fieldGap}>
             <label style={labelStyle}>Categoria</label>
-            {categories.length === 0 ? (
+            {categories.length === 0 || catOpen ? (
               <div style={{
-                padding: '12px 14px', borderRadius: radius.md,
-                border: `1px dashed ${colors.gray.borderMd}`,
-                fontSize: 13, color: colors.gray.dimText,
+                border: `1.5px solid ${colors.red.border}`,
+                background: 'rgba(185,28,28,0.03)',
+                borderRadius: radius.lg, padding: 16,
               }}>
-                Nenhuma categoria cadastrada. Crie uma em &quot;Categorias&quot;, na página de serviços.
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 14 }}>
+                  <span style={{
+                    width: 44, height: 44, borderRadius: 13, flexShrink: 0,
+                    background: 'rgba(185,28,28,0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Tag size={21} color={colors.red.DEFAULT} strokeWidth={2} />
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{
+                      display: 'block', fontSize: 16.5, fontWeight: 700,
+                      letterSpacing: '-0.02em', color: colors.gray[900],
+                    }}>
+                      {categories.length === 0 ? 'Sua primeira categoria' : 'Nova categoria'}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 13, color: colors.gray.dimText, marginTop: 2 }}>
+                      Agrupa os serviços na agenda e no link
+                    </span>
+                  </span>
+                </div>
+
+                <input
+                  value={catName}
+                  onChange={e => { setCatName(e.target.value); setCatErr(null) }}
+                  placeholder="Ex.: Corte, Barba, Química"
+                  style={{
+                    width: '100%', minHeight: 50, borderRadius: radius.md, padding: '0 14px',
+                    fontSize: 16, fontFamily: 'inherit', background: '#fff', outline: 'none',
+                    border: `1.5px solid ${colors.gray.borderMd}`, boxSizing: 'border-box',
+                    color: colors.gray[900], marginBottom: 12,
+                  }}
+                />
+
+                <div style={{ display: 'flex', gap: 9, alignItems: 'center', marginBottom: 14 }}>
+                  {CAT_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCatColor(c)}
+                      aria-label={`Cor ${c}`}
+                      aria-pressed={catColor === c}
+                      style={{
+                        width: 30, height: 30, borderRadius: '50%', border: 'none',
+                        background: c, cursor: 'pointer', flexShrink: 0,
+                        boxShadow: catColor === c ? `0 0 0 2.5px #fff, 0 0 0 5px ${c}` : 'none',
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {catErr && (
+                  <p style={{ margin: '0 0 12px', fontSize: 13, color: '#b91c1c' }}>{catErr}</p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={criarCategoria}
+                  disabled={catBusy}
+                  style={{
+                    width: '100%', minHeight: 50, borderRadius: radius.md, border: 'none',
+                    background: colors.red.gradient, color: '#fff', fontFamily: 'inherit',
+                    fontSize: 15.5, fontWeight: 700, cursor: catBusy ? 'default' : 'pointer',
+                    opacity: catBusy ? 0.7 : 1,
+                  }}
+                >
+                  {catBusy ? 'Criando...' : 'Criar e usar'}
+                </button>
+
+                <p style={{
+                  margin: '11px 0 0', textAlign: 'center', fontSize: 12.5,
+                  color: colors.gray.dimText,
+                }}>
+                  {categories.length === 0 ? (
+                    'Ou salve sem categoria — dá para organizar depois.'
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setCatOpen(false); setCatErr(null) }}
+                      style={{
+                        border: 'none', background: 'transparent', font: 'inherit',
+                        fontSize: 12.5, color: colors.red.DEFAULT, fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </p>
               </div>
             ) : (
               <div className="svc-chips">
@@ -410,6 +532,18 @@ export default function ServiceModal({ service, categories, onClose, onSaved }: 
                     </button>
                   )
                 })}
+                <button
+                  type="button"
+                  onClick={() => { setCatOpen(true); setCatErr(null) }}
+                  style={{
+                    ...chipStyle(false),
+                    borderStyle: 'dashed',
+                    borderColor: colors.red.border,
+                    color: colors.red.DEFAULT,
+                  }}
+                >
+                  <Plus size={14} strokeWidth={2.4} /> Nova
+                </button>
               </div>
             )}
           </div>
