@@ -68,6 +68,9 @@ export interface OverviewData {
 
   /** quebra de receita por tipo de venda */
   receitaPorTipo: ReceitaTipo[]
+  // @eligi:painel-clube-tipo-front
+  /** KPI separado do EligiClub (nao soma na receita). null = negocio sem clube. */
+  clube: ClubMonthKpi | null
 }
 
 
@@ -112,12 +115,59 @@ export interface ClientesData {
 }
 
 
+// @eligi:fluxo-raias-tipos
+export interface FluxoFatia { label: string; valor: number; pct: number; cor: string }
+
+/** Uma raia do fluxo de caixa. entradasDelta.pct = null quando o mes anterior nao tem base. */
+export interface FluxoCaixaRaia {
+  entradas: number
+  entradasDelta: { pct: number | null }
+  saidas: number
+  saldo: number
+  margem: number
+}
+
+export interface FluxoCaixaRaiaClube extends FluxoCaixaRaia {
+  pagamentos: number
+  origem: { automatico: number; automaticoQtd: number; balcao: number; balcaoQtd: number }
+  saidasDetalhe: { taxas: number; taxasPendentes: number; rateio: number; estornos: number }
+  /** Liquido pago pelos membros no mes e ainda nao disponivel no Asaas. */
+  aLiberar: number
+  /** Pote do mes anterior ainda nao fechado: vira rateio quando fechar. */
+  poteAberto: { periodo: string; valor: number } | null
+}
+
+/** KPI do EligiClub no Painel (GET /reports/overview). */
+export interface ClubMonthKpi {
+  entradas: number
+  entradasDelta: { pct: number | null }
+  pagamentos: number
+  membrosAtivos: number
+}
+
 export interface FluxoCaixaData {
   periodo: string
   kpis: { entradas: number; entradasDelta: { pct: number }; saidas: number; saldo: number; margem: number }
   serie: { mes: string; entradas: number | null; saidas: number | null }[]
   porPagamento: { label: string; valor: number; pct: number; cor: string }[]
   porCategoria: { label: string; valor: number; pct: number; cor: string }[]
+  // @eligi:fluxo-raias-campos
+  // kpis/serie/porCategoria acima sao legado do back; o painel le raias e serieRaias.
+  raias: {
+    /** Mes selecionado ainda em andamento. */
+    parcial: boolean
+    operacional: FluxoCaixaRaia & { porCategoria: FluxoFatia[] }
+    /** null quando o negocio nunca teve assinatura do clube. */
+    clube: FluxoCaixaRaiaClube | null
+    consolidado: { entradas: number; saidas: number; saldo: number; margem: number }
+  }
+  serieRaias: {
+    mes: string
+    operacionalEntradas: number | null
+    operacionalSaidas: number | null
+    clubeEntradas: number | null
+    clubeSaidas: number | null
+  }[]
 }
 
 

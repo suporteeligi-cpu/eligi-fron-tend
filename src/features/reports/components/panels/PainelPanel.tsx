@@ -4,7 +4,10 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useOverview } from '../../hooks/useOverview'
-import { GLASS_CARD, ONLINE, GREEN } from '../../constants'
+import { CLUB_INK, CLUB_PAPER, CLUB_PAPER_MUTED, GLASS_CARD, ONLINE, GREEN } from '../../constants' // @eligi:painel-clube-imports
+import type { ClubMonthKpi } from '../../types'
+import DeltaBadge from '../DeltaBadge'
+import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -36,6 +39,29 @@ function DeltaPill({ pct }: { pct: number }) {
   )
 }
 
+// @eligi:painel-clube-tile
+// 5o indicador do Painel: o que entrou do EligiClub no mes, separado da receita.
+// rpt-span-full: ocupa a sobra da linha quando a grade quebra (ver RPT_CSS).
+function ClubKpiTile({ clube }: { clube: ClubMonthKpi }) {
+  return (
+    <div className="rpt-span-full" style={{ ...GLASS_CARD, background: CLUB_INK, border: 'none', padding: '16px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: CLUB_PAPER_MUTED, marginBottom: 6 }}>
+        <EligiClubIcon size={13} color={CLUB_PAPER} />
+        EligiClub
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 26, fontWeight: 600, color: CLUB_PAPER, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
+          {brl(clube.entradas)}
+        </span>
+        <DeltaBadge pct={clube.entradasDelta.pct} hasValue={clube.entradas > 0} tone="dark" />
+      </div>
+      <div style={{ fontSize: 12, color: CLUB_PAPER_MUTED, marginTop: 4 }}>
+        {clube.membrosAtivos === 1 ? '1 membro ativo' : `${clube.membrosAtivos} membros ativos`}
+      </div>
+    </div>
+  )
+}
+
 export default function PainelPanel({ period }: { period: string }) {
   const { data, loading } = useOverview(period)
 
@@ -43,12 +69,12 @@ export default function PainelPanel({ period }: { period: string }) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'rgba(0,0,0,0.4)' }}>Carregando…</div>
   }
 
-  const { kpis, serieReceita, receitaPorTipo } = data
+  const { kpis, serieReceita, receitaPorTipo, clube } = data // @eligi:painel-clube-destructure
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* faixa de KPIs */}
-      <div className="rpt-kpis">
+      <div className={clube ? 'rpt-kpis rpt-kpis-5' : 'rpt-kpis'}>{/* @eligi:painel-clube-grade */}
         <div style={{ ...GLASS_CARD, padding: '16px 18px' }}>
           <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.5)', marginBottom: 6 }}>Agendamentos</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -81,6 +107,7 @@ export default function PainelPanel({ period }: { period: string }) {
           </div>
           <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.4)', marginTop: 4 }}>do faturamento</div>
         </div>
+        {clube && <ClubKpiTile clube={clube} />}{/* @eligi:painel-clube-slot */}
       </div>
 
       {/* gráfico de receita */}

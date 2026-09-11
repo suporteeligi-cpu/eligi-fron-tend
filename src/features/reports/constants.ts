@@ -18,6 +18,16 @@ export const GREEN = '#10B981'
 export const ONLINE = '#7C3AED'
 export const ONLINE_HI = '#6D28D9'
 
+// @eligi:club-tokens
+/** Chapa escura do EligiClub nos relatorios (mesma do ClubReportPanel e da agenda). */
+export const CLUB_INK = '#0E0E12'
+export const CLUB_PAPER = '#F4F2EC'
+export const CLUB_PAPER_MUTED = 'rgba(244,242,236,0.6)'
+export const CLUB_LINE = 'rgba(244,242,236,0.12)'
+/** Verde e vermelho legiveis sobre a chapa escura. */
+export const CLUB_OK = '#7fe0bd'
+export const CLUB_BAD = '#fca5a5'
+
 /** Estilo glass reaproveitado nos cards (Direção B). */
 // fonte única em @/shared/theme (promovido quando o módulo fiscal
 // passou a usar o mesmo card). Mantido o nome por compatibilidade.

@@ -45,6 +45,24 @@ const RPT_CSS = `
   .rpt-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .rpt-kpis>*{min-width:0}
 }
+/* @eligi:rpt-club-css
+   rpt-kpis-5: Painel com o card do EligiClub. 5 colunas; 3 no notebook e 2 no
+   celular, com .rpt-span-full ocupando a sobra da linha.
+   rpt-lanes / rpt-total: raias e faixa consolidada do Fluxo de caixa. */
+.rpt-kpis-5{grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.2fr)}
+.rpt-lanes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch}
+.rpt-total{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:12px;align-items:center}
+@media (max-width:1100px){
+  .rpt-kpis-5{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .rpt-kpis-5>.rpt-span-full{grid-column:span 2}
+}
+@media (max-width:${MOBILE_BP}px){
+  .rpt-kpis-5{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rpt-kpis-5>.rpt-span-full{grid-column:1/-1}
+  .rpt-lanes{grid-template-columns:minmax(0,1fr)}
+  .rpt-total{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rpt-lanes>*,.rpt-total>*{min-width:0}
+}
 `
 
 export default function ReportsModule() {
