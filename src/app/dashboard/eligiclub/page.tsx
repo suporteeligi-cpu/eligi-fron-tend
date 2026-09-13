@@ -27,6 +27,8 @@ import AsaasSeal from '@/shared/components/AsaasSeal' // @eligi:club-gate-seal
 import ClubPlanEditorModal from './components/ClubPlanEditorModal'
 import ClubSubscriptionModal from './components/ClubSubscriptionModal'
 import ClubMemberDetailModal from './components/ClubMemberDetailModal'
+import ClubSettleConfirmModal from './components/ClubSettleConfirmModal' // @eligi:club-front-modal-import
+import ClubAutoSettleCard from './components/ClubAutoSettleCard'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Tipos (espelham os includes do back-end)
@@ -76,6 +78,11 @@ interface SettlementPreview {
   paymentsCount: number
   alreadySettled: boolean
   items: SettlementItem[]
+  // @eligi:club-front-credit-type - opcionais de proposito: o back so passou a
+  // mandar na Fatia 2a. Resposta antiga (cache/back nao atualizado) nao quebra
+  // o strict nem some com a tela; o chip apenas nao aparece.
+  pendingCredit?: number
+  pendingCount?: number
 }
 interface ClubSettlementRow {
   id: string
@@ -1647,6 +1654,7 @@ function FechamentoTab({ onToast, isMobile }: { onToast: (m: string) => void; is
   const [preview, setPreview] = useState<SettlementPreview | null>(null)
   const [loading, setLoading] = useState(true)
   const [closing, setClosing] = useState(false)
+  const [confirming, setConfirming] = useState(false) // @eligi:club-front-confirm-state
   const [history, setHistory] = useState<ClubSettlementRow[]>([])
 
   const loadPreview = useCallback(async (key: string, signal?: AbortSignal) => {
@@ -1685,11 +1693,15 @@ function FechamentoTab({ onToast, isMobile }: { onToast: (m: string) => void; is
     return () => ctrl.abort()
   }, [loadHistory])
 
-  const handleClose = useCallback(async () => {
+  // @eligi:club-front-close-force - force so vai quando o dono confirmou um mes
+  // em andamento. Sem isso o back recusa com 409 PERIOD_NOT_FINISHED, que e o
+  // comportamento correto para qualquer outro caminho.
+  const handleClose = useCallback(async (force = false) => {
     if (closing || !preview) return
+    setConfirming(false)
     setClosing(true)
     try {
-      await api.post('/club-settlements', { periodKey })
+      await api.post('/club-settlements', { periodKey, force })
       onToast('Período fechado — saída gerada no Caixa por profissional ✓')
       await loadPreview(periodKey)
       await loadHistory()
@@ -1705,6 +1717,9 @@ function FechamentoTab({ onToast, isMobile }: { onToast: (m: string) => void; is
 
   const canClose = !!preview && !preview.alreadySettled && preview.totalFichas > 0 && !closing
   const isFuture = periodKey >= spMonthKey()
+  // @eligi:club-front-is-current - o mes corrente NAO bloqueia o botao: quem
+  // decide e o dono, no modal, sabendo que o mes so fecha uma vez.
+  const isCurrent = periodKey === spMonthKey()
 
   return (
     <section style={{ animation: 'club-panel .4s cubic-bezier(.22,1,.36,1) both' }}>
@@ -1717,10 +1732,22 @@ function FechamentoTab({ onToast, isMobile }: { onToast: (m: string) => void; is
 
       {loading ? <LoadingState /> : (
         <>
+          {/* @eligi:club-front-render */}
           <PotePanel preview={preview} isMobile={isMobile} />
           <RateioPanel preview={preview} />
-          <ClosePanel preview={preview} canClose={canClose} closing={closing} onClose={handleClose} />
+          <ClosePanel preview={preview} canClose={canClose} closing={closing} isCurrent={isCurrent} onClose={() => setConfirming(true)} />
+          <ClubAutoSettleCard onToast={onToast} />
           <HistoryList rows={history} currentKey={periodKey} onPick={setPeriodKey} />
+          {confirming && (
+            <ClubSettleConfirmModal
+              preview={preview}
+              periodKey={periodKey}
+              isCurrent={isCurrent}
+              closing={closing}
+              onCancel={() => setConfirming(false)}
+              onConfirm={() => handleClose(isCurrent)}
+            />
+          )}
         </>
       )}
     </section>
@@ -1781,6 +1808,12 @@ function PotePanel({ preview, isMobile }: { preview: SettlementPreview | null; i
             <span className="ec-pote-meta"><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.totalFichas ?? 0}</b> fichas acumuladas</span>
             <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.4)' }} />
             <span className="ec-pote-meta"><b style={{ color: '#FF6B6B', fontWeight: 700 }}>{preview?.paymentsCount ?? 0}</b> mensalidade{(preview?.paymentsCount ?? 0) !== 1 ? 's' : ''}</span>
+            {/* @eligi:club-front-pending-chip */}
+            {(preview?.pendingCredit ?? 0) > 0 && !preview?.alreadySettled && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, letterSpacing: '.03em', color: '#FBBF24', background: 'rgba(251,191,36,0.14)', borderRadius: 6, padding: '2px 8px' }}>
+                {fmtBRL(preview?.pendingCredit ?? 0)} A CAMINHO
+              </span>
+            )}
             {preview?.alreadySettled && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, letterSpacing: '.04em', color: '#34D399', background: 'rgba(52,211,153,0.12)', borderRadius: 6, padding: '2px 8px' }}>
                 <CheckCircle2 size={11} strokeWidth={2.6} />FECHADO
@@ -1868,14 +1901,20 @@ function RateioPanel({ preview }: { preview: SettlementPreview | null }) {
   )
 }
 
-function ClosePanel({ preview, canClose, closing, onClose }: { preview: SettlementPreview | null; canClose: boolean; closing: boolean; onClose: () => void }) {
+function ClosePanel({ preview, canClose, closing, isCurrent, onClose }: { preview: SettlementPreview | null; canClose: boolean; closing: boolean; isCurrent: boolean; onClose: () => void }) {
+  // @eligi:club-front-close-panel
+  // A copy anterior dizia "Confira antes - nada e gravado ate confirmar" e NAO
+  // existia confirmacao: o botao postava direto. Agora a frase e verdadeira -
+  // ha modal antes e reabertura depois, enquanto ninguem tiver sido pago.
   const settled = preview?.alreadySettled
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginTop: 18, padding: '16px 18px', borderRadius: 16, background: settled ? 'rgba(22,163,74,0.06)' : 'linear-gradient(135deg,rgba(225,29,42,0.07),rgba(225,29,42,0.03))', border: `1px solid ${settled ? 'rgba(22,163,74,0.18)' : 'rgba(225,29,42,0.12)'}`, flexWrap: 'wrap' }}>
       <div style={{ fontSize: 11.5, color: typography.color.muted, lineHeight: 1.5, maxWidth: 340, minWidth: 200 }}>
         {settled
           ? <>Este período já foi <b style={{ color: colors.gray[900] }}>fechado</b>. As fichas foram liquidadas e a saída por profissional já está no Caixa.</>
-          : <>Ao fechar, as fichas viram <b style={{ color: colors.gray[900] }}>liquidadas</b> e o sistema cria <b style={{ color: colors.gray[900] }}>uma saída no Caixa por profissional</b>. Confira antes — nada é gravado até confirmar.</>}
+          : isCurrent
+            ? <>Este mês ainda está <b style={{ color: colors.gray[900] }}>em andamento</b>. Você pode fechar agora, mas os atendimentos restantes não entram em pote nenhum — um mês só fecha uma vez.</>
+            : <>Ao fechar, as fichas viram <b style={{ color: colors.gray[900] }}>liquidadas</b> e o sistema cria <b style={{ color: colors.gray[900] }}>uma saída no Caixa por profissional</b>. Você confirma antes de gravar.</>}
       </div>
       <button disabled={!canClose} onClick={onClose}
         style={{ position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', border: 'none', borderRadius: 12, cursor: canClose ? 'pointer' : 'not-allowed', background: canClose ? colors.red.gradient : 'rgba(17,17,20,0.12)', color: canClose ? '#fff' : colors.gray.dimText, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 760, letterSpacing: '.01em', boxShadow: canClose ? `0 6px 18px ${colors.red.glow}` : 'none', whiteSpace: 'nowrap', transition: `all ${transitions.fast}`, WebkitTapHighlightColor: 'transparent' }}>
