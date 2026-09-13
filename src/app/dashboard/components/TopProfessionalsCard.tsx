@@ -8,12 +8,15 @@
 // ainda no token antigo — a borda vermelha a esquerda aparecia em alguns cards
 // e nao em outros, sem criterio.
 //
-// Nao usa TopProfessional.avatarUrl ainda: o back entrega, mas exibir imagem
-// remota exige decidir entre <img> (warning de lint) e next/image (precisa de
-// remotePatterns no next.config). Fica para uma fatia com essa decisao tomada.
+// v3: exibe TopProfessional.avatarUrl atraves do <ProfAvatar> da agenda. A
+// decisao <img> x next/image ja estava tomada la (<img> com disable pontual do
+// lint); manter duas respostas para a mesma pergunta era o problema real.
+// O anel de podio e o badge de posicao ficam no span externo - o ProfAvatar
+// desenha so' o miolo (foto, cor solida ou iniciais).
 
 import { Trophy } from 'lucide-react'
 import { colors, typography, radius, shadows, glassCard, inkLight } from '@/shared/theme'
+import ProfAvatar from '@/features/agenda/components/shared/ProfAvatar'
 import { TopProfessional } from '@/features/dashboard/types'
 import { fmtBRL } from '@/features/dashboard/utils/format'
 
@@ -29,12 +32,6 @@ const BAR    = [
 
 interface Props {
   professionals: TopProfessional[]
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).slice(0, 2)
-  const letters = parts.map(w => w.charAt(0)).join('')
-  return letters.toUpperCase() || '?'
 }
 
 export default function TopProfessionalsCard({ professionals }: Props) {
@@ -106,14 +103,9 @@ export default function TopProfessionalsCard({ professionals }: Props) {
                   borderRadius: '50%',
                   display:      'grid',
                   placeItems:   'center',
-                  background:   colors.red.gradient,
-                  color:        '#fff',
-                  fontFamily:   DISPLAY_FONT,
-                  fontSize:     12,
-                  fontWeight:   typography.weight.bold,
                   boxShadow:    idx < PODIUM.length ? `0 0 0 2px ${podium}` : 'none',
                 }}>
-                  {initialsOf(p.name)}
+                  <ProfAvatar name={p.name} avatarUrl={p.avatarUrl ?? undefined} size={36} />
 
                   <span style={{
                     position:      'absolute',
