@@ -90,7 +90,6 @@ export default function FinanceiroPage() {
             description="Anulações e reembolsos emitidos"
             Icon={ReceiptText}
             gradient="linear-gradient(135deg, #7c3aed, #6d28d9)"
-            phaseLabel="Fase 7"
           />
         </div>
       </div>

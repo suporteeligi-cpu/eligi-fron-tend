@@ -11,12 +11,11 @@ interface Props {
   href?:       string            // se passou, é ativo e leva pra essa rota
   Icon:        React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
   gradient:    string             // gradient do ícone
-  phaseLabel?: string             // "Fase 6.6", "Fase 6.7" etc (só aparece se não tem href)
   children?:   React.ReactNode    // conteúdo opcional do card (resumo)
 }
 
 export default function ModuleCard({
-  title, description, href, Icon, gradient, phaseLabel, children,
+  title, description, href, Icon, gradient, children,
 }: Props) {
   const router = useRouter()
   const isLocked = !href
@@ -129,7 +128,7 @@ export default function ModuleCard({
             letterSpacing: '.07em',
             textAlign: 'center',
           }}>
-            Em breve · {phaseLabel ?? 'próxima fase'}
+            Em breve
           </div>
         )}
       </div>
