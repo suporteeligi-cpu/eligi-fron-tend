@@ -41,6 +41,26 @@ import Avatar       from './Avatar'
 import ConfirmModal from './ConfirmModal'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
+/**
+ * Desembrulha a resposta da API. A rota /invites devolve o array cru, enquanto
+ * a maior parte do app devolve { data }. Aceitar os dois evita que esta tela
+ * quebre no dia em que a rota for padronizada.
+ *
+ * `unknown` na entrada de proposito: nao depende de como o apiClient esta
+ * tipado e dispensa `as any`, que e' erro de lint neste repo.
+ */
+function unwrapApi<T>(payload: unknown): T | undefined {
+  if (
+    payload !== null &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    'data' in payload
+  ) {
+    return (payload as { data: T }).data
+  }
+  return (payload ?? undefined) as T | undefined
+}
+
 type InviteStatus = 'PENDING' | 'ACCEPTED' | 'CANCELED' | 'EXPIRED'
 type InviteRole   = 'MANAGER' | 'RECEPTIONIST' | 'STAFF' | 'BASIC_STAFF'
 
@@ -474,7 +494,7 @@ export default function AcessosTab({ professionals, loading, onRevoked }: Props)
     try {
       setLoadingInv(true)
       const res = await api.get('/invites')
-      setInvites(res.data ?? [])
+      setInvites(unwrapApi<Invite[]>(res.data) ?? [])
     } catch {
       setInvites([])
     } finally {
@@ -546,7 +566,12 @@ export default function AcessosTab({ professionals, loading, onRevoked }: Props)
         role:           invite.role,
         professionalId: invite.professional?.id,
       })
-      setInvites(prev => [res.data, ...prev.filter(i => i.id !== invite.id)])
+      const novo = unwrapApi<Invite>(res.data)
+      if (!novo) {
+        setActionError('Não foi possível reenviar o convite.')
+        return
+      }
+      setInvites(prev => [novo, ...prev.filter(i => i.id !== invite.id)])
     } catch {
       setActionError('Não foi possível reenviar o convite.')
     }
