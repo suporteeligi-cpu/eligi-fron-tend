@@ -25,8 +25,22 @@ Tudo o que era patch foi consolidado em arquivos completos:
 ```bash
 cd ~/Documentos/eligi/front-end
 unzip -o ~/Downloads/caixa-packages-final.zip -d ./
-npm run lint && npm run build && npm run deploy
+bash ~/Downloads/apply_<slug>.sh
 ```
+
+> **Fluxo atual (set/2026)** <!-- @eligi:instrucoes-fluxo-atual -->
+>
+> - Toda alteracao de codigo passa pelo runner `apply_<slug>.sh`, baixado
+>   para `~/Downloads` (fora do repositorio). Ele e o portao de validacao:
+>   aplica o patch e roda testes (back-end), lint e build; so depois faz
+>   `git add` dos arquivos nomeados, commit e push.
+> - Deploy nao faz parte do portao local: o Railway publica a partir do push,
+>   que so acontece se o portao passou. Os antigos scripts de deploy do
+>   `package.json` foram removidos.
+> - Scripts de patch (`patch*.py`, `apply_*.sh`) sao transitorios: vivem fora
+>   do repositorio durante a intervencao, nao entram na raiz versionada e nao
+>   servem como procedimento operacional. O codigo e esta documentacao devem
+>   ser reproduziveis sem eles.
 
 **É isso.** Não tem edição manual. Não tem patch. Não tem nada pra ajustar à mão.
 

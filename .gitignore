@@ -44,3 +44,8 @@ next-env.d.ts
 # backups soltos (além da pasta .backup/)
 *_backup_*.ts
 *.backup.ts
+
+# @eligi:gitignore-patch-artifacts
+# Scripts transitorios de patch nao pertencem a raiz versionada (set/2026).
+/patch*.py
+/apply_*.sh
