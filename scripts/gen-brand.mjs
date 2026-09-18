@@ -1,4 +1,4 @@
-/* eslint-disable */
+// @eligi:brand-gen-lintclean
 // Gerador dos tokens de marca do Eligi.
 //   npm run brand         -> regenera src/shared/brand.generated.ts
 //   npm run brand:check   -> falha se o arquivo gerado estiver fora de sincronia
