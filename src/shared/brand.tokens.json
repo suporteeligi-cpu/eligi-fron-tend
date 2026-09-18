@@ -1,0 +1,130 @@
+{
+  "_fonte": "Eligi Pack Oficial de Identidade Visual v1.0 (28 paginas)",
+  "_regra": "Arquivo canonico. Toda cor, familia tipografica e medida de marca sai daqui. Editar aqui e rodar `npm run brand`.",
+  "_decisoes": {
+    "1": "Interface do produto (dashboard) permanece CLARA. O preto profundo do pack vale para marca, landing, auth, Brain, documentos e pecas. Emenda pendente na pagina 22 do pack.",
+    "2": "Vermelho com funcao dupla: #FE0000 na marca, no simbolo e sobre fundo escuro; #dc2626 em interface clara e texto pequeno (contraste 4,83 contra 4,03).",
+    "3": "Documentos institucionais e do produto entram depois dos tokens, para nao serem refeitos duas vezes."
+  },
+  "version": "1.0.0",
+  "core": {
+    "_origem": "pack-v1.0",
+    "black": "#07070B",
+    "graphite": "#111114",
+    "white": "#FFFFFF",
+    "red": "#FE0000",
+    "_red": "Vermelho oficial da marca e do simbolo. Nunca em texto pequeno sobre branco (4,03 reprova AA).",
+    "redAction": "#dc2626",
+    "_redAction": "Vermelho de acao em superficie clara. Botao, link, estado ativo no dashboard.",
+    "redDeep": "#b91c1c",
+    "_redDeep": "Fim do gradiente da marca. Colide com functional.error do pack - ver _pendencias."
+  },
+  "typography": {
+    "_origem": "pack-v1.0",
+    "display": "Space Grotesk",
+    "body": "Inter",
+    "mono": "JetBrains Mono",
+    "fallbackSans": "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+    "fallbackMono": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    "_substituicao": "Onde a fonte nao puder ser incorporada (e-mail, planilha, sistema de terceiro): Arial ou Helvetica, mantendo a hierarquia. Nunca serifada nem decorativa.",
+    "_proibido": "Italico em titulo, sublinhado como destaque, caixa alta em paragrafo, mais de duas familias por peca sem funcao distinta."
+  },
+  "surfaceDark": {
+    "_origem": "pack-v1.0 (pagina 22)",
+    "_uso": "Landing, auth, Brain, pecas sociais, capas, apresentacao, sidebar do dashboard.",
+    "base": "#07070B",
+    "card": "#101017",
+    "border": "#1E1E25",
+    "textPrimary": "#E8E8EE",
+    "textMuted": "#8C8C96"
+  },
+  "surfaceLight": {
+    "_origem": "extensao-produto",
+    "_motivo": "O pack nao define tokens de superficie clara e o dashboard e claro (decisao 1). Estes valores ja estao em producao via theme.ts.",
+    "page": "#f5f5f7",
+    "card": "rgba(255,255,255,0.85)",
+    "border": "rgba(17,17,20,0.07)",
+    "ink": "#111114",
+    "ink2": "#4b4b52",
+    "ink3": "#8a8a93"
+  },
+  "documentNeutrals": {
+    "_origem": "pack-v1.0 (pagina 12)",
+    "_uso": "Documento institucional, proposta, contrato, norma.",
+    "textStrong": "#26262C",
+    "textSecondary": "#5E5E68",
+    "label": "#8C8C96",
+    "rule": "#D8D8DE",
+    "divider": "#EDEDF2",
+    "surface": "#F6F6F8"
+  },
+  "functional": {
+    "_origem": "pack-v1.0 (pagina 12)",
+    "_regra": "Cor funcional comunica estado. Nunca aparece em peca de marca, capa, proposta ou peca social.",
+    "success": "#16A34A",
+    "warning": "#F59E0B",
+    "info": "#2563EB",
+    "error": "#B91C1C",
+    "whatsapp": "#25D366",
+    "_whatsapp": "Restrito a elementos de interface do WhatsApp."
+  },
+  "functionalLegacy": {
+    "_origem": "extensao-produto",
+    "_motivo": "Valores em producao que divergem do pack. Convergencia e fatia propria, nao se troca por decreto no meio de um patch de tokens.",
+    "successProduct": "#10B981",
+    "successInk": "#0f6e56",
+    "paid": "#00b80c",
+    "amberInk": "#b45309"
+  },
+  "channel": {
+    "_origem": "extensao-produto",
+    "_motivo": "O canal online tem significado ativo em relatorios e selos e nao existe no pack v1.0. Lacuna reportada para o v1.1.",
+    "online": "#7C3AED"
+  },
+  "radius": {
+    "_origem": "pack-v1.0 + extensao-produto",
+    "brandMin": 2,
+    "brandMax": 4,
+    "_brand": "Pack pagina 22: raio de 2 a 4 px, profundidade vem de contraste e borda, nao de sombra.",
+    "squareIcon": 0.22,
+    "_squareIcon": "Aplicacao quadrada do simbolo: raio = 22% do lado, simbolo ocupa ~50% da largura.",
+    "productCurrent": 16,
+    "_productCurrent": "Raio praticado hoje no glassCard. Conflita com o pack. Convergencia planejada como fatia dedicada."
+  },
+  "grid": {
+    "_origem": "pack-v1.0",
+    "base": 8,
+    "touchMin": 44,
+    "inputMinFontSize": 16,
+    "_inputMinFontSize": "Abaixo de 16 px o iOS da zoom ao focar e nao desfaz no blur.",
+    "interfaceMargin": [24, 32],
+    "documentMargin": [76, 84],
+    "socialMargin": 80
+  },
+  "motion": {
+    "_origem": "extensao-produto",
+    "_motivo": "O pack nao define movimento. Valores ja praticados no produto.",
+    "spring": "cubic-bezier(0.34,1.56,0.64,1)",
+    "reveal": "cubic-bezier(0.22,1,0.36,1)",
+    "standard": "cubic-bezier(0.4,0,0.2,1)",
+    "modalDuration": "0.22s"
+  },
+  "contrast": {
+    "_origem": "pack-v1.0 (pagina 13)",
+    "_regra": "AA e o minimo em qualquer informacao essencial.",
+    "graphiteOnWhite": 18.85,
+    "whiteOnBlack": 20.11,
+    "lightTextOnDark": 16.48,
+    "redOnBlack": 4.99,
+    "redOnWhite": 4.03,
+    "_redOnWhite": "Reprova para texto pequeno. Sobre branco o vermelho da marca so aparece em titulo, numero de secao e rotulo em caixa alta."
+  },
+  "_pendencias": [
+    "Pack pagina 22 afirma que a interface e escura. Decisao 1 restringe isso a marca e material institucional - o pack precisa de emenda no v1.1.",
+    "functional.error (#B91C1C) e identico a brand.redDeep. Erro e marca com o mesmo hex e armadilha: separar no v1.1.",
+    "Pack nao define token de foco de teclado (focus ring). Manual que exige AA e ignora navegacao por teclado esta incompleto.",
+    "Verde funcional diverge entre pack (#16A34A) e produto (#10B981 / #0f6e56 / #00b80c).",
+    "Raio 2-4 px do pack conflita com o glassCard em producao.",
+    "Sem monorepo, este arquivo e copiado entre os repos. O check torna a divergencia barulhenta, nao a elimina."
+  ]
+}
