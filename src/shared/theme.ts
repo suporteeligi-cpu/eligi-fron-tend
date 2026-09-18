@@ -2,6 +2,10 @@
 // Identidade visual oficial: Branco · Vermelho · Cinza
 // Fonte da verdade — nunca hardcode valores fora daqui
 
+// @eligi:theme-consome-brand
+// Cor de marca vem de brand.tokens.json (Identidade Visual v1.0), nunca daqui.
+import { brand } from './brand.generated'
+
 export const colors = {
   background: {
     page:         '#f5f5f7',
@@ -11,15 +15,17 @@ export const colors = {
     overlay:      'rgba(0,0,0,0.18)',
   },
   red: {
-    DEFAULT:      '#dc2626',
-    dark:         '#b91c1c',
-    light:        '#ef4444',
+    // @eligi:theme-red-tokens - valores de brand.tokens.json; nao editar aqui
+    DEFAULT:      brand.core.redAction,
+    dark:         brand.core.redDeep,
+    light:        brand.core.redLight,
     subtle:       'rgba(220,38,38,0.06)',
     border:       'rgba(220,38,38,0.18)',
     borderHover:  'rgba(220,38,38,0.30)',
     focusRing:    'rgba(220,38,38,0.08)',
     glow:         'rgba(220,38,38,0.25)',
-    gradient:     'linear-gradient(135deg, #dc2626, #b91c1c)',
+    // @eligi:theme-red-gradient
+    gradient:     `linear-gradient(135deg, ${brand.core.redAction}, ${brand.core.redDeep})`,
   },
   gray: {
     900:           '#111827',

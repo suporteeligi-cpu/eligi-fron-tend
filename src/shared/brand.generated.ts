@@ -10,7 +10,8 @@ export const brand = {
     "white": "#FFFFFF",
     "red": "#FE0000",
     "redAction": "#dc2626",
-    "redDeep": "#b91c1c"
+    "redDeep": "#b91c1c",
+    "redLight": "#ef4444"
   },
   "typography": {
     "display": "Space Grotesk",
@@ -55,6 +56,12 @@ export const brand = {
     "paid": "#00b80c",
     "amberInk": "#b45309"
   },
+  "successScale": {
+    "base": "#16A34A",
+    "ink": "#0f6e56",
+    "strong": "#15803d",
+    "bg": "#ecfdf5"
+  },
   "channel": {
     "online": "#7C3AED"
   },
@@ -83,6 +90,11 @@ export const brand = {
     "reveal": "cubic-bezier(0.22,1,0.36,1)",
     "standard": "cubic-bezier(0.4,0,0.2,1)",
     "modalDuration": "0.22s"
+  },
+  "focus": {
+    "outline": "2px solid #dc2626",
+    "ring": "0 0 0 3px rgba(220,38,38,0.35)",
+    "offset": 2
   },
   "contrast": {
     "graphiteOnWhite": 18.85,

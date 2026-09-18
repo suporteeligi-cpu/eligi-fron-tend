@@ -17,7 +17,9 @@
     "redAction": "#dc2626",
     "_redAction": "Vermelho de acao em superficie clara. Botao, link, estado ativo no dashboard.",
     "redDeep": "#b91c1c",
-    "_redDeep": "Fim do gradiente da marca. Colide com functional.error do pack - ver _pendencias."
+    "_redDeep": "Fim do gradiente da marca. Colide com functional.error do pack - ver _pendencias.",
+    "redLight": "#ef4444",
+    "_redLight": "@eligi:brand-red-light - extensao-produto: vermelho claro em 24 pontos (hover, realce). Nao vem do pack."
   },
   "typography": {
     "_origem": "pack-v1.0",
@@ -76,6 +78,18 @@
     "paid": "#00b80c",
     "amberInk": "#b45309"
   },
+  "successScale": {
+    "_origem": "proposta-v1.1",
+    "_motivo": "@eligi:brand-success-scale - uma cor so nao resolve: #16A34A sobre branco da ~3,4 e reprova AA em texto pequeno. Escala por papel, decidida em set/2026. Consolidacao dos 185 pontos e fatia propria - NAO consumir ainda.",
+    "base": "#16A34A",
+    "_base": "preenchimento, icone, ponto, borda",
+    "ink": "#0f6e56",
+    "_ink": "texto sobre fundo claro (atende AA)",
+    "strong": "#15803d",
+    "_strong": "hover e pressed do preenchimento (aproveita os 66 usos existentes)",
+    "bg": "#ecfdf5",
+    "_bg": "fundo de chip"
+  },
   "channel": {
     "_origem": "extensao-produto",
     "_motivo": "O canal online tem significado ativo em relatorios e selos e nao existe no pack v1.0. Lacuna reportada para o v1.1.",
@@ -108,6 +122,13 @@
     "reveal": "cubic-bezier(0.22,1,0.36,1)",
     "standard": "cubic-bezier(0.4,0,0.2,1)",
     "modalDuration": "0.22s"
+  },
+  "focus": {
+    "_origem": "proposta-v1.1",
+    "_motivo": "@eligi:brand-focus - o pack v1.0 nao define foco de teclado e o theme.ts trazia focusRing a 8% de opacidade, invisivel na pratica: e por isso que 41 pontos escreveram outline none sem substituto. Aplicacao nos 41 pontos e a fatia 1c - NAO consumir ainda.",
+    "outline": "2px solid #dc2626",
+    "ring": "0 0 0 3px rgba(220,38,38,0.35)",
+    "offset": 2
   },
   "contrast": {
     "_origem": "pack-v1.0 (pagina 13)",
