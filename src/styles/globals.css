@@ -303,3 +303,49 @@ body:not(.eligi-dashboard) {
 @media (prefers-reduced-motion: reduce) {
   .reveal-on { opacity: 1; transform: none; transition: none; }
 }
+
+
+/* ============================================================
+   ACESSIBILIDADE - ANEL DE FOCO DE TECLADO
+   @eligi:focus-ring-v1
+
+   Token: brand.tokens.json -> focus (Identidade Visual v1.0).
+
+   Por que !important: o diagnostico de set/2026 achou 41 ocorrencias de
+   `outline: none`, a maioria em style inline. Estilo inline vence seletor
+   por especificidade - sem !important esta regra nao teria efeito onde
+   ela mais precisa existir.
+
+   Por que e seguro: :focus-visible so dispara em navegacao por teclado.
+   Clique de mouse e toque em tela NAO acionam - a aparencia do produto
+   para quem usa mouse ou celular fica exatamente igual.
+
+   Temporario: o !important sai quando Button e Input virarem componentes
+   e os `outline: none` inline forem removidos (fatia 3).
+   ============================================================ */
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[contenteditable="true"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--eligi-red, #dc2626) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.35) !important;
+  border-radius: inherit;
+}
+
+/* Contraste de foco sobre a sidebar escura e sobre superficie vermelha:
+   o vermelho da marca sumiria no proprio fundo. */
+.eligi-sidebar a:focus-visible,
+.eligi-sidebar button:focus-visible,
+[data-focus-on-red] :focus-visible {
+  outline-color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45) !important;
+}
