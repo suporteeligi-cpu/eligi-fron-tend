@@ -93,7 +93,7 @@ function EligiSelect({
           borderRadius: 10, border: '1px solid rgba(0,0,0,0.09)',
           background: 'rgba(255,255,255,0.9)', color: '#111827',
           fontSize: 14, appearance: 'none', cursor: 'pointer', outline: 'none',
-          fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
+          fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
           transition: 'border-color 0.15s, box-shadow 0.15s',
           boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
         }}
@@ -214,7 +214,7 @@ function Toast({ message, type }: { message: string; type: 'success' | 'error' }
         : 'linear-gradient(135deg,#dc2626,#b91c1c)',
       color: '#fff', fontSize: 14, fontWeight: 600,
       boxShadow: '0 8px 28px rgba(0,0,0,0.16)',
-      fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
+      fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
       whiteSpace: 'nowrap',
       animation: 'toastIn 0.25s cubic-bezier(0.34,1.56,0.64,1)',
     }}>
@@ -290,7 +290,7 @@ export default function AgendamentoConfigPage() {
 
       {toast && <Toast message={toast.message} type={toast.type} />}
 
-      <div style={{ maxWidth: 680, animation: 'fadeUp 0.3s ease', fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
+      <div style={{ maxWidth: 680, animation: 'fadeUp 0.3s ease', fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
 
         {/* Header com voltar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, gap: 12 }}>

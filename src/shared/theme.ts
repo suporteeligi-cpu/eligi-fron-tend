@@ -122,7 +122,11 @@ export const glass = {
 } as const
 
 export const typography = {
-  fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
+  // @eligi:typography-fonts-v1 - familias da Identidade Visual v1.0.
+  // display e mono ficam disponiveis; consumir e fatia propria.
+  fontFamily: 'var(--font-eligi-sans), system-ui, -apple-system, sans-serif',
+  fontFamilyDisplay: 'var(--font-eligi-display), var(--font-eligi-sans), system-ui, sans-serif',
+  fontFamilyMono: 'var(--font-eligi-mono), ui-monospace, SFMono-Regular, Menlo, monospace',
   scale: { xs:9, sm:11, base:13, md:14, lg:16, xl:17, '2xl':22 },
   weight: { normal:400, medium:500, semibold:600, bold:700 },
   color: {

@@ -110,7 +110,7 @@ export default function DayCard({
               <span style={{
                 fontSize: 12, fontWeight: 700, borderRadius: 8, padding: '5px 9px',
                 background: 'rgba(16,185,129,0.10)', color: '#0f6e56',
-                fontFamily: '"Space Grotesk",-apple-system,system-ui,sans-serif',
+                fontFamily: 'var(--font-eligi-display), var(--font-eligi-sans), system-ui, sans-serif',
                 letterSpacing: '-0.01em',
               }}>
                 {duration}

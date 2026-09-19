@@ -39,7 +39,7 @@ function Block({ b }: { b: LegalBlock }) {
 export default function LegalDoc({ kind }: { kind: LegalKind }) {
   const doc = DOCS[kind]
   return (
-    <div style={{ fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
+    <div style={{ fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
       <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.025em', color: '#0f0f14' }}>{doc.title}</h2>
       <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.4)', margin: '4px 0 16px' }}>Atualizado em {doc.updated}</div>
       <p style={{ fontSize: 13.5, lineHeight: 1.65, color: 'rgba(0,0,0,0.7)', margin: '0 0 8px' }}>{doc.intro}</p>

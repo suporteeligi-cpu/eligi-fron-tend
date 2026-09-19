@@ -77,7 +77,7 @@ export default function TimezoneCard({ initialTimezone, onSaved }: Props) {
       border: '1px solid rgba(0,0,0,0.07)',
       boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
       padding: 24,
-      fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
+      fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>

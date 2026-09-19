@@ -69,7 +69,7 @@ export default function AparenciaConfigPage() {
   return (
     <>
       <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }`}</style>
-      <div style={{ maxWidth: 720, animation: 'fadeUp 0.3s ease', fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
+      <div style={{ maxWidth: 720, animation: 'fadeUp 0.3s ease', fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
 
         {user?.role === 'BUSINESS_OWNER' && (
           <Link href="/dashboard/configuracoes" style={{

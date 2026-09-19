@@ -263,7 +263,7 @@ export default function AssistantSheet({ open, onClose }: Props) {
           boxShadow: '0 -18px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)',
           transform: open ? 'translateY(0)' : 'translateY(105%)',
           transition: 'transform 0.4s cubic-bezier(0.32,0.72,0.24,1)',
-          fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
+          fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
           visibility: open ? 'visible' : 'hidden',
         }}
       >

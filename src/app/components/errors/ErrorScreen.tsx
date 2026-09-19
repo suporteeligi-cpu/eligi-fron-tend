@@ -68,7 +68,7 @@ const CONFIG: Record<ErrorScreenKind, KindConfig> = {
 }
 
 const CSS = `
-.eligi-err-wrap{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:min(72dvh,720px);width:100%;padding:24px;font-family:'Inter',system-ui,-apple-system,sans-serif}
+.eligi-err-wrap{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:min(72dvh,720px);width:100%;padding:24px;font-family:var(--font-eligi-sans), system-ui, sans-serif}
 .eligi-err-full{min-height:100dvh;background:radial-gradient(1100px 480px at 50% -10%,rgba(220,38,38,.055),transparent 60%),#07070b}
 .eligi-err-blob{position:absolute;width:420px;height:420px;border-radius:50%;filter:blur(90px);opacity:.3;pointer-events:none}
 .eligi-err-blob-1{background:#dc2626;top:-120px;left:-80px;animation:eligiErrBlob1 14s ease-in-out infinite}

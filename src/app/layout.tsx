@@ -5,6 +5,29 @@ import CouponCapture from '@/shared/coupon/CouponCapture' // @eligi:coupon-captu
 import { ServiceWorkerRegister } from './sw-register'
 import { InstallAppBar } from './components/InstallAppBar'
 import '../styles/globals.css'
+import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google'
+
+/* @eligi:fonts-v1 - Identidade Visual v1.0.
+   next/font em vez de @import do Google: a fonte e baixada no build e
+   servida do proprio dominio, fora do caminho critico de renderizacao.
+   Mono entra disponivel e NAO consumida (ver brand.tokens.json). */
+const fontSans = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-eligi-sans',
+})
+const fontDisplay = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  display: 'swap',
+  variable: '--font-eligi-display',
+})
+const fontMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  display: 'swap',
+  variable: '--font-eligi-mono',
+})
 
 export const viewport: Viewport = {
   themeColor:       '#dc2626',
@@ -96,7 +119,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={`${fontSans.variable} ${fontDisplay.variable} ${fontMono.variable}`}>
       <head>
         {/* Apple Touch Icon — fallback explícito */}
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />

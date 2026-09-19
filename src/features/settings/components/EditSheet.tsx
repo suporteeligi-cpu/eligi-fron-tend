@@ -103,7 +103,7 @@ export function EditSheet({
             borderRadius: '24px 24px 0 0',
             boxShadow: '0 -18px 46px rgba(12,12,18,0.20)',
             animation: 'eligi-sheet-up 0.28s cubic-bezier(0.2,0.8,0.2,1)',
-            fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
+            fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
           }}
         >
           <div style={{ padding: '10px 0 0', flex: 'none' }}>

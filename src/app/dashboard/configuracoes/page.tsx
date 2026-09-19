@@ -233,7 +233,7 @@ export default function ConfiguracoesPage() {
   return (
     <>
       <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }`}</style>
-      <div style={{ maxWidth: 720, animation: 'fadeUp 0.3s ease', fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
+      <div style={{ maxWidth: 720, animation: 'fadeUp 0.3s ease', fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
         <div style={{ marginBottom: 32 }}>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', color: '#0f0f14' }}>Configurações</h2>
           <p style={{ margin: '4px 0 0', fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>Personalize o comportamento do seu negócio no Eligi.</p>

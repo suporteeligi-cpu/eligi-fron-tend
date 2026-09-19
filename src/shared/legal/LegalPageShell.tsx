@@ -26,7 +26,7 @@ export default function LegalPageShell({ kind }: { kind: LegalKind }) {
     <main style={{
       minHeight: '100vh', background: '#f5f5f7',
       padding: '32px 16px 56px',
-      fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
+      fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
     }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
         <Link

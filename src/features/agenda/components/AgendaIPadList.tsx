@@ -513,7 +513,7 @@ export default function AgendaIPadList({
         style={{
           flex:1, minHeight:0, overflowY:'auto', overflowX:'auto',
           background: colors.background.page,
-          fontFamily: '-apple-system,system-ui,sans-serif',
+          fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
           cursor: isMove ? 'grabbing' : isResize ? 'ns-resize' : 'default',
           userSelect: 'none', WebkitUserSelect: 'none',
           touchAction: drag ? 'none' : 'pan-y pan-x',

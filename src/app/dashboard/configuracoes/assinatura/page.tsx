@@ -201,7 +201,7 @@ export default function AssinaturaPage() {
       <div style={{
         maxWidth: 720,
         animation: 'fadeUp 0.3s ease',
-        fontFamily: '-apple-system, system-ui, sans-serif',
+        fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
       }}>
         <button
           onClick={() => router.push('/dashboard/configuracoes')}

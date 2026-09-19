@@ -82,7 +82,7 @@ export default function ConvitePage() {
   const pageStyle: React.CSSProperties = {
     minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center',
     background:'linear-gradient(135deg,#0f0f18 0%,#1a1a2e 50%,#0f0f18 100%)',
-    padding:'24px 16px', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+    padding:'24px 16px', fontFamily:'var(--font-eligi-sans), system-ui, sans-serif',
   }
   const cardStyle: React.CSSProperties = {
     width:'100%', maxWidth:420,

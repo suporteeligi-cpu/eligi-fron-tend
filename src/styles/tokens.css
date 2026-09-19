@@ -6,8 +6,10 @@
    =============================== */
 
 :root {
-  /* Typography */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  /* Typography - @eligi:tokens-fonts-v1 (Identidade Visual v1.0) */
+  --font-sans: var(--font-eligi-sans), system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-eligi-display), var(--font-eligi-sans), system-ui, sans-serif;
+  --font-mono: var(--font-eligi-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Base colors (light) */
   --bg: #f5f6f8;

@@ -505,7 +505,7 @@ export default function AgendaGrid({
         style={{
           flex:1, minHeight:0, overflowY:'auto', overflowX:'auto',
           background: colors.background.page,
-          fontFamily: '-apple-system,system-ui,sans-serif',
+          fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
           cursor: isMovingReal ? 'grabbing' : isResize ? 'ns-resize' : 'default',
           userSelect: drag ? 'none' : 'auto',
         }}

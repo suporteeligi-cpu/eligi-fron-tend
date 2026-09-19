@@ -148,7 +148,7 @@ export default function TimeStepper({
 
   const valueStyle: React.CSSProperties = {
     flex: 1, minWidth: big ? 74 : 62, textAlign: 'center', padding: '0 2px',
-    fontFamily: '"Space Grotesk",-apple-system,system-ui,sans-serif',
+    fontFamily: 'var(--font-eligi-display), var(--font-eligi-sans), system-ui, sans-serif',
     fontWeight: 700, fontSize: big ? 28 : 17, letterSpacing: '-0.03em',
     fontVariantNumeric: 'tabular-nums', border: 'none', background: 'transparent',
     color: disabled ? 'rgba(0,0,0,0.28)' : invalid ? '#b91c1c' : '#0f0f14',

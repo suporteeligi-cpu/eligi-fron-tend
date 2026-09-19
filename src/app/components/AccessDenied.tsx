@@ -24,7 +24,7 @@ export default function AccessDenied({ requiredRole, message }: Props) {
       justifyContent: 'center',
       minHeight:      '60vh',
       padding:        '40px 24px',
-      fontFamily:     '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily:     'var(--font-eligi-sans), system-ui, sans-serif',
       textAlign:      'center',
       animation:      'ad-fade 300ms ease',
     }}>

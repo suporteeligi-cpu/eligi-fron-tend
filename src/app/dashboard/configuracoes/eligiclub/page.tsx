@@ -218,7 +218,7 @@ const PITCH_FEE_STEP = 10
 const CLUB_ACTIVATION_FEE = 12.9
 
 const PITCH_NUM: React.CSSProperties = {
-  fontFamily: "'Space Grotesk', -apple-system, system-ui, sans-serif",
+  fontFamily: "var(--font-eligi-display), var(--font-eligi-sans), system-ui, sans-serif",
   fontVariantNumeric: 'tabular-nums',
 }
 
@@ -646,7 +646,7 @@ export default function EligiClubCobrancaPage() {
   const emAnalise = connected && !approved
 
   return (
-    <div style={{ maxWidth: 540, fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
+    <div style={{ maxWidth: 540, fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
       <style>{`@keyframes eligi-spin { to { transform: rotate(360deg) } }
         /* @eligi:club-pitch-css - hover nao existe em style inline */
         .ecp-btn { transition: background 180ms ease, transform 160ms cubic-bezier(0.34,1.56,0.64,1); }

@@ -58,7 +58,7 @@ export default function EmpresaPage() {
         maxWidth: showTheme ? 980 : 720,
         transition: 'max-width 0.3s ease',
         animation: 'fadeUp 0.3s ease',
-        fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif',
+        fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
       }}>
         <button
           onClick={() => router.push('/dashboard/configuracoes')}

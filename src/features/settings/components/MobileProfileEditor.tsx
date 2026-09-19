@@ -131,7 +131,7 @@ export function MobileProfileEditor({
   }
 
   return (
-    <div style={{ fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif' }}>
+    <div style={{ fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
       <p style={{ margin: '0 0 14px', fontSize: 14, lineHeight: 1.5, color: 'rgba(0,0,0,0.5)' }}>
         Toque em qualquer parte do seu link para editar.
       </p>

@@ -257,7 +257,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
       <div style={{
         width:'100%', height:'100%', display:'flex', flexDirection:'column',
         background: colors.background.page,
-        fontFamily:'-apple-system,"SF Pro Display",system-ui,sans-serif',
+        fontFamily:'var(--font-eligi-sans), system-ui, sans-serif',
       }}>
         <AgendaToolbar
           onBlockClick={() => openBlockModal()}

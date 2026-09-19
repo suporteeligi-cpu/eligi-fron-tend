@@ -171,7 +171,7 @@ export default function ImageCropper({
   );
 }
 
-const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(12,12,18,.55)', display: 'grid', placeItems: 'center', zIndex: 10000, padding: 18, fontFamily: '-apple-system,"SF Pro Display",system-ui,sans-serif' };
+const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(12,12,18,.55)', display: 'grid', placeItems: 'center', zIndex: 10000, padding: 18, fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' };
 const modal: React.CSSProperties = { background: '#fff', borderRadius: 20, width: 'min(440px,100%)', overflow: 'hidden', boxShadow: '0 30px 80px -20px rgba(0,0,0,.5)' };
 const header: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 18px', borderBottom: '1px solid #f1f1f4' };
 const iconBtn: React.CSSProperties = { width: 30, height: 30, borderRadius: 8, border: '1px solid #e7e7ec', background: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#71717a' };
