@@ -90,11 +90,14 @@ export default function CommissionProductsEditor({
     setOverrides(prev => prev.filter(o => o.productId !== productId))
   }
 
+  // @eligi:override-herda-padrao-prd
+  // Mesma causa do editor de servicos: o override nascia em 0, o auto-save
+  // gravava antes de o lojista digitar, e `0 ?? padrao` resolve para 0.
   function addOverride(productId: string) {
     setOverrides(prev => [...prev, {
       productId,
-      commissionType:  defaultType ?? 'PERCENT',
-      commissionValue: 0,
+      commissionType:  defaultType  ?? 'PERCENT',
+      commissionValue: defaultValue ?? 0,
     }])
     setShowAddOverride(false)
   }
@@ -270,6 +273,18 @@ export default function CommissionProductsEditor({
               }}>
                 {product.name}
               </div>
+              {/* @eligi:override-zero-chip-prd */}
+              {o.commissionValue === 0 && (
+                <div style={{
+                  marginTop: 2,
+                  fontSize: 10, fontWeight: 700,
+                  letterSpacing: '.04em',
+                  textTransform: 'uppercase',
+                  color: colors.gray.dimText,
+                }}>
+                  não comissiona
+                </div>
+              )}
             </div>
             <TypeToggle
               value={o.commissionType}
@@ -392,7 +407,8 @@ export default function CommissionProductsEditor({
         </div>
       )}
 
-      {defaultType != null && defaultValue != null && (
+      {/* @eligi:resumo-sem-padrao-prd */}
+      {(defaultType != null && defaultValue != null) || overrides.length > 0 ? (
         <div style={{
           marginTop: 18,
           padding: '10px 12px',
@@ -402,12 +418,15 @@ export default function CommissionProductsEditor({
           fontSize: 12,
           color: colors.gray[700],
         }}>
-          <strong>Resumo:</strong> {fmtCommission(defaultType, defaultValue)} padrão
+          <strong>Resumo:</strong>{' '}
+          {defaultType != null && defaultValue != null
+            ? <>{fmtCommission(defaultType, defaultValue)} padrão</>
+            : <>sem padrão · os demais produtos não comissionam</>}
           {overrides.length > 0 && (
             <> · {overrides.length} produto{overrides.length !== 1 ? 's' : ''} específico{overrides.length !== 1 ? 's' : ''}</>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

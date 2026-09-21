@@ -94,11 +94,19 @@ export default function CommissionServicesEditor({
     setOverrides(prev => prev.filter(o => o.serviceId !== serviceId))
   }
 
+  // @eligi:override-herda-padrao-svc
+  // O override nascia com commissionValue: 0 e o auto-save (600ms) gravava
+  // isso antes do lojista digitar qualquer coisa. Como 0 nao e nullish,
+  // `0 ?? padrao` resolve para 0: aquele servico passava a pagar zero e o
+  // createCommissionsForSale (amount > 0) nem criava o CommissionItem — a
+  // comissao sumia sem deixar rastro, e parecia que o padrao tinha parado
+  // de funcionar. Nascer herdando o padrao e o que o lojista espera de
+  // "quero mudar ESTE servico"; zero passa a ser so escolha explicita.
   function addOverride(serviceId: string) {
     setOverrides(prev => [...prev, {
       serviceId,
-      commissionType:  defaultType ?? 'PERCENT',
-      commissionValue: 0,
+      commissionType:  defaultType  ?? 'PERCENT',
+      commissionValue: defaultValue ?? 0,
     }])
     setShowAddOverride(false)
   }
@@ -266,6 +274,21 @@ export default function CommissionServicesEditor({
               }}>
                 {service.name}
               </div>
+              {/* @eligi:override-zero-chip-svc
+                  Zero e uma escolha legitima ("cortesia nao comissiona"), mas
+                  precisa ser visivel: sem isto, um override em 0 parece um
+                  campo que ainda nao foi preenchido. */}
+              {o.commissionValue === 0 && (
+                <div style={{
+                  marginTop: 2,
+                  fontSize: 10, fontWeight: 700,
+                  letterSpacing: '.04em',
+                  textTransform: 'uppercase',
+                  color: colors.gray.dimText,
+                }}>
+                  não comissiona
+                </div>
+              )}
             </div>
             <TypeToggle
               value={o.commissionType}
@@ -386,7 +409,10 @@ export default function CommissionServicesEditor({
       )}
 
       {/* Resumo */}
-      {defaultType != null && defaultValue != null && (
+      {/* @eligi:resumo-sem-padrao-svc
+          O resumo sumia inteiro quando o padrao era removido, mesmo com
+          especificos ativos: a tela mentia por omissao. */}
+      {(defaultType != null && defaultValue != null) || overrides.length > 0 ? (
         <div style={{
           marginTop: 18,
           padding: '10px 12px',
@@ -396,12 +422,15 @@ export default function CommissionServicesEditor({
           fontSize: 12,
           color: colors.gray[700],
         }}>
-          <strong>Resumo:</strong> {fmtCommission(defaultType, defaultValue)} padrão
+          <strong>Resumo:</strong>{' '}
+          {defaultType != null && defaultValue != null
+            ? <>{fmtCommission(defaultType, defaultValue)} padrão</>
+            : <>sem padrão · os demais serviços não comissionam</>}
           {overrides.length > 0 && (
             <> · {overrides.length} serviço{overrides.length !== 1 ? 's' : ''} específico{overrides.length !== 1 ? 's' : ''}</>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
