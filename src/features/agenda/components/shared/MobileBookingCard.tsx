@@ -91,6 +91,7 @@ function MobileBookingCard({ booking, height, isDragging = false }: Props) {
         hasClub={booking.hasClub}
         isNoShow={isNoShow}
         hidden={sealsHidden}
+        birthdayInDays={booking.birthdayInDays} // @eligi:birthday-call-mobile
         cardHeight={height}
       />
 

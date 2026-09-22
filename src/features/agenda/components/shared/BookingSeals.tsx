@@ -1,7 +1,9 @@
 'use client'
 // src/features/agenda/components/shared/BookingSeals.tsx
 // Pilha de selos do card de agendamento, canto superior direito.
-// Ordem: EligiClub (globo) -> Pago ($) -> Online (rocket) -> Preferencia (heart) -> Nao compareceu (eye-off)
+// Ordem: EligiClub (globo) -> Aniversario (cake) -> Pago ($) -> Online (rocket)
+//        -> Preferencia (heart) -> Sacola -> Nao compareceu (eye-off)
+// @eligi:birthday-seal-order
 //
 // ADAPTATIVO: o tamanho do selo escala com a altura do card (computeSize).
 //  - card alto  -> selo no MAX (18px), ancorado no topo direito (canonico)
@@ -14,7 +16,7 @@
 // legivel) abaixo disso. Os demais selos seguem EXATAMENTE o comportamento
 // anterior - nada neles mudou.
 import { useId } from 'react'
-import { Rocket, Heart, EyeOff, ShoppingBag } from 'lucide-react'
+import { Rocket, Heart, EyeOff, ShoppingBag, Cake } from 'lucide-react' // @eligi:birthday-seal-icon
 
 interface Props {
   isPaid?:                 boolean
@@ -25,6 +27,9 @@ interface Props {
   hidden?:                 boolean
   cardHeight?:             number   // altura do card em px - selos escalam proporcionalmente
   hasClub?:                boolean  // cliente tem EligiClub ativo (globo, vida propria)
+  // @eligi:birthday-seal-prop
+  // 0 = hoje; 1..6 = dentro da margem de uma semana; null/undefined = sem selo.
+  birthdayInDays?:         number | null
 }
 
 const MAX_SIZE  = 18   // tamanho cheio (cards altos)
@@ -95,6 +100,7 @@ function GlobeMark({ badge }: { badge: number }) {
 
 export default function BookingSeals({
   isPaid, fromOnline, professionalPreference, hasProducts, isNoShow, hidden, cardHeight, hasClub,
+  birthdayInDays, // @eligi:birthday-seal-arg
 }: Props) {
   const items: { size: number; node: React.ReactNode }[] = []
 
@@ -112,6 +118,18 @@ export default function BookingSeals({
     const size     = computeSize(cardHeight)
     const iconSz   = Math.round(size * 0.6)
     const dollarSz = Math.round(size * 0.7)
+    // @eligi:birthday-seal-push
+    // DOIS ESTADOS POR PREENCHIMENTO, NAO POR COR. A 11px (MIN_SIZE) o icone
+    // fica com ~7px: um cinza novo seria indistinguivel do slate #475569 do
+    // no-show. Cheio preto = hoje (o momento acionavel); vazado branco = na
+    // semana. Zero token novo -- o vermelho continua sendo so da acao primaria.
+    if (birthdayInDays !== null && birthdayInDays !== undefined) {
+      const bdayToday = birthdayInDays === 0
+      items.push({ size, node:
+        <Badge bg={bdayToday ? '#07070B' : '#ffffff'} size={size}>
+          <Cake size={iconSz} color={bdayToday ? '#fff' : '#07070B'} strokeWidth={2.4} />
+        </Badge> })
+    }
     if (isPaid)                 items.push({ size, node:
       <Badge bg="#00b80c" size={size}>
         <span style={{ color: '#fff', fontWeight: 900, fontSize: dollarSz, lineHeight: 1, fontFamily: 'system-ui, sans-serif' }}>$</span>

@@ -111,6 +111,7 @@ function BookingCard({ booking, totalHeight }: Props) {
         hasClub={booking.hasClub}
         isNoShow={isNoShow}
         hidden={sealsHidden}
+        birthdayInDays={booking.birthdayInDays} // @eligi:birthday-call-desktop
         cardHeight={totalHeight}
       />
 

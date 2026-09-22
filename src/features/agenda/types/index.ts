@@ -22,6 +22,9 @@ export type AgendaBooking = {
   fromOnline?:             boolean  // veio do link público (selo 🚀)
   professionalPreference?: boolean  // cliente escolheu o profissional
   hasProducts?:            boolean  // escolheu produto na vitrine do link
+  // @eligi:birthday-agenda-fe-type
+  birthdayInDays?:         number | null  // 0 = hoje; 1..6 = na semana; null = sem selo
+  birthdayAge?:            number | null  // idade que completa; null quando nao ha ano
   hasClub?:                boolean  // cliente tem EligiClub ativo (selo globo) (selo ❤️)
 }
 

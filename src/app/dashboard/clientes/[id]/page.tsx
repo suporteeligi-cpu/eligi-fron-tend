@@ -10,7 +10,7 @@ import {
 import api from '@/shared/lib/apiClient'
 import { colors, typography, radius, shadows, transitions, glass } from '@/shared/theme'
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
-import { getInitials, formatPhone, maskPhone, fmtRevenue } from '@/features/clients/utils/format'
+import { getInitials, formatPhone, maskPhone, fmtRevenue, maskBirthDate, formatBirthLabel } from '@/features/clients/utils/format' // @eligi:birthday-prof-import
 
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 import EditableField from './components/EditableField'
@@ -50,6 +50,7 @@ interface ClientProfile {
   phone:     string
   email:     string | null
   cpf:       string | null
+  birthLabel: string | null // @eligi:birthday-prof-type
   createdAt: string
   metrics:   Metrics
   bookings:  BookingItem[]
@@ -136,15 +137,27 @@ export default function ClientProfilePage() {
   }, [id])
 
   // ─── Handlers ───────────────────────────────────────────────────────────
-  async function handleUpdate(field: 'name' | 'phone' | 'email' | 'cpf', value: string) {
+  // @eligi:birthday-prof-handler
+  async function handleUpdate(field: 'name' | 'phone' | 'email' | 'cpf' | 'birthDate', value: string) {
     const payload =
       field === 'phone' ? { phone: value.replace(/\D/g, '') } :
       field === 'cpf'   ? { cpf:   value.replace(/\D/g, '') || null } :
+      field === 'birthDate' ? { birthDate: value.trim() || null } : // @eligi:birthday-prof-payload
       field === 'email' ? { email: value.trim() || null } :
                           { name:  value }
     const res = await api.put(`/clients/${id}`, payload)
     const updated = res.data?.data ?? res.data
-    setClient(prev => prev ? { ...prev, [field]: updated[field] } : prev)
+    // @eligi:birthday-prof-setstate
+    // O PUT devolve o registro CRU (birthMonthDay/birthYear), nao o birthLabel
+    // que a tela mostra -- por isso este campo remonta o rotulo em vez de ler
+    // updated[field], que viria undefined e apagaria o valor da tela.
+    setClient(prev => {
+      if (!prev) return prev
+      if (field === 'birthDate') {
+        return { ...prev, birthLabel: formatBirthLabel(updated.birthMonthDay, updated.birthYear) }
+      }
+      return { ...prev, [field]: updated[field] }
+    })
     showToast('Dados atualizados!', 'success')
   }
 
@@ -721,6 +734,15 @@ export default function ClientProfilePage() {
                 onSave={v => handleUpdate('email', v)}
                 isMobile={isMobile}
                 inputMode="email"
+              />
+              {/* @eligi:birthday-prof-field */}
+              <EditableField
+                label="Aniversário"
+                value={client.birthLabel ?? ''}
+                onSave={v => handleUpdate('birthDate', v)}
+                mask={maskBirthDate}
+                isMobile={isMobile}
+                inputMode="numeric"
               />
               <EditableField
                 label="CPF"

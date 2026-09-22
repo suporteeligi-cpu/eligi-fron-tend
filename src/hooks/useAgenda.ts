@@ -21,6 +21,8 @@ interface ApiBooking {
   status?:   string
   isPaid?:   boolean
   hasProducts?:            boolean   // escolheu produto na vitrine do link
+  birthdayInDays?:         number | null  // @eligi:birthday-api-type
+  birthdayAge?:            number | null
   fromOnline?:             boolean   // ← veio do link público (🚀)
   professionalPreference?: boolean   // ← cliente escolheu o profissional (❤️)
   hasClub?:                boolean   // ← cliente tem EligiClub ativo (globo)
@@ -70,6 +72,9 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
     hasProducts:            b.hasProducts ?? false,
     professionalPreference: b.professionalPreference ?? false,
     hasClub:                b.hasClub ?? false,
+    // @eligi:birthday-adapt -- ?? null e NAO ?? false: ausencia de data nao e 'dia 0'
+    birthdayInDays:         b.birthdayInDays ?? null,
+    birthdayAge:            b.birthdayAge    ?? null,
   }
 }
 

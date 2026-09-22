@@ -16,6 +16,9 @@ export interface DashboardKPIs {
   attendanceRate:   number
   noShowCount:      number
   noShowRate:       number
+  // @eligi:birthday-kpi-type -- janela FIXA de 7 dias, nao segue o period
+  birthdaysWeek:    number
+  birthdaysToday:   number
   totalBookings:    number
   tomorrowBookings: number
   onlineBookings:   OnlineBookingsKPI

@@ -28,6 +28,7 @@ import {
   FileCheck2,
   UserCheck,
   UserX,
+  Cake, // @eligi:birthday-icon
   TrendingUp,
   TrendingDown,
   Minus,
@@ -186,6 +187,23 @@ function buildTicker(
       tint:  inkLight.ok.text,
       value: fmtPercent(kpis.attendanceRate),
       label: 'presença',
+    },
+    {
+      // @eligi:birthday-ticker
+      // Sempre visivel (mesmo em zero), ao contrario de 'tomorrow' e 'nfse':
+      // a cobertura de datas comeca baixa e um item que so aparece quando ja
+      // ha dado nunca ensinaria o lojista a preencher.
+      // tint: preto do pack quando ha alguem; cinza neutro quando vazio.
+      // Sem cor nova -- aniversario e atributo do cliente, nao estado do sistema.
+      key:   'birthday',
+      Icon:  Cake,
+      tint:  kpis.birthdaysWeek === 0 ? inkLight.neutral.text : inkLight.strong,
+      value: kpis.birthdaysWeek === 0 ? '—' : String(kpis.birthdaysWeek),
+      label: kpis.birthdaysWeek === 0
+        ? 'sem aniversariantes'
+        : kpis.birthdaysToday > 0
+          ? `${plural(kpis.birthdaysToday, 'é hoje', 'são hoje')} · em 7 dias`
+          : 'aniversariantes em 7 dias',
     },
     {
       key:   'noshow',

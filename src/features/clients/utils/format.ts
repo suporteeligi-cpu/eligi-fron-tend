@@ -33,6 +33,27 @@ export function formatPhone(p: string | null | undefined): string {
 }
 
 /** Mascara progressivamente enquanto digita (para inputs) */
+// @eligi:birthday-mask
+/** Mascara progressiva DD/MM/AAAA. O ano e OPCIONAL: "23/08" e entrada valida. */
+export function maskBirthDate(v: string | null | undefined): string {
+  const d = (v ?? '').replace(/\D/g, '').slice(0, 8)
+  if (d.length <= 2) return d
+  if (d.length <= 4) return d.slice(0, 2) + '/' + d.slice(2)
+  return d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4)
+}
+
+/** Espelha o formatBirth do back (shared/utils/birthday.ts) para o PUT, que
+ *  devolve o registro cru (birthMonthDay/birthYear) e nao o birthLabel. */
+export function formatBirthLabel(md: number | null | undefined, year: number | null | undefined): string | null {
+  if (md === null || md === undefined || !Number.isInteger(md)) return null
+  const month = Math.floor(md / 100)
+  const day   = md % 100
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null
+  const dd = String(day).padStart(2, '0')
+  const mm = String(month).padStart(2, '0')
+  return year ? `${dd}/${mm}/${year}` : `${dd}/${mm}`
+}
+
 export function maskPhone(v: string | null | undefined): string {
   const d = (v ?? '').replace(/\D/g, '').slice(0, 11)
   if (d.length <= 2) return `(${d}`
