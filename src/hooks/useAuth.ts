@@ -7,6 +7,7 @@ import {
   getMe,
   googleLoginRequest,
   logoutRequest,
+  refreshRequest, // @eligi:auth-import-refresh
 } from '@/lib/auth.api'
 import { AuthUser } from '@/types/auth.types'
 
@@ -58,16 +59,49 @@ export function useAuth() {
 
           const status = (err as { response?: { status?: number } })?.response?.status
 
-          // Resposta 4xx numa rota protegida = não autenticado (o interceptor
-          // já tentou o refresh e ele falhou) → sessão morta de verdade.
+          // @eligi:auth-comentario-4xx
+          // 4xx numa rota protegida. 401 tem tratamento proprio logo abaixo
+          // (precisa de prova). Os demais 4xx nao sao recuperaveis aqui.
+          // @eligi:auth-401-prova-refresh
+          // 401 NAO prova sessao morta. apiClient e lib/api sao duas
+          // instancias axios com filas de refresh independentes, entao
+          // um 401 pode ser so a corrida entre elas (visto em producao:
+          // dois /auth/refresh 200 em 195ms). Prova decisiva: pedir o
+          // refresh aqui. 200 = a Session esta viva -> re-tenta o getMe.
+          if (status === 401) {
+            let sessionAlive = false
+            try {
+              await refreshRequest()
+              sessionAlive = true
+            } catch {
+              sessionAlive = false
+            }
+            if (cancelled) return
+
+            if (sessionAlive && attempt < MAX_TRIES) {
+              continue
+            }
+
+            setUser(null)
+            setAuthError('expired')
+            setLoading(false)
+            if (typeof window !== 'undefined') window.location.href = '/login?reauth=1'
+            return
+          }
+
           if (status != null && status >= 400 && status < 500) {
             setUser(null)
             setAuthError('expired')
             setLoading(false)
-            // Cookies são httpOnly (só o back limpa). Best-effort no logout +
+            // @eligi:auth-comentario-reauth
             // hard nav com ?reauth=1: o middleware libera o /login mesmo com o
             // cookie stale presente, e o login refaz os cookies por cima.
-            try { await logoutRequest() } catch { /* best-effort */ }
+            // @eligi:auth-sem-logout-automatico
+            // NUNCA chamar logoutRequest() aqui. AuthService.logout grava
+            // revokedAt na Session: o refreshToken de 7 dias, ainda valido,
+            // passa a bater em SESSION_INVALID 401 para sempre. Era isto que
+            // transformava um 4xx de 200ms em reautenticacao permanente.
+            // Sessao morta se prova pelo /auth/refresh, nao se fabrica.
             if (typeof window !== 'undefined') window.location.href = '/login?reauth=1'
             return
           }

@@ -109,3 +109,29 @@ export async function getMe(): Promise<AuthUser> {
 export async function logoutRequest(): Promise<void> {
   await api.post<void>('/auth/logout')
 }
+
+/* =========================================
+   REFRESH  @eligi:auth-api-refresh
+   Chamada direta pro /auth/refresh. Nao recursiona: o interceptor do
+   apiClient tem /auth/refresh na lista isAuthRoute, entao um 401 aqui
+   sobe cru em vez de disparar outro refresh.
+   Resolve  = sessao viva no banco (a Session nao esta revogada).
+   Rejeita  = sessao morta de verdade.
+
+   SINGLE-FLIGHT obrigatorio: 16 arquivos montam o useAuth e cada um
+   chama isto ao ver 401. Sem a promise compartilhada seriam 16 POSTs
+   e 16 UPDATE na Session por expiracao de token, alem de 16 respostas
+   Set-Cookie disputando a mesma gravacao no navegador.
+========================================= */
+
+let refreshInFlight: Promise<void> | null = null
+
+export function refreshRequest(): Promise<void> {
+  if (!refreshInFlight) {
+    refreshInFlight = api
+      .post<void>('/auth/refresh')
+      .then(() => undefined)
+      .finally(() => { refreshInFlight = null })
+  }
+  return refreshInFlight
+}
