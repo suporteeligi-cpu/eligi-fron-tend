@@ -544,7 +544,10 @@ function DestinoSaque({ keyMasked, keyType, onSaved }: {
   onSaved: () => void
 }) {
   const [editando, setEditando] = useState(!keyMasked)
-  const [tipo, setTipo] = useState<PixKeyType>('CPF')
+  // @eligi:saque-front-cnpj
+  // Regra de set/26: o saque so vai para a chave Pix CNPJ do proprio negocio.
+  // A tela so pede o CNPJ; o back confere se e o do negocio e recusa o resto.
+  const tipo: PixKeyType = 'CNPJ'
   const [chave, setChave] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -617,7 +620,7 @@ function DestinoSaque({ keyMasked, keyType, onSaved }: {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13.5, fontWeight: 600 }}>Onde você recebe</div>
               <div style={{ fontSize: 11.5, color: '#8a8a93', marginTop: 1 }}>
-                Cadastre sua chave Pix para poder sacar
+                Cadastre o CNPJ do negócio para poder sacar
               </div>
             </div>
           </div>
@@ -632,44 +635,21 @@ function DestinoSaque({ keyMasked, keyType, onSaved }: {
             </div>
           )}
 
-          <div style={{
-            fontSize: 11.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
-            color: '#8a8a93', margin: '16px 0 8px',
-          }}>
-            Tipo de chave
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-            {PIX_TIPOS.map(t => {
-              const on = tipo === t.key
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setTipo(t.key)}
-                  style={{
-                    padding: '9px 13px', minHeight: 42, borderRadius: 10, cursor: 'pointer',
-                    fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600,
-                    border: `1px solid ${on ? '#dc2626' : 'rgba(17,17,20,.12)'}`,
-                    background: on ? 'rgba(220,38,38,.05)' : '#fff',
-                    color: on ? '#dc2626' : '#4b4b52',
-                  }}
-                >
-                  {t.label}
-                </button>
-              )
-            })}
+          <div style={{ fontSize: 12.5, color: '#4b4b52', margin: '14px 0 12px', lineHeight: 1.5 }}>
+            Por segurança, o saque vai sempre para a chave Pix <b>CNPJ</b> do seu negócio.
           </div>
 
           <div style={{
             fontSize: 11.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
             color: '#8a8a93', marginBottom: 8,
           }}>
-            Chave Pix
+            CNPJ do negócio
           </div>
           <input
             value={chave}
             onChange={e => setChave(e.target.value)}
             placeholder={ph}
-            inputMode={tipo === 'EMAIL' ? 'email' : tipo === 'EVP' ? 'text' : 'numeric'}
+            inputMode="numeric"
             style={{
               width: '100%', boxSizing: 'border-box', padding: 14, minHeight: 50,
               border: '1px solid rgba(17,17,20,.12)', borderRadius: 12,
@@ -707,7 +687,7 @@ function DestinoSaque({ keyMasked, keyType, onSaved }: {
           </div>
 
           <div style={{ fontSize: 11, color: '#8a8a93', marginTop: 10, lineHeight: 1.5 }}>
-            A chave precisa estar no seu nome ou no CNPJ do seu negócio.
+            Assim, mesmo que alguém entre no seu login, o dinheiro só pode ir para uma conta do próprio negócio.
           </div>
         </>
       )}
