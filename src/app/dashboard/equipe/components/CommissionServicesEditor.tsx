@@ -1,10 +1,11 @@
 'use client'
 // src/app/dashboard/equipe/components/CommissionServicesEditor.tsx
 //
-// Editor da categoria "Serviços" — auto-save com debounce.
-// Não tem modo edit/cancel — toda mudança vai pro backend após 600ms.
+// Editor da categoria "Serviços" — salva ao sair do campo.
+// Sem modo edit/cancel: o valor grava no blur; tipo, adicionar e remover
+// gravam no clique.
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Percent, DollarSign, Plus, X, Loader2, Check } from 'lucide-react'
 import { colors, typography, transitions, radius } from '@/shared/theme'
 import api from '@/shared/lib/apiClient'
@@ -22,8 +23,6 @@ interface Props {
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-const SAVE_DEBOUNCE_MS = 600
-
 export default function CommissionServicesEditor({
   prof, allServices, isMobile, onChanged,
 }: Props) {
@@ -33,32 +32,43 @@ export default function CommissionServicesEditor({
   const [showAddOverride, setShowAddOverride] = useState(false)
   const [saveState,    setSaveState]    = useState<SaveState>('idle')
 
-  // ref pra evitar re-criar timer no useEffect
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // @eligi:salva-no-blur
+  // O auto-save por debounce descartava a edicao quando o painel fechava dentro
+  // dos 600ms: o cleanup do useEffect dava clearTimeout e a alteracao sumia sem
+  // "Salvo" e sem erro. Foi tambem o mecanismo que gravou o zero do C1 antes do
+  // lojista digitar. Agora nao ha timer: o campo de valor grava no blur, e o
+  // toggle de tipo, adicionar e remover gravam no clique (clique nao tem blur).
+  //
+  // `salvar` recebe os valores por argumento em vez de ler o state: setState e
+  // assincrono, entao logo apos setDefaultType(t) a closure ainda enxergaria o
+  // tipo antigo e gravaria o valor errado.
   const lastPushed = useRef<string>(JSON.stringify({
     t: prof.commissionType ?? null,
     v: prof.commissionValue ?? null,
     o: prof.commissionOverrides ?? [],
   }))
-  const isMountedRef = useRef(false)
 
-  // Save com debounce
-  const triggerSave = useCallback(() => {
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(async () => {
-      const payload = {
-        t: defaultType,
-        v: defaultValue,
-        o: overrides,
-      }
-      const serialized = JSON.stringify(payload)
+  // Fila de um: o blur do campo e o clique no toggle disparam dois saves quase
+  // ao mesmo tempo (o navegador dispara o blur ANTES do click). Sem serializar,
+  // o segundo pedido poderia chegar ao banco antes do primeiro e a configuracao
+  // ficaria no estado intermediario. O debounce antigo coalescia isso por
+  // acidente; sem ele, a ordem tem que ser explicita.
+  const emVoo = useRef<Promise<void>>(Promise.resolve())
+
+  const salvar = useCallback((
+    t: CommissionType | null,
+    v: number | null,
+    o: CommissionOverride[],
+  ): Promise<void> => {
+    const proximo = emVoo.current.then(async () => {
+      const serialized = JSON.stringify({ t, v, o })
       if (serialized === lastPushed.current) return // nada mudou
       try {
         setSaveState('saving')
         const res = await api.patch(`/equipe/${prof.id}`, {
-          commissionType:      defaultType,
-          commissionValue:     defaultValue,
-          commissionOverrides: overrides,
+          commissionType:      t,
+          commissionValue:     v,
+          commissionOverrides: o,
         })
         const updated = res.data?.data ?? res.data
         lastPushed.current = serialized
@@ -66,32 +76,27 @@ export default function CommissionServicesEditor({
         onChanged(updated)
         setTimeout(() => setSaveState('idle'), 1400)
       } catch {
+        // o estado 'error' na propria tela e o aviso; a fila segue viva
         setSaveState('error')
       }
-    }, SAVE_DEBOUNCE_MS)
-  }, [prof.id, defaultType, defaultValue, overrides, onChanged])
-
-  // Dispara save quando mudar (mas não no mount inicial)
-  useEffect(() => {
-    if (!isMountedRef.current) {
-      isMountedRef.current = true
-      return
-    }
-    triggerSave()
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-    }
-  }, [defaultType, defaultValue, overrides, triggerSave])
+    })
+    emVoo.current = proximo
+    return proximo
+  }, [prof.id, onChanged])
 
   // ─── Helpers ─────────────────────────────────────────────────────
-  function updateOverride(serviceId: string, patch: Partial<CommissionOverride>) {
-    setOverrides(prev =>
-      prev.map(o => o.serviceId === serviceId ? { ...o, ...patch } : o)
-    )
+  // Cada helper calcula a PROXIMA lista e a entrega ao salvar: ler `overrides`
+  // logo apos o setOverrides devolveria a lista antiga.
+  function updateOverride(serviceId: string, patch: Partial<CommissionOverride>, gravar = false) {
+    const proxima = overrides.map(o => o.serviceId === serviceId ? { ...o, ...patch } : o)
+    setOverrides(proxima)
+    if (gravar) void salvar(defaultType, defaultValue, proxima)
   }
 
   function removeOverride(serviceId: string) {
-    setOverrides(prev => prev.filter(o => o.serviceId !== serviceId))
+    const proxima = overrides.filter(o => o.serviceId !== serviceId)
+    setOverrides(proxima)
+    void salvar(defaultType, defaultValue, proxima)
   }
 
   // @eligi:override-herda-padrao-svc
@@ -103,12 +108,14 @@ export default function CommissionServicesEditor({
   // de funcionar. Nascer herdando o padrao e o que o lojista espera de
   // "quero mudar ESTE servico"; zero passa a ser so escolha explicita.
   function addOverride(serviceId: string) {
-    setOverrides(prev => [...prev, {
+    const proxima: CommissionOverride[] = [...overrides, {
       serviceId,
       commissionType:  defaultType  ?? 'PERCENT',
       commissionValue: defaultValue ?? 0,
-    }])
+    }]
+    setOverrides(proxima)
     setShowAddOverride(false)
+    void salvar(defaultType, defaultValue, proxima)
   }
 
   // Subset: só serviços do profissional, sem override ainda
@@ -172,6 +179,7 @@ export default function CommissionServicesEditor({
             onClick={() => {
               setDefaultType('PERCENT')
               setDefaultValue(50)
+              void salvar('PERCENT', 50, overrides)
             }}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -193,17 +201,19 @@ export default function CommissionServicesEditor({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <TypeToggle
               value={defaultType}
-              onChange={t => setDefaultType(t)}
+              onChange={t => { setDefaultType(t); void salvar(t, defaultValue, overrides) }}
             />
             <ValueInput
               type={defaultType}
               value={defaultValue ?? 0}
               onChange={v => setDefaultValue(v)}
+              onBlur={() => void salvar(defaultType, defaultValue, overrides)}
             />
             <button
               onClick={() => {
                 setDefaultType(null)
                 setDefaultValue(null)
+                void salvar(null, null, overrides)
               }}
               aria-label="Remover padrão"
               style={{
@@ -292,13 +302,14 @@ export default function CommissionServicesEditor({
             </div>
             <TypeToggle
               value={o.commissionType}
-              onChange={t => updateOverride(o.serviceId, { commissionType: t })}
+              onChange={t => updateOverride(o.serviceId, { commissionType: t }, true)}
               compact
             />
             <ValueInput
               type={o.commissionType}
               value={o.commissionValue}
               onChange={v => updateOverride(o.serviceId, { commissionValue: v })}
+              onBlur={() => void salvar(defaultType, defaultValue, overrides)}
               compact
             />
             <button
@@ -492,11 +503,12 @@ function TypeToggle({
 }
 
 function ValueInput({
-  type, value, onChange, compact,
+  type, value, onChange, onBlur, compact,
 }: {
   type: CommissionType
   value: number
   onChange: (v: number) => void
+  onBlur?: () => void
   compact?: boolean
 }) {
   const suffix = type === 'PERCENT' ? '%' : ''
@@ -526,6 +538,7 @@ function ValueInput({
         max={type === 'PERCENT' ? '100' : undefined}
         value={value}
         onChange={e => onChange(parseFloat(e.target.value) || 0)}
+        onBlur={onBlur}
         style={{
           width: '100%',
           height,
