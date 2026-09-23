@@ -1,4 +1,5 @@
 import api from '@/lib/apiClient'
+import { refreshSession } from '@/lib/refreshSession' // @eligi:authapi-import-refresh
 import axios from 'axios'
 import { AuthUser } from '@/types/auth.types'
 
@@ -124,14 +125,9 @@ export async function logoutRequest(): Promise<void> {
    Set-Cookie disputando a mesma gravacao no navegador.
 ========================================= */
 
-let refreshInFlight: Promise<void> | null = null
-
 export function refreshRequest(): Promise<void> {
-  if (!refreshInFlight) {
-    refreshInFlight = api
-      .post<void>('/auth/refresh')
-      .then(() => undefined)
-      .finally(() => { refreshInFlight = null })
-  }
-  return refreshInFlight
+  // @eligi:authapi-refresh-delega
+  // O single-flight saiu daqui pro lib/refreshSession: precisa ser UM so
+  // no app inteiro, senao o apiClient e o lib/api voltam a concorrer.
+  return refreshSession()
 }

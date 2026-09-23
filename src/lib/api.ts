@@ -1,6 +1,7 @@
 'use client'
 
 import axios from 'axios'
+import { refreshSession } from '@/lib/refreshSession' // @eligi:libapi-import-refresh
 
 interface ApiSuccessResponse<T> {
   success: true
@@ -38,13 +39,20 @@ api.interceptors.response.use(
       originalRequest._retry = true
 
       try {
-        await api.post('/auth/refresh')
+        // @eligi:libapi-refresh-compartilhado
+        // Este cliente nao tinha fila nenhuma: cada 401 abria um refresh
+        // proprio, concorrendo com o do apiClient na mesma pagina.
+        await refreshSession()
         return api(originalRequest)
       } catch {
-        // Refresh falhou — redireciona para login
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login'
-        }
+        // @eligi:libapi-comentario-catch
+        // Refresh falhou. Propaga o erro no formato que os 8 consumidores
+        // deste cliente ja esperam; o redirect e responsabilidade do useAuth.
+        // @eligi:libapi-sem-redirect
+        // NAO redirecionar daqui. Quem decide que a sessao morreu e o
+        // useAuth, que prova com /auth/refresh antes de mandar pro login.
+        // Este catch cobre tambem onboarding e reset de senha, onde um
+        // hard nav pro /login perde o que o lojista estava preenchendo.
         return Promise.reject(error.response?.data || error)
       }
     }

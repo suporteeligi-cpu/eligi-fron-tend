@@ -1,4 +1,5 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import { refreshSession } from '@/lib/refreshSession' // @eligi:apiclient-import-refresh
 
 const baseURL: string =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -45,7 +46,13 @@ api.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
         })
-          .then(() => api(originalRequest))
+          .then(() => {
+            // @eligi:apiclient-retry-enfileirado
+            // marcar aqui tambem: so o lider da corrida marcava _retry,
+            // entao um 401 no retry do enfileirado abria outro refresh.
+            originalRequest._retry = true
+            return api(originalRequest)
+          })
           .catch(err => Promise.reject(err))
       }
 
@@ -53,7 +60,9 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true })
+        // @eligi:apiclient-refresh-compartilhado
+        // mutex unico do app (lib/refreshSession), nao mais um POST proprio
+        await refreshSession()
         processQueue(null)
         return api(originalRequest)
       } catch (refreshError) {
