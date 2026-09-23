@@ -549,17 +549,23 @@ function DestinoSaque({ keyMasked, keyType, onSaved }: {
   // A tela so pede o CNPJ; o back confere se e o do negocio e recusa o resto.
   const tipo: PixKeyType = 'CNPJ'
   const [chave, setChave] = useState('')
+  // @eligi:saque-senha
+  // Trocar a chave de saque e operacao sensivel: pede a senha do Eligi. Sessao
+  // aberta num celular perdido nao basta para redirecionar o dinheiro.
+  const [senha, setSenha] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
   const salvar = useCallback(async () => {
-    if (!chave.trim()) { setErro('Informe a chave Pix.'); return }
+    if (!chave.trim()) { setErro('Informe o CNPJ do negócio.'); return }
+    if (!senha) { setErro('Digite sua senha para confirmar a troca.'); return }
     setErro(null); setSalvando(true)
     try {
       await api.patch('/club-subscriptions/asaas/payout-key', {
-        pixKey: chave.trim(), pixKeyType: tipo,
+        pixKey: chave.trim(), pixKeyType: tipo, password: senha,
       })
       setChave('')
+      setSenha('')
       setEditando(false)
       onSaved()
     } catch (e: unknown) {
@@ -568,7 +574,7 @@ function DestinoSaque({ keyMasked, keyType, onSaved }: {
     } finally {
       setSalvando(false)
     }
-  }, [chave, tipo, onSaved])
+  }, [chave, senha, tipo, onSaved])
 
   const ph = PIX_TIPOS.find(t => t.key === tipo)?.ph ?? ''
 
@@ -657,6 +663,25 @@ function DestinoSaque({ keyMasked, keyType, onSaved }: {
             }}
           />
 
+          <div style={{
+            fontSize: 11.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+            color: '#8a8a93', margin: '16px 0 8px',
+          }}>
+            Sua senha
+          </div>
+          <input
+            type="password"
+            value={senha}
+            onChange={e => setSenha(e.target.value)}
+            autoComplete="current-password"
+            placeholder="Sua senha do Eligi"
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: 14, minHeight: 50,
+              border: '1px solid rgba(17,17,20,.12)', borderRadius: 12,
+              fontSize: 16, fontFamily: 'inherit', outline: 'none', background: '#fff',
+            }}
+          />
+
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             {keyMasked && (
               <button
@@ -709,6 +734,7 @@ function TransferirModal({ saldo, keyMasked, keyType, onClose, onDone }: {
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
+  const [senha, setSenha] = useState('')
 
   const valor = valorParaNumero(valorStr)
   const atalhos = [100, 500].filter(v => v <= saldo)
@@ -716,9 +742,10 @@ function TransferirModal({ saldo, keyMasked, keyType, onClose, onDone }: {
   const confirmar = useCallback(async () => {
     if (!valor || valor <= 0) { setErro('Informe um valor.'); return }
     if (valor > saldo) { setErro('O valor é maior que o saldo disponível.'); return }
+    if (!senha) { setErro('Digite sua senha para confirmar o saque.'); return }
     setErro(null); setEnviando(true)
     try {
-      await api.post('/club-subscriptions/asaas/transfer', { value: valor })
+      await api.post('/club-subscriptions/asaas/transfer', { value: valor, password: senha })
       setOk(true)
       window.setTimeout(() => { onDone(); onClose() }, 1600)
     } catch (e: unknown) {
@@ -727,7 +754,7 @@ function TransferirModal({ saldo, keyMasked, keyType, onClose, onDone }: {
     } finally {
       setEnviando(false)
     }
-  }, [valor, saldo, onClose, onDone])
+  }, [valor, senha, saldo, onClose, onDone])
 
   return (
     <div
@@ -841,6 +868,25 @@ function TransferirModal({ saldo, keyMasked, keyType, onClose, onDone }: {
                 {erro}
               </div>
             )}
+
+            <div style={{
+              fontSize: 11.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+              color: '#8a8a93', margin: '16px 0 8px',
+            }}>
+              Confirme com sua senha
+            </div>
+            <input
+              type="password"
+              value={senha}
+              onChange={e => setSenha(e.target.value)}
+              autoComplete="current-password"
+              placeholder="Sua senha do Eligi"
+              style={{
+                width: '100%', boxSizing: 'border-box', padding: 14, minHeight: 50,
+                border: '1px solid rgba(17,17,20,.12)', borderRadius: 12,
+                fontSize: 16, fontFamily: 'inherit', outline: 'none', background: '#fff',
+              }}
+            />
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button
