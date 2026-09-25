@@ -20,6 +20,7 @@ export const ROUTE_ACCESS_BY_ROLE: Record<Role, readonly string[]> = {
     '/dashboard/clientes',
     '/dashboard/servicos',
     '/dashboard/pacotes',
+    '/dashboard/eligiclub', // @eligi:club-rota-recepcao mesmo acesso da recepcao + cancelar membro
     '/dashboard/equipe',
     '/dashboard/estoque',
     '/dashboard/caixa',
@@ -30,6 +31,7 @@ export const ROUTE_ACCESS_BY_ROLE: Record<Role, readonly string[]> = {
     '/dashboard/clientes',
     '/dashboard/servicos',
     '/dashboard/pacotes',
+    '/dashboard/eligiclub', // @eligi:club-rota-recepcao ve planos e assina membros; o back barra o resto
     '/dashboard/estoque',
     '/dashboard/caixa',
     '/dashboard/financeiro/vendas',
