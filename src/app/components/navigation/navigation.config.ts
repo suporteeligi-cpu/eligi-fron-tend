@@ -64,6 +64,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Clientes',  path: '/dashboard/clientes',          icon: Users,       section: 'principal'  },
     { label: 'Serviços',  path: '/dashboard/servicos',          icon: Scissors,    section: 'principal'  },
     { label: 'Pacotes',   path: '/dashboard/pacotes',           icon: CreditCard,  section: 'principal'  },
+    { label: 'EligiClub', path: '/dashboard/eligiclub',         icon: EligiClubIcon, section: 'principal'  }, // @eligi:club-papeis-front
     { label: 'Estoque',   path: '/dashboard/estoque',           icon: PackageOpen, section: 'principal'  },
     { label: 'Caixa',     path: '/dashboard/caixa',             icon: ShoppingBag, section: 'financeiro' },
     { label: 'Vendas',    path: '/dashboard/financeiro/vendas', icon: DollarSign,  section: 'financeiro' },

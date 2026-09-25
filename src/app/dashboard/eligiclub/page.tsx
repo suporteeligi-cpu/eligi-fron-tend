@@ -1,4 +1,5 @@
 'use client'
+import { useRoleGuard, OWNER_ROLES } from '@/hooks/useRoleGuard' // @eligi:club-papeis-front
 // src/app/dashboard/eligiclub/page.tsx
 //
 // EligiClub — clube de assinatura recorrente com rateio por fichas.
@@ -160,6 +161,10 @@ const TABS: { id: Tab; label: string; Icon: LucideIcon }[] = [
   { id: 'fechamento', label: 'Fechamento', Icon: PiggyBank },
   { id: 'financeiro', label: 'Financeiro', Icon: Wallet },
 ]
+
+// Fechamento decide quanto cada profissional recebe do pote; Financeiro mostra
+// saldo e saque. Recepcao e gerente nao entram — o back tambem recusa (98e08e1).
+const ABAS_DO_DONO: Tab[] = ['fechamento', 'financeiro']
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Página
@@ -1311,6 +1316,8 @@ export default function EligiClubPage() {
   const isMobile = mode === 'mobile'
 
   const [tab, setTab] = useState<Tab>('planos')
+  // enquanto carrega, `allowed` e false: a aba aparece so quando o papel confirma
+  const { allowed: isDono } = useRoleGuard(OWNER_ROLES)
   const [toast, setToast] = useState<string | null>(null)
 
   // toast auto-dismiss
@@ -1437,7 +1444,7 @@ export default function EligiClubPage() {
         {/* Abas */}
         <div ref={tabsRef} style={{ position: 'relative', display: 'flex', gap: 4, padding: 4, background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: 13, border: `1px solid ${colors.gray.border}`, marginBottom: 16 }}>
           <div ref={indRef} style={{ position: 'absolute', top: 4, bottom: 4, left: 0, width: 0, borderRadius: 10, background: '#fff', boxShadow: '0 1px 5px rgba(0,0,0,0.09)', transition: 'transform .32s cubic-bezier(.5,1.3,.5,1), width .32s cubic-bezier(.5,1.3,.5,1)', pointerEvents: 'none' }} />
-          {TABS.map(({ id, label, Icon }) => {
+          {TABS.filter(t => isDono || !ABAS_DO_DONO.includes(t.id)).map(({ id, label, Icon }) => {
             const on = tab === id
             const isFech = id === 'fechamento'
             return (
@@ -1452,8 +1459,8 @@ export default function EligiClubPage() {
 
         {tab === 'planos' && <PlanosTab isMobile={isMobile} onToast={setToast} />}
         {tab === 'membros' && <MembrosTab isMobile={isMobile} onToast={setToast} />}
-        {tab === 'fechamento' && <FechamentoTab onToast={setToast} isMobile={isMobile} />}
-        {tab === 'financeiro' && <FinanceiroTab onToast={setToast} />}
+        {tab === 'fechamento' && isDono && <FechamentoTab onToast={setToast} isMobile={isMobile} />}
+        {tab === 'financeiro' && isDono && <FinanceiroTab onToast={setToast} />}
       </div>
     </>
   )
