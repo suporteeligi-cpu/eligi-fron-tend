@@ -16,7 +16,7 @@
 // legivel) abaixo disso. Os demais selos seguem EXATAMENTE o comportamento
 // anterior - nada neles mudou.
 import { useId } from 'react'
-import { Rocket, Heart, EyeOff, ShoppingBag, Cake } from 'lucide-react' // @eligi:birthday-seal-icon
+import { Rocket, Heart, EyeOff, ShoppingBag, Cake, RefreshCw } from 'lucide-react' /* @eligi:loyalty-seal-icon */ // @eligi:birthday-seal-icon
 
 interface Props {
   isPaid?:                 boolean
@@ -30,12 +30,22 @@ interface Props {
   // @eligi:birthday-seal-prop
   // 0 = hoje; 1..6 = dentro da margem de uma semana; null/undefined = sem selo.
   birthdayInDays?:         number | null
+  // @eligi:loyalty-seal-prop
+  clubPastDue?:            boolean  // clube com cobranca vencida: alerta com vida propria (como o globo)
+  membershipExpired?:      boolean  // assinatura do caixa vencida: selo renovar (some em card minimo)
 }
 
 const MAX_SIZE  = 18   // tamanho cheio (cards altos)
 const MIN_SIZE  = 11   // piso de legibilidade dos selos comuns (cards curtos)
 const GLOBE_MIN = 9    // piso do globo - desce mais que os outros (cabe no card de 5min)
 const GAP       = 4    // margem do canto + folga vertical de cada lado
+
+// @eligi:loyalty-seal-color
+// Alerta de fidelidade em AMBAR ESCURO: o vermelho e da marca e do globo, e o
+// ambar claro (#f59e0b) ja e a sacola. Dois estados por PREENCHIMENTO (mesma
+// logica do aniversario): cheio com ! = inadimplente (cobrar), vazado com
+// seta circular = venceu (oferecer renovacao).
+const LOYALTY_WARN = '#b45309'
 
 // Cabe dentro da altura com folga simetrica (GAP em cima e embaixo).
 // Sem cardHeight, assume o tamanho cheio (compativel com chamadas antigas).
@@ -101,6 +111,7 @@ function GlobeMark({ badge }: { badge: number }) {
 export default function BookingSeals({
   isPaid, fromOnline, professionalPreference, hasProducts, isNoShow, hidden, cardHeight, hasClub,
   birthdayInDays, // @eligi:birthday-seal-arg
+  clubPastDue, membershipExpired, // @eligi:loyalty-seal-arg
 }: Props) {
   const items: { size: number; node: React.ReactNode }[] = []
 
@@ -110,6 +121,22 @@ export default function BookingSeals({
     items.push({
       size: gs,
       node: <Badge bg="#dc2626" size={gs}><GlobeMark badge={gs} /></Badge>,
+    })
+  }
+
+  // @eligi:loyalty-seal-pastdue
+  // 1b) Clube inadimplente - mesma vida propria do globo: e cobranca, o
+  //     profissional precisa ver ate no card de 5min. Nunca aparece junto do
+  //     globo (globo = clube ACTIVE; este = PAST_DUE).
+  if (clubPastDue) {
+    const gs = computeGlobeSize(cardHeight)
+    items.push({
+      size: gs,
+      node: (
+        <Badge bg={LOYALTY_WARN} size={gs}>
+          <span style={{ color: '#fff', fontWeight: 900, fontSize: Math.round(gs * 0.7), lineHeight: 1, fontFamily: 'system-ui, sans-serif' }}>!</span>
+        </Badge>
+      ),
     })
   }
 
@@ -130,6 +157,11 @@ export default function BookingSeals({
           <Cake size={iconSz} color={bdayToday ? '#fff' : '#07070B'} strokeWidth={2.4} />
         </Badge> })
     }
+    // @eligi:loyalty-seal-renew
+    if (membershipExpired) items.push({ size, node:
+      <Badge bg="#ffffff" size={size}>
+        <RefreshCw size={iconSz} color={LOYALTY_WARN} strokeWidth={2.6} />
+      </Badge> })
     if (isPaid)                 items.push({ size, node:
       <Badge bg="#00b80c" size={size}>
         <span style={{ color: '#fff', fontWeight: 900, fontSize: dollarSz, lineHeight: 1, fontFamily: 'system-ui, sans-serif' }}>$</span>

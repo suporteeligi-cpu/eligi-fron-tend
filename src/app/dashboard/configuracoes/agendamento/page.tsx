@@ -14,6 +14,7 @@ interface BookingSettings {
   maxFutureBookingDays:   number
   rescheduleNotice:       number
   requireClientCpf:       boolean
+  showLoyaltyOnline:      boolean // @eligi:loyalty-online-fe-type
 }
 
 const NOTICE_OPTIONS = [
@@ -231,6 +232,7 @@ export default function AgendamentoConfigPage() {
     autoConfirm: true, avoidGapsBetweenVisits: true,
     minBookingNotice: 15, maxFutureBookingDays: 7, rescheduleNotice: 60,
     requireClientCpf: true,
+    showLoyaltyOnline: false, // @eligi:loyalty-online-fe-default
   })
   const [original, setOriginal] = useState<BookingSettings | null>(null)
   const [loading,  setLoading]  = useState(true)
@@ -404,6 +406,18 @@ export default function AgendamentoConfigPage() {
               last
             />
             <CpfConsequence on={settings.requireClientCpf} />
+          </Card>
+
+          {/* @eligi:loyalty-online-card */}
+          <Card>
+            <CardHeader label="Fidelidade no link" />
+            <ToggleRow
+              label="Mostrar planos e pacotes no link de agendamento"
+              description="Seus planos do clube, assinaturas e pacotes ativos aparecem numa vitrine no link, com um botão para o cliente falar com você no WhatsApp. O botão usa o WhatsApp cadastrado no seu perfil."
+              checked={settings.showLoyaltyOnline}
+              onChange={v => update('showLoyaltyOnline', v)}
+              last
+            />
           </Card>
 
           {/* Info */}

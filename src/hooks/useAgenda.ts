@@ -26,6 +26,8 @@ interface ApiBooking {
   fromOnline?:             boolean   // ← veio do link público (🚀)
   professionalPreference?: boolean   // ← cliente escolheu o profissional (❤️)
   hasClub?:                boolean   // ← cliente tem EligiClub ativo (globo)
+  clubPastDue?:            boolean   // @eligi:loyalty-api-type — clube PAST_DUE
+  membershipExpired?:      boolean   // assinatura do caixa vencida
   // legado
   time?:     string
   duration?: number
@@ -72,6 +74,8 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
     hasProducts:            b.hasProducts ?? false,
     professionalPreference: b.professionalPreference ?? false,
     hasClub:                b.hasClub ?? false,
+    clubPastDue:            b.clubPastDue ?? false,       // @eligi:loyalty-adapt
+    membershipExpired:      b.membershipExpired ?? false,
     // @eligi:birthday-adapt -- ?? null e NAO ?? false: ausencia de data nao e 'dia 0'
     birthdayInDays:         b.birthdayInDays ?? null,
     birthdayAge:            b.birthdayAge    ?? null,

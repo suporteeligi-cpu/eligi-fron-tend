@@ -26,6 +26,9 @@ export type AgendaBooking = {
   birthdayInDays?:         number | null  // 0 = hoje; 1..6 = na semana; null = sem selo
   birthdayAge?:            number | null  // idade que completa; null quando nao ha ano
   hasClub?:                boolean  // cliente tem EligiClub ativo (selo globo) (selo ❤️)
+  // @eligi:loyalty-fe-type
+  clubPastDue?:            boolean  // clube com cobranca vencida (selo de alerta)
+  membershipExpired?:      boolean  // assinatura do caixa vencida (selo renovar)
 }
 
 export type AgendaBlock = {
