@@ -31,6 +31,7 @@ export interface MembershipPlan {
   recurring:          boolean
   allServices:        boolean
   active:             boolean
+  availableOnline?:   boolean // @eligi:item-online-memb-type — aparece na vitrine do link
   lockProfessionalId: string | null
   earnsCommission:    boolean
   color:              string | null

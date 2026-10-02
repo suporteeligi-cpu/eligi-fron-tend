@@ -33,6 +33,7 @@ export default function MembershipEditorModal({ membership_, isMobile, onSaved, 
   const [selectedIds,      setSelectedIds]      = useState<string[]>(() => membership_?.services?.map(s => s.serviceId) ?? [])
   const [active,           setActive]           = useState(membership_?.active ?? true)
   const [earnsCommission,  setEarnsCommission]  = useState(membership_?.earnsCommission ?? false)
+  const [availableOnline,  setAvailableOnline]  = useState(membership_?.availableOnline ?? true) // @eligi:item-online-memb-state
 
   const [services,      setServices]      = useState<MServiceLite[]>([])
 
@@ -105,6 +106,7 @@ export default function MembershipEditorModal({ membership_, isMobile, onSaved, 
         serviceIds:         allServices ? undefined : selectedIds,
         active,
         earnsCommission,
+        availableOnline, // @eligi:item-online-memb-body
       }
       const res = isEditing
         ? await api.patch(`/memberships/${membership_!.id}`, body)
@@ -118,7 +120,7 @@ export default function MembershipEditorModal({ membership_, isMobile, onSaved, 
       setSaving(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, priceNum, taxRateStr, validityType, validityValueStr, needsValue, recurring, allServices, selectedIds, active, earnsCommission, isEditing])
+  }, [name, description, priceNum, taxRateStr, validityType, validityValueStr, needsValue, recurring, allServices, selectedIds, active, earnsCommission, availableOnline, isEditing]) // @eligi:item-online-memb-deps
 
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 700,
@@ -299,6 +301,13 @@ export default function MembershipEditorModal({ membership_, isMobile, onSaved, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
                 <ToggleRow label="Ativa" desc="Aparece na venda" value={active} onChange={setActive} />
                 <ToggleRow label="Gera comissão" desc="Profissional recebe sobre o uso" value={earnsCommission} onChange={setEarnsCommission} />
+                {/* @eligi:item-online-ui — decisao de distribuicao: o subtitulo diz o que NAO muda */}
+                <ToggleRow
+                  label="Disponível no link"
+                  desc={availableOnline ? 'Aparece na vitrine do link de agendamento' : 'Continua na venda do caixa. Só não aparece no link.'}
+                  value={availableOnline}
+                  onChange={setAvailableOnline}
+                />
               </div>
             </div>
           </div>

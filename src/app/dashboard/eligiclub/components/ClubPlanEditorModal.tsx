@@ -27,6 +27,7 @@ interface ClubPlan {
   price: number
   staffSharePct: number
   active: boolean
+  availableOnline?: boolean // @eligi:item-online-club-type
   color: string | null
   services: PlanServiceRef[]
   _count?: { subscriptions: number }
@@ -51,6 +52,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
   const [pctStr,      setPctStr]      = useState(plan ? String(plan.staffSharePct) : '50')
   const [color,       setColor]       = useState<string>(plan?.color ?? PALETTE[0])
   const [active,      setActive]      = useState(plan?.active ?? true)
+  const [availableOnline, setAvailableOnline] = useState(plan?.availableOnline ?? true) // @eligi:item-online-club-state
   const [serviceIds,  setServiceIds]  = useState<string[]>(() => plan?.services.map(s => s.serviceId) ?? [])
 
   // serviços: semeia com os do plano (edição mostra nomes na hora) e o fetch repõe a lista completa
@@ -117,6 +119,8 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
         staffSharePct: pctNum,
         color,
         serviceIds,
+        active,          // @eligi:item-online-club-body — antes o Ativo era ignorado no salvar
+        availableOnline,
       }
       const res = isEditing
         ? await api.patch(`/club/${plan!.id}`, body)
@@ -131,7 +135,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
       setSaving(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, priceNum, pctNum, color, serviceIds, isEditing])
+  }, [name, description, priceNum, pctNum, color, serviceIds, active, availableOnline, isEditing]) // @eligi:item-online-club-deps
 
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 700, color: colors.gray.dimText,
@@ -227,6 +231,13 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
               </div>
 
               <ToggleRow label="Ativo" desc="Plano disponível para assinar" value={active} onChange={setActive} />
+              {/* @eligi:item-online-ui — decisao de distribuicao: o subtitulo diz o que NAO muda */}
+              <ToggleRow
+                label="Disponível no link"
+                desc={availableOnline ? 'Aparece na vitrine do link de agendamento' : 'Continua na venda do caixa. Só não aparece no link.'}
+                value={availableOnline}
+                onChange={setAvailableOnline}
+              />
             </div>
 
             {/* COLUNA 2 — serviços cobertos */}

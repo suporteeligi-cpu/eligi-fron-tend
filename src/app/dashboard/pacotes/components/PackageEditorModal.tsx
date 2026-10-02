@@ -39,6 +39,7 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
   const [validityValueStr, setValidityValueStr] = useState(package_?.validityValue != null ? String(package_.validityValue) : '30')
   const [active,          setActive]          = useState(package_?.active ?? true)
   const [earnsCommission, setEarnsCommission] = useState(package_?.earnsCommission ?? false)
+  const [availableOnline, setAvailableOnline] = useState(package_?.availableOnline ?? true) // @eligi:item-online-pkg-state
   const [items, setItems] = useState<ItemDraft[]>(() =>
     package_?.items.map(i => ({
       serviceId: i.serviceId,
@@ -132,6 +133,7 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
         validityValue: needsValue ? parseInt(validityValueStr, 10) : null,
         active,
         earnsCommission,
+        availableOnline, // @eligi:item-online-pkg-body
         items: items.map(it => ({
           serviceId: it.serviceId,
           quantity:  it.quantity,
@@ -152,7 +154,7 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
       setSaving(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, priceNum, taxRateStr, validityType, validityValueStr, needsValue, active, earnsCommission, items, isEditing])
+  }, [name, description, priceNum, taxRateStr, validityType, validityValueStr, needsValue, active, earnsCommission, availableOnline, items, isEditing]) // @eligi:item-online-pkg-deps
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
@@ -354,6 +356,13 @@ export default function PackageEditorModal({ package_, isMobile, onSaved, onClos
                 desc="Profissional recebe comissão sobre o uso"
                 value={earnsCommission}
                 onChange={setEarnsCommission}
+              />
+              {/* @eligi:item-online-ui — decisao de distribuicao: o subtitulo diz o que NAO muda */}
+              <ToggleRow
+                label="Disponível no link"
+                desc={availableOnline ? 'Aparece na vitrine do link de agendamento' : 'Continua na venda do caixa. Só não aparece no link.'}
+                value={availableOnline}
+                onChange={setAvailableOnline}
               />
             </div>
 

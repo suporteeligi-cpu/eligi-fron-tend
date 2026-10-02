@@ -35,6 +35,7 @@ export interface ServicePackage {
   validityType:       ValidityType
   validityValue:      number | null
   active:             boolean
+  availableOnline?:   boolean // @eligi:item-online-pkg-type — aparece na vitrine do link
   lockProfessionalId: string | null
   earnsCommission:    boolean
   color:              string | null
