@@ -21,6 +21,7 @@ interface ApiBooking {
   status?:   string
   isPaid?:   boolean
   hasProducts?:            boolean   // escolheu produto na vitrine do link
+  hasPlanIntent?:          boolean   // @eligi:plan-intent-api-type — quer fechar plano (link)
   birthdayInDays?:         number | null  // @eligi:birthday-api-type
   birthdayAge?:            number | null
   fromOnline?:             boolean   // ← veio do link público (🚀)
@@ -72,6 +73,7 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
     isPaid:                 b.isPaid ?? false,
     fromOnline:             b.fromOnline ?? false,
     hasProducts:            b.hasProducts ?? false,
+    hasPlanIntent:          b.hasPlanIntent ?? false,     // @eligi:plan-intent-adapt
     professionalPreference: b.professionalPreference ?? false,
     hasClub:                b.hasClub ?? false,
     clubPastDue:            b.clubPastDue ?? false,       // @eligi:loyalty-adapt

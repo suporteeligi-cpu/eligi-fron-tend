@@ -15,7 +15,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, Clock, User, Calendar, AlertTriangle, CheckCircle, Ban, Phone,
-  ShoppingBag, Receipt, ChevronDown, Loader2, AlertCircle, Plus } from 'lucide-react'
+  ShoppingBag, Receipt, ChevronDown, Loader2, AlertCircle, Plus, Star /* @eligi:plan-intent-bvp-icon */ } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import api from '@/shared/lib/apiClient'
 import { AgendaBooking } from '@/features/agenda/types'
@@ -81,6 +81,7 @@ interface BookingDetail {
   groupTotal?: number
   extraServices?: { id: string; name: string; price: number; professional?: { id: string; name: string } | null }[]
   productIntents?: ProductIntent[]
+  planIntent?:     PlanIntent | null // @eligi:plan-intent-bvp-field
 }
 
 interface ProductIntent {
@@ -154,6 +155,71 @@ function ProductIntentsCard({ items }: { items: ProductIntent[] }) {
           </span>
         </div>
       ))}
+    </div>
+  )
+}
+
+// @eligi:plan-intent-bvp-card
+interface PlanIntent {
+  id:     string
+  kind:   'CLUB' | 'MEMBERSHIP' | 'PACKAGE'
+  planId: string
+  name:   string
+  price:  number
+  status: 'PENDING' | 'CONVERTED' | 'DROPPED'
+}
+
+const PLAN_KIND_LABEL: Record<PlanIntent['kind'], string> = {
+  CLUB:       'Clube',
+  MEMBERSHIP: 'Assinatura',
+  PACKAGE:    'Pacote',
+}
+
+const PLAN_STATUS_LABEL: Record<PlanIntent['status'], string> = {
+  PENDING:   'Quer fechar',
+  CONVERTED: 'Fechado no caixa',
+  DROPPED:   'Não fechou',
+}
+
+/* Cliente tocou "Agendar com este plano" no link publico. NAO e venda: e a
+   deixa para oferecer o plano no checkout. Estrela ambar = mesmo selo da
+   agenda. Preco = o do momento do agendamento (snapshot do servidor). */
+function PlanIntentCard({ intent }: { intent: PlanIntent | null }) {
+  if (!intent) return null
+  const pending = intent.status === 'PENDING'
+
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 18,
+      padding: '14px 18px',
+      boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+      border: '1px solid rgba(0,0,0,0.06)',
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      <div aria-hidden style={{
+        width: 36, height: 36, borderRadius: 12, flexShrink: 0,
+        background: 'rgba(245,158,11,0.12)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Star size={18} color="#f59e0b" fill="#f59e0b" strokeWidth={2.2} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#475569' }}>
+          {PLAN_STATUS_LABEL[intent.status]} · {PLAN_KIND_LABEL[intent.kind]}
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#0f0f14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {intent.name}
+        </div>
+        {pending && (
+          <div style={{ fontSize: 12.5, color: '#475569', marginTop: 2 }}>
+            Escolheu no link de agendamento. Ofereça no checkout.
+          </div>
+        )}
+      </div>
+      <span style={{ fontSize: 14, fontWeight: 800, color: '#0f0f14', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+        R$ {intent.price.toFixed(2).replace('.', ',')}{intent.kind === 'CLUB' ? '/mês' : ''}
+      </span>
     </div>
   )
 }
@@ -1117,6 +1183,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                 </button>
               )}
 
+              <PlanIntentCard intent={detail?.planIntent ?? null} /> {/* @eligi:plan-intent-bvp-render */}
               <ProductIntentsCard items={products} />
 
               {/* Card total + status de venda */}

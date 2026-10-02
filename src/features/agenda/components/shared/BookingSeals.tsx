@@ -16,7 +16,7 @@
 // legivel) abaixo disso. Os demais selos seguem EXATAMENTE o comportamento
 // anterior - nada neles mudou.
 import { useId } from 'react'
-import { Rocket, Heart, EyeOff, ShoppingBag, Cake, RefreshCw } from 'lucide-react' /* @eligi:loyalty-seal-icon */ // @eligi:birthday-seal-icon
+import { Rocket, Heart, EyeOff, ShoppingBag, Cake, RefreshCw, Star } from 'lucide-react' /* @eligi:plan-intent-seal-icon */ /* @eligi:loyalty-seal-icon */ // @eligi:birthday-seal-icon
 
 interface Props {
   isPaid?:                 boolean
@@ -33,6 +33,7 @@ interface Props {
   // @eligi:loyalty-seal-prop
   clubPastDue?:            boolean  // clube com cobranca vencida: alerta com vida propria (como o globo)
   membershipExpired?:      boolean  // assinatura do caixa vencida: selo renovar (some em card minimo)
+  hasPlanIntent?:          boolean  // @eligi:plan-intent-seal-prop — quer fechar plano escolhido no link
 }
 
 const MAX_SIZE  = 18   // tamanho cheio (cards altos)
@@ -112,6 +113,7 @@ export default function BookingSeals({
   isPaid, fromOnline, professionalPreference, hasProducts, isNoShow, hidden, cardHeight, hasClub,
   birthdayInDays, // @eligi:birthday-seal-arg
   clubPastDue, membershipExpired, // @eligi:loyalty-seal-arg
+  hasPlanIntent, // @eligi:plan-intent-seal-arg
 }: Props) {
   const items: { size: number; node: React.ReactNode }[] = []
 
@@ -169,6 +171,10 @@ export default function BookingSeals({
     if (fromOnline)             items.push({ size, node: <Badge bg="#2563eb" size={size}><Rocket size={iconSz} color="#fff" strokeWidth={2.4} /></Badge> })
     if (professionalPreference) items.push({ size, node: <Badge bg="#e11d48" size={size}><Heart  size={iconSz} color="#fff" fill="#fff" strokeWidth={2} /></Badge> })
     if (hasProducts)            items.push({ size, node: <Badge bg="#f59e0b" size={size}><ShoppingBag size={iconSz} color="#fff" strokeWidth={2.4} /></Badge> })
+    // @eligi:plan-intent-badge — quer fechar plano: mesma familia da sacola
+    // (oportunidade de venda no balcao), separada por PREENCHIMENTO como o
+    // aniversario: sacola = cheia ambar; plano = vazado com estrela ambar.
+    if (hasPlanIntent)          items.push({ size, node: <Badge bg="#ffffff" size={size}><Star size={iconSz} color="#f59e0b" fill="#f59e0b" strokeWidth={2.2} /></Badge> })
     if (isNoShow)               items.push({ size, node: <Badge bg="#475569" size={size}><EyeOff size={iconSz} color="#fff" strokeWidth={2.4} /></Badge> })
   }
 
