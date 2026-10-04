@@ -30,6 +30,7 @@ export type AgendaBooking = {
   // @eligi:loyalty-fe-type
   clubPastDue?:            boolean  // clube com cobranca vencida (selo de alerta)
   membershipExpired?:      boolean  // assinatura do caixa vencida (selo renovar)
+  seriesId?:               string | null  // @eligi:series-fe-type — ocorrencia de agendamento recorrente
 }
 
 export type AgendaBlock = {

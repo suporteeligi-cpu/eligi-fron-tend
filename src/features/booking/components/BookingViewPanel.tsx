@@ -15,7 +15,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, Clock, User, Calendar, AlertTriangle, CheckCircle, Ban, Phone,
-  ShoppingBag, Receipt, ChevronDown, Loader2, AlertCircle, Plus, Star /* @eligi:plan-intent-bvp-icon */ } from 'lucide-react'
+  ShoppingBag, Receipt, ChevronDown, Loader2, AlertCircle, Plus, Star /* @eligi:plan-intent-bvp-icon */, Repeat /* @eligi:series-bvp-icon */ } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import api from '@/shared/lib/apiClient'
 import { AgendaBooking } from '@/features/agenda/types'
@@ -25,6 +25,7 @@ import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAge
 import { Sale } from '@/features/sales/types'
 import SaleReceiptModal from '@/features/sales/components/SaleReceiptModal'
 import NfseBookingAction from '@/features/fiscal/components/NfseBookingAction' // @eligi:nfse-booking-action
+import SeriesInfoCard from './SeriesInfoCard' // @eligi:series-bvp-import
 import { waLink, bookingConfirmationMessage } from '@/shared/utils/whatsapp' // @eligi:bvp-wa-shared-import
 import {
   blocksFromSettings,
@@ -82,6 +83,8 @@ interface BookingDetail {
   extraServices?: { id: string; name: string; price: number; professional?: { id: string; name: string } | null }[]
   productIntents?: ProductIntent[]
   planIntent?:     PlanIntent | null // @eligi:plan-intent-bvp-field
+  seriesId?:       string | null     // @eligi:series-bvp-field
+  seriesIndex?:    number | null
 }
 
 interface ProductIntent {
@@ -394,7 +397,8 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
   const [detail,    setDetail]    = useState<BookingDetail | null>(null)
   const [loading,   setLoading]   = useState(true)
   const [showAlter, setShowAlter] = useState(false)
-  const [confirm,   setConfirm]   = useState<'cancel' | 'noshow' | null>(null)
+  const [confirm,   setConfirm]   = useState<'cancel' | 'noshow' | 'cancelSeries' /* @eligi:series-bvp-confirm */ | null>(null)
+  const [seriesVersion, setSeriesVersion] = useState(0)
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState<string | null>(null)
   const [creatingSale, setCreatingSale] = useState(false)
@@ -481,6 +485,36 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
       setError(e.response?.data?.error ?? 'Erro ao marcar não compareceu')
+      setSaving(false)
+    }
+  }
+
+  // @eligi:series-bvp-cancel — este e os proximos (so CONFIRMED futuro e sem
+  // pagamento; o back devolve em keptIds o que ficou por ter dinheiro).
+  async function handleCancelSeries() {
+    const seriesId = detail?.seriesId
+    if (!seriesId) return
+    try {
+      setSaving(true)
+      setError(null)
+      const res = await api.post(`/bookings/series/${seriesId}/cancel`, { fromBookingId: bookingId })
+      const out = (res.data?.data ?? res.data) as { canceledIds?: string[]; keptIds?: string[] }
+      for (const id of out.canceledIds ?? []) removeBooking(dateStr, id)
+      setConfirm(null)
+      setSaving(false)
+      const kept = out.keptIds?.length ?? 0
+      if (kept > 0) {
+        setSeriesVersion(v => v + 1)
+        setError(`${kept} ${kept === 1 ? 'agendamento com pagamento ficou' : 'agendamentos com pagamento ficaram'} de fora. Cancele pelo caixa, se for o caso.`)
+        return
+      }
+      onClose()
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number; data?: { error?: string } } }
+      setConfirm(null)
+      setError(e.response?.status === 403
+        ? 'Só o dono ou o gerente pode encerrar a série.'
+        : (e.response?.data?.error ?? 'Erro ao cancelar a série'))
       setSaving(false)
     }
   }
@@ -640,6 +674,16 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
           onCancel={() => setConfirm(null)}
         />
       )}
+      {confirm === 'cancelSeries' && ( /* @eligi:series-bvp-modal */
+        <ConfirmModal
+          title="Cancelar este e os próximos?"
+          body="Este horário e as próximas datas da série serão cancelados e a série termina aqui. Datas já atendidas ou pagas não mudam."
+          confirmLabel="Sim, cancelar"
+          danger
+          onConfirm={handleCancelSeries}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
       {confirm === 'noshow' && (
         <ConfirmModal
           title="Cliente não compareceu?"
@@ -772,6 +816,27 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                             Cliente não compareceu
                           </button>
                         )}
+                        {detail?.seriesId && ( /* @eligi:series-bvp-menu */
+                          <button className="bvp-drop-item"
+                            onClick={() => { setShowAlter(false); setConfirm('cancelSeries') }}
+                            style={{
+                              width: '100%',
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '14px 18px',
+                              border: 'none',
+                              borderBottom: '1px solid rgba(0,0,0,0.06)',
+                              background: 'transparent',
+                              cursor: 'pointer', textAlign: 'left',
+                              color: colors.red.DEFAULT,
+                              fontSize: 14, fontWeight: 600,
+                              fontFamily: typography.fontFamily,
+                              transition: 'background 0.12s',
+                            }}
+                          >
+                            <Repeat size={14} strokeWidth={2}/>
+                            Cancelar este e os próximos
+                          </button>
+                        )}
                         <button className="bvp-drop-item"
                           onClick={() => { setShowAlter(false); setConfirm('cancel') }}
                           style={{
@@ -901,6 +966,15 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                   <AlertCircle size={13} strokeWidth={2}/>
                   {error}
                 </div>
+              )}
+
+              {detail?.seriesId && ( /* @eligi:series-bvp-card */
+                <SeriesInfoCard
+                  seriesId={detail.seriesId}
+                  seriesIndex={detail.seriesIndex ?? null}
+                  bookingId={bookingId}
+                  version={seriesVersion}
+                />
               )}
 
               {/* Card de serviços — lista o grupo quando há múltiplos (estilo Booksy) */}

@@ -89,6 +89,7 @@ function MobileBookingCard({ booking, height, isDragging = false }: Props) {
         professionalPreference={booking.professionalPreference}
         hasProducts={booking.hasProducts}
         hasPlanIntent={booking.hasPlanIntent} // @eligi:plan-intent-call-mobile
+        isSeries={!!booking.seriesId} // @eligi:series-call-mobile
         hasClub={booking.hasClub}
         clubPastDue={booking.clubPastDue} // @eligi:loyalty-call-mobile
         membershipExpired={booking.membershipExpired}

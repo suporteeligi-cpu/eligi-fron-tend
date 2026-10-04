@@ -29,6 +29,7 @@ interface ApiBooking {
   hasClub?:                boolean   // ← cliente tem EligiClub ativo (globo)
   clubPastDue?:            boolean   // @eligi:loyalty-api-type — clube PAST_DUE
   membershipExpired?:      boolean   // assinatura do caixa vencida
+  seriesId?:               string | null  // @eligi:series-api-type
   // legado
   time?:     string
   duration?: number
@@ -78,6 +79,7 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
     hasClub:                b.hasClub ?? false,
     clubPastDue:            b.clubPastDue ?? false,       // @eligi:loyalty-adapt
     membershipExpired:      b.membershipExpired ?? false,
+    seriesId:               b.seriesId ?? null,         // @eligi:series-adapt
     // @eligi:birthday-adapt -- ?? null e NAO ?? false: ausencia de data nao e 'dia 0'
     birthdayInDays:         b.birthdayInDays ?? null,
     birthdayAge:            b.birthdayAge    ?? null,

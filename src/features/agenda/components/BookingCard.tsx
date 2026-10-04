@@ -109,6 +109,7 @@ function BookingCard({ booking, totalHeight }: Props) {
         professionalPreference={booking.professionalPreference}
         hasProducts={booking.hasProducts}
         hasPlanIntent={booking.hasPlanIntent} // @eligi:plan-intent-call-desktop
+        isSeries={!!booking.seriesId} // @eligi:series-call-desktop
         hasClub={booking.hasClub}
         clubPastDue={booking.clubPastDue} // @eligi:loyalty-call-desktop
         membershipExpired={booking.membershipExpired}

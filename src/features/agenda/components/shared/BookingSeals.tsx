@@ -16,7 +16,7 @@
 // legivel) abaixo disso. Os demais selos seguem EXATAMENTE o comportamento
 // anterior - nada neles mudou.
 import { useId } from 'react'
-import { Rocket, Heart, EyeOff, ShoppingBag, Cake, RefreshCw, Star } from 'lucide-react' /* @eligi:plan-intent-seal-icon */ /* @eligi:loyalty-seal-icon */ // @eligi:birthday-seal-icon
+import { Rocket, Heart, EyeOff, ShoppingBag, Cake, RefreshCw, Star, Repeat /* @eligi:series-seal-icon */ } from 'lucide-react' /* @eligi:plan-intent-seal-icon */ /* @eligi:loyalty-seal-icon */ // @eligi:birthday-seal-icon
 
 interface Props {
   isPaid?:                 boolean
@@ -34,6 +34,7 @@ interface Props {
   clubPastDue?:            boolean  // clube com cobranca vencida: alerta com vida propria (como o globo)
   membershipExpired?:      boolean  // assinatura do caixa vencida: selo renovar (some em card minimo)
   hasPlanIntent?:          boolean  // @eligi:plan-intent-seal-prop — quer fechar plano escolhido no link
+  isSeries?:               boolean  // @eligi:series-seal-prop — ocorrencia de agendamento recorrente
 }
 
 const MAX_SIZE  = 18   // tamanho cheio (cards altos)
@@ -114,6 +115,7 @@ export default function BookingSeals({
   birthdayInDays, // @eligi:birthday-seal-arg
   clubPastDue, membershipExpired, // @eligi:loyalty-seal-arg
   hasPlanIntent, // @eligi:plan-intent-seal-arg
+  isSeries, // @eligi:series-seal-arg
 }: Props) {
   const items: { size: number; node: React.ReactNode }[] = []
 
@@ -175,6 +177,9 @@ export default function BookingSeals({
     // (oportunidade de venda no balcao), separada por PREENCHIMENTO como o
     // aniversario: sacola = cheia ambar; plano = vazado com estrela ambar.
     if (hasPlanIntent)          items.push({ size, node: <Badge bg="#ffffff" size={size}><Star size={iconSz} color="#f59e0b" fill="#f59e0b" strokeWidth={2.2} /></Badge> })
+    // @eligi:series-seal-badge — recorrente: vazado com icone slate escuro
+    // (mesmo token do card COMPLETED). Branco + icone, como plano e aniversario.
+    if (isSeries)               items.push({ size, node: <Badge bg="#ffffff" size={size}><Repeat size={iconSz} color="#334155" strokeWidth={2.6} /></Badge> })
     if (isNoShow)               items.push({ size, node: <Badge bg="#475569" size={size}><EyeOff size={iconSz} color="#fff" strokeWidth={2.4} /></Badge> })
   }
 

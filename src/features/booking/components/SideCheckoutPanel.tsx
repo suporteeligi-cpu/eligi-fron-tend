@@ -21,6 +21,9 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAgendaStore'
 import ProfAvatar from '@/features/agenda/components/shared/ProfAvatar' // @eligi:booking-profavatar
 import TimeStepper from '@/features/business-hours/components/TimeStepper' // @eligi:booking-stepper-import
+// @eligi:series-scp-import
+import RepeatSection, { REPEAT_OFF, repeatProblem, type RepeatValue } from './RepeatSection'
+import SeriesPreviewSheet, { type SeriesCreated } from './SeriesPreviewSheet'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -769,6 +772,9 @@ export default function SideCheckoutPanel({
   const [success, setSuccess] = useState(false)
   const [error,   setError]   = useState<string|null>(null)
   const [pendingOverlap, setPendingOverlap] = useState(false)
+  // @eligi:series-scp-state — Repetir (agendamento recorrente)
+  const [repeat,     setRepeat]     = useState<RepeatValue>(REPEAT_OFF)
+  const [showSeries, setShowSeries] = useState(false)
 
   // Loading do detalhe do booking (apenas em mode === 'edit')
   const [loadingBooking, setLoadingBooking] = useState(false)
@@ -791,6 +797,7 @@ export default function SideCheckoutPanel({
     setShowNotes(false)
     setSuccess(false); setError(null); setPendingOverlap(false)
     setInternalNote(''); setClientMessage('')
+    setRepeat(REPEAT_OFF); setShowSeries(false) // @eligi:series-scp-reset
 
     const initTime  = time ?? '09:00'
     const initProf  = professionalId ?? professionals[0]?.id ?? ''
@@ -1206,6 +1213,47 @@ export default function SideCheckoutPanel({
   }
 
   const isDisabled = !firstItem?.service || saving || success || loadingBooking
+
+  /* @eligi:series-scp-flow
+     Repetir so no agendamento NOVO de 1 servico (v1): editar, adicionar ao
+     grupo e grupo com varios servicos ficam de fora — serie de grupo
+     multiplicaria o risco do groupId. Com Repetir ligado, SALVAR vira
+     'revisar datas': a previa mostra cada data e so ela grava. */
+  const canRepeat     = !isEdit && !addToGroupRefId
+  const repeatBlocked = items.length > 1 ? 'Disponível para agendamento de um serviço' : null
+  const repeatOn      = canRepeat && repeat.enabled && !repeatBlocked
+  const firstDateStr  = date.format('YYYY-MM-DD')
+  const seriesRequestJson = repeatOn && firstItem?.service
+    ? JSON.stringify({
+        serviceId:      firstItem.service.id,
+        professionalId: firstItem.profId,
+        clientId:       selectedClient?.id ?? null,
+        clientName:     selectedClient?.name ?? '',
+        clientPhone:    selectedClient?.phone ?? '',
+        startAt:        dayjs.tz(`${firstDateStr} ${firstItem.startTime}`, 'America/Sao_Paulo').toISOString(),
+        endAt:          firstItem.endTime ? dayjs.tz(`${firstDateStr} ${firstItem.endTime}`, 'America/Sao_Paulo').toISOString() : null,
+        intervalWeeks:  repeat.intervalWeeks,
+        ...(repeat.endMode === 'count' ? { count: repeat.count } : { untilDate: repeat.untilDate }),
+      })
+    : ''
+
+  function openSeries() {
+    if (!firstItem?.service) { setError('Selecione o serviço'); return }
+    if (!selectedClient) { setError('Escolha o cliente para repetir o agendamento.'); return }
+    if (!firstItem.profId) { setError('Escolha o funcionário para repetir o agendamento.'); return }
+    const problem = repeatProblem(repeat, firstDateStr)
+    if (problem) { setError(problem); return }
+    setError(null)
+    setShowSeries(true)
+  }
+
+  function handleSeriesDone(r: SeriesCreated) {
+    void r
+    setShowSeries(false)
+    setPreview(null)
+    setSuccess(true)
+    setTimeout(() => onClose(), 1400)
+  }
   const dateLabel  = date.format('ddd, DD [de] MMM').replace(/^\w/,c=>c.toUpperCase())
 
   if (!open || typeof document === 'undefined') return null
@@ -1322,6 +1370,15 @@ export default function SideCheckoutPanel({
           onConfirm={() => { setPendingOverlap(false); handleSave(true) }}
           onCancel={() => setPendingOverlap(false)}
           isMobile={isMobile}
+        />
+      )}
+
+      {showSeries && seriesRequestJson && ( /* @eligi:series-scp-sheet */
+        <SeriesPreviewSheet
+          requestJson={seriesRequestJson}
+          isMobile={isMobile}
+          onClose={() => setShowSeries(false)}
+          onDone={handleSeriesDone}
         />
       )}
 
@@ -1538,6 +1595,16 @@ export default function SideCheckoutPanel({
                     </button>
                   )}
 
+                  {canRepeat && ( /* @eligi:series-scp-section */
+                    <RepeatSection
+                      value={repeat}
+                      onChange={setRepeat}
+                      firstDate={firstDateStr}
+                      startTime={firstItem?.startTime || '09:00'}
+                      blockedReason={repeatBlocked}
+                    />
+                  )}
+
                   {isEdit && (
                     <div style={{
                       padding: '10px 12px',
@@ -1652,10 +1719,10 @@ export default function SideCheckoutPanel({
           </div>
           <div style={{display:'flex',gap:8}}>
             <button className="cp-discard" onClick={onClose}>DESCARTAR</button>
-            <button className="cp-save" disabled={isDisabled} onClick={()=>handleSave(false)} style={{background:success?'linear-gradient(135deg,#16a34a,#15803d)':isDisabled?undefined:colors.red.gradient,boxShadow:success?'0 4px 14px rgba(22,163,74,0.28)':isDisabled?'none':shadows.redMd}}>
-              {success ? (isEdit ? '✓ ATUALIZADO' : '✓ CONFIRMADO')
+            <button className="cp-save" disabled={isDisabled} onClick={()=>(repeatOn ? openSeries() : handleSave(false)) /* @eligi:series-scp-save */} style={{background:success?'linear-gradient(135deg,#16a34a,#15803d)':isDisabled?undefined:colors.red.gradient,boxShadow:success?'0 4px 14px rgba(22,163,74,0.28)':isDisabled?'none':shadows.redMd}}>
+              {success ? (isEdit ? '✓ ATUALIZADO' : repeatOn ? '✓ SÉRIE CRIADA' /* @eligi:series-scp-done */ : '✓ CONFIRMADO')
               : saving ? 'SALVANDO...'
-              : (isEdit ? 'ATUALIZAR' : 'SALVAR')}
+              : (isEdit ? 'ATUALIZAR' : repeatOn ? 'REVISAR DATAS' : 'SALVAR') /* @eligi:series-scp-label */}
             </button>
           </div>
         </div>
