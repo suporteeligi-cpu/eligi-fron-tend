@@ -17,7 +17,12 @@ import AssistantLauncher from './assistant/AssistantLauncher'
 import { useAgendaStore }  from '../hooks/useAgendaStore'
 import { useAgendaSocket } from '../hooks/useAgendaSocket'
 import { useDeviceMode }   from '../hooks/useDeviceMode'
-import { AgendaProfessional, AgendaBlock } from '../types'
+import { AgendaProfessional, AgendaBlock, AgendaBooking } from '../types'
+
+// @eligi:agenda-subscribe-empty — referencia estavel pro dia sem dados
+// (um [] novo a cada render faria o seletor do zustand re-renderizar sem fim).
+const EMPTY_BOOKINGS: AgendaBooking[] = []
+const EMPTY_BLOCKS:   AgendaBlock[]   = []
 import { colors } from '@/shared/theme'
 import api from '@/shared/lib/apiClient'
 import { AGENDA_PXMIN_LEVELS, AGENDA_PXMIN_DEFAULT_INDEX } from '../constants'
@@ -46,10 +51,9 @@ interface Props {
 export default function AgendaBoard({ professionals, businessId, externalDate, onDateChange, onRefreshBookings }: Props) {
   const selectedDate       = useAgendaStore(s => s.selectedDate)
   const setSelectedDate    = useAgendaStore(s => s.setSelectedDate)
-  const getBookingsForDate = useAgendaStore(s => s.getBookingsForDate)
+  // @eligi:agenda-subscribe-getters — getters removidos: nao assinam o store
   const addBooking         = useAgendaStore(s => s.addBooking)
   const removeBooking      = useAgendaStore(s => s.removeBooking)
-  const getBlocksForDate   = useAgendaStore(s => s.getBlocksForDate)
   const setBlocksForDate   = useAgendaStore(s => s.setBlocksForDate)
   const addBlock           = useAgendaStore(s => s.addBlock)
   const removeBlock        = useAgendaStore(s => s.removeBlock)
@@ -142,8 +146,10 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
   const [blockInitProf, setBlockInitProf] = useState<string | undefined>()
 
   const dateStr  = dayjs(selectedDate).format('YYYY-MM-DD')
-  const bookings = getBookingsForDate(dateStr)
-  const blocks   = getBlocksForDate(dateStr)
+  // @eligi:agenda-sub-read — assina o dia: socket/refetch gravam no store
+  // e a agenda re-renderiza na hora (antes so aparecia com F5).
+  const bookings = useAgendaStore(s => s.bookingsByDate[dateStr]) ?? EMPTY_BOOKINGS
+  const blocks   = useAgendaStore(s => s.blocksByDate[dateStr])   ?? EMPTY_BLOCKS
 
   const weekday   = dayjs(selectedDate).day()
   const todaySlot = allHours.find(s => s.weekday === weekday)
