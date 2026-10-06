@@ -40,6 +40,7 @@ interface Preview {
   startTime:     string
   durationMin:   number
   occurrences:   Occurrence[]
+  keptCount?:    number  // @eligi:series-move-sps-kept — so no modo 'move': datas pagas que ficam
 }
 
 export interface SeriesCreated {
@@ -74,10 +75,22 @@ interface Props {
   requestJson: string
   isMobile:    boolean
   onClose:     () => void
-  onDone:      (r: SeriesCreated) => void
+  onDone?:     (r: SeriesCreated) => void
+  // @eligi:series-move-sps-props — a mesma previa serve "mudar este e os proximos"
+  mode?:        'create' | 'move'
+  previewPath?: string
+  confirmPath?: string
+  onMoved?:     () => void
 }
 
-export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onDone }: Props) {
+export default function SeriesPreviewSheet({
+  requestJson, isMobile, onClose, onDone,
+  mode = 'create', previewPath = '/bookings/series/preview', confirmPath = '/bookings/series', onMoved,
+}: Props) {
+  const isMove = mode === 'move'
+  const semPermissao = isMove
+    ? 'Só o dono ou o gerente pode mudar a série.'
+    : 'Só o dono ou o gerente pode criar agendamento recorrente.'
   const [preview,   setPreview]   = useState<Preview | null>(null)
   const [loading,   setLoading]   = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -92,7 +105,7 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
 
   useEffect(() => {
     let cancelled = false
-    api.post('/bookings/series/preview', JSON.parse(requestJson))
+    api.post(previewPath, JSON.parse(requestJson)) // @eligi:series-move-sps-fetch
       .then(res => {
         if (cancelled) return
         const data = (res.data?.data ?? res.data) as Preview
@@ -102,12 +115,12 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
       .catch((e: ApiError) => {
         if (cancelled) return
         setLoadError(e.response?.status === 403
-          ? 'Só o dono ou o gerente pode criar agendamento recorrente.'
+          ? semPermissao // @eligi:series-move-sps-403load
           : errorText(e, 'Não foi possível montar a prévia das datas.'))
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [requestJson, reload])
+  }, [requestJson, reload, previewPath, semPermissao]) // @eligi:series-move-sps-deps
 
   const occ = preview?.occurrences ?? []
   const conflicts = occ.filter(o => o.status === 'CONFLICT')
@@ -140,13 +153,20 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
     setError(null)
     setNotice(null)
     try {
-      const res = await api.post('/bookings/series', {
+      // @eligi:series-move-sps-confirm — remarcar nao leva chave: repetir o
+      // mesmo pedido da diferenca de 0 dias no back, ou seja, nao muda nada.
+      if (isMove) {
+        await api.post(confirmPath, { ...JSON.parse(requestJson), skipIndexes, overlapIndexes })
+        onMoved?.()
+        return
+      }
+      const res = await api.post(confirmPath, {
         ...JSON.parse(requestJson),
         skipIndexes,
         overlapIndexes,
         idempotencyKey: keyRef.current,
       })
-      onDone((res.data?.data ?? res.data) as SeriesCreated)
+      onDone?.((res.data?.data ?? res.data) as SeriesCreated) // @eligi:series-move-sps-ondone
     } catch (err) {
       const e = err as ApiError
       const code = e.response?.data?.code
@@ -166,7 +186,7 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
         setLoading(true)
         setReload(n => n + 1)
       } else if (e.response?.status === 403) {
-        setError('Só o dono ou o gerente pode criar agendamento recorrente.')
+        setError(semPermissao) // @eligi:series-move-sps-403save
       } else {
         setError(errorText(e, 'Não foi possível salvar a série. Nada foi gravado.'))
       }
@@ -224,7 +244,7 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h3 id="sps-title" style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', color: colors.gray[900], fontFamily: typography.fontFamilyDisplay }}>
-              Confira as datas
+              {isMove ? 'Confira as mudanças' : 'Confira as datas'}{/* @eligi:series-move-sps-title */}
             </h3>
             <p style={{ margin: '3px 0 0', fontSize: 13, color: colors.gray[700] }}>
               {preview
@@ -245,12 +265,19 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
               {error && <Banner tone="bad" text={error} />}
               {!notice && !error && undecided.length > 0 && (
                 <Banner tone="warn" text={undecided.length === 1
-                  ? '1 data já tem agendamento nesse horário. Escolha pular ou sobrepor.'
-                  : `${undecided.length} datas já têm agendamento nesse horário. Escolha pular ou sobrepor em cada uma.`} />
+                  ? `1 data já tem agendamento nesse horário. Escolha ${isMove ? 'manter como está' : 'pular'} ou sobrepor.` /* @eligi:series-move-sps-banner */
+                  : `${undecided.length} datas já têm agendamento nesse horário. Escolha ${isMove ? 'manter como está' : 'pular'} ou sobrepor em cada uma.`} />
               )}
             </div>
           )}
 
+          {isMove && !loading && (preview?.keptCount ?? 0) > 0 && ( /* @eligi:series-move-sps-paidinfo */
+            <div style={{ padding: '12px 18px 0' }}>
+              <Banner tone="warn" text={(preview?.keptCount ?? 0) === 1
+                ? '1 data já paga fica como está.'
+                : `${preview?.keptCount ?? 0} datas já pagas ficam como estão.`} />
+            </div>
+          )}
           {loading ? (
             <div style={{ padding: 48, display: 'flex', justifyContent: 'center' }}>
               <Loader2 size={26} color={colors.red.DEFAULT} style={{ animation: 'sps-spin 0.8s linear infinite' }} />
@@ -262,7 +289,7 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
             </div>
           ) : (
             <div role="list" style={{ marginTop: 6 }}>
-              {occ.map(o => {
+              {occ.map((o, pos) => { /* @eligi:series-move-sps-pos */
                 const d = decisions[o.index]
                 const skipped = d === 'skip'
                 const dt = dayjs(o.date).locale('pt-br')
@@ -270,7 +297,7 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
                   <div key={o.index} role="listitem" className={`sps-row${skipped ? ' skip' : ''}`}>
                     {o.status === 'FREE' ? (
                       <button type="button" className="sps-chk" role="checkbox" aria-checked={!skipped}
-                        aria-label={`${skipped ? 'Incluir' : 'Pular'} ${dt.format('DD/MM')}`}
+                        aria-label={`${isMove ? (skipped ? 'Mudar' : 'Manter') : (skipped ? 'Incluir' : 'Pular')} ${dt.format('DD/MM')}` /* @eligi:series-move-sps-aria */}
                         onClick={() => toggleFree(o.index)}>
                         {!skipped && <Check size={15} color="#fff" strokeWidth={3} />}
                       </button>
@@ -284,7 +311,7 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
                         <span style={{ fontSize: 15.5, fontWeight: 700, color: colors.gray[900], letterSpacing: '-0.01em', textTransform: 'capitalize' }}>
                           {dt.format('ddd, DD [de] MMM')}
                         </span>
-                        {o.index === 0 && <span style={{ fontSize: 12, fontWeight: 700, color: colors.gray[700] }}>esta</span>}
+                        {pos === 0 /* @eligi:series-move-sps-first */ && <span style={{ fontSize: 12, fontWeight: 700, color: colors.gray[700] }}>esta</span>}
                       </div>
                       {o.conflict && (
                         <div style={{ fontSize: 13, color: inkLight.warn.text, marginTop: 2 }}>
@@ -305,7 +332,7 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
                       )}
                       {o.status === 'CONFLICT' && (
                         <div className="sps-seg">
-                          <button type="button" aria-pressed={d === 'skip'} onClick={() => decide(o.index, 'skip')}>Pular esta data</button>
+                          <button type="button" aria-pressed={d === 'skip'} onClick={() => decide(o.index, 'skip')}>{isMove ? 'Manter como está' : 'Pular esta data' /* @eligi:series-move-sps-keep */}</button>
                           <button type="button" aria-pressed={d === 'overlap'} onClick={() => decide(o.index, 'overlap')}>Sobrepor</button>
                         </div>
                       )}
@@ -320,7 +347,7 @@ export default function SeriesPreviewSheet({ requestJson, isMobile, onClose, onD
         <div style={{ display: 'flex', gap: 8, padding: '12px 18px 16px', borderTop: `1px solid ${colors.gray.border}`, flexShrink: 0 }}>
           <button type="button" className="sps-back" onClick={onClose} disabled={saving}>VOLTAR</button>
           <button type="button" className="sps-btn" onClick={handleConfirm} disabled={!canSave}>
-            {saving ? 'SALVANDO...' : toCreate.length > 0 ? `AGENDAR ${toCreate.length} ${toCreate.length === 1 ? 'DATA' : 'DATAS'}` : 'NENHUMA DATA'}
+            {saving ? 'SALVANDO...' /* @eligi:series-move-sps-btn */ : toCreate.length > 0 ? `${isMove ? 'MUDAR' : 'AGENDAR'} ${toCreate.length} ${toCreate.length === 1 ? 'DATA' : 'DATAS'}` : 'NENHUMA DATA'}
           </button>
         </div>
       </div>

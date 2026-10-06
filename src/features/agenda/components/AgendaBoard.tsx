@@ -312,6 +312,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
           date={selectedDate}
           open={isView}
           onClose={closeCheckout}
+          professionals={professionals /* @eligi:series-adjust-board-profs */}
         />
       )}
 

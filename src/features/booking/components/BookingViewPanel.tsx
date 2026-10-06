@@ -26,6 +26,8 @@ import { Sale } from '@/features/sales/types'
 import SaleReceiptModal from '@/features/sales/components/SaleReceiptModal'
 import NfseBookingAction from '@/features/fiscal/components/NfseBookingAction' // @eligi:nfse-booking-action
 import SeriesInfoCard from './SeriesInfoCard' // @eligi:series-bvp-import
+import SeriesAdjustMenu from './SeriesAdjustMenu' // @eligi:series-adjust-bvp-import
+import { useAuth } from '@/hooks/useAuth'
 import { waLink, bookingConfirmationMessage } from '@/shared/utils/whatsapp' // @eligi:bvp-wa-shared-import
 import {
   blocksFromSettings,
@@ -250,7 +252,11 @@ interface Props {
   date:    Date
   open:    boolean
   onClose: () => void
+  /** @eligi:series-adjust-bvp-props — para "mudar este e os proximos" trocar o profissional. */
+  professionals?: { id: string; name: string }[]
 }
+
+const NO_PROFS: { id: string; name: string }[] = []
 
 function getInitials(n: string) {
   return n.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
@@ -388,7 +394,7 @@ function ConfirmModal({
 }
 
 // ─── BookingViewPanel ─────────────────────────────────────────────────────────
-export default function BookingViewPanel({ booking, date, open, onClose }: Props) {
+export default function BookingViewPanel({ booking, date, open, onClose, professionals = NO_PROFS /* @eligi:series-adjust-bvp-arg */ }: Props) {
   const router   = useRouter()
   const isMobile = useIsMobile()
   const { removeBooking, updateBooking, openAddService } = useAgendaStore()
@@ -397,8 +403,13 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
   const [detail,    setDetail]    = useState<BookingDetail | null>(null)
   const [loading,   setLoading]   = useState(true)
   const [showAlter, setShowAlter] = useState(false)
-  const [confirm,   setConfirm]   = useState<'cancel' | 'noshow' | 'cancelSeries' /* @eligi:series-bvp-confirm */ | null>(null)
+  const [confirm,   setConfirm]   = useState<'cancel' | 'noshow' | 'cancelSeries' /* @eligi:series-bvp-confirm */ | 'skipDay' | 'stopSeries' /* @eligi:series-adjust-bvp-confirm */ | null>(null)
   const [seriesVersion, setSeriesVersion] = useState(0)
+  // @eligi:series-adjust-bvp-state — menu da serie. So dono/gerente: as rotas
+  // /bookings/series sao managerOrAbove; os outros cargos editam so o dia.
+  const [seriesMenu, setSeriesMenu] = useState<'edit' | 'full' | null>(null)
+  const { user: authUser } = useAuth()
+  const canManageSeries = authUser?.role === 'BUSINESS_OWNER' || authUser?.role === 'MANAGER'
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState<string | null>(null)
   const [creatingSale, setCreatingSale] = useState(false)
@@ -517,6 +528,42 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
         : (e.response?.data?.error ?? 'Erro ao cancelar a série'))
       setSaving(false)
     }
+  }
+
+  // @eligi:series-adjust-bvp-stop — "parar de repetir": este fica, os proximos saem.
+  async function handleStopSeries() {
+    const seriesId = detail?.seriesId
+    if (!seriesId) return
+    try {
+      setSaving(true)
+      setError(null)
+      const res = await api.post(`/bookings/series/${seriesId}/cancel`, { fromBookingId: bookingId, keepFrom: true })
+      const out = (res.data?.data ?? res.data) as { canceledIds?: string[]; keptIds?: string[] }
+      for (const id of out.canceledIds ?? []) removeBooking(dateStr, id)
+      setConfirm(null)
+      setSaving(false)
+      setSeriesVersion(v => v + 1)
+      const kept = out.keptIds?.length ?? 0
+      if (kept > 0) {
+        setError(`A série parou. ${kept} ${kept === 1 ? 'data com pagamento ficou' : 'datas com pagamento ficaram'} na agenda. Cancele pelo caixa, se for o caso.`)
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number; data?: { error?: string } } }
+      setConfirm(null)
+      setError(e.response?.status === 403
+        ? 'Só o dono ou o gerente pode encerrar a série.'
+        : (e.response?.data?.error ?? 'Erro ao parar a série'))
+      setSaving(false)
+    }
+  }
+
+  // Editar uma ocorrencia da serie SEMPRE pergunta: so neste dia ou os proximos.
+  function handleEditClick() {
+    if (detail?.seriesId && canManageSeries) {
+      setSeriesMenu('edit')
+      return
+    }
+    handleAddService()
   }
 
   function handleAddService() {
@@ -684,6 +731,44 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
           onCancel={() => setConfirm(null)}
         />
       )}
+      {confirm === 'skipDay' && ( /* @eligi:series-adjust-bvp-modals */
+        <ConfirmModal
+          title="Pular este dia?"
+          body="Só este horário sai da agenda. As próximas datas da série continuam. Se houver checkout em aberto, ele também será cancelado."
+          confirmLabel="Sim, pular"
+          danger
+          onConfirm={handleCancel}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+      {confirm === 'stopSeries' && (
+        <ConfirmModal
+          title="Parar de repetir?"
+          body="Este agendamento continua. As próximas datas da série são canceladas e ela termina aqui. Datas já pagas não mudam."
+          confirmLabel="Sim, parar"
+          danger
+          onConfirm={handleStopSeries}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+      {seriesMenu && detail?.seriesId && (
+        <SeriesAdjustMenu
+          variant={seriesMenu}
+          seriesId={detail.seriesId}
+          bookingId={bookingId}
+          startAt={detail.startAt}
+          endAt={detail.endAt}
+          professionalId={detail.professionalId ?? booking.professionalId ?? ''}
+          professionals={professionals}
+          isMobile={isMobile}
+          onClose={() => setSeriesMenu(null)}
+          onEditOnlyThis={handleAddService}
+          onSkipThis={() => setConfirm('skipDay')}
+          onStopRepeat={() => setConfirm('stopSeries')}
+          onCancelFromHere={() => setConfirm('cancelSeries')}
+          onMoved={() => { setSeriesMenu(null); onClose() }}
+        />
+      )}
       {confirm === 'noshow' && (
         <ConfirmModal
           title="Cliente não compareceu?"
@@ -816,7 +901,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                             Cliente não compareceu
                           </button>
                         )}
-                        {detail?.seriesId && ( /* @eligi:series-bvp-menu */
+                        {detail?.seriesId && canManageSeries && ( /* @eligi:series-bvp-menu @eligi:series-adjust-bvp-menugate */
                           <button className="bvp-drop-item"
                             onClick={() => { setShowAlter(false); setConfirm('cancelSeries') }}
                             style={{
@@ -974,6 +1059,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
                   seriesIndex={detail.seriesIndex ?? null}
                   bookingId={bookingId}
                   version={seriesVersion}
+                  onAdjust={canManageSeries && isConfirmed /* @eligi:series-adjust-bvp-card */ ? () => setSeriesMenu('full') : undefined}
                 />
               )}
 
@@ -1236,7 +1322,7 @@ export default function BookingViewPanel({ booking, date, open, onClose }: Props
               {/* Adicionar serviço ao grupo — só em CONFIRMED e não pago */}
               {isConfirmed && !hasOpenSale && (
                 <button
-                  onClick={handleAddService}
+                  onClick={handleEditClick /* @eligi:series-adjust-bvp-edit */}
                   style={{
                     width: '100%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,

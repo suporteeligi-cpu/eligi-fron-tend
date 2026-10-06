@@ -39,9 +39,11 @@ interface Props {
   bookingId:   string
   /** Muda quando a serie e alterada no painel: forca nova leitura. */
   version:     number
+  /** @eligi:series-adjust-sic-prop — abre o menu da serie (so dono/gerente). */
+  onAdjust?:   () => void
 }
 
-export default function SeriesInfoCard({ seriesId, seriesIndex, bookingId, version }: Props) {
+export default function SeriesInfoCard({ seriesId, seriesIndex, bookingId, version, onAdjust /* @eligi:series-adjust-sic-arg */ }: Props) {
   const [series, setSeries] = useState<SeriesDetail | null>(null)
   const [denied, setDenied] = useState(false)
 
@@ -80,6 +82,20 @@ export default function SeriesInfoCard({ seriesId, seriesIndex, bookingId, versi
                 : 'Carregando a série...'}
           </div>
         </div>
+        {onAdjust && !denied && series && !series.endedAt && ( /* @eligi:series-adjust-sic-btn */
+          <button
+            type="button"
+            onClick={onAdjust}
+            style={{
+              minHeight: 40, padding: '0 14px', borderRadius: 10, flexShrink: 0,
+              border: `1px solid ${colors.gray.borderMd}`, background: '#fff', cursor: 'pointer',
+              fontSize: 13, fontWeight: 700, letterSpacing: '.03em', color: colors.gray[900],
+              fontFamily: typography.fontFamily,
+            }}
+          >
+            Ajustar
+          </button>
+        )}
       </div>
       {next.length > 0 && (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
