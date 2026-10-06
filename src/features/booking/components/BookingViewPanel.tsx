@@ -234,6 +234,8 @@ interface GroupItem {
   startAt: string
   endAt:   string
   status:  BookingStatus
+  seriesId?:    string | null  // @eligi:series-group-type (GET /bookings/:id ja devolve)
+  seriesIndex?: number | null
   service: {
     id:       string
     name:     string
@@ -410,6 +412,26 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
   const [seriesMenu, setSeriesMenu] = useState<'edit' | 'full' | null>(null)
   const { user: authUser } = useAuth()
   const canManageSeries = authUser?.role === 'BUSINESS_OWNER' || authUser?.role === 'MANAGER'
+  // @eligi:series-group-anchor — a ocorrencia da serie e a "dona" do grupo:
+  // clicar no corte adicionado ao lado age sobre a serie do mesmo jeito que
+  // clicar no card da serie. Preferimos a CONFIRMED.
+  const seriesAnchor: { id: string; seriesId: string; seriesIndex: number | null; startAt: string; endAt: string; professionalId: string; status: BookingStatus } | null = (() => {
+    if (!detail) return null
+    if (detail.seriesId) {
+      return {
+        id: detail.id, seriesId: detail.seriesId, seriesIndex: detail.seriesIndex ?? null,
+        startAt: detail.startAt, endAt: detail.endAt,
+        professionalId: detail.professionalId ?? booking.professionalId ?? '', status: detail.status,
+      }
+    }
+    const items = detail.groupItems ?? []
+    const gi = items.find(g => g.seriesId && g.status === 'CONFIRMED') ?? items.find(g => g.seriesId)
+    if (!gi || !gi.seriesId) return null
+    return {
+      id: gi.id, seriesId: gi.seriesId, seriesIndex: gi.seriesIndex ?? null,
+      startAt: gi.startAt, endAt: gi.endAt, professionalId: gi.professional?.id ?? '', status: gi.status,
+    }
+  })()
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState<string | null>(null)
   const [creatingSale, setCreatingSale] = useState(false)
@@ -503,12 +525,13 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
   // @eligi:series-bvp-cancel — este e os proximos (so CONFIRMED futuro e sem
   // pagamento; o back devolve em keptIds o que ficou por ter dinheiro).
   async function handleCancelSeries() {
-    const seriesId = detail?.seriesId
-    if (!seriesId) return
+    const seriesId = seriesAnchor?.seriesId // @eligi:series-group-cancel
+    const fromId = seriesAnchor?.id
+    if (!seriesId || !fromId) return
     try {
       setSaving(true)
       setError(null)
-      const res = await api.post(`/bookings/series/${seriesId}/cancel`, { fromBookingId: bookingId })
+      const res = await api.post(`/bookings/series/${seriesId}/cancel`, { fromBookingId: fromId }) // @eligi:series-group-fromcancel
       const out = (res.data?.data ?? res.data) as { canceledIds?: string[]; keptIds?: string[] }
       for (const id of out.canceledIds ?? []) removeBooking(dateStr, id)
       setConfirm(null)
@@ -532,12 +555,13 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
 
   // @eligi:series-adjust-bvp-stop — "parar de repetir": este fica, os proximos saem.
   async function handleStopSeries() {
-    const seriesId = detail?.seriesId
-    if (!seriesId) return
+    const seriesId = seriesAnchor?.seriesId // @eligi:series-group-stop
+    const fromId = seriesAnchor?.id
+    if (!seriesId || !fromId) return
     try {
       setSaving(true)
       setError(null)
-      const res = await api.post(`/bookings/series/${seriesId}/cancel`, { fromBookingId: bookingId, keepFrom: true })
+      const res = await api.post(`/bookings/series/${seriesId}/cancel`, { fromBookingId: fromId, keepFrom: true }) // @eligi:series-group-fromstop
       const out = (res.data?.data ?? res.data) as { canceledIds?: string[]; keptIds?: string[] }
       for (const id of out.canceledIds ?? []) removeBooking(dateStr, id)
       setConfirm(null)
@@ -559,11 +583,33 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
 
   // Editar uma ocorrencia da serie SEMPRE pergunta: so neste dia ou os proximos.
   function handleEditClick() {
-    if (detail?.seriesId && canManageSeries) {
+    if (seriesAnchor && canManageSeries) { // @eligi:series-group-edit
       setSeriesMenu('edit')
       return
     }
     handleAddService()
+  }
+
+  // @eligi:series-group-skip — "pular este dia" cancela a OCORRENCIA DA SERIE,
+  // mesmo quando o painel foi aberto pelo servico extra do grupo.
+  async function handleSkipSeriesDay() {
+    const targetId = seriesAnchor?.id
+    if (!targetId) return
+    if (targetId === bookingId) { await handleCancel(); return }
+    try {
+      setSaving(true)
+      setError(null)
+      await api.patch(`/bookings/${targetId}/cancel`)
+      removeBooking(dateStr, targetId)
+      setConfirm(null)
+      setSaving(false)
+      await fetchDetail()
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } }
+      setConfirm(null)
+      setError(e.response?.data?.error ?? 'Erro ao pular este dia')
+      setSaving(false)
+    }
   }
 
   function handleAddService() {
@@ -737,7 +783,7 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
           body="Só este horário sai da agenda. As próximas datas da série continuam. Se houver checkout em aberto, ele também será cancelado."
           confirmLabel="Sim, pular"
           danger
-          onConfirm={handleCancel}
+          onConfirm={handleSkipSeriesDay /* @eligi:series-group-callskip */}
           onCancel={() => setConfirm(null)}
         />
       )}
@@ -751,14 +797,14 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
           onCancel={() => setConfirm(null)}
         />
       )}
-      {seriesMenu && detail?.seriesId && (
+      {seriesMenu && seriesAnchor && ( /* @eligi:series-group-menu */
         <SeriesAdjustMenu
           variant={seriesMenu}
-          seriesId={detail.seriesId}
-          bookingId={bookingId}
-          startAt={detail.startAt}
-          endAt={detail.endAt}
-          professionalId={detail.professionalId ?? booking.professionalId ?? ''}
+          seriesId={seriesAnchor.seriesId}
+          bookingId={seriesAnchor.id}
+          startAt={seriesAnchor.startAt}
+          endAt={seriesAnchor.endAt}
+          professionalId={seriesAnchor.professionalId}
           professionals={professionals}
           isMobile={isMobile}
           onClose={() => setSeriesMenu(null)}
@@ -901,7 +947,7 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
                             Cliente não compareceu
                           </button>
                         )}
-                        {detail?.seriesId && canManageSeries && ( /* @eligi:series-bvp-menu @eligi:series-adjust-bvp-menugate */
+                        {seriesAnchor && canManageSeries && ( /* @eligi:series-bvp-menu @eligi:series-adjust-bvp-menugate @eligi:series-group-alter */
                           <button className="bvp-drop-item"
                             onClick={() => { setShowAlter(false); setConfirm('cancelSeries') }}
                             style={{
@@ -1053,13 +1099,13 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
                 </div>
               )}
 
-              {detail?.seriesId && ( /* @eligi:series-bvp-card */
+              {seriesAnchor && ( /* @eligi:series-bvp-card @eligi:series-group-card */
                 <SeriesInfoCard
-                  seriesId={detail.seriesId}
-                  seriesIndex={detail.seriesIndex ?? null}
-                  bookingId={bookingId}
+                  seriesId={seriesAnchor.seriesId}
+                  seriesIndex={seriesAnchor.seriesIndex}
+                  bookingId={seriesAnchor.id}
                   version={seriesVersion}
-                  onAdjust={canManageSeries && isConfirmed /* @eligi:series-adjust-bvp-card */ ? () => setSeriesMenu('full') : undefined}
+                  onAdjust={canManageSeries && seriesAnchor.status === 'CONFIRMED' /* @eligi:series-adjust-bvp-card */ ? () => setSeriesMenu('full') : undefined}
                 />
               )}
 

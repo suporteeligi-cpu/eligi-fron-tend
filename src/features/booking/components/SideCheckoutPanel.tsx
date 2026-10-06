@@ -136,9 +136,14 @@ function recomputeFrom(items: ServiceItem[], fromIdx: number): ServiceItem[] {
       continue
     }
     const prev      = out[i - 1]
-    const startTime = it.mode === 'parallel'
-      ? prev.startTime
-      : (prev.endTime || prev.startTime)
+    // @eligi:chain-after-all — "apos anterior" = depois de TUDO que veio antes.
+    // O cliente e um so: se o item de cima esta em paralelo e termina antes
+    // de outro, o proximo servico ainda tem que esperar o mais longo.
+    const lastEnd   = out.reduce(
+      (m, x) => { const e = x.endTime || x.startTime; return toMin(e) > toMin(m) ? e : m },
+      prev.endTime || prev.startTime,
+    )
+    const startTime = it.mode === 'parallel' ? prev.startTime : lastEnd
     const endTime   = it.service ? addMinutes(startTime, it.service.duration) : startTime
     out.push({ ...it, startTime, endTime })
   }
@@ -825,6 +830,10 @@ export default function SideCheckoutPanel({
           if (e.bookingId) snap[e.bookingId] = { serviceId: e.service.id, startTime: e.startTime, profId: e.profId, dateStr: origDateStr }
         })
         snapshotRef.current = snap
+        // @eligi:group-client-baseline — o cliente do grupo e o de partida. Sem
+        // isto o "cliente mudou" do save era sempre verdadeiro e re-gravava
+        // (PATCH) todos os servicos existentes a cada salvar.
+        originalClientIdRef.current = prefillClient?.id ?? null
       } else {
         setItems([{ service: null as unknown as Service, startTime: initTime, endTime: '', profId: initProf }])
         snapshotRef.current = {}
@@ -1006,11 +1015,15 @@ export default function SideCheckoutPanel({
         // a cadeia recalcular os tempos (a duração pode ter mudado).
         changedIdx = addingSvcIdx
         next[changedIdx] = { ...next[changedIdx], service: svc }
-        // Filtra profissional ao trocar serviço
-        const _avail = getAvailableProfs(professionals, svc.id, serviceProfMap)
-        if (_avail.length > 0 && !_avail.find(p => p.id === next[changedIdx].profId)) {
-          next[changedIdx] = { ...next[changedIdx], profId: _avail[0].id }
-        }
+      }
+
+      // @eligi:prof-follows-service — vale para item NOVO e para troca de servico.
+      // Antes so a troca filtrava: o item novo herdava o profissional do 1o item
+      // mesmo que ele nao fizesse o servico; a tela mostrava outro (fallback do
+      // seletor) e o banco recebia o herdado.
+      const _avail = getAvailableProfs(professionals, svc.id, serviceProfMap)
+      if (_avail.length > 0 && !_avail.some(p => p.id === next[changedIdx].profId)) {
+        next[changedIdx] = { ...next[changedIdx], profId: _avail[0].id }
       }
 
       return recomputeFrom(next, changedIdx)
@@ -1052,7 +1065,7 @@ export default function SideCheckoutPanel({
       // senão o paralelo com o mesmo prof nasceria em conflito.
       if (mode === 'parallel') {
         const it   = recomputed[idx]
-        const free = pickFreeProf(recomputed, idx, it.startTime, it.endTime, professionals)
+        const free = pickFreeProf(recomputed, idx, it.startTime, it.endTime, getAvailableProfs(professionals, it.service?.id, serviceProfMap) /* @eligi:parallel-only-able */)
         if (free) recomputed[idx] = { ...recomputed[idx], profId: free }
       }
       return recomputed
@@ -1064,6 +1077,16 @@ export default function SideCheckoutPanel({
     if (!firstItem?.service) { setError('Selecione pelo menos um serviço'); return }
     const invalidExtra = items.slice(1).find(it => !it.service)
     if (invalidExtra) { setError('Selecione o serviço de todos os itens'); return }
+    // @eligi:prof-service-guard — so vale para servico COM profissionais definidos
+    // (sem lista = todos fazem). Nunca deixa gravar o servico com quem nao faz.
+    const semProf = items.find(it => {
+      const allowed = it.service ? serviceProfMap[it.service.id] : undefined
+      return !!it.profId && !!allowed && allowed.length > 0 && !allowed.includes(it.profId)
+    })
+    if (semProf) {
+      setError(`${semProf.service.name}: escolha um profissional que faz este serviço`)
+      return
+    }
 
     try {
       setSaving(true); setError(null)
