@@ -28,6 +28,7 @@ import AsaasSeal from '@/shared/components/AsaasSeal' // @eligi:club-gate-seal
 import ClubPlanEditorModal from './components/ClubPlanEditorModal'
 import ClubSubscriptionModal from './components/ClubSubscriptionModal'
 import ClubMemberDetailModal from './components/ClubMemberDetailModal'
+import { effectiveSubStatus, isManualSub } from './clubStatus' // @eligi:club-lapsed-import-page
 import ClubSettleConfirmModal from './components/ClubSettleConfirmModal' // @eligi:club-front-modal-import
 import ClubAutoSettleCard from './components/ClubAutoSettleCard'
 
@@ -56,6 +57,7 @@ interface ClubSubscription {
   status: SubStatus
   value: number | null
   billingType: string | null
+  asaasSubscriptionId?: string | null // @eligi:club-lapsed-tipo-page
   startedAt: string | null
   currentPeriodEnd: string | null
   canceledAt: string | null
@@ -1656,11 +1658,14 @@ function MembrosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: str
 }
 
 function MemberRow({ sub, isMobile, isLast, onClick }: { sub: ClubSubscription; isMobile: boolean; isLast: boolean; onClick: () => void }) {
-  const st = SUB_STATUS[sub.status]
+  // @eligi:club-lapsed-row — manual vencida aparece como vencida (so exibicao)
+  const status = effectiveSubStatus(sub)
+  const manual = isManualSub(sub)
+  const st = SUB_STATUS[status]
   const fichas = sub._count?.fichas ?? 0
-  const dateInfo = sub.status === 'PAST_DUE'
+  const dateInfo = status === 'PAST_DUE'
     ? `venceu ${fmtDate(sub.currentPeriodEnd)}`
-    : sub.currentPeriodEnd ? `próx. cobrança ${fmtDate(sub.currentPeriodEnd)}` : 'sem cobrança'
+    : sub.currentPeriodEnd ? `${manual ? 'renova' : 'próx. cobrança'} ${fmtDate(sub.currentPeriodEnd)}` : 'sem cobrança'
   return (
     <RowShell isMobile={isMobile} isLast={isLast} onClick={onClick}
       avatar={<span style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 760, color: '#fff', letterSpacing: '-0.02em', background: avatarGrad(sub.client.id) }}>{initials(sub.client.name)}</span>}
@@ -1674,6 +1679,7 @@ function MemberRow({ sub, isMobile, isLast, onClick }: { sub: ClubSubscription; 
       <div style={{ fontSize: 14, fontWeight: 700, color: colors.gray[900], letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub.client.name}</div>
       <div style={{ fontSize: 11.5, color: colors.gray.dimText, marginTop: 2, display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
         <span>{sub.plan.name}</span><Dot /><span>{dateInfo}</span>
+        {manual && sub.status !== 'CANCELED' && <><Dot /><span style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', fontSize: 10 }}>Manual</span></>}{/* @eligi:club-manual-selo */}
       </div>
     </RowShell>
   )

@@ -14,6 +14,7 @@ import {
 import api from '@/shared/lib/apiClient'
 import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
 import { colors, typography, transitions, radius } from '@/shared/theme'
+import { effectiveSubStatus } from '../clubStatus' // @eligi:club-lapsed-import-modal
 
 // ── tipos (espelham o back / page.tsx) ──────────────────────────────────────
 type SubStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
@@ -164,7 +165,8 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
 
   const payAmount = parseFloat(payAmountStr.replace(',', '.')) || 0
   const isCanceled = sub.status === 'CANCELED'
-  const st = STATUS[sub.status]
+  const effStatus = effectiveSubStatus(sub) // @eligi:club-lapsed-modal
+  const st = STATUS[effStatus]
 
   // busca o link assim que o modal abre (so se a assinatura for recorrente)
   useEffect(() => {
@@ -303,7 +305,7 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-            <Stat icon={<CalendarClock size={14} />} label="Vence em" value={fmtDate(sub.currentPeriodEnd)} />
+            <Stat icon={<CalendarClock size={14} />} label={effStatus === 'PAST_DUE' ? 'Venceu em' : 'Vence em'} value={fmtDate(sub.currentPeriodEnd)} /* @eligi:club-lapsed-stat */ />
             <Stat icon={<Hash size={14} />} label="Fichas" value={String(sub._count?.fichas ?? 0)} />
             <Stat icon={<Check size={14} />} label="Pagamentos" value={String(sub._count?.payments ?? payments.length)} />
           </div>
