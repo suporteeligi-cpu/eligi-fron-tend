@@ -41,6 +41,8 @@ interface Overview {
 const NUM_FF = `'Space Grotesk', ${typography.fontFamily}`
 const MEDIO_DIAS = 15
 const RATE_FALLBACK = '1,25%'
+// @eligi:club-ant-limite-const — abaixo disso o card avisa que o limite esta acabando
+const LIMITE_ALERTA = 1000
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const pct = (n: number) => `${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
@@ -273,10 +275,25 @@ export default function ClubAnticipationCard() {
         </div>
       )}
 
+      {/* @eligi:club-ant-limite-aviso */}
+      {data.enabled && data.limit && data.limit.available < LIMITE_ALERTA && (
+        <div style={{
+          display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, lineHeight: 1.5,
+          color: inkLight.warn.text, background: inkLight.warn.bg, border: `1px solid ${inkLight.warn.border}`,
+          borderRadius: 12, padding: '10px 12px',
+        }}>
+          <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+          <span>
+            Restam {brl(data.limit.available)} de limite de antecipação no Asaas. Acima disso as mensalidades
+            voltam a cair no prazo normal, em cerca de 32 dias.
+          </span>
+        </div>
+      )}
+
       <p style={{ margin: 0, fontSize: 11.5, color: '#8a8a93', lineHeight: 1.5 }}>
         Vale para as próximas mensalidades pagas no cartão de crédito. Taxa de antecipação de {taxaMes} ao mês,
         proporcional aos dias.
-        {data.limit && <> Limite disponível {brl(data.limit.available)}.</>}
+        {/* @eligi:club-ant-limite-rodape — limite so aparece no aviso abaixo */}
         {data.updatedAt && <> Alterado {data.updatedByName ? `por ${data.updatedByName} ` : ''}em {fmtQuando(data.updatedAt)}.</>}
       </p>
     </div>
