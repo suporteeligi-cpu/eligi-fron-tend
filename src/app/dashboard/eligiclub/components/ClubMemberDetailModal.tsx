@@ -9,12 +9,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  X, Loader2, AlertCircle, Banknote, Smartphone, CreditCard, Hash, CalendarClock, Ban, Check, Link2, MessageCircle } from 'lucide-react'
+  X, Loader2, AlertCircle, Banknote, Smartphone, CreditCard, Hash, CalendarClock, Ban, Check, Link2, MessageCircle, Pencil } from 'lucide-react' // @eligi:club-due-date-icon
 
 import api from '@/shared/lib/apiClient'
 import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
-import { colors, typography, transitions, radius } from '@/shared/theme'
+import { colors, typography, transitions, radius, inkLight } from '@/shared/theme' // @eligi:club-due-date-theme
 import { effectiveSubStatus } from '../clubStatus' // @eligi:club-lapsed-import-modal
+import ClubDueDateSheet from './ClubDueDateSheet' // @eligi:club-due-date-import
 
 // ── tipos (espelham o back / page.tsx) ──────────────────────────────────────
 type SubStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
@@ -141,6 +142,9 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
   const [poolAction, setPoolAction] = useState<'KEEP' | 'REMOVE' | null>(null)
   const [canceling, setCanceling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  // @eligi:club-due-date-state
+  const [dueOpen, setDueOpen] = useState(false)
+  const [dueCardNote, setDueCardNote] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 10)
@@ -305,10 +309,47 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-            <Stat icon={<CalendarClock size={14} />} label={effStatus === 'PAST_DUE' ? 'Venceu em' : 'Vence em'} value={fmtDate(sub.currentPeriodEnd)} /* @eligi:club-lapsed-stat */ />
+            {/* @eligi:club-due-date-lapis: lapis no "Vence em". Manual abre a folha; cartao explica por que nao. */}
+            {!isCanceled && sub.currentPeriodEnd ? (
+              <button
+                type="button"
+                onClick={() => (sub.asaasSubscriptionId ? setDueCardNote(v => !v) : setDueOpen(true))}
+                aria-label={sub.asaasSubscriptionId ? 'Vencimento do plano no cartão' : 'Mudar dia do vencimento'}
+                style={{ position: 'relative', display: 'block', width: '100%', padding: 0, border: 'none', background: 'none', cursor: 'pointer', font: 'inherit', color: 'inherit', textAlign: 'center' }}
+              >
+                <Stat icon={<CalendarClock size={14} />} label={effStatus === 'PAST_DUE' ? 'Venceu em' : 'Vence em'} value={fmtDate(sub.currentPeriodEnd)} /* @eligi:club-lapsed-stat */ />
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute', top: 6, right: 7, width: 18, height: 18, borderRadius: 6,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: sub.asaasSubscriptionId ? 'rgba(0,0,0,0.05)' : colors.red.subtle,
+                    color: sub.asaasSubscriptionId ? colors.gray.dimText : colors.red.DEFAULT,
+                  }}
+                >
+                  <Pencil size={11} strokeWidth={2.4} />
+                </span>
+              </button>
+            ) : (
+              <Stat icon={<CalendarClock size={14} />} label={effStatus === 'PAST_DUE' ? 'Venceu em' : 'Vence em'} value={fmtDate(sub.currentPeriodEnd)} />
+            )}
             <Stat icon={<Hash size={14} />} label="Fichas" value={String(sub._count?.fichas ?? 0)} />
             <Stat icon={<Check size={14} />} label="Pagamentos" value={String(sub._count?.payments ?? payments.length)} />
           </div>
+          {dueCardNote && sub.asaasSubscriptionId && (
+            <div style={{ fontSize: 12, color: inkLight.warn.text, background: inkLight.warn.bg, borderRadius: 10, padding: '9px 11px' }}>
+              Plano no cartão: o vencimento segue a cobrança automática. Mudar o dia por aqui ainda não está disponível.
+            </div>
+          )}
+          {dueOpen && sub.currentPeriodEnd && (
+            <ClubDueDateSheet
+              subId={sub.id}
+              currentPeriodEnd={sub.currentPeriodEnd}
+              isMobile={isMobile}
+              onSaved={data => { const s = data as ClubSubscription; setSub(s); onUpdated(s) }}
+              onClose={() => setDueOpen(false)}
+            />
+          )}
 
           {/* LINK DE PAGAMENTO — so para assinatura recorrente (tem id no Asaas).
               Antes o link so aparecia ao criar a assinatura e na tela de
