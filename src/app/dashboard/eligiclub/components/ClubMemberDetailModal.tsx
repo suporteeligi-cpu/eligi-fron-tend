@@ -28,6 +28,12 @@ interface ClubPayment {
   method: string | null
   paidAt: string | null
   excludedFromPoolAt?: string | null
+  // @eligi:club-ant-modal-tipo — antecipacao do cartao (back 2716a13)
+  anticipationStatus?: string | null
+  anticipationFee?: number | null
+  anticipationNetValue?: number | null
+  anticipationDays?: number | null
+  anticipationOriginalCreditDate?: string | null
   // @eligi:recebivel-tipo — chegam do SUB_INCLUDE (payments sem `select`)
   creditDate?: string | null
   netValue?: number | null
@@ -599,32 +605,69 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
  *   a caminho  (creditDate no futuro)   ambar  <- o caso que confundiu o ZERO9
  *   sem data   (registro manual, ou o Asaas ainda nao calculou)  nada
  */
+// @eligi:club-ant-recebivel
+// Antecipado (out/2026): selo + caminho do dinheiro, com a data em que cairia.
+const ANT_COBRA = new Set(['PENDING', 'SCHEDULED', 'CREDITED', 'DEBITED', 'OVERDUE'])
 function RecebivelLinha({ p }: { p: ClubPayment }) {
   const dia = fmtDia(p.creditDate)
   if (!dia && p.netValue == null) return null
 
+  const antecipado = !!p.anticipationStatus && ANT_COBRA.has(p.anticipationStatus) && p.anticipationFee != null
+  const creditado = p.anticipationStatus === 'CREDITED' || p.anticipationStatus === 'DEBITED'
   const entrou = p.creditDate ? new Date(p.creditDate).getTime() <= AGORA_MS : false
-  const cor = !dia ? colors.gray.dimText : entrou ? '#0f6e56' : '#b45309'
-  const texto = !dia
-    ? 'Liberação em processamento'
-    : entrou
-      ? `Na conta desde ${dia}`
-      : `Entra em ${dia}`
+  const ficou = antecipado
+    ? (p.anticipationNetValue ?? (p.netValue != null ? p.netValue - (p.anticipationFee ?? 0) : null))
+    : (p.netValue ?? null)
+  const cor = !dia && !antecipado ? colors.gray.dimText : entrou ? '#0f6e56' : '#b45309'
+  const texto = entrou
+    ? `Na conta desde ${dia}`
+    : antecipado && !creditado
+      ? 'Antecipação pedida · entra em até 2 dias úteis'
+      : dia ? `Entra em ${dia}` : 'Liberação em processamento'
+  const original = antecipado ? fmtDia(p.anticipationOriginalCreditDate) : null
+  const taxaCartao = p.netValue != null ? p.amount - p.netValue : null
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-      fontSize: 10.5, color: cor, fontWeight: 600, marginTop: 3,
-    }}>
-      <span style={{
-        width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-        background: cor, opacity: dia ? 1 : 0.5,
-      }} />
-      <span>{texto}</span>
-      {p.netValue != null && (
-        <span style={{ color: colors.gray.dimText, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
-          · líquido {fmtBRL(p.netValue)}
-        </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 3 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+        fontSize: 10.5, color: cor, fontWeight: 600,
+      }}>
+        <span style={{
+          width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+          background: cor, opacity: dia || antecipado ? 1 : 0.5,
+        }} />
+        <span>{texto}</span>
+        {antecipado && (
+          <span style={{
+            fontSize: 9.5, fontWeight: 700, padding: '1px 6px', borderRadius: 5,
+            background: inkLight.ok.bg, color: inkLight.ok.text,
+          }}>Antecipado</span>
+        )}
+        {ficou != null && (
+          <span style={{ color: colors.gray.dimText, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+            · ficou {fmtBRL(ficou)}
+          </span>
+        )}
+      </div>
+      {taxaCartao != null && ficou != null && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap',
+          fontSize: 10.5, color: colors.gray.dimText, fontVariantNumeric: 'tabular-nums',
+        }}>
+          <span>{fmtBRL(p.amount)}</span>
+          <span aria-hidden="true">→</span>
+          <span>cartão −{fmtBRL(taxaCartao)}</span>
+          {antecipado && (
+            <>
+              <span aria-hidden="true">→</span>
+              <span>antecipação −{fmtBRL(p.anticipationFee ?? 0)}{p.anticipationDays ? ` (${p.anticipationDays} dias)` : ''}</span>
+            </>
+          )}
+          <span aria-hidden="true">→</span>
+          <span style={{ color: '#0f6e56', fontWeight: 600 }}>{fmtBRL(ficou)}</span>
+          {original && <span>· cairia em {original}</span>}
+        </div>
       )}
     </div>
   )

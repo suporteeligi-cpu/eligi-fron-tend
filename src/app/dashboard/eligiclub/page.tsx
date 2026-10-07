@@ -31,6 +31,7 @@ import ClubMemberDetailModal from './components/ClubMemberDetailModal'
 import { effectiveSubStatus, isManualSub } from './clubStatus' // @eligi:club-lapsed-import-page
 import ClubSettleConfirmModal from './components/ClubSettleConfirmModal' // @eligi:club-front-modal-import
 import ClubAutoSettleCard from './components/ClubAutoSettleCard'
+import ClubAnticipationCard from './components/ClubAnticipationCard' // @eligi:club-ant-page-import
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Tipos (espelham os includes do back-end)
@@ -1192,6 +1193,9 @@ function FinanceiroTab({ onToast }: { onToast: (m: string) => void }) {
           {refreshing ? 'Atualizando…' : 'Atualizar saldo'}
         </button>
       </div>
+
+      {/* @eligi:club-ant-page-card — quando o cartao cai (antecipacao) */}
+      <ClubAnticipationCard />
 
       {/* RESUMO DO CLUBE */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 6 }}>
