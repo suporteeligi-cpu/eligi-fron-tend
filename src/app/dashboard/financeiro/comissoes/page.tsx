@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/shared/lib/apiClient'
-import { colors, typography } from '@/shared/theme'
+import { colors, typography, inkLight } from '@/shared/theme' // @eligi:club-baixa-ink
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import { PayoutSettings, PayoutListItem } from '@/features/payouts/types'
 import { useAuth } from '@/hooks/useAuth'
@@ -17,13 +17,15 @@ import PayoutSettingsModal   from './components/PayoutSettingsModal'
 import PendingCommissionsTab from './components/PendingCommissionsTab'
 import PayoutsHistoryTab     from './components/PayoutsHistoryTab'
 import MarkAsPaidModal       from './components/MarkAsPaidModal'
+import ClubPaySheet, { CLUB_PAY_METHOD_LABEL, clubPaidDay } from './components/ClubPaySheet' // @eligi:club-baixa-import
 
 type Tab = 'pending' | 'history' | 'club'
 
 // ─── EligiClub: comissões do clube (componentes de módulo, fora do render) ──
-interface ClubCommItem { professionalId: string; professionalName: string; professionalAvatar: string | null; fichas: number; pct: number; amount: number }
-interface ClubCommPeriod { periodKey: string; poolTotal: number; totalFichas: number; settledAt: string; paymentsCount: number; items: ClubCommItem[] }
-interface ClubCommOwner { scope: 'owner'; totalAmount: number; periods: ClubCommPeriod[] }
+// @eligi:club-baixa-types — ids e estado do pagamento vem do back (club-pote-baixa).
+interface ClubCommItem { itemId: string; professionalId: string; professionalName: string; professionalAvatar: string | null; fichas: number; pct: number; amount: number; paidAt: string | null; paidVia: string | null; paidNote: string | null }
+interface ClubCommPeriod { settlementId: string; periodKey: string; poolTotal: number; totalFichas: number; settledAt: string; paymentsCount: number; items: ClubCommItem[] }
+interface ClubCommOwner { scope: 'owner'; totalAmount: number; totalUnpaid?: number; periods: ClubCommPeriod[] }
 
 function clubFmtBRL(v: number) { return `R$ ${(v ?? 0).toFixed(2).replace('.', ',')}` }
 function clubPeriodLabel(periodKey: string) {
@@ -42,18 +44,25 @@ function ClubProfBubble({ id, name, avatar, size }: { id: string; name: string; 
   return <span style={{ ...common, background: `linear-gradient(135deg,${a},${b})` }}>{(name ?? '?').slice(0, 1)}</span>
 }
 
-function ClubPeriodCard({ p, isOpen, onToggle }: { p: ClubCommPeriod; isOpen: boolean; onToggle: () => void }) {
+// @eligi:club-baixa-card — direcao A: selo Pago ou botao Dar baixa em cada linha.
+// So o primeiro pendente do mes fica vermelho: um vermelho por bloco.
+function ClubPeriodCard({ p, isOpen, onToggle, onOpenItem }: {
+  p: ClubCommPeriod; isOpen: boolean; onToggle: () => void; onOpenItem: (it: ClubCommItem) => void
+}) {
+  const firstPending = p.items.find((it) => !it.paidAt)?.itemId
+  const paidCount = p.items.filter((it) => !!it.paidAt).length
+  const status = paidCount === p.items.length ? 'TODOS PAGOS' : `${paidCount} DE ${p.items.length} PAGOS`
   return (
     <div style={{ background: '#fff', border: `0.5px solid ${colors.gray.border}`, borderRadius: 14, marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-      <button onClick={onToggle} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '13px 16px', cursor: 'pointer', border: 'none', background: 'linear-gradient(135deg,#16161C,#0E0E12)', color: '#fff', fontFamily: 'inherit', textAlign: 'left' }}>
+      <button onClick={onToggle} aria-expanded={isOpen} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '13px 16px', cursor: 'pointer', border: 'none', background: 'linear-gradient(135deg,#16161C,#0E0E12)', color: '#fff', fontFamily: 'inherit', textAlign: 'left' }}>
         <ChevronRight size={15} style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0, transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
         <span style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <EligiClubIcon size={16} color="#F4F2EC" />
         </span>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13.5, fontWeight: 800 }}>{clubPeriodLabel(p.periodKey)}</div>
           <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.55)', marginTop: 1 }}>
-            <b style={{ color: '#FF6B6B' }}>{p.totalFichas}</b> fichas · {p.paymentsCount} mensalidade{p.paymentsCount !== 1 ? 's' : ''} · FECHADO
+            <b style={{ color: '#FF6B6B' }}>{p.totalFichas}</b> fichas · {status}
           </div>
         </div>
         <div style={{ marginLeft: 'auto', textAlign: 'right', flexShrink: 0 }}>
@@ -61,19 +70,37 @@ function ClubPeriodCard({ p, isOpen, onToggle }: { p: ClubCommPeriod; isOpen: bo
           <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Pote</div>
         </div>
       </button>
-      {isOpen && p.items.map((it, idx) => (
-        <div key={it.professionalId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', borderBottom: idx < p.items.length - 1 ? `0.5px solid ${colors.gray.border}` : 'none' }}>
-          <ClubProfBubble id={it.professionalId} name={it.professionalName} avatar={it.professionalAvatar} size={32} />
-          <div style={{ minWidth: 110 }}>
-            <div style={{ fontSize: 13, fontWeight: 680, color: typography.color.primary }}>{it.professionalName}</div>
-            <div style={{ fontSize: 10, color: typography.color.muted, marginTop: 1 }}>{it.fichas} fichas · {it.pct}%</div>
+      {isOpen && p.items.map((it, idx) => {
+        const paid = !!it.paidAt
+        const primary = it.itemId === firstPending
+        return (
+          <div key={it.itemId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: idx < p.items.length - 1 ? `0.5px solid ${colors.gray.border}` : 'none' }}>
+            <ClubProfBubble id={it.professionalId} name={it.professionalName} avatar={it.professionalAvatar} size={32} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 680, color: typography.color.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.professionalName}</div>
+              <div style={{ fontSize: 10.5, color: paid ? inkLight.ok.text : typography.color.muted, marginTop: 1 }}>
+                {paid
+                  ? `Pago ${clubPaidDay(it.paidAt!).slice(0, 5)}${it.paidVia ? ` · ${CLUB_PAY_METHOD_LABEL[it.paidVia] ?? it.paidVia}` : ''}`
+                  : `${it.fichas} fichas · ${it.pct}%`}
+              </div>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 780, fontVariantNumeric: 'tabular-nums', flexShrink: 0, textAlign: 'right', color: typography.color.primary }}>{clubFmtBRL(it.amount)}</div>
+            {paid ? (
+              <button onClick={() => onOpenItem(it)} aria-label={`Ver pagamento de ${it.professionalName}`} style={{
+                minHeight: 36, padding: '0 10px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                fontSize: 11.5, fontWeight: 700, background: inkLight.ok.bg, color: inkLight.ok.text, border: `1px solid ${inkLight.ok.border}`,
+              }}>Pago</button>
+            ) : (
+              <button onClick={() => onOpenItem(it)} style={{
+                minHeight: 36, padding: '0 12px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                fontSize: 12.5, fontWeight: 600,
+                background: primary ? colors.red.DEFAULT : '#fff', color: primary ? '#fff' : typography.color.primary,
+                border: `1px solid ${primary ? colors.red.DEFAULT : colors.gray.border}`,
+              }}>Dar baixa</button>
+            )}
           </div>
-          <div style={{ flex: 1, height: 6, borderRadius: 999, background: '#f0f0f3', overflow: 'hidden', margin: '0 6px' }}>
-            <div style={{ width: `${it.pct}%`, height: '100%', borderRadius: 999, background: clubAvatarColors(it.professionalId)[1] }} />
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 780, fontVariantNumeric: 'tabular-nums', flexShrink: 0, minWidth: 60, textAlign: 'right', color: typography.color.primary }}>{clubFmtBRL(it.amount)}</div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -82,6 +109,7 @@ function ClubCommissionsTab({ isMobile }: { isMobile: boolean }) {
   const [data, setData] = useState<ClubCommOwner | null>(null)
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState<Set<string>>(() => new Set<string>())
+  const [paying, setPaying] = useState<{ p: ClubCommPeriod; it: ClubCommItem } | null>(null)
   const reqRef = useRef(0)
 
   const fetchData = useCallback(async () => {
@@ -91,7 +119,8 @@ function ClubCommissionsTab({ isMobile }: { isMobile: boolean }) {
       const d = (res.data?.data ?? null) as ClubCommOwner | null
       if (token !== reqRef.current) return
       setData(d)
-      setOpen(d?.periods?.[0] ? new Set([d.periods[0].periodKey]) : new Set<string>())
+      // Depois de uma baixa o recarregamento nao fecha o mes que o dono esta olhando.
+      setOpen((prev) => prev.size > 0 ? prev : (d?.periods?.[0] ? new Set([d.periods[0].periodKey]) : new Set<string>()))
     } catch {
       if (token === reqRef.current) setData(null)
     } finally {
@@ -104,6 +133,8 @@ function ClubCommissionsTab({ isMobile }: { isMobile: boolean }) {
   const toggle = useCallback((k: string) => {
     setOpen(prev => { const next = new Set(prev); if (next.has(k)) next.delete(k); else next.add(k); return next })
   }, [])
+  const closeSheet = useCallback(() => setPaying(null), [])
+  const onPaid = useCallback(() => { setPaying(null); void fetchData() }, [fetchData])
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: typography.color.muted, fontSize: 13 }}>Carregando…</div>
   if (!data || data.periods.length === 0) return (
@@ -114,16 +145,34 @@ function ClubCommissionsTab({ isMobile }: { isMobile: boolean }) {
     </div>
   )
 
+  const unpaid = data.totalUnpaid ?? 0
   return (
     <div style={{ padding: isMobile ? '0 2px' : 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12, flexWrap: 'wrap' }}>
         <EligiClubIcon size={14} color="#0E0E12" /> Total rateado em clube ·
         <b style={{ fontSize: 15, color: typography.color.primary, textTransform: 'none', letterSpacing: 0 }}>{clubFmtBRL(data.totalAmount)}</b>
         em {data.periods.length} período{data.periods.length !== 1 ? 's' : ''}
+        {unpaid > 0 && (
+          <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12, fontWeight: 700, color: inkLight.warn.text, background: inkLight.warn.bg, border: `1px solid ${inkLight.warn.border}`, borderRadius: 8, padding: '2px 8px' }}>
+            {clubFmtBRL(unpaid)} a pagar
+          </span>
+        )}
       </div>
       {data.periods.map(p => (
-        <ClubPeriodCard key={p.periodKey} p={p} isOpen={open.has(p.periodKey)} onToggle={() => toggle(p.periodKey)} />
+        <ClubPeriodCard key={p.periodKey} p={p} isOpen={open.has(p.periodKey)} onToggle={() => toggle(p.periodKey)}
+          onOpenItem={(it) => setPaying({ p, it })} />
       ))}
+      {paying && (
+        <ClubPaySheet
+          settlementId={paying.p.settlementId}
+          periodKey={paying.p.periodKey}
+          periodLabel={clubPeriodLabel(paying.p.periodKey)}
+          item={paying.it}
+          isMobile={isMobile}
+          onClose={closeSheet}
+          onDone={onPaid}
+        />
+      )}
     </div>
   )
 }

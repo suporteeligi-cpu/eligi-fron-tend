@@ -105,7 +105,8 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
 }
 
 // --- Aba Clube (EligiClub): fatia do barbeiro por periodo. Componente de modulo. ---
-interface ClubStaffPeriod { periodKey: string; poolTotal: number; totalFichas: number; settledAt: string; myFichas: number; myPct: number; myAmount: number }
+// @eligi:club-baixa-staff-type — myItemPaidAt vem do back (club-pote-baixa)
+interface ClubStaffPeriod { periodKey: string; poolTotal: number; totalFichas: number; settledAt: string; myFichas: number; myPct: number; myAmount: number; myItemPaidAt?: string | null }
 interface ClubStaffResp { scope: 'staff'; totalAmount: number; totalFichas: number; periods: ClubStaffPeriod[] }
 
 function clubPeriodLabel(periodKey: string) {
@@ -171,7 +172,10 @@ function ClubTab({ isMobile }: { isMobile: boolean }) {
             </div>
             <div style={{ marginLeft: 'auto', textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 780, color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(p.myAmount)}</div>
-              <div style={{ fontSize: 9, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.05em' }}>sua parte</div>
+              {/* @eligi:club-baixa-staff-status */}
+              <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700, color: p.myItemPaidAt ? '#0f6e56' : '#b45309' }}>
+                {p.myItemPaidAt ? `pago ${p.myItemPaidAt.slice(8, 10)}/${p.myItemPaidAt.slice(5, 7)}` : 'a receber'}
+              </div>
             </div>
           </div>
         ))}
