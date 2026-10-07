@@ -19,6 +19,7 @@ interface InviteData {
     slug:        string
   }
   professional?: { name: string; avatarUrl?: string | null } | null
+  hasAccount?:   boolean  // @eligi:convite-has-account — e-mail ja tem conta: entra com a senha dela
 }
 
 type PageState = 'loading' | 'valid' | 'invalid' | 'success'
@@ -55,13 +56,18 @@ export default function ConvitePage() {
     if (!token) { setPageState('invalid'); return }
     api.get(`/invites/token/${token}`)
       .then(res => { setInvite(res.data); setPageState('valid') })
-      .catch(err => { setErrorMsg(getErrorMessage(err?.response?.status)); setPageState('invalid') })
+      .catch(err => { setErrorMsg(err?.response?.data?.message ?? getErrorMessage(err?.response?.status)); setPageState('invalid') }) // @eligi:convite-motivo
   }, [token])
 
   async function handleSubmit() {
     setFormError('')
-    if (password.length < 6)      { setFormError('A senha deve ter pelo menos 6 caracteres'); return }
-    if (password !== confirmPwd)   { setFormError('As senhas não coincidem'); return }
+    // @eligi:convite-validacao — conta existente: so a senha que ela ja usa.
+    if (invite?.hasAccount) {
+      if (!password) { setFormError('Digite a sua senha do Eligi'); return }
+    } else {
+      if (password.length < 6)      { setFormError('A senha deve ter pelo menos 6 caracteres'); return }
+      if (password !== confirmPwd)   { setFormError('As senhas não coincidem'); return }
+    }
     try {
       setSubmitting(true)
       // Nome vem do Professional vinculado; se não tiver, usa o email
@@ -131,7 +137,7 @@ export default function ConvitePage() {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <div style={{ ...cardStyle, padding:'40px 32px', textAlign:'center' }}>
         <CheckCircle size={44} color="#4ade80" style={{ marginBottom:16, opacity:0.9 }} />
-        <div style={{ fontSize:20, fontWeight:700, color:'#fff', marginBottom:8 }}>Conta criada!</div>
+        <div style={{ fontSize:20, fontWeight:700, color:'#fff', marginBottom:8 }}>{invite?.hasAccount ? 'Tudo certo!' : 'Conta criada!' /* @eligi:convite-sucesso */}</div>
         <div style={{ fontSize:14, color:'rgba(255,255,255,0.50)', lineHeight:1.6 }}>Redirecionando para o dashboard...</div>
         <div style={{ marginTop:20 }}>
           <div style={{ width:24, height:24, borderRadius:'50%', border:'2px solid rgba(74,222,128,0.3)', borderTopColor:'#4ade80', animation:'spin 0.8s linear infinite', margin:'0 auto' }} />
@@ -190,21 +196,23 @@ export default function ConvitePage() {
           </div>
 
           <div style={{ fontSize:13, color:'rgba(255,255,255,0.45)', marginBottom:20, lineHeight:1.6 }}>
-            Crie uma senha para acessar o dashboard da equipe.
+            {invite?.hasAccount /* @eligi:convite-texto */
+              ? 'Você já tem conta no Eligi com este e-mail. Digite a sua senha para entrar na equipe.'
+              : 'Crie uma senha para acessar o dashboard da equipe.'}
           </div>
 
           {/* Só senha + confirmação */}
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
             <div>
-              <label style={labelStyle}>Senha</label>
+              <label style={labelStyle}>{invite?.hasAccount ? 'Sua senha do Eligi' : 'Senha' /* @eligi:convite-label */}</label>
               <div style={{ position:'relative' }}>
-                <input className="cv-input" type={showPwd ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" style={{ ...inputStyle, paddingRight:42 }} autoComplete="new-password" autoFocus />
+                <input className="cv-input" type={showPwd ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder={invite?.hasAccount ? 'Sua senha' : 'Mínimo 6 caracteres'} style={{ ...inputStyle, paddingRight:42 }} autoComplete={invite?.hasAccount ? 'current-password' : 'new-password'} autoFocus onKeyDown={e => { if (invite?.hasAccount && e.key === 'Enter') handleSubmit() } /* @eligi:convite-input */} />
                 <button type="button" onClick={() => setShowPwd(v => !v)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:2, display:'flex', color:'rgba(255,255,255,0.40)' }}>
                   {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {password.length > 0 && (
+              {password.length > 0 && !invite?.hasAccount /* @eligi:convite-forca */ && (
                 <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6 }}>
                   <div style={{ flex:1, height:3, borderRadius:999, background:'rgba(255,255,255,0.08)', overflow:'hidden' }}>
                     <div style={{ height:'100%', borderRadius:999, background:strength.color, width:`${(strength.level/3)*100}%`, transition:'all 300ms ease' }} />
@@ -214,6 +222,7 @@ export default function ConvitePage() {
               )}
             </div>
 
+            {!invite?.hasAccount && ( /* @eligi:convite-confirma */
             <div>
               <label style={labelStyle}>Confirmar senha</label>
               <div style={{ position:'relative' }}>
@@ -223,6 +232,7 @@ export default function ConvitePage() {
                 </button>
               </div>
             </div>
+            )}{/* @eligi:convite-confirma-fim */}
           </div>
 
           {formError && (
@@ -233,8 +243,8 @@ export default function ConvitePage() {
 
           <button onClick={handleSubmit} disabled={submitting} style={{ marginTop:20, width:'100%', padding:'13px', borderRadius:12, border:'none', background: submitting ? 'rgba(220,38,38,0.50)' : 'linear-gradient(135deg,#dc2626,#b91c1c)', color:'#fff', fontSize:14, fontWeight:700, cursor: submitting ? 'default' : 'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:'0 6px 20px rgba(220,38,38,0.30)' }}>
             {submitting
-              ? <><Loader size={16} style={{ animation:'spin 0.8s linear infinite' }} /> Criando conta...</>
-              : 'Criar senha e entrar'
+              ? <><Loader size={16} style={{ animation:'spin 0.8s linear infinite' }} /> {invite?.hasAccount ? 'Entrando...' : 'Criando conta...' /* @eligi:convite-carregando */}</>
+              : (invite?.hasAccount ? 'Entrar na equipe' : 'Criar senha e entrar') /* @eligi:convite-botao */
             }
           </button>
 

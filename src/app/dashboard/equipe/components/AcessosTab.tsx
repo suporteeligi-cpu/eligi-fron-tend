@@ -487,6 +487,11 @@ export default function AcessosTab({ professionals, loading, onRevoked }: Props)
   const [copiedId,   setCopiedId]   = useState<string | null>(null)
 
   const [revokeTarget, setRevokeTarget] = useState<Professional | null>(null)
+  // @eligi:acessos-msg-servidor — o back devolve o motivo (400/404/409) em message.
+  const msgServidor = (err: unknown): string | undefined => {
+    const m = (err as { response?: { data?: { message?: unknown } } })?.response?.data?.message
+    return typeof m === 'string' && m.trim() ? m : undefined
+  }
   const [revoking,     setRevoking]     = useState(false)
   const [actionError,  setActionError]  = useState('')
 
@@ -539,8 +544,8 @@ export default function AcessosTab({ professionals, loading, onRevoked }: Props)
       setRevokeTarget(null)
       // Sem window.location.reload(): a page atualiza o estado local.
       onRevoked?.(prof.id)
-    } catch {
-      setActionError('Não foi possível revogar o acesso. Tente de novo.')
+    } catch (err) {
+      setActionError(msgServidor(err) ?? 'Não foi possível revogar o acesso. Tente de novo.') // @eligi:acessos-msg-revoke
     } finally {
       setRevoking(false)
     }
@@ -551,8 +556,9 @@ export default function AcessosTab({ professionals, loading, onRevoked }: Props)
       setActionError('')
       await api.delete(`/invites/${invite.id}`)
       setInvites(prev => prev.filter(i => i.id !== invite.id))
-    } catch {
-      setActionError('Não foi possível cancelar o convite.')
+    } catch (err) {
+      setActionError(msgServidor(err) ?? 'Não foi possível cancelar o convite.') // @eligi:acessos-msg-cancel
+      void fetchInvites() // o convite pode ter sido aceito nesse meio tempo
     }
   }
 
@@ -572,8 +578,8 @@ export default function AcessosTab({ professionals, loading, onRevoked }: Props)
         return
       }
       setInvites(prev => [novo, ...prev.filter(i => i.id !== invite.id)])
-    } catch {
-      setActionError('Não foi possível reenviar o convite.')
+    } catch (err) {
+      setActionError(msgServidor(err) ?? 'Não foi possível reenviar o convite.') // @eligi:acessos-msg-resend
     }
   }
 

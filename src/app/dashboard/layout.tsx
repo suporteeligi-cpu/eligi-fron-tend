@@ -12,6 +12,7 @@ import Sidebar from '@/app/components/navigation/Sidebar'
 import CommandPalette from '@/app/components/search/CommandPalette'
 import BillingGuard from './components/BillingGuard'
 import AnnouncementModal from './components/AnnouncementModal' // @eligi:announcement-module
+import { logoutRequest } from '@/lib/auth.api' // @eligi:staff-sem-vinculo-import
 
 const NAVBAR_HEIGHT = 104
 
@@ -92,6 +93,29 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <h1 style={{ marginBottom: 12 }}>Sessão expirada</h1>
           <p style={{ opacity: 0.7, marginBottom: 20 }}>Sua sessão terminou. Faça login novamente.</p>
           <button onClick={() => { window.location.href = '/login?reauth=1' }} style={loginButton}>Fazer login</button>
+        </div>
+      </div>
+    )
+  }
+
+  // @eligi:staff-sem-vinculo — conta de equipe sem estabelecimento (convite
+  // antigo, acesso revogado). Antes toda tela chamava a API e dava erro; agora
+  // a pessoa entende o que houve e o que fazer. Dono/afiliado nunca caem aqui.
+  if (user.role !== 'BUSINESS_OWNER' && user.role !== 'AFFILIATE' && !user.businessId && !user.professionalId) {
+    const sair = async () => {
+      try { await logoutRequest() } catch { /* sessao ja pode estar morta */ }
+      document.cookie = 'userRole=;path=/;max-age=0'
+      window.location.href = '/login'
+    }
+    return (
+      <div style={centerStyle}>
+        <div style={unauthorizedCard}>
+          <h1 style={{ marginBottom: 12 }}>Você ainda não está em uma equipe</h1>
+          <p style={{ opacity: 0.75, marginBottom: 20, lineHeight: 1.5 }}>
+            Sua conta ({user.email}) existe, mas não está ligada a nenhum estabelecimento.
+            Peça ao dono para enviar um convite para este e-mail e abra o link do convite.
+          </p>
+          <button onClick={sair} style={loginButton}>Sair</button>
         </div>
       </div>
     )
