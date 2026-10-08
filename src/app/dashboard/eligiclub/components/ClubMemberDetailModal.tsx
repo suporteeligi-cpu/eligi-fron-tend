@@ -101,6 +101,8 @@ const FORMA: Record<string, string> = {
   MANUAL:      'Manual',
 }
 function formaLabel(billingTypeReal?: string | null, method?: string | null): string | null {
+  // @eligi:club-balcao-forma — baixa em dinheiro no Asaas: mostra como foi pago no balcao
+  if (billingTypeReal === 'RECEIVED_IN_CASH') return FORMA[method ?? ''] ?? 'Balcão'
   const bruto = billingTypeReal ?? method ?? null
   if (!bruto || bruto === 'ASAAS' || bruto === 'UNDEFINED') return null
   return FORMA[bruto] ?? bruto
@@ -518,19 +520,22 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
           )}
           {!isCanceled && (!sub.asaasSubscriptionId || sub.status === 'PAST_DUE') && ( // @eligi:club-regcartao-gate
             <div style={{ padding: 14, borderRadius: 12, background: colors.background.page, border: `1px solid ${colors.gray.border}` }}>
-              <label style={labelStyle}>Registrar pagamento (renova +1 mês)</label>
+              <label style={labelStyle}>{sub.asaasSubscriptionId ? 'Recebi no balcão' : 'Registrar pagamento (renova +1 mês)'}</label>{/* @eligi:club-balcao-titulo */}
               {/* @eligi:club-regcartao-aviso — cartao atrasado: so se pagou no balcao */}
               {sub.asaasSubscriptionId && (
                 <div role="note" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10, padding: '9px 11px', borderRadius: 10, fontSize: 12, lineHeight: 1.5, color: inkLight.warn.text, background: inkLight.warn.bg, border: `1px solid ${inkLight.warn.border}` }}>
                   <AlertCircle size={14} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <span>Este cliente paga no cartão e a cobrança atrasada continua aberta no Asaas. Registre aqui só se ele pagou no balcão.</span>
+                  <span>{/* @eligi:club-balcao-texto */}O cartão deste cliente está atrasado. Se ele pagou aqui, confirme: a cobrança vencida é baixada no Asaas e deixa de ser cobrada dele. O valor é o da cobrança.</span>
                 </div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: sub.asaasSubscriptionId ? '1fr' : '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                {/* @eligi:club-balcao-sem-valor — no cartao o valor e o da cobranca do Asaas */}
+                {!sub.asaasSubscriptionId && (
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: colors.gray.dimText, fontWeight: 600 }}>R$</span>
                   <input value={payAmountStr} onChange={e => setPayAmountStr(e.target.value.replace(/[^\d,.]/g, ''))} inputMode="decimal" style={{ ...inputStyle, paddingLeft: 34, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }} />
                 </div>
+                )}{/* @eligi:club-balcao-fecha */}
                 <div style={{ display: 'flex', gap: 5 }}>
                   {METHODS.map(({ key, label, Icon }) => {
                     const sel = payMethod === key
@@ -567,7 +572,7 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
                   ? <><Check size={15} strokeWidth={2.6} />Pagamento registrado</>
                   : paying
                     ? <><Loader2 size={14} style={{ animation: 'club-spin 0.8s linear infinite' }} />Registrando</>
-                    : 'Registrar pagamento'}
+                    : sub.asaasSubscriptionId ? 'Confirmar recebimento' : 'Registrar pagamento'}{/* @eligi:club-balcao-botao */}
               </button>
               {paySuccess && (
                 <div style={{
