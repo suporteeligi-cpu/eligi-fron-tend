@@ -81,6 +81,104 @@ function MembrosList({ rows }: { rows: ClubReportData['membros'] }) {
   )
 }
 
+// @eligi:club-uso-planos-card — "Uso dos planos" (direcao A + variacao da C)
+const fmtNum = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+
+function UsoPlanosCard({ rows }: { rows: ClubReportData['usoPlanos'] }) {
+  return (
+    <div style={{ ...GLASS_CARD, padding: 18 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#0c0c12' }}>Uso dos planos</div>
+      <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', marginTop: 2, marginBottom: 12 }}>
+        Quantas vezes por mês cada membro usou o plano e quanto saiu cada atendimento.
+      </div>
+      {rows.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.4)', padding: '6px 0' }}>Nenhum membro nos planos neste mês.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {rows.map((p) => {
+            const delta = p.usosPorMembroAnterior == null ? null : Math.round((p.usosPorMembro - p.usosPorMembroAnterior) * 10) / 10
+            const avulsoRef = p.servicos.find((s) => s.precoAvulso != null)
+            return (
+              <div key={p.planId} style={{ border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: 14, padding: '12px 14px', background: '#fff', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 3, background: p.cor ?? '#888780' }} />
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', paddingLeft: 4 }}>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: '#0c0c12' }}>{p.nome}</span>
+                  <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', fontVariantNumeric: 'tabular-nums' }}>
+                    {p.membros} membro{p.membros !== 1 ? 's' : ''} · {brl(p.preco)}
+                  </span>
+                </div>
+
+                <div style={{ overflowX: 'auto', marginTop: 8 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
+                    <thead>
+                      <tr style={{ color: 'rgba(0,0,0,0.45)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                        <th style={{ textAlign: 'left', fontWeight: 700, padding: '4px 4px 4px 4px' }}>Serviço</th>
+                        <th style={{ textAlign: 'right', fontWeight: 700, padding: 4 }}>Média/membro</th>
+                        <th style={{ textAlign: 'right', fontWeight: 700, padding: 4 }}>Limite</th>
+                        <th style={{ textAlign: 'right', fontWeight: 700, padding: 4 }}>No limite</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {p.servicos.map((s) => (
+                        <tr key={s.serviceId} style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)' }}>
+                          <td style={{ padding: '7px 4px', color: '#0c0c12' }}>{s.nome}</td>
+                          <td style={{ padding: '7px 4px', textAlign: 'right', color: '#0c0c12', fontWeight: 600 }}>{fmtNum(s.usosPorMembro)}</td>
+                          <td style={{ padding: '7px 4px', textAlign: 'right', color: 'rgba(0,0,0,0.55)' }}>{s.limite ?? '∞'}</td>
+                          <td style={{ padding: '7px 4px', textAlign: 'right', color: s.limite != null && s.noLimite > 0 ? '#b45309' : 'rgba(0,0,0,0.55)' }}>
+                            {s.limite == null ? '—' : `${s.noLimite} de ${p.membros}`}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ fontSize: 12.5, color: 'rgba(0,0,0,0.7)', marginTop: 8, lineHeight: 1.5 }}>
+                  {p.custoPorAtendimento == null ? (
+                    <>Nenhum atendimento do clube neste mês.</>
+                  ) : (
+                    <>
+                      Cada atendimento do clube saiu por <b style={{ color: '#0c0c12', fontVariantNumeric: 'tabular-nums' }}>{brl(p.custoPorAtendimento)}</b>
+                      {avulsoRef ? <> (avulso: {brl(avulsoRef.precoAvulso!)} {avulsoRef.nome.toLowerCase()})</> : null}
+                    </>
+                  )}
+                </div>
+
+                {p.sinal && (
+                  <div style={{
+                    marginTop: 8, fontSize: 12, lineHeight: 1.45, borderRadius: 10, padding: '8px 10px',
+                    background: p.sinal === 'ALTO' ? 'rgba(245,158,11,0.12)' : 'rgba(37,99,235,0.07)',
+                    color: p.sinal === 'ALTO' ? '#b45309' : '#1e40af',
+                    border: `1px solid ${p.sinal === 'ALTO' ? 'rgba(245,158,11,0.30)' : 'rgba(37,99,235,0.22)'}`,
+                  }}>
+                    {p.sinal === 'ALTO'
+                      ? 'Mais de 30% dos membros usaram tudo de algum serviço. Plano apertado: vale pensar em reajuste ou num plano maior.'
+                      : 'Menos de 1 uso por membro no mês. Plano folgado: vale pensar num plano mais leve ou em incentivar o uso.'}
+                  </div>
+                )}
+
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '0.5px solid rgba(0,0,0,0.06)', fontSize: 11.5, color: 'rgba(0,0,0,0.5)', fontVariantNumeric: 'tabular-nums' }}>
+                  Usos por membro no mês: <b style={{ color: '#0c0c12' }}>{fmtNum(p.usosPorMembro)}</b>
+                  {delta == null ? ' · sem mês anterior para comparar' : (
+                    <> · mês anterior {fmtNum(p.usosPorMembroAnterior!)}{' '}
+                      <span style={{ fontWeight: 700, color: delta > 0 ? '#b45309' : delta < 0 ? '#1e40af' : 'rgba(0,0,0,0.5)' }}>
+                        ({delta > 0 ? '+' : ''}{fmtNum(delta)})
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.4)', marginTop: 10 }}>
+        Conta os serviços com o clube aplicado em vendas confirmadas no mês. &ldquo;No limite&rdquo; é contado no mês.
+      </div>
+    </div>
+  )
+}
+
 export default function ClubReportPanel({ period }: { period: string }) {
   const { data, loading } = useReportData<ClubReportData>('/reports/club', period)
 
@@ -138,6 +236,9 @@ export default function ClubReportPanel({ period }: { period: string }) {
 
       {/* receita por plano (anel) */}
       <PlanoDonut rows={receitaPorPlano} mrr={kpis.mrr} />
+
+      {/* @eligi:club-uso-planos-render */}
+      <UsoPlanosCard rows={data.usoPlanos ?? []} />
 
       {/* resumo */}
       <div style={{ ...GLASS_CARD, padding: 18 }}>

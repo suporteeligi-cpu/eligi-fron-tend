@@ -207,4 +207,11 @@ export interface ClubReportData {
   receitaPorPlano: { label: string; valor: number; pct: number; cor: string }[]
   membros: { id: string; nome: string; plano: string; planoCor: string | null; desde: string; fichas: number }[]
   resumo: { ticketMedio: number; poteMesAtual: number; rateadoHistorico: number }
+  // @eligi:club-uso-planos-ftipo — uso dos planos (back club-uso-planos)
+  usoPlanos: Array<{
+    planId: string; nome: string; cor: string | null; preco: number
+    membros: number; usos: number; usosPorMembro: number; usosPorMembroAnterior: number | null
+    custoPorAtendimento: number | null; sinal: 'ALTO' | 'BAIXO' | null
+    servicos: Array<{ serviceId: string; nome: string; limite: number | null; usosPorMembro: number; noLimite: number; precoAvulso: number | null }>
+  }>
 }
