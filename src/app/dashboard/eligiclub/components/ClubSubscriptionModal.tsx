@@ -39,6 +39,7 @@ import {
 import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
 import { waLink, clubPaymentMessage, clubWelcomeMessage } from '@/shared/utils/whatsapp' // @eligi:club-wa-welcome-import
+import { clubIncludesText } from '@/shared/utils/whatsapp' // @eligi:club-vis-import
 
 // ── tipos ───────────────────────────────────────────────────────────────────
 type SubStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
@@ -64,7 +65,7 @@ interface ClientLite {
   email: string | null
   cpf: string | null
 }
-interface PlanLite { id: string; name: string; price: number; color: string | null; active: boolean }
+interface PlanLite { id: string; name: string; price: number; color: string | null; active: boolean; includes: string } // @eligi:club-vis-planlite
 interface PaymentLink {
   checkoutUrl: string | null
   businessName: string
@@ -132,8 +133,10 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
         if (cancelled) return
         const planData = planRes.data?.data ?? planRes.data
         const planList: PlanLite[] = (Array.isArray(planData) ? planData : planData.plans ?? [])
-          .map((p: { id: string; name: string; price: number; color?: string | null; active?: boolean }) => ({
+          // @eligi:club-vis-planmap — o que o plano inclui, com limite, para as mensagens
+          .map((p: { id: string; name: string; price: number; color?: string | null; active?: boolean; services?: Array<{ monthlyLimit?: number | null; service?: { name: string } | null }> }) => ({
             id: p.id, name: p.name, price: p.price, color: p.color ?? null, active: p.active !== false,
+            includes: clubIncludesText((p.services ?? []).filter(s => s.service).map(s => ({ name: s.service!.name, limit: s.monthlyLimit ?? null }))),
           }))
           .filter((p: PlanLite) => p.active)
         setPlans(planList)
@@ -261,9 +264,9 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
 
   const sendWhats = useCallback(() => {
     if (!done?.checkoutUrl || !done.clientPhone) return
-    const msg = clubPaymentMessage(done.clientName, done.businessName, done.checkoutUrl)
+    const msg = clubPaymentMessage(done.clientName, done.businessName, done.checkoutUrl, selectedPlan?.includes || undefined) // @eligi:club-vis-pay
     window.open(waLink(done.clientPhone, msg), '_blank', 'noopener,noreferrer')
-  }, [done])
+  }, [done, selectedPlan])
 
   const concluido = !!done || !!manualDone
   const podeSalvar = !!clientId && !!planId && !!mode && !saving
@@ -425,6 +428,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                       manualDone.planName,
                       fmtDia(manualDone.startedAt) ?? 'hoje',
                       fmtDia(manualDone.nextDue) ?? 'daqui a um mes',
+                      selectedPlan?.includes || undefined, // @eligi:club-vis-welcome
                     )
                     window.open(waLink(manualDone.phone!, msg), '_blank', 'noopener,noreferrer')
                   }}

@@ -33,10 +33,12 @@ export function clubPaymentMessage(
   clientName: string,
   businessName: string,
   link: string,
+  includes?: string, // @eligi:wa-club-pay-param
 ): string {
   // @eligi:wa-firstname-reuse — usava split(' ')[0] na mao, com firstName() logo acima
   const first = firstName(clientName)
-  return `Oi, ${first}! 👋 Aqui é da ${businessName}. Pra ativar sua assinatura do clube, é só cadastrar seu cartão neste link: ${link}\n\nQualquer dúvida, me chama!`
+  const inclui = includes ? `\n\n📋 Seu plano inclui: ${includes}.` : '' // @eligi:wa-club-pay-texto
+  return `Oi, ${first}! 👋 Aqui é da ${businessName}. Pra ativar sua assinatura do clube, é só cadastrar seu cartão neste link: ${link}${inclui}\n\nQualquer dúvida, me chama!`
 }
 
 // @eligi:wa-club-welcome
@@ -57,6 +59,7 @@ export function clubWelcomeMessage(
   planName: string,
   startLabel: string,
   renewLabel: string,
+  includes?: string, // @eligi:wa-club-welcome-param
 ): string {
   return [
     `Oi, ${firstName(clientName)}! 🎉`,
@@ -65,6 +68,7 @@ export function clubWelcomeMessage(
     '',
     `📅 Comecou em ${startLabel}`,
     `🔄 Proxima renovacao em ${renewLabel}`,
+    ...(includes ? ['', `📋 Seu plano inclui: ${includes}.`] : []), // @eligi:wa-club-welcome-texto
     '',
     'Qualquer duvida, e so me chamar por aqui!',
   ].join('\n')
@@ -204,4 +208,17 @@ export function confirmMessageSegments(input: ConfirmMessageInput): {
 export function bookingConfirmationMessage(input: ConfirmMessageInput): string {
   const { head, blocks } = confirmMessageSegments(input)
   return [head, ...blocks.map(s => s.text)].join('\n\n')
+}
+
+// @eligi:wa-club-inclui
+/**
+ * O que o plano inclui, como o cliente le. Espelha clubIncludesLabels do back
+ * (club.includes.rules.ts): mudou la, muda aqui. Sem nenhum limite, so os nomes.
+ */
+export function clubIncludesText(services: Array<{ name: string; limit: number | null | undefined }>): string {
+  const hasLimit = services.some((s) => s.limit != null)
+  const parts = hasLimit
+    ? services.map((s) => (s.limit != null ? `${s.limit}x ${s.name} por mês` : `${s.name} à vontade`))
+    : services.map((s) => s.name)
+  return parts.join(', ')
 }
