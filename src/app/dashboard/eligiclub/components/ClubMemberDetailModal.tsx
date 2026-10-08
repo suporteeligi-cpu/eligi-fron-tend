@@ -16,6 +16,7 @@ import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
 import { colors, typography, transitions, radius, inkLight } from '@/shared/theme' // @eligi:club-due-date-theme
 import { effectiveSubStatus } from '../clubStatus' // @eligi:club-lapsed-import-modal
 import ClubDueDateSheet from './ClubDueDateSheet' // @eligi:club-due-date-import
+import ClubPlanChangeSheet, { ClubPlanPendingBanner } from './ClubPlanChangeSheet' // @eligi:club-troca-import
 
 // ── tipos (espelham o back / page.tsx) ──────────────────────────────────────
 type SubStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
@@ -45,6 +46,7 @@ interface ClubSubscription {
   value: number | null
   billingType: string | null
   asaasSubscriptionId?: string | null
+  pendingPlanId?: string | null // @eligi:club-troca-tipo
   startedAt: string | null
   currentPeriodEnd: string | null
   canceledAt: string | null
@@ -151,6 +153,7 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
   // @eligi:club-due-date-state
   const [dueOpen, setDueOpen] = useState(false)
   const [dueCardNote, setDueCardNote] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false) // @eligi:club-troca-state
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 10)
@@ -312,7 +315,43 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
               <div style={{ fontSize: 14, fontWeight: 700, color: colors.gray[900] }}>{sub.plan.name}</div>
               <div style={{ fontSize: 11.5, color: colors.gray.dimText }}>{fmtBRL(sub.value ?? sub.plan.price)}/mês</div>
             </div>
+            {/* @eligi:club-troca-botao — dono ou gerente; o back recusa os demais */}
+            {!isCanceled && (
+              <button
+                type="button"
+                onClick={() => setPlanOpen(true)}
+                style={{
+                  flexShrink: 0, minHeight: 36, padding: '0 12px', borderRadius: 10, cursor: 'pointer',
+                  border: `1px solid ${colors.gray.borderMd}`, background: '#fff', color: colors.gray[900],
+                  fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
+                }}
+              >
+                Trocar plano
+              </button>
+            )}
           </div>
+          {!isCanceled && sub.pendingPlanId && (
+            <ClubPlanPendingBanner
+              subId={sub.id}
+              pendingPlanId={sub.pendingPlanId}
+              dueIso={sub.currentPeriodEnd}
+              isCard={!!sub.asaasSubscriptionId}
+              onPlanLoaded={p => setPayAmountStr(String(p.price))}
+              onSaved={data => { const s = data as ClubSubscription; setSub(s); onUpdated(s); setPayAmountStr(String(s.value ?? s.plan.price)) }}
+            />
+          )}
+          {planOpen && (
+            <ClubPlanChangeSheet
+              subId={sub.id}
+              currentPlanId={sub.plan.id}
+              pendingPlanId={sub.pendingPlanId ?? null}
+              dueIso={sub.currentPeriodEnd}
+              isCard={!!sub.asaasSubscriptionId}
+              isMobile={isMobile}
+              onSaved={data => { const s = data as ClubSubscription; setSub(s); onUpdated(s) }}
+              onClose={() => setPlanOpen(false)}
+            />
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
             {/* @eligi:club-due-date-lapis: lapis no "Vence em". Manual abre a folha; cartao explica por que nao. */}
