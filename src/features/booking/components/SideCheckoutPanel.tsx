@@ -755,6 +755,17 @@ export default function SideCheckoutPanel({
   // Cliente ORIGINAL do grupo/booking (capturado no fetch). Usado pra detectar
   // troca de cliente no save do editor de grupo — cliente é do booking, não do item.
   const originalClientIdRef = useRef<string | null>(null)
+  // @eligi:club-aberto-scp-state — membro no maximo de horarios do clube (so aviso)
+  const [clubOpen, setClubOpen] = useState<{ open: number; limit: number; reached: boolean; serviceIds: string[]; nextAt: string | null } | null>(null)
+  const clubClientId = selectedClient?.id ?? null
+  useEffect(() => {
+    if (!clubClientId) return
+    let alive = true
+    api.get('/club-subscriptions/open-limit', { params: { clientId: clubClientId } })
+      .then(res => { if (alive) setClubOpen((res.data?.data ?? null) as typeof clubOpen) })
+      .catch(() => { if (alive) setClubOpen(null) })
+    return () => { alive = false }
+  }, [clubClientId])
   const firstItem = items[0]
   const total     = items.reduce((acc, it) => acc + (it.service?.price ?? 0), 0)
 
@@ -785,6 +796,9 @@ export default function SideCheckoutPanel({
   const [loadingBooking, setLoadingBooking] = useState(false)
 
   const isEdit = mode === 'edit'
+  // @eligi:club-aberto-scp-flag — criar (nao editar nem somar ao grupo), cliente atual, servico do plano
+  const clubOpenWarn = !isEdit && !addToGroupRefId && !!clubOpen?.reached && !!clubClientId
+    && items.some(it => it.service && clubOpen!.serviceIds.includes(it.service.id))
 
   // ── Reset ao abrir ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1740,6 +1754,16 @@ export default function SideCheckoutPanel({
             <div style={{fontSize:13,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.05em'}}>Total</div>
             <div style={{fontSize:28,fontWeight:700,color:colors.gray[900],letterSpacing:'-0.03em',fontVariantNumeric:'tabular-nums'}}>R$ {total.toFixed(2).replace('.',',')}</div>
           </div>
+          {/* @eligi:club-aberto-scp-aviso — so avisa; o balcao decide */}
+          {clubOpenWarn && clubOpen && (
+            <div role="status" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10, padding: '10px 12px', borderRadius: 12, fontSize: 13, lineHeight: 1.45, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.30)' }}>
+              <TriangleAlert size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>
+                <b>{selectedClient?.name?.split(' ')[0] ?? 'Este membro'}</b> já tem {clubOpen.open} de {clubOpen.limit} agendamento{clubOpen.limit > 1 ? 's' : ''} do clube em aberto
+                {clubOpen.nextAt ? ` (${dayjs(clubOpen.nextAt).tz('America/Sao_Paulo').format('DD/MM, HH:mm')})` : ''}. Você pode marcar mesmo assim.
+              </span>
+            </div>
+          )}
           <div style={{display:'flex',gap:8}}>
             <button className="cp-discard" onClick={onClose}>DESCARTAR</button>
             <button className="cp-save" disabled={isDisabled} onClick={()=>(repeatOn ? openSeries() : handleSave(false)) /* @eligi:series-scp-save */} style={{background:success?'linear-gradient(135deg,#16a34a,#15803d)':isDisabled?undefined:colors.red.gradient,boxShadow:success?'0 4px 14px rgba(22,163,74,0.28)':isDisabled?'none':shadows.redMd}}>

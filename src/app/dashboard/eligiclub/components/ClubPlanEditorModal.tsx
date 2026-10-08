@@ -29,6 +29,7 @@ interface ClubPlan {
   staffSharePct: number
   active: boolean
   availableOnline?: boolean // @eligi:item-online-club-type
+  maxOpenBookings?: number | null // @eligi:club-aberto-ed-tipo
   color: string | null
   services: PlanServiceRef[]
   _count?: { subscriptions: number }
@@ -54,6 +55,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
   const [color,       setColor]       = useState<string>(plan?.color ?? PALETTE[0])
   const [active,      setActive]      = useState(plan?.active ?? true)
   const [availableOnline, setAvailableOnline] = useState(plan?.availableOnline ?? true) // @eligi:item-online-club-state
+  const [maxOpen, setMaxOpen] = useState<number | null>(plan?.maxOpenBookings ?? null) // @eligi:club-aberto-ed-state
   const [serviceIds,  setServiceIds]  = useState<string[]>(() => plan?.services.map(s => s.serviceId) ?? [])
   // @eligi:club-limite-ed-state — usos por ciclo do membro; null = ilimitado
   const [limits, setLimits] = useState<Record<string, number | null>>(
@@ -134,6 +136,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
         serviceLimits: Object.fromEntries(serviceIds.map(id => [id, limits[id] ?? null])), // @eligi:club-limite-ed-body
         active,          // @eligi:item-online-club-body — antes o Ativo era ignorado no salvar
         availableOnline,
+        maxOpenBookings: maxOpen, // @eligi:club-aberto-ed-body
       }
       const res = isEditing
         ? await api.patch(`/club/${plan!.id}`, body)
@@ -148,7 +151,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
       setSaving(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, priceNum, pctNum, color, serviceIds, limits, active, availableOnline, isEditing]) // @eligi:item-online-club-deps @eligi:club-limite-ed-deps
+  }, [name, description, priceNum, pctNum, color, serviceIds, limits, maxOpen, active, availableOnline, isEditing]) // @eligi:item-online-club-deps @eligi:club-limite-ed-deps @eligi:club-aberto-ed-deps
 
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 700, color: colors.gray.dimText,
@@ -240,6 +243,29 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
                       WebkitTapHighlightColor: 'transparent', flexShrink: 0,
                     }} />
                   ))}
+                </div>
+              </div>
+
+              {/* @eligi:club-aberto-ed-campo — interno: nao aparece para o cliente */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 11, border: `1px solid ${colors.gray.border}`, background: '#fff' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: colors.gray[900] }}>Agendamentos em aberto</div>
+                  <div style={{ fontSize: 11, color: colors.gray.dimText, marginTop: 2 }}>
+                    {maxOpen == null ? 'Sem limite de horários marcados ao mesmo tempo' : `Membro pode ter até ${maxOpen} marcado${maxOpen > 1 ? 's' : ''} ao mesmo tempo · só a equipe vê`}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${colors.gray.borderMd}`, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+                  <button type="button" onClick={() => setMaxOpen(v => (v == null || v <= 1 ? null : v - 1))} disabled={maxOpen == null} aria-label="Menos agendamentos em aberto" style={{
+                    width: 34, height: 34, border: 'none', background: '#fff', cursor: maxOpen == null ? 'not-allowed' : 'pointer',
+                    fontSize: 16, fontWeight: 700, color: maxOpen == null ? colors.gray.dimText : colors.gray[900], fontFamily: 'inherit',
+                  }}>−</button>
+                  <span aria-live="polite" style={{ minWidth: 34, textAlign: 'center', fontSize: 13, fontWeight: 700, color: colors.gray[900], fontVariantNumeric: 'tabular-nums' }}>
+                    {maxOpen == null ? '∞' : maxOpen}
+                  </span>
+                  <button type="button" onClick={() => setMaxOpen(v => (v == null ? 1 : Math.min(20, v + 1)))} disabled={(maxOpen ?? 0) >= 20} aria-label="Mais agendamentos em aberto" style={{
+                    width: 34, height: 34, border: 'none', background: '#fff', cursor: 'pointer',
+                    fontSize: 16, fontWeight: 700, color: colors.gray[900], fontFamily: 'inherit',
+                  }}>+</button>
                 </div>
               </div>
 
