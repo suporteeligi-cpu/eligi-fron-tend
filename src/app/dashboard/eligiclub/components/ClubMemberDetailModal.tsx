@@ -154,6 +154,16 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
   const [dueOpen, setDueOpen] = useState(false)
   const [dueCardNote, setDueCardNote] = useState(false)
   const [planOpen, setPlanOpen] = useState(false) // @eligi:club-troca-state
+  // @eligi:club-limite-ficha-state — uso do ciclo por servico
+  const [usage, setUsage] = useState<{ cycleEnd: string; services: { serviceId: string; name: string; limit: number | null; used: number }[] } | null>(null)
+  useEffect(() => {
+    if (initialSub.status === 'CANCELED') return
+    let alive = true
+    api.get(`/club-subscriptions/${initialSub.id}/usage`)
+      .then(res => { if (alive) setUsage((res.data?.data ?? res.data) as typeof usage) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [initialSub.id, initialSub.status])
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 10)
@@ -339,6 +349,25 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
               onPlanLoaded={p => setPayAmountStr(String(p.price))}
               onSaved={data => { const s = data as ClubSubscription; setSub(s); onUpdated(s); setPayAmountStr(String(s.value ?? s.plan.price)) }}
             />
+          )}
+          {/* @eligi:club-limite-uso-bloco — uso do ciclo; so aparece se algum servico tem limite */}
+          {!isCanceled && usage && usage.services.some(s => s.limit != null) && (
+            <div style={{ borderRadius: 12, border: `1px solid ${colors.gray.border}`, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: colors.gray.dimText, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                Uso neste ciclo · até {fmtDate(usage.cycleEnd)}
+              </div>
+              {usage.services.map(s => {
+                const cheio = s.limit != null && s.used >= s.limit
+                return (
+                  <div key={s.serviceId} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                    <span style={{ flex: 1, minWidth: 0, color: colors.gray[900], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                    <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: s.limit == null ? colors.gray.dimText : cheio ? inkLight.warn.text : inkLight.ok.text }}>
+                      {s.limit == null ? `${s.used} · ilimitado` : `${s.used} de ${s.limit}`}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
           )}
           {planOpen && (
             <ClubPlanChangeSheet

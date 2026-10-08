@@ -18,6 +18,7 @@ import { colors, typography, transitions, radius } from '@/shared/theme'
 interface SvcLite { id: string; name: string; color: string | null; duration: number; price: number | null }
 interface PlanServiceRef {
   serviceId: string
+  monthlyLimit?: number | null // @eligi:club-limite-ed-tipo
   service: { id: string; name: string; duration: number; price: number; color: string | null }
 }
 interface ClubPlan {
@@ -54,6 +55,17 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
   const [active,      setActive]      = useState(plan?.active ?? true)
   const [availableOnline, setAvailableOnline] = useState(plan?.availableOnline ?? true) // @eligi:item-online-club-state
   const [serviceIds,  setServiceIds]  = useState<string[]>(() => plan?.services.map(s => s.serviceId) ?? [])
+  // @eligi:club-limite-ed-state — usos por ciclo do membro; null = ilimitado
+  const [limits, setLimits] = useState<Record<string, number | null>>(
+    () => Object.fromEntries((plan?.services ?? []).map(s => [s.serviceId, s.monthlyLimit ?? null])),
+  )
+  const stepLimit = useCallback((id: string, delta: number) => {
+    setLimits(prev => {
+      const cur = prev[id] ?? null
+      const next = cur == null ? (delta > 0 ? 1 : null) : (cur + delta < 1 ? null : Math.min(99, cur + delta))
+      return { ...prev, [id]: next }
+    })
+  }, [])
 
   // serviços: semeia com os do plano (edição mostra nomes na hora) e o fetch repõe a lista completa
   const [services, setServices] = useState<SvcLite[]>(() =>
@@ -119,6 +131,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
         staffSharePct: pctNum,
         color,
         serviceIds,
+        serviceLimits: Object.fromEntries(serviceIds.map(id => [id, limits[id] ?? null])), // @eligi:club-limite-ed-body
         active,          // @eligi:item-online-club-body — antes o Ativo era ignorado no salvar
         availableOnline,
       }
@@ -135,7 +148,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
       setSaving(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, priceNum, pctNum, color, serviceIds, active, availableOnline, isEditing]) // @eligi:item-online-club-deps
+  }, [name, description, priceNum, pctNum, color, serviceIds, limits, active, availableOnline, isEditing]) // @eligi:item-online-club-deps @eligi:club-limite-ed-deps
 
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 700, color: colors.gray.dimText,
@@ -290,6 +303,20 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
                       <div style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: colors.gray[900], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
                         <div style={{ fontSize: 10.5, color: colors.gray.dimText, marginTop: 2 }}>{s.duration} min{s.price != null ? ` · ${fmtBRL(s.price)}` : ''}</div>
+                      </div>
+                      {/* @eligi:club-limite-stepper — usos por ciclo; infinito = ilimitado */}
+                      <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${colors.gray.borderMd}`, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+                        <button type="button" onClick={() => stepLimit(s.id, -1)} disabled={limits[s.id] == null} aria-label={`Menos usos de ${s.name}`} style={{
+                          width: 34, height: 34, border: 'none', background: '#fff', cursor: limits[s.id] == null ? 'not-allowed' : 'pointer',
+                          fontSize: 16, fontWeight: 700, color: limits[s.id] == null ? colors.gray.dimText : colors.gray[900], fontFamily: 'inherit',
+                        }}>−</button>
+                        <span aria-live="polite" style={{ minWidth: 52, textAlign: 'center', fontSize: 12.5, fontWeight: 700, color: colors.gray[900], fontVariantNumeric: 'tabular-nums' }}>
+                          {limits[s.id] == null ? '∞' : `${limits[s.id]}/mês`}
+                        </span>
+                        <button type="button" onClick={() => stepLimit(s.id, 1)} disabled={(limits[s.id] ?? 0) >= 99} aria-label={`Mais usos de ${s.name}`} style={{
+                          width: 34, height: 34, border: 'none', background: '#fff', cursor: 'pointer',
+                          fontSize: 16, fontWeight: 700, color: colors.gray[900], fontFamily: 'inherit',
+                        }}>+</button>
                       </div>
                       <button onClick={() => removeService(s.id)} aria-label="Remover" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: colors.gray.dimText, WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>
                         <Trash2 size={14} strokeWidth={2} />

@@ -42,6 +42,8 @@ export default function UseClubModal({ sale, isMobile, onApplied, onClose }: Pro
   const [error, setError]     = useState<string | null>(null)
   const [selected, setSelected] = useState<ClubSubLite | null>(null)
   const [coveredIds, setCoveredIds] = useState<string[] | null>(null) // null = carregando cobertura
+  // @eligi:club-limite-cx-state — uso do ciclo por servico (null = sem dado, segue sem limite na tela)
+  const [usage, setUsage] = useState<{ cycleEnd: string; byService: Record<string, { limit: number | null; used: number }> } | null>(null)
   const [applyingItemId, setApplyingItemId] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 
@@ -76,8 +78,17 @@ export default function UseClubModal({ sale, isMobile, onApplied, onClose }: Pro
     let cancelled = false
     const run = async () => {
       setCoveredIds(null)
+      setUsage(null) // @eligi:club-limite-cx-reset
       try {
-        const res = await api.get(`/club/${selected.plan.id}`)
+        // @eligi:club-limite-cx-fetch — cobertura e uso do ciclo juntos
+        const [res, ures] = await Promise.all([
+          api.get(`/club/${selected.plan.id}`),
+          api.get(`/club-subscriptions/${selected.id}/usage`).catch(() => null),
+        ])
+        if (!cancelled && ures) {
+          const u = (ures.data?.data ?? ures.data) as { cycleEnd: string; services: { serviceId: string; limit: number | null; used: number }[] }
+          setUsage({ cycleEnd: u.cycleEnd, byService: Object.fromEntries(u.services.map(x => [x.serviceId, { limit: x.limit, used: x.used }])) })
+        }
         if (cancelled) return
         const data = res.data?.data ?? res.data
         const svcs = (data?.services ?? []) as { service: { id: string } }[]
@@ -113,7 +124,8 @@ export default function UseClubModal({ sale, isMobile, onApplied, onClose }: Pro
   }
 
   // itens do carrinho cobríveis pela assinatura selecionada
-  const eligibleItems: Array<{ item: SaleItem; eligible: boolean; reason?: string }> = []
+  const eligibleItems: Array<{ item: SaleItem; eligible: boolean; reason?: string; usageLabel?: string }> = [] // @eligi:club-limite-cx-tipo
+  const ateDia = usage ? (() => { const d = new Date(new Date(usage.cycleEnd).getTime() - 3 * 3600_000).toISOString(); return `${d.slice(8, 10)}/${d.slice(5, 7)}` })() : ''
   if (selected && coveredIds != null) {
     for (const item of sale.items) {
       const clubApplied = (item as { appliedClubSubscriptionId?: string | null }).appliedClubSubscriptionId
@@ -124,7 +136,12 @@ export default function UseClubModal({ sale, isMobile, onApplied, onClose }: Pro
       if (!item.serviceId || !coveredIds.includes(item.serviceId)) {
         eligibleItems.push({ item, eligible: false, reason: 'Serviço não incluso no clube' }); continue
       }
-      eligibleItems.push({ item, eligible: true })
+      // @eligi:club-limite-cx-check — no limite o item sai com o preco normal
+      const u = usage?.byService[item.serviceId]
+      if (u && u.limit != null && u.used + item.quantity > u.limit) {
+        eligibleItems.push({ item, eligible: false, reason: `Limite do plano: ${u.used} de ${u.limit} usados até ${ateDia} · sai com o preço normal` }); continue
+      }
+      eligibleItems.push({ item, eligible: true, usageLabel: u && u.limit != null ? `${u.used} de ${u.limit} usados · até ${ateDia}` : undefined })
     }
   }
 
@@ -229,14 +246,17 @@ export default function UseClubModal({ sale, isMobile, onApplied, onClose }: Pro
               ) : (
                 <>
                   <div style={{ fontSize: 10, fontWeight: 700, color: colors.gray.dimText, textTransform: 'uppercase', letterSpacing: '.07em' }}>Itens do carrinho</div>
-                  {eligibleItems.map(({ item, eligible, reason }) => (
+                  {eligibleItems.map(({ item, eligible, reason, usageLabel }) => ( /* @eligi:club-limite-cx-map */
                     <div key={item.id} style={{ padding: '10px 12px', background: eligible ? '#fff' : colors.background.page, border: `1px solid ${eligible ? colors.gray.border : colors.gray.borderMd}`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, opacity: eligible ? 1 : 0.7 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: colors.gray[900], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {item.name}{item.quantity > 1 && <span style={{ color: colors.gray.dimText, fontWeight: 500 }}>{' × '}{item.quantity}</span>}
                         </div>
                         {eligible ? (
-                          <div style={{ fontSize: 10, color: colors.gray.dimText, marginTop: 2 }}>coberto pelo clube · economiza {formatBRL(item.total)}</div>
+                          <>{/* @eligi:club-limite-cx-label */}
+                            <div style={{ fontSize: 10, color: colors.gray.dimText, marginTop: 2 }}>coberto pelo clube · economiza {formatBRL(item.total)}</div>
+                            {usageLabel && <div style={{ fontSize: 10, color: '#0f6e56', marginTop: 2, fontWeight: 600 }}>{usageLabel}</div>}
+                          </>
                         ) : (
                           <div style={{ fontSize: 10, color: '#b45309', marginTop: 2, fontWeight: 600 }}>{reason}</div>
                         )}
