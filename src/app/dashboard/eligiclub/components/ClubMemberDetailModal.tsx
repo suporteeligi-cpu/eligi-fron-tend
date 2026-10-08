@@ -510,9 +510,22 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
           )}
 
           {/* Registrar pagamento */}
-          {!isCanceled && (
+          {/* @eligi:club-regcartao-nota — cartao em dia: o Asaas renova sozinho, nao ha o que registrar */}
+          {!isCanceled && sub.asaasSubscriptionId && sub.status !== 'PAST_DUE' && (
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: colors.gray.dimText, padding: '10px 12px', borderRadius: 10, background: colors.background.page, border: `1px solid ${colors.gray.border}` }}>
+              Este membro paga no cartão. O Asaas cobra e renova o plano sozinho todo mês: não precisa registrar pagamento aqui.
+            </div>
+          )}
+          {!isCanceled && (!sub.asaasSubscriptionId || sub.status === 'PAST_DUE') && ( // @eligi:club-regcartao-gate
             <div style={{ padding: 14, borderRadius: 12, background: colors.background.page, border: `1px solid ${colors.gray.border}` }}>
               <label style={labelStyle}>Registrar pagamento (renova +1 mês)</label>
+              {/* @eligi:club-regcartao-aviso — cartao atrasado: so se pagou no balcao */}
+              {sub.asaasSubscriptionId && (
+                <div role="note" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10, padding: '9px 11px', borderRadius: 10, fontSize: 12, lineHeight: 1.5, color: inkLight.warn.text, background: inkLight.warn.bg, border: `1px solid ${inkLight.warn.border}` }}>
+                  <AlertCircle size={14} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span>Este cliente paga no cartão e a cobrança atrasada continua aberta no Asaas. Registre aqui só se ele pagou no balcão.</span>
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: colors.gray.dimText, fontWeight: 600 }}>R$</span>
