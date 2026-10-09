@@ -196,6 +196,7 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
   // busca o link assim que o modal abre (so se a assinatura for recorrente)
   useEffect(() => {
     if (!sub.asaasSubscriptionId) return
+    if (sub.status !== 'PENDING' && sub.status !== 'PAST_DUE') return // @eligi:club-link-busca — em dia nao ha fatura
     let alive = true
     setLinkLoading(true)
     api.get(`/club-subscriptions/${sub.id}/payment-link`)
@@ -207,7 +208,7 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
       .finally(() => { if (alive) setLinkLoading(false) })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sub.id, sub.asaasSubscriptionId])
+  }, [sub.id, sub.asaasSubscriptionId, sub.status]) // @eligi:club-link-deps
 
   const copyLink = useCallback(async () => {
     if (!linkData?.checkoutUrl) return
@@ -431,7 +432,7 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
               Antes o link so aparecia ao criar a assinatura e na tela de
               Configuracoes (e la, so para PENDING). O lojista que precisava
               reenviar depois — troca de cartao, cliente perdeu — nao tinha de onde tirar. */}
-          {sub.asaasSubscriptionId && (
+          {sub.asaasSubscriptionId && (sub.status === 'PENDING' || sub.status === 'PAST_DUE') && ( // @eligi:club-link-mostra
             <div style={{
               padding: 14, borderRadius: 12,
               background: 'rgba(255,255,255,.85)',
@@ -499,8 +500,8 @@ export default function ClubMemberDetailModal({ initialSub, isMobile, onUpdated,
                   </div>
 
                   <div style={{ fontSize: 11, color: '#8a8a93', marginTop: 9, lineHeight: 1.5 }}>
-                    Envie para o cliente cadastrar ou trocar o cartão. A cobrança passa a
-                    ser automática todo mês.
+                    {/* @eligi:club-link-texto */}É a fatura em aberto mais antiga. Pago no cartão, as próximas
+                    mensalidades passam a ser cobradas sozinhas.
                   </div>
                 </>
               ) : (
