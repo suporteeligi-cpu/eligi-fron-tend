@@ -20,6 +20,9 @@ interface Props {
   onOpenDetail: (payoutId: string) => void
   onPayPayout:  (payout: PayoutListItem) => void
   refreshSignal: number
+  // @eligi:comm-filtro-pendentes — filtra so a VISAO. Gerar pagamentos continua
+  // fechando o periodo da equipe inteira (o back nao gera por profissional).
+  professionalId: string | null
 }
 
 const EMPTY_SUMMARY: PendingSummaryResponse = { closedPeriod: null, professionals: [] }
@@ -39,7 +42,7 @@ function initials(name: string): string {
 }
 
 export default function PendingCommissionsTab({
-  isMobile, settings, onOpenDetail, onPayPayout, refreshSignal,
+  isMobile, settings, onOpenDetail, onPayPayout, refreshSignal, professionalId,
 }: Props) {
   const [summary, setSummary]         = useState<PendingSummaryResponse>(EMPTY_SUMMARY)
   const [pendingPayouts, setPending]  = useState<PayoutListItem[]>([])
@@ -100,9 +103,10 @@ export default function PendingCommissionsTab({
   }, [fetchAll])
 
   // ── Derivados (memoizados) ────────────────────────────────────────────────
-  const { closedPeriod, closedProfs, closedTotal, closedItems, currentTotal, currentItems } =
+  const { closedPeriod, closedProfs, closedTotal, closedItems, currentTotal, currentItems, teamHasClosed, visibleProfs, visiblePayouts } =
     useMemo(() => {
-      const profs = summary.professionals
+      const all = summary.professionals
+      const profs = professionalId ? all.filter(p => p.professional.id === professionalId) : all
       const cp: ClosedPeriodInfo | null = summary.closedPeriod
       const cProfs = profs.filter(p => p.closedTotal > 0)
       return {
@@ -112,13 +116,19 @@ export default function PendingCommissionsTab({
         closedItems:  cProfs.reduce((s, p) => s + p.closedCount, 0),
         currentTotal: profs.reduce((s, p) => s + p.currentTotal, 0),
         currentItems: profs.reduce((s, p) => s + p.currentCount, 0),
+        // O cartao de gerar depende da EQUIPE: filtrar alguem sem comissao fechada
+        // nao pode esconder o botao que fecha o periodo dos outros.
+        teamHasClosed: cp !== null && all.some(p => p.closedTotal > 0),
+        visibleProfs:   profs,
+        visiblePayouts: professionalId ? pendingPayouts.filter(p => p.professionalId === professionalId) : pendingPayouts,
       }
-    }, [summary])
+    }, [summary, pendingPayouts, professionalId])
 
-  const hasClosed  = closedPeriod !== null && closedTotal > 0
+  const filtered   = professionalId !== null
+  const hasClosed  = teamHasClosed
   const hasCurrent = currentTotal > 0
   const hasAnything =
-    summary.professionals.length > 0 || pendingPayouts.length > 0
+    hasClosed || visibleProfs.length > 0 || visiblePayouts.length > 0
 
   if (loading) {
     return (
@@ -141,10 +151,10 @@ export default function PendingCommissionsTab({
       }}>
         <div style={{ fontSize: 44, marginBottom: 12 }}>🎉</div>
         <div style={{ fontSize: typography.scale.lg, fontWeight: typography.weight.semibold, color: typography.color.primary, marginBottom: 6 }}>
-          Nenhuma comissão pendente
+          {filtered ? 'Nada pendente para esse profissional' : 'Nenhuma comissão pendente'}
         </div>
         <div style={{ fontSize: typography.scale.base, color: typography.color.muted }}>
-          Todas as comissões da equipe já foram pagas. 👏
+          {filtered ? 'Escolha "Todos" para ver a equipe inteira.' : 'Todas as comissões da equipe já foram pagas. 👏'}
         </div>
       </div>
     )
@@ -202,6 +212,11 @@ export default function PendingCommissionsTab({
             {closedProfs.slice(0, 6).map(p => (
               <ProfRow key={p.professional.id} p={p} />
             ))}
+            {closedProfs.length === 0 && (
+              <div style={{ fontSize: typography.scale.sm, color: "#92400e", padding: "6px 2px" }}>
+                Esse profissional não tem comissão neste período fechado.
+              </div>
+            )}
             {closedProfs.length > 6 && (
               <div style={{ fontSize: typography.scale.xs, color: "#92400e", opacity: 0.7, textAlign: "center", paddingTop: 4 }}>
                 + {closedProfs.length - 6} profissional(is)
@@ -257,6 +272,12 @@ export default function PendingCommissionsTab({
             </div>
           )}
 
+          {filtered && settings?.enabled && (
+            <div style={{ marginTop: 8, fontSize: typography.scale.xs, color: "#92400e", textAlign: "center" }}>
+              O filtro só muda o que você vê. Gerar pagamentos fecha o período de toda a equipe.
+            </div>
+          )}
+
           {generateMsg && (
             <div style={{
               marginTop: 10, padding: "8px 12px", background: "rgba(255,255,255,0.7)",
@@ -296,7 +317,7 @@ export default function PendingCommissionsTab({
             Acumulando · fecha no fim do período · {currentItems} {currentItems === 1 ? "item" : "itens"}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {summary.professionals
+            {visibleProfs
               .filter(p => p.currentTotal > 0)
               .slice(0, 6)
               .map(p => (
@@ -307,17 +328,17 @@ export default function PendingCommissionsTab({
       )}
 
       {/* ─── Payouts PENDING já gerados ─── */}
-      {pendingPayouts.length > 0 && (
+      {visiblePayouts.length > 0 && (
         <div>
           <div style={{
             fontSize: typography.scale.xs, fontWeight: typography.weight.bold,
             color: typography.color.muted, textTransform: "uppercase",
             letterSpacing: ".07em", marginBottom: 10,
           }}>
-            Pagamentos pendentes ({pendingPayouts.length})
+            Pagamentos pendentes ({visiblePayouts.length})
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {pendingPayouts.map(p => (
+            {visiblePayouts.map(p => (
               <PayoutCard key={p.id} payout={p} onClick={() => onOpenDetail(p.id)} onPay={() => onPayPayout(p)} />
             ))}
           </div>

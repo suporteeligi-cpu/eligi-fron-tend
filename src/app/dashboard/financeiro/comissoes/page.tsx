@@ -18,6 +18,10 @@ import PendingCommissionsTab from './components/PendingCommissionsTab'
 import PayoutsHistoryTab     from './components/PayoutsHistoryTab'
 import MarkAsPaidModal       from './components/MarkAsPaidModal'
 import ClubPaySheet, { CLUB_PAY_METHOD_LABEL, clubPaidDay } from './components/ClubPaySheet' // @eligi:club-baixa-import
+import {
+  ProfChips, PeriodPicker, DEFAULT_PERIOD, periodRange, periodKeyMatches, periodText,
+  type FilterProf, type PeriodFilter,
+} from './components/CommissionFilters' // @eligi:comm-filtro-import
 
 type Tab = 'pending' | 'history' | 'club'
 
@@ -105,7 +109,10 @@ function ClubPeriodCard({ p, isOpen, onToggle, onOpenItem }: {
   )
 }
 
-function ClubCommissionsTab({ isMobile }: { isMobile: boolean }) {
+// @eligi:comm-filtro-clube — o filtro corta os MESES (periodKey) e as LINHAS
+// (professionalId). O pote do mes continua o total real: e o mesmo dinheiro
+// para a equipe inteira, nao muda com quem esta sendo olhado.
+function ClubCommissionsTab({ isMobile, professionalId, period }: { isMobile: boolean; professionalId: string | null; period: PeriodFilter }) {
   const [data, setData] = useState<ClubCommOwner | null>(null)
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState<Set<string>>(() => new Set<string>())
@@ -145,20 +152,34 @@ function ClubCommissionsTab({ isMobile }: { isMobile: boolean }) {
     </div>
   )
 
-  const unpaid = data.totalUnpaid ?? 0
+  const periods = data.periods
+    .filter((p) => periodKeyMatches(period, p.periodKey))
+    .map((p) => (professionalId ? { ...p, items: p.items.filter((it) => it.professionalId === professionalId) } : p))
+    .filter((p) => p.items.length > 0)
+  const totalAmount = periods.reduce((s, p) => s + p.items.reduce((t, it) => t + it.amount, 0), 0)
+  const unpaid = periods.reduce((s, p) => s + p.items.reduce((t, it) => t + (it.paidAt ? 0 : it.amount), 0), 0)
+  if (periods.length === 0) return (
+    <div style={{ background: '#fff', border: `0.5px solid ${colors.gray.border}`, borderRadius: 14, padding: '40px 24px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+      <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'center' }}><EligiClubIcon size={30} color="#0E0E12" /></div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: typography.color.primary, marginBottom: 4 }}>
+        {professionalId ? 'Nenhuma ficha desse profissional' : 'Nenhum fechamento'} em {periodText(period)}
+      </div>
+      <div style={{ fontSize: 12, color: typography.color.muted }}>Troque o período ou o profissional para ver outros meses.</div>
+    </div>
+  )
   return (
     <div style={{ padding: isMobile ? '0 2px' : 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12, flexWrap: 'wrap' }}>
         <EligiClubIcon size={14} color="#0E0E12" /> Total rateado em clube ·
-        <b style={{ fontSize: 15, color: typography.color.primary, textTransform: 'none', letterSpacing: 0 }}>{clubFmtBRL(data.totalAmount)}</b>
-        em {data.periods.length} período{data.periods.length !== 1 ? 's' : ''}
+        <b style={{ fontSize: 15, color: typography.color.primary, textTransform: 'none', letterSpacing: 0 }}>{clubFmtBRL(totalAmount)}</b>
+        em {periods.length} período{periods.length !== 1 ? 's' : ''}
         {unpaid > 0 && (
           <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12, fontWeight: 700, color: inkLight.warn.text, background: inkLight.warn.bg, border: `1px solid ${inkLight.warn.border}`, borderRadius: 8, padding: '2px 8px' }}>
             {clubFmtBRL(unpaid)} a pagar
           </span>
         )}
       </div>
-      {data.periods.map(p => (
+      {periods.map(p => (
         <ClubPeriodCard key={p.periodKey} p={p} isOpen={open.has(p.periodKey)} onToggle={() => toggle(p.periodKey)}
           onOpenItem={(it) => setPaying({ p, it })} />
       ))}
@@ -189,6 +210,10 @@ export default function ComissoesPage() {
   const [showPayModal, setShowPayModal]       = useState<PayoutListItem | null>(null)
   const [activeTab, setActiveTab]             = useState<Tab>('pending')
   const [refreshSignal, setRefreshSignal]     = useState(0)
+  // @eligi:comm-filtro-estado — vale para as tres abas e sobrevive a troca de aba.
+  const [profFilter, setProfFilter]           = useState<string | null>(null)
+  const [period, setPeriod]                   = useState<PeriodFilter>(DEFAULT_PERIOD)
+  const [filterProfs, setFilterProfs]         = useState<FilterProf[]>([])
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -203,6 +228,29 @@ export default function ComissoesPage() {
   }, [])
 
   useEffect(() => { fetchSettings() }, [fetchSettings])
+
+  // Profissionais ATIVOS para os chips. Pagamento de quem saiu continua em "Todos".
+  // Funcionario (MyCommissionsView) nao usa e levaria 403: so dono e gerente buscam.
+  const canFilter = Boolean(user && !['STAFF', 'BASIC_STAFF', 'RECEPTIONIST'].includes(user.role))
+  useEffect(() => {
+    if (!canFilter) return
+    let cancelled = false
+    api.get('/equipe')
+      .then((res) => {
+        const raw = res.data?.data ?? res.data ?? []
+        const list: unknown[] = Array.isArray(raw) ? raw : []
+        const profs = list
+          .filter((p): p is { id: string; name: string; avatarUrl?: string | null; active?: boolean } =>
+            typeof p === 'object' && p !== null && typeof (p as { id?: unknown }).id === 'string' && typeof (p as { name?: unknown }).name === 'string')
+          .filter((p) => p.active !== false)
+          .map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl ?? null }))
+        if (!cancelled) setFilterProfs(profs)
+      })
+      .catch(() => { if (!cancelled) setFilterProfs([]) })
+    return () => { cancelled = true }
+  }, [canFilter])
+
+  const { dateFrom, dateTo } = periodRange(period)
 
   function bumpRefresh() {
     setRefreshSignal(n => n + 1)
@@ -298,6 +346,8 @@ export default function ComissoesPage() {
           onClick={() => setShowSettingsModal(true)}
         />
 
+        <ProfChips profs={filterProfs} value={profFilter} onChange={setProfFilter} />
+
         {/* Abas */}
         <div style={{
           display: 'flex',
@@ -322,6 +372,14 @@ export default function ComissoesPage() {
           />
         </div>
 
+        {activeTab === 'pending' ? (
+          <div style={{ fontSize: typography.scale.xs, color: typography.color.muted, marginBottom: 12 }}>
+            Pendentes mostra o período em aberto, por isso não tem filtro de mês.
+          </div>
+        ) : (
+          <PeriodPicker value={period} onChange={setPeriod} />
+        )}
+
         {/* Conteúdo da aba */}
         {activeTab === 'pending' ? (
           <PendingCommissionsTab
@@ -330,15 +388,20 @@ export default function ComissoesPage() {
             onOpenDetail={(id) => router.push(`/dashboard/financeiro/comissoes/${id}`)}
             onPayPayout={(p) => setShowPayModal(p)}
             refreshSignal={refreshSignal}
+            professionalId={profFilter}
           />
         ) : activeTab === 'history' ? (
           <PayoutsHistoryTab
             isMobile={isMobile}
             onOpenDetail={(id) => router.push(`/dashboard/financeiro/comissoes/${id}`)}
             refreshSignal={refreshSignal}
+            professionalId={profFilter}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            periodText={periodText(period)}
           />
         ) : (
-          <ClubCommissionsTab isMobile={isMobile} />
+          <ClubCommissionsTab isMobile={isMobile} professionalId={profFilter} period={period} />
         )}
       </div>
       </>}
