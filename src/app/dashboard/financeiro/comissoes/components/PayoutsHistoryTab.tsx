@@ -8,10 +8,12 @@ import { colors, typography, radius } from '@/shared/theme'
 import { PayoutListItem } from '@/features/payouts/types'
 import { fmtBRL } from '@/features/payouts/utils/format'
 import PayoutCard from './PayoutCard'
+import { amountOfType, type TypeFilter } from './CommissionFilters'
 
 // @eligi:comm-filtro-historico — profissional e periodo filtram no servidor.
-// O periodo usa a data de pagamento do periodo (Payout.scheduledFor), que e o
-// campo que GET /payouts filtra com dateFrom/dateTo.
+// @eligi:comm-filtro2-pago — o periodo vale sobre o DIA EM QUE FOI PAGO (paidAt,
+// dateField=paid no back), nao sobre a data marcada do periodo. O tipo
+// (servico/produto) filtra na tela: cada Payout ja traz os dois valores.
 const HISTORY_LIMIT = 200 // teto da API (listPayouts limita em 200)
 
 interface Props {
@@ -22,10 +24,11 @@ interface Props {
   dateFrom: string
   dateTo: string
   periodText: string
+  typeFilter: TypeFilter
 }
 
-export default function PayoutsHistoryTab({ isMobile, onOpenDetail, refreshSignal, professionalId, dateFrom, dateTo, periodText }: Props) {
-  const [payouts, setPayouts] = useState<PayoutListItem[]>([])
+export default function PayoutsHistoryTab({ isMobile, onOpenDetail, refreshSignal, professionalId, dateFrom, dateTo, periodText, typeFilter }: Props) {
+  const [rawPayouts, setPayouts] = useState<PayoutListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
   const reqRef = useRef(0)
@@ -35,7 +38,7 @@ export default function PayoutsHistoryTab({ isMobile, onOpenDetail, refreshSigna
     const token = ++reqRef.current
     try {
       const res = await api.get('/payouts', {
-        params: { status: 'PAID', limit: HISTORY_LIMIT, dateFrom, dateTo, ...(professionalId ? { professionalId } : {}) },
+        params: { status: 'PAID', limit: HISTORY_LIMIT, dateFrom, dateTo, dateField: 'paid', ...(professionalId ? { professionalId } : {}) },
       })
       if (token !== reqRef.current) return
       const data = res.data?.data ?? []
@@ -55,6 +58,10 @@ export default function PayoutsHistoryTab({ isMobile, onOpenDetail, refreshSigna
   }, [fetchAll, refreshSignal])
 
   const filtered = professionalId !== null
+  const typeWord = typeFilter === 'SERVICE' ? ' de serviço' : typeFilter === 'PRODUCT' ? ' de produto' : ''
+  const payouts = typeFilter === 'all'
+    ? rawPayouts
+    : rawPayouts.filter((p) => amountOfType(typeFilter, p.serviceAmount, p.productAmount) > 0)
 
   if (loading) {
     return (
@@ -82,7 +89,7 @@ export default function PayoutsHistoryTab({ isMobile, onOpenDetail, refreshSigna
           color: typography.color.primary,
           marginBottom: 6,
         }}>
-          {filtered ? 'Nenhum pagamento desse profissional' : 'Nenhum pagamento'} em {periodText}
+          {filtered ? `Nenhum pagamento${typeWord} desse profissional` : `Nenhum pagamento${typeWord}`} em {periodText}
         </div>
         <div style={{
           fontSize: typography.scale.base,
@@ -97,7 +104,7 @@ export default function PayoutsHistoryTab({ isMobile, onOpenDetail, refreshSigna
     )
   }
 
-  const totalPaid = payouts.reduce((s, p) => s + p.totalAmount, 0)
+  const totalPaid = payouts.reduce((s, p) => s + amountOfType(typeFilter, p.serviceAmount, p.productAmount), 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontFamily: typography.fontFamily }}>
@@ -124,7 +131,7 @@ export default function PayoutsHistoryTab({ isMobile, onOpenDetail, refreshSigna
             textTransform: 'uppercase',
             letterSpacing: '.07em',
           }}>
-            TOTAL PAGO
+            TOTAL PAGO{typeFilter === 'SERVICE' ? ' · SERVIÇOS' : typeFilter === 'PRODUCT' ? ' · PRODUTOS' : ''}
           </div>
           <div style={{
             fontSize: 18,
@@ -146,7 +153,7 @@ export default function PayoutsHistoryTab({ isMobile, onOpenDetail, refreshSigna
         </div>
       </div>
 
-      {payouts.length >= HISTORY_LIMIT && (
+      {rawPayouts.length >= HISTORY_LIMIT && (
         <div style={{
           padding: '10px 12px', borderRadius: radius.sm, fontSize: typography.scale.sm,
           color: '#b45309', background: '#fffbeb', border: '1px solid rgba(180,83,9,0.25)',

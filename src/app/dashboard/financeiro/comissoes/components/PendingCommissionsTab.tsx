@@ -13,6 +13,7 @@ import {
 } from "@/features/payouts/types"
 import { fmtBRL } from "@/features/payouts/utils/format"
 import PayoutCard from "./PayoutCard"
+import { amountOfType, type TypeFilter } from "./CommissionFilters"
 
 interface Props {
   isMobile: boolean
@@ -23,6 +24,9 @@ interface Props {
   // @eligi:comm-filtro-pendentes — filtra so a VISAO. Gerar pagamentos continua
   // fechando o periodo da equipe inteira (o back nao gera por profissional).
   professionalId: string | null
+  // @eligi:comm-filtro2-pendente-tipo — servico/produto muda so os VALORES
+  // mostrados; a contagem de itens some (o resumo nao conta itens por tipo).
+  typeFilter: TypeFilter
 }
 
 const EMPTY_SUMMARY: PendingSummaryResponse = { closedPeriod: null, professionals: [] }
@@ -42,7 +46,7 @@ function initials(name: string): string {
 }
 
 export default function PendingCommissionsTab({
-  isMobile, settings, onOpenDetail, onPayPayout, refreshSignal, professionalId,
+  isMobile, settings, onOpenDetail, onPayPayout, refreshSignal, professionalId, typeFilter,
 }: Props) {
   const [summary, setSummary]         = useState<PendingSummaryResponse>(EMPTY_SUMMARY)
   const [pendingPayouts, setPending]  = useState<PayoutListItem[]>([])
@@ -108,21 +112,26 @@ export default function PendingCommissionsTab({
       const all = summary.professionals
       const profs = professionalId ? all.filter(p => p.professional.id === professionalId) : all
       const cp: ClosedPeriodInfo | null = summary.closedPeriod
-      const cProfs = profs.filter(p => p.closedTotal > 0)
+      const closedOf  = (p: PendingProfessionalSplit) => amountOfType(typeFilter, p.closedServiceTotal, p.closedProductTotal)
+      const currentOf = (p: PendingProfessionalSplit) => amountOfType(typeFilter, p.currentServiceTotal, p.currentProductTotal)
+      const typed = typeFilter !== "all"
+      const cProfs = profs.filter(p => (typed ? closedOf(p) : p.closedTotal) > 0)
       return {
         closedPeriod: cp,
         closedProfs:  cProfs,
-        closedTotal:  cProfs.reduce((s, p) => s + p.closedTotal, 0),
-        closedItems:  cProfs.reduce((s, p) => s + p.closedCount, 0),
-        currentTotal: profs.reduce((s, p) => s + p.currentTotal, 0),
-        currentItems: profs.reduce((s, p) => s + p.currentCount, 0),
+        closedTotal:  cProfs.reduce((s, p) => s + (typed ? closedOf(p) : p.closedTotal), 0),
+        closedItems:  typed ? null : cProfs.reduce((s, p) => s + p.closedCount, 0),
+        currentTotal: profs.reduce((s, p) => s + (typed ? currentOf(p) : p.currentTotal), 0),
+        currentItems: typed ? null : profs.reduce((s, p) => s + p.currentCount, 0),
         // O cartao de gerar depende da EQUIPE: filtrar alguem sem comissao fechada
         // nao pode esconder o botao que fecha o periodo dos outros.
         teamHasClosed: cp !== null && all.some(p => p.closedTotal > 0),
         visibleProfs:   profs,
-        visiblePayouts: professionalId ? pendingPayouts.filter(p => p.professionalId === professionalId) : pendingPayouts,
+        visiblePayouts: pendingPayouts.filter(p =>
+          (!professionalId || p.professionalId === professionalId) &&
+          (!typed || amountOfType(typeFilter, p.serviceAmount, p.productAmount) > 0)),
       }
-    }, [summary, pendingPayouts, professionalId])
+    }, [summary, pendingPayouts, professionalId, typeFilter])
 
   const filtered   = professionalId !== null
   const hasClosed  = teamHasClosed
@@ -204,13 +213,13 @@ export default function PendingCommissionsTab({
           </div>
 
           <div style={{ fontSize: typography.scale.sm, color: "#92400e", opacity: 0.85, marginBottom: 14 }}>
-            {closedProfs.length} profissional{closedProfs.length !== 1 ? "is" : ""} · {closedItems} itens
+            {closedProfs.length} profissional{closedProfs.length !== 1 ? "is" : ""}{closedItems !== null ? ` · ${closedItems} itens` : ""}
           </div>
 
           {/* Lista por profissional (valor FECHADO) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
             {closedProfs.slice(0, 6).map(p => (
-              <ProfRow key={p.professional.id} p={p} />
+              <ProfRow key={p.professional.id} p={p} typeFilter={typeFilter} />
             ))}
             {closedProfs.length === 0 && (
               <div style={{ fontSize: typography.scale.sm, color: "#92400e", padding: "6px 2px" }}>
@@ -237,7 +246,7 @@ export default function PendingCommissionsTab({
               <Clock size={12} strokeWidth={2.2} style={{ flexShrink: 0, opacity: 0.8 }} />
               <span style={{ flex: 1 }}>
                 <strong style={{ fontWeight: typography.weight.bold }}>{fmtBRL(currentTotal)}</strong>{" "}
-                do período em andamento ({currentItems} {currentItems === 1 ? "item" : "itens"}) —{" "}
+                do período em andamento{currentItems !== null ? ` (${currentItems} ${currentItems === 1 ? "item" : "itens"})` : ""} —{" "}
                 <span style={{ opacity: 0.75 }}>não entra neste pagamento</span>
               </span>
             </div>
@@ -314,14 +323,14 @@ export default function PendingCommissionsTab({
             {fmtBRL(currentTotal)}
           </div>
           <div style={{ fontSize: typography.scale.sm, color: typography.color.muted, marginBottom: 12 }}>
-            Acumulando · fecha no fim do período · {currentItems} {currentItems === 1 ? "item" : "itens"}
+            Acumulando · fecha no fim do período{currentItems !== null ? ` · ${currentItems} ${currentItems === 1 ? "item" : "itens"}` : ""}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {visibleProfs
-              .filter(p => p.currentTotal > 0)
+              .filter(p => amountOfType(typeFilter, p.currentServiceTotal, p.currentProductTotal) > 0)
               .slice(0, 6)
               .map(p => (
-                <ProfRow key={p.professional.id} p={p} useCurrent />
+                <ProfRow key={p.professional.id} p={p} useCurrent typeFilter={typeFilter} />
               ))}
           </div>
         </div>
@@ -359,11 +368,15 @@ export default function PendingCommissionsTab({
 }
 
 // ─── Linha de profissional ─────────────────────────────────────────────────
-function ProfRow({ p, useCurrent = false }: { p: PendingProfessionalSplit; useCurrent?: boolean }) {
-  const svc  = useCurrent ? p.currentServiceTotal : p.closedServiceTotal
-  const prod = useCurrent ? p.currentProductTotal : p.closedProductTotal
-  const main = useCurrent ? p.currentTotal : p.closedTotal
-  const showCurrentBadge = !useCurrent && p.currentTotal > 0
+function ProfRow({ p, useCurrent = false, typeFilter }: { p: PendingProfessionalSplit; useCurrent?: boolean; typeFilter: TypeFilter }) {
+  // Com tipo escolhido, a linha mostra so a parte daquele tipo.
+  const svcRaw  = useCurrent ? p.currentServiceTotal : p.closedServiceTotal
+  const prodRaw = useCurrent ? p.currentProductTotal : p.closedProductTotal
+  const svc  = typeFilter === "PRODUCT" ? 0 : svcRaw
+  const prod = typeFilter === "SERVICE" ? 0 : prodRaw
+  const main = amountOfType(typeFilter, svcRaw, prodRaw)
+  const nextCurrent = amountOfType(typeFilter, p.currentServiceTotal, p.currentProductTotal)
+  const showCurrentBadge = !useCurrent && nextCurrent > 0
 
   return (
     <div style={{
@@ -412,7 +425,7 @@ function ProfRow({ p, useCurrent = false }: { p: PendingProfessionalSplit; useCu
         </div>
         {showCurrentBadge && (
           <div style={{ fontSize: 10, color: typography.color.muted, fontVariantNumeric: "tabular-nums" }}>
-            + {fmtBRL(p.currentTotal)} esta semana
+            + {fmtBRL(nextCurrent)} esta semana
           </div>
         )}
       </div>

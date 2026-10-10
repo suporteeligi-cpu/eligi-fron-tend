@@ -9,7 +9,17 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { colors, typography } from '@/shared/theme'
 
-export interface FilterProf { id: string; name: string; avatarUrl: string | null }
+// @eligi:comm-filtro2-tipos — active=false: saiu da equipe. Ganha chip apagado no
+// fim da faixa para os pagamentos antigos dele poderem ser isolados.
+export interface FilterProf { id: string; name: string; avatarUrl: string | null; active: boolean }
+
+/** Tipo da comissao: o Payout guarda serviceAmount e productAmount separados. */
+export type TypeFilter = 'all' | 'SERVICE' | 'PRODUCT'
+
+/** Quanto do valor pertence ao tipo escolhido. */
+export function amountOfType(t: TypeFilter, service: number, product: number): number {
+  return t === 'SERVICE' ? service : t === 'PRODUCT' ? product : service + product
+}
 
 export type PeriodFilter =
   | { kind: 'month'; year: number; month: number } // month 1..12
@@ -113,11 +123,41 @@ export function ProfChips({ profs, value, onChange }: {
         Todos
       </button>
       {profs.map((p) => (
-        <button key={p.id} type="button" aria-pressed={value === p.id} onClick={() => onChange(value === p.id ? null : p.id)} style={chipStyle(value === p.id, true)}>
+        <button key={p.id} type="button" aria-pressed={value === p.id} onClick={() => onChange(value === p.id ? null : p.id)}
+          title={p.active ? undefined : 'Saiu da equipe'}
+          style={{ ...chipStyle(value === p.id, true), opacity: p.active || value === p.id ? 1 : 0.55 }}>
           <ProfAvatar p={p} />
           {p.name.split(' ')[0]}
+          {!p.active && <span style={{ fontSize: 11, fontWeight: 500 }}>· saiu</span>}
         </button>
       ))}
+    </div>
+  )
+}
+
+const TYPE_OPTIONS: { v: TypeFilter; label: string }[] = [
+  { v: 'all', label: 'Tudo' }, { v: 'SERVICE', label: 'Serviços' }, { v: 'PRODUCT', label: 'Produtos' },
+]
+
+/** Seletor segmentado de tipo (sem select nativo). */
+export function TypeChips({ value, onChange }: { value: TypeFilter; onChange: (t: TypeFilter) => void }) {
+  return (
+    <div role="group" aria-label="Filtrar por tipo" style={{
+      display: 'flex', gap: 4, padding: 4, marginBottom: 14,
+      background: colors.gray.hover, borderRadius: 12,
+    }}>
+      {TYPE_OPTIONS.map((o) => {
+        const on = value === o.v
+        return (
+          <button key={o.v} type="button" aria-pressed={on} onClick={() => onChange(o.v)} style={{
+            flex: 1, minHeight: 40, border: 'none', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+            fontSize: 13, fontWeight: 600,
+            background: on ? '#fff' : 'transparent',
+            color: on ? typography.color.primary : typography.color.secondary,
+            boxShadow: on ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+          }}>{o.label}</button>
+        )
+      })}
     </div>
   )
 }

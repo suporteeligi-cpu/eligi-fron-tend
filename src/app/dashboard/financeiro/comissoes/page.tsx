@@ -20,7 +20,7 @@ import MarkAsPaidModal       from './components/MarkAsPaidModal'
 import ClubPaySheet, { CLUB_PAY_METHOD_LABEL, clubPaidDay } from './components/ClubPaySheet' // @eligi:club-baixa-import
 import {
   ProfChips, PeriodPicker, DEFAULT_PERIOD, periodRange, periodKeyMatches, periodText,
-  type FilterProf, type PeriodFilter,
+  TypeChips, type FilterProf, type PeriodFilter, type TypeFilter,
 } from './components/CommissionFilters' // @eligi:comm-filtro-import
 
 type Tab = 'pending' | 'history' | 'club'
@@ -214,6 +214,7 @@ export default function ComissoesPage() {
   const [profFilter, setProfFilter]           = useState<string | null>(null)
   const [period, setPeriod]                   = useState<PeriodFilter>(DEFAULT_PERIOD)
   const [filterProfs, setFilterProfs]         = useState<FilterProf[]>([])
+  const [typeFilter, setTypeFilter]           = useState<TypeFilter>('all') // @eligi:comm-filtro2-estado
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -242,8 +243,9 @@ export default function ComissoesPage() {
         const profs = list
           .filter((p): p is { id: string; name: string; avatarUrl?: string | null; active?: boolean } =>
             typeof p === 'object' && p !== null && typeof (p as { id?: unknown }).id === 'string' && typeof (p as { name?: unknown }).name === 'string')
-          .filter((p) => p.active !== false)
-          .map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl ?? null }))
+          .map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl ?? null, active: p.active !== false }))
+          // Ativos primeiro; quem saiu vai para o fim da faixa (sort estavel mantem a ordem por nome).
+          .sort((a, b) => Number(b.active) - Number(a.active))
         if (!cancelled) setFilterProfs(profs)
       })
       .catch(() => { if (!cancelled) setFilterProfs([]) })
@@ -379,6 +381,8 @@ export default function ComissoesPage() {
         ) : (
           <PeriodPicker value={period} onChange={setPeriod} />
         )}
+        {/* Clube nao tem tipo: o pote e todo de assinatura. */}
+        {activeTab !== 'club' && <TypeChips value={typeFilter} onChange={setTypeFilter} />}
 
         {/* Conteúdo da aba */}
         {activeTab === 'pending' ? (
@@ -389,6 +393,7 @@ export default function ComissoesPage() {
             onPayPayout={(p) => setShowPayModal(p)}
             refreshSignal={refreshSignal}
             professionalId={profFilter}
+            typeFilter={typeFilter}
           />
         ) : activeTab === 'history' ? (
           <PayoutsHistoryTab
@@ -399,6 +404,7 @@ export default function ComissoesPage() {
             dateFrom={dateFrom}
             dateTo={dateTo}
             periodText={periodText(period)}
+            typeFilter={typeFilter}
           />
         ) : (
           <ClubCommissionsTab isMobile={isMobile} professionalId={profFilter} period={period} />
