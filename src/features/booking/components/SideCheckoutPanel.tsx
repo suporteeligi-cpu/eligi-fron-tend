@@ -742,7 +742,8 @@ export default function SideCheckoutPanel({
   const [items, setItems] = useState<ServiceItem[]>([])
   // Snapshot dos itens EXISTENTES (por bookingId) no momento da abertura,
   // pra detectar o que mudou no save (diff: PATCH só os alterados).
-  const snapshotRef = useRef<Record<string, { serviceId: string; startTime: string; profId: string; dateStr: string }>>({})
+  // @eligi:fim-snap-tipo — endTime entra no snapshot pro diff enxergar o FIM.
+  const snapshotRef = useRef<Record<string, { serviceId: string; startTime: string; endTime: string; profId: string; dateStr: string }>>({})
   // Gate de inicialização do reset: o corpo do effect de reset só roda uma vez
   // por ABERTURA. Trocar selectedDate com o painel aberto NÃO re-inicializa
   // (senão zera `items`). Re-arma quando a identidade do conteúdo muda.
@@ -838,10 +839,10 @@ export default function SideCheckoutPanel({
         }))
         setItems(existing)
         // Guarda o estado original de cada existente pra comparar no save.
-        const snap: Record<string, { serviceId: string; startTime: string; profId: string; dateStr: string }> = {}
+        const snap: Record<string, { serviceId: string; startTime: string; endTime: string; profId: string; dateStr: string }> = {} // @eligi:fim-snap-local
         const origDateStr = dayjs(selectedDate).format('YYYY-MM-DD')
         existing.forEach(e => {
-          if (e.bookingId) snap[e.bookingId] = { serviceId: e.service.id, startTime: e.startTime, profId: e.profId, dateStr: origDateStr }
+          if (e.bookingId) snap[e.bookingId] = { serviceId: e.service.id, startTime: e.startTime, endTime: e.endTime, profId: e.profId, dateStr: origDateStr } // @eligi:fim-snap-valor
         })
         snapshotRef.current = snap
         // @eligi:group-client-baseline — o cliente do grupo e o de partida. Sem
@@ -1181,6 +1182,7 @@ export default function SideCheckoutPanel({
               const mudou = !orig
                 || orig.serviceId !== it.service.id
                 || orig.startTime !== it.startTime
+                || orig.endTime   !== it.endTime   // @eligi:fim-diff — roleta do FIM
                 || orig.profId    !== it.profId
                 || orig.dateStr   !== dateStr
                 || clienteMudou                    // troca de cliente do grupo também dispara
