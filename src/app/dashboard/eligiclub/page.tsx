@@ -17,7 +17,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } fr
 import { useRouter } from 'next/navigation'
 import {
   Search, X, Plus, ChevronRight, ChevronLeft, Loader2, Layers, Users, PiggyBank,
-  Coins, CheckCircle2, CalendarClock, Hash, type LucideIcon,
+  Coins, CheckCircle2, CalendarClock, Hash, LayoutDashboard, type LucideIcon,
   User, RefreshCw, Wallet, Scissors, Bell, Pencil, CreditCard, ShieldCheck, ArrowUp, ArrowDown, Check } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
@@ -32,6 +32,7 @@ import { effectiveSubStatus, isManualSub } from './clubStatus' // @eligi:club-la
 import ClubSettleConfirmModal from './components/ClubSettleConfirmModal' // @eligi:club-front-modal-import
 import ClubAutoSettleCard from './components/ClubAutoSettleCard'
 import ClubAnticipationCard from './components/ClubAnticipationCard' // @eligi:club-ant-page-import
+import ClubPainelTab from './components/ClubPainelTab' // @eligi:club-painel-import
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Tipos (espelham os includes do back-end)
@@ -157,8 +158,9 @@ const SUB_STATUS: Record<SubStatus, { label: string; fg: string; bg: string }> =
   CANCELED: { label: 'Cancelado', fg: '#9AA1AC', bg: 'rgba(17,17,20,.05)' },
 }
 
-type Tab = 'planos' | 'membros' | 'fechamento' | 'financeiro'
+type Tab = 'painel' | 'planos' | 'membros' | 'fechamento' | 'financeiro' // @eligi:club-painel-tabtype
 const TABS: { id: Tab; label: string; Icon: LucideIcon }[] = [
+  { id: 'painel',     label: 'Painel',     Icon: LayoutDashboard }, // @eligi:club-painel-tabitem
   { id: 'planos',     label: 'Planos',     Icon: Layers },
   { id: 'membros',    label: 'Membros',    Icon: Users },
   { id: 'fechamento', label: 'Fechamento', Icon: PiggyBank },
@@ -1321,7 +1323,7 @@ export default function EligiClubPage() {
   const mode = useDeviceMode()
   const isMobile = mode === 'mobile'
 
-  const [tab, setTab] = useState<Tab>('planos')
+  const [tab, setTab] = useState<Tab>('painel') // @eligi:club-painel-default
   // enquanto carrega, `allowed` e false: a aba aparece so quando o papel confirma
   const { allowed: isDono } = useRoleGuard(OWNER_ROLES)
   const [toast, setToast] = useState<string | null>(null)
@@ -1463,6 +1465,8 @@ export default function EligiClubPage() {
           })}
         </div>
 
+        {/* @eligi:club-painel-render */}
+        {tab === 'painel' && <ClubPainelTab isMobile={isMobile} onOpenMembers={() => setTab('membros')} />}
         {tab === 'planos' && <PlanosTab isMobile={isMobile} onToast={setToast} />}
         {tab === 'membros' && <MembrosTab isMobile={isMobile} onToast={setToast} />}
         {tab === 'fechamento' && isDono && <FechamentoTab onToast={setToast} isMobile={isMobile} />}
