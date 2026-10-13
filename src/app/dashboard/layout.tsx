@@ -143,7 +143,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         minHeight: `calc(100dvh - ${NAVBAR_HEIGHT}px)`,
         padding: '32px',
         paddingBottom: 'calc(32px + var(--bottom-nav-h, 0px))',
-        transition: 'margin-left 230ms cubic-bezier(.4,0,.2,1)',
+        transition: 'margin-left 260ms cubic-bezier(.22,1,.36,1)', // @eligi:sb-push-main — mesmo ritmo do menu
         position: 'relative',
       }}>
         {children}

@@ -2,9 +2,11 @@
 // src/app/components/navigation/Sidebar.tsx
 // @eligi:sb-v2 — Sidebar direcao A "Rail inteligente" (out/2026).
 //
-// Computador: trilho de 72px que ABRE POR CIMA do conteudo ao passar o mouse
-// (ou com o teclado) e pode ser FIXADO aberto. So o fixar muda --sidebar-width;
-// passar o mouse nao mexe mais na tela (antes o conteudo inteiro andava).
+// Computador: trilho de 72px que abre ao passar o mouse (com uma pausa curta,
+// para nao abrir so de atravessar) ou com o teclado, e pode ser FIXADO aberto.
+// @eligi:sb-push — aberto, --sidebar-width acompanha (256px): a pagina se ajusta
+// ao lado do menu em vez de ficar escondida embaixo dele (pedido do Eli, out/2026).
+// @eligi:sb-badges — contadores por cargo vindos de GET /dashboard/nav-badges.
 // Celular: barra inferior com abas escolhidas por cargo (mobileTabsByRole) e
 // folha "Mais" com grade de atalhos e o cartao da conta.
 //
@@ -13,12 +15,13 @@
 // Superficie escura oficial (brand.surfaceDark). Destaque do item ativo desliza
 // (posicionado por DOM no layout effect: React Compiler safe).
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type FocusEvent } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutGrid, LogOut, Pin, PinOff } from 'lucide-react'
 import { navigationByRole, mobileTabsByRole, activeNavPath, getRoleLabel, type NavItemType, type Role } from './navigation.config'
 import { useAuth } from '@/hooks/useAuth'
+import api from '@/shared/lib/apiClient'
 import ProfAvatar from '@/features/agenda/components/shared/ProfAvatar'
 import ConfirmDialog from '@/shared/components/ConfirmDialog'
 import { brand } from '@/shared/brand.generated'
@@ -29,6 +32,10 @@ const RAIL_W        = 72
 const OPEN_W        = 256
 const DESKTOP_MQ    = '(min-width: 1024px)'
 const PIN_KEY       = 'eligi-sidebar-pinned'
+const OPEN_DELAY_MS  = 180
+const CLOSE_DELAY_MS = 140
+const BADGE_MIN_GAP_MS = 20_000
+const BADGE_POLL_MS    = 120_000
 
 const D = {
   bg:    brand.surfaceDark.base,
@@ -61,6 +68,68 @@ function writePinned(v: boolean) {
 }
 function subscribePinned(l: () => void) { pinListeners.add(l); return () => { pinListeners.delete(l) } }
 
+// ── contadores do menu ───────────────────────────────────────────────────────
+type BadgeTone = 'neutral' | 'warn' | 'bad'
+interface NavBadge { count: number; tone: BadgeTone }
+type NavBadges = Record<string, NavBadge>
+
+const BADGE_TEXT: Record<string, (n: number) => string> = {
+  '/dashboard/agenda':        (n) => `${n} ${n > 1 ? 'atendimentos ainda hoje' : 'atendimento ainda hoje'}`,
+  '/dashboard/eligiclub':     (n) => `${n} ${n > 1 ? 'membros precisam de você' : 'membro precisa de você'}`,
+  '/dashboard/notas-fiscais': (n) => `${n} ${n > 1 ? 'notas rejeitadas' : 'nota rejeitada'}`,
+}
+const badgeText = (path: string, b: NavBadge) => (BADGE_TEXT[path] ?? ((n: number) => `${n} pendentes`))(b.count)
+const badgeNum = (n: number) => (n > 99 ? '99+' : String(n))
+
+// Loja de modulo (mesmo padrao do fixar): o efeito so pede atualizacao, quem
+// guarda o valor e a loja. Busca na montagem, na troca de pagina e ao voltar
+// para a aba (no maximo a cada 20s) e de 2 em 2 minutos com a aba visivel.
+// Falha = sem contador; o menu nunca quebra por causa disto.
+const EMPTY_BADGES: NavBadges = {}
+let badgesMem: NavBadges = EMPTY_BADGES
+let badgesUser = ''   // dono do cache: trocar de conta na mesma aba nao herda contador
+let badgesLast = 0
+const badgeListeners = new Set<() => void>()
+function subscribeBadges(l: () => void) { badgeListeners.add(l); return () => { badgeListeners.delete(l) } }
+const readBadges = () => badgesMem
+const readNoBadges = () => EMPTY_BADGES
+async function refreshBadges(userId: string, force: boolean) {
+  const t = Date.now()
+  if (userId !== badgesUser) { badgesUser = userId; badgesMem = EMPTY_BADGES; badgesLast = 0; badgeListeners.forEach((l) => l()) }
+  if (!force && t - badgesLast < BADGE_MIN_GAP_MS) return
+  badgesLast = t
+  try {
+    const res = await api.get('/dashboard/nav-badges')
+    if (userId !== badgesUser) return
+    badgesMem = (res.data?.data ?? EMPTY_BADGES) as NavBadges
+    badgeListeners.forEach((l) => l())
+  } catch { /* sem contador: segue o menu */ }
+}
+
+function useNavBadges(userId: string | null, pathname: string): NavBadges {
+  const badges = useSyncExternalStore(subscribeBadges, readBadges, readNoBadges)
+  useEffect(() => {
+    if (userId) void refreshBadges(userId, false)
+  }, [userId, pathname])
+  useEffect(() => {
+    if (!userId) return
+    const onVis = () => { if (document.visibilityState === 'visible') void refreshBadges(userId, false) }
+    const id = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshBadges(userId, true) }, BADGE_POLL_MS)
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', onVis)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('focus', onVis)
+    }
+  }, [userId])
+  return userId ? badges : EMPTY_BADGES
+}
+
+function Badge({ b }: { b: NavBadge }) {
+  return <span className={`esb-bdg ${b.tone}`} aria-hidden>{badgeNum(b.count)}</span>
+}
+
 // ── pecas visuais ────────────────────────────────────────────────────────────
 function initialsOf(s: string): string {
   return s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'
@@ -92,9 +161,8 @@ const CSS = `
 .esb-me{position:relative;flex-shrink:0;display:inline-flex}
 .esb-me::after{content:'';position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 2px ${D.bg}}
 /* rail */
-.esb-rail{position:fixed;top:0;left:0;height:100dvh;z-index:50;display:flex;flex-direction:column;background:${D.bg};border-right:1px solid ${D.line};width:${RAIL_W}px;overflow:hidden;transition:width 260ms cubic-bezier(.22,1,.36,1),box-shadow 260ms ease;animation:esb-in 320ms cubic-bezier(.22,1,.36,1) both}
+.esb-rail{position:fixed;top:0;left:0;height:100dvh;z-index:50;display:flex;flex-direction:column;background:${D.bg};border-right:1px solid ${D.line};width:${RAIL_W}px;overflow:hidden;transition:width 260ms cubic-bezier(.22,1,.36,1);animation:esb-in 320ms cubic-bezier(.22,1,.36,1) both}
 .esb-rail.open{width:${OPEN_W}px}
-.esb-rail.open:not(.pinned){box-shadow:18px 0 50px rgba(0,0,0,.28)}
 @keyframes esb-in{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
 .esb-scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:${NAVBAR_OFFSET + 12}px 14px 12px}
 .esb-scroll::-webkit-scrollbar{display:none}
@@ -126,6 +194,18 @@ const CSS = `
 .esb-pin.on{color:#fff;background:rgba(254,0,0,.14);border-color:rgba(254,0,0,.28)}
 .esb-out{display:flex;align-items:center;gap:12px;height:42px;padding:0 15px;border:0;border-radius:12px;background:transparent;color:${D.ink3};font:500 13px var(--font-sans);cursor:pointer;white-space:nowrap;transition:color 160ms,background 160ms}
 .esb-out:hover{color:#ff6b6b;background:rgba(254,0,0,.08)}
+/* contadores: pilula ao lado do rotulo; com o trilho fechado, sobe para o canto do icone */
+.esb-bdg{margin-left:auto;flex-shrink:0;min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font:700 11px var(--font-sans);font-variant-numeric:tabular-nums;line-height:1;background:${D.card};color:${D.ink};border:1px solid ${D.line};animation:esb-pop 360ms cubic-bezier(.34,1.56,.64,1) both}
+.esb-bdg.warn{background:#3a2a06;color:#FBBF24;border-color:rgba(251,191,36,.35)}
+.esb-bdg.bad{background:${D.red};color:#fff;border-color:transparent}
+@keyframes esb-pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+.esb-rail:not(.open) .esb-item .esb-bdg{position:absolute;left:30px;top:3px;min-width:16px;height:16px;padding:0 4px;font-size:9.5px;box-shadow:0 0 0 2px ${D.bg}}
+.esb-ico{position:relative;display:inline-flex}
+.esb-ico .esb-bdg{position:absolute;left:14px;top:-6px;min-width:16px;height:16px;padding:0 4px;font-size:9.5px;margin:0;box-shadow:0 0 0 2px ${D.bg}}
+.esb-dot{position:absolute;left:17px;top:-3px;width:8px;height:8px;border-radius:50%;background:#FBBF24;box-shadow:0 0 0 2px ${D.bg}}
+.esb-dot.bad{background:${D.red}}
+.esb-tile{position:relative}
+.esb-tile .esb-bdg{position:absolute;top:8px;right:8px;margin:0}
 /* celular */
 .esb-bar{position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(${BOTTOM_NAV_H}px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);display:flex;align-items:stretch;background:rgba(7,7,11,.95);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-top:1px solid rgba(255,255,255,.06)}
 .esb-mind{position:absolute;top:0;left:0;width:28px;height:3px;border-radius:0 0 3px 3px;background:${D.red};box-shadow:0 0 12px rgba(254,0,0,.8);opacity:0;transition:transform 380ms cubic-bezier(.34,1.56,.64,1),opacity 200ms}
@@ -134,7 +214,7 @@ const CSS = `
 .esb-tab.on{color:#fff}
 .esb-tab.on svg{transform:translateY(-1px) scale(1.06)}
 .esb-tab:active svg{transform:scale(.86)}
-.esb-tab span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.esb-tab .esb-tl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
 .esb-scrim{position:fixed;inset:0;z-index:58;background:rgba(0,0,0,.5);animation:esb-fade 200ms both}
 @keyframes esb-fade{from{opacity:0}}
 .esb-sheet{position:fixed;left:0;right:0;bottom:calc(${BOTTOM_NAV_H}px + env(safe-area-inset-bottom,0px));z-index:59;max-height:calc(100dvh - ${NAVBAR_OFFSET}px - ${BOTTOM_NAV_H}px - 8px);overflow-y:auto;background:${D.bg};border-radius:26px 26px 0 0;border-top:1px solid ${D.line};padding:10px 16px 16px;animation:esb-up 340ms cubic-bezier(.22,1,.36,1) both;scrollbar-width:none}
@@ -171,13 +251,17 @@ export default function Sidebar() {
   const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false)
   const desktop  = useSyncExternalStore(subscribeMq, readDesktop, () => false)
   const pinned   = useSyncExternalStore(subscribePinned, readPinned, () => false)
+  const [hover, setHover] = useState(false)
+  const open = pinned || hover
+  const badges = useNavBadges(hydrated && user?.id ? user.id : null, pathname)
 
-  // largura que o CONTEUDO respeita: so muda ao fixar; passar o mouse nao mexe na tela
+  // largura que o CONTEUDO respeita: menu aberto (mouse, teclado ou fixado) = 256px,
+  // fechado = trilho de 72px. A pagina anda junto (transicao no <main>).
   useEffect(() => {
     const root = document.documentElement.style
-    root.setProperty('--sidebar-width', desktop ? `${pinned ? OPEN_W : RAIL_W}px` : '0px')
+    root.setProperty('--sidebar-width', desktop ? `${open ? OPEN_W : RAIL_W}px` : '0px')
     root.setProperty('--navbar-offset', `${NAVBAR_OFFSET}px`)
-  }, [desktop, pinned])
+  }, [desktop, open])
 
   if (!hydrated || !user) return null
 
@@ -196,8 +280,8 @@ export default function Sidebar() {
     <div className="esb eligi-sidebar">
       <style>{CSS}</style>
       {desktop
-        ? <Rail items={items} active={active} pinned={pinned} account={account} onLogout={() => setConfirmOpen(true)} />
-        : <MobileBar role={role} items={items} active={active} account={account} onLogout={() => setConfirmOpen(true)} />}
+        ? <Rail items={items} active={active} pinned={pinned} open={open} setHover={setHover} badges={badges} account={account} onLogout={() => setConfirmOpen(true)} />
+        : <MobileBar role={role} items={items} active={active} badges={badges} account={account} onLogout={() => setConfirmOpen(true)} />}
       <ConfirmDialog
         open={confirmOpen}
         title="Sair da conta?"
@@ -212,23 +296,30 @@ export default function Sidebar() {
 }
 
 // ── computador ───────────────────────────────────────────────────────────────
-function Rail({ items, active, pinned, account, onLogout }: {
-  items: NavItemType[]; active: string | null; pinned: boolean; account: Account; onLogout: () => void
+function Rail({ items, active, pinned, open, setHover, badges, account, onLogout }: {
+  items: NavItemType[]; active: string | null; pinned: boolean; open: boolean
+  setHover: (v: boolean) => void; badges: NavBadges; account: Account; onLogout: () => void
 }) {
-  const [hover, setHover] = useState(false)
-  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const indRef = useRef<HTMLDivElement>(null)
-  const open = pinned || hover
 
-  const onEnter = useCallback(() => {
-    if (leaveTimer.current) clearTimeout(leaveTimer.current)
-    setHover(true)
-  }, [])
+  const clear = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null } }
+  // mouse: pausa curta antes de abrir, para nao empurrar a pagina so de atravessar o menu
+  const onMouseEnter = useCallback(() => {
+    clear(); timer.current = setTimeout(() => setHover(true), OPEN_DELAY_MS)
+  }, [setHover])
+  // teclado: abre na hora. Foco de clique (sem :focus-visible) nao abre: senao
+  // voltar para a aba com o link ainda focado empurraria a pagina sozinho.
+  const onFocusIn = useCallback((e: FocusEvent<HTMLElement>) => {
+    const t = e.target as HTMLElement
+    if (typeof t.matches === 'function' && !t.matches(':focus-visible')) return
+    clear(); setHover(true)
+  }, [setHover])
   const onLeave = useCallback(() => {
-    leaveTimer.current = setTimeout(() => setHover(false), 140)
-  }, [])
-  useEffect(() => () => { if (leaveTimer.current) clearTimeout(leaveTimer.current) }, [])
+    clear(); timer.current = setTimeout(() => setHover(false), CLOSE_DELAY_MS)
+  }, [setHover])
+  useEffect(() => () => clear(), [])
 
   // destaque que desliza ate o item ativo (rotulos de secao mudam de altura ao abrir)
   useLayoutEffect(() => {
@@ -248,9 +339,9 @@ function Rail({ items, active, pinned, account, onLogout }: {
     <aside
       aria-label="Navegação lateral"
       className={`esb-rail${open ? ' open' : ''}${pinned ? ' pinned' : ''}`}
-      onMouseEnter={onEnter}
+      onMouseEnter={onMouseEnter}
       onMouseLeave={onLeave}
-      onFocus={onEnter}
+      onFocus={onFocusIn}
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onLeave() }}
     >
       <div className="esb-scroll">
@@ -262,11 +353,14 @@ function Rail({ items, active, pinned, account, onLogout }: {
               {items.filter((i) => i.section === s.key).map((it) => {
                 const Icon = it.icon
                 const on = it.path === active
+                const b = badges[it.path]
                 return (
                   <Link key={it.path} href={it.path} className={`esb-item${on ? ' on' : ''}`}
-                    aria-current={on ? 'page' : undefined} aria-label={it.label}>
+                    aria-current={on ? 'page' : undefined} aria-label={b ? `${it.label}, ${badgeText(it.path, b)}` : it.label}
+                    title={b && !open ? badgeText(it.path, b) : undefined}>
                     <Icon size={20} strokeWidth={1.9} />
                     <span className="esb-lbl">{it.label}</span>
+                    {b && <Badge b={b} />}
                   </Link>
                 )
               })}
@@ -297,8 +391,8 @@ function Rail({ items, active, pinned, account, onLogout }: {
 }
 
 // ── celular ──────────────────────────────────────────────────────────────────
-function MobileBar({ role, items, active, account, onLogout }: {
-  role: Role; items: NavItemType[]; active: string | null; account: Account; onLogout: () => void
+function MobileBar({ role, items, active, badges, account, onLogout }: {
+  role: Role; items: NavItemType[]; active: string | null; badges: NavBadges; account: Account; onLogout: () => void
 }) {
   const [sheet, setSheet] = useState(false)
   const barRef = useRef<HTMLElement>(null)
@@ -310,6 +404,9 @@ function MobileBar({ role, items, active, account, onLogout }: {
     : items.slice(0, 4)
   const rest = items.filter((i) => !tabs.includes(i))
   const restActive = rest.some((i) => i.path === active)
+  // o que esta dentro do "Mais" e pede acao vira um ponto no proprio "Mais"
+  const restTones = rest.map((i) => badges[i.path]?.tone).filter((t): t is BadgeTone => t === 'warn' || t === 'bad')
+  const restDot: BadgeTone | null = restTones.includes('bad') ? 'bad' : restTones.length ? 'warn' : null
 
   useEffect(() => {
     document.documentElement.style.setProperty('--bottom-nav-h', `${BOTTOM_NAV_H}px`)
@@ -354,11 +451,14 @@ function MobileBar({ role, items, active, account, onLogout }: {
               {rest.map((it, i) => {
                 const Icon = it.icon
                 const on = it.path === active
+                const b = badges[it.path]
                 return (
                   <Link key={it.path} href={it.path} className={`esb-tile${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined}
+                    aria-label={b ? `${it.label}, ${badgeText(it.path, b)}` : undefined}
                     onClick={() => setSheet(false)} style={{ animationDelay: `${i * 25}ms` }}>
                     <Icon size={24} strokeWidth={1.9} />
                     {it.label}
+                    {b && <Badge b={b} />}
                   </Link>
                 )
               })}
@@ -375,25 +475,27 @@ function MobileBar({ role, items, active, account, onLogout }: {
         {tabs.map((it) => {
           const Icon = it.icon
           const on = !sheet && it.path === active
+          const b = badges[it.path]
           return (
             <Link key={it.path} href={it.path} className={`esb-tab${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined}
+              aria-label={b ? `${it.label}, ${badgeText(it.path, b)}` : undefined}
               onClick={() => setSheet(false)}>
-              <Icon size={23} strokeWidth={1.9} />
-              <span>{it.short ?? it.label}</span>
+              <span className="esb-ico"><Icon size={23} strokeWidth={1.9} />{b && <Badge b={b} />}</span>
+              <span className="esb-tl">{it.short ?? it.label}</span>
             </Link>
           )
         })}
         {rest.length > 0 && (
           <button type="button" className={`esb-tab${sheet || restActive ? ' on' : ''}`} onClick={() => setSheet((v) => !v)}
-            aria-expanded={sheet} aria-label="Mais opções">
-            <LayoutGrid size={23} strokeWidth={1.9} />
-            <span>Mais</span>
+            aria-expanded={sheet} aria-label={restDot ? 'Mais opções, há pendências' : 'Mais opções'}>
+            <span className="esb-ico"><LayoutGrid size={23} strokeWidth={1.9} />{restDot && <span className={`esb-dot${restDot === 'bad' ? ' bad' : ''}`} aria-hidden />}</span>
+            <span className="esb-tl">Mais</span>
           </button>
         )}
         {rest.length === 0 && (
           <button type="button" className="esb-tab" onClick={onLogout} aria-label="Sair da conta">
             <LogOut size={23} strokeWidth={1.9} />
-            <span>Sair</span>
+            <span className="esb-tl">Sair</span>
           </button>
         )}
       </nav>

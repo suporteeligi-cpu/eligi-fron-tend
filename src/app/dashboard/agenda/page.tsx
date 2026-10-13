@@ -55,6 +55,7 @@ export default function AgendaPage() {
       position: 'fixed',
       top: 104,
       left: 'var(--sidebar-width, 64px)',
+      transition: 'left 260ms cubic-bezier(.22,1,.36,1)', // @eligi:sb-push-agenda — anda junto com o menu
       right: 0,
       bottom: 0,
       display: 'flex',
