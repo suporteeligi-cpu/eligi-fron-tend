@@ -106,7 +106,18 @@ function buildSummary(kpis: DashboardKPIs, period: DashboardPeriod): string {
   const head = bookings === 0
     ? 'Nenhum atendimento no período'
     : `${bookings} ${plural(bookings, 'atendimento', 'atendimentos')} no período`
-  return `${head}, ticket médio de ${fmtBRL(kpis.ticketAverage)}.`
+  // @eligi:dash-club-resumo
+  return hasClubTicket(kpis)
+    ? `${head}, ${fmtBRL(kpis.ticketAverage)} por atendimento.`
+    : `${head}, ticket médio de ${fmtBRL(kpis.ticketAverage)}.`
+}
+
+// @eligi:dash-club-helper — negocio com clube (ou pacote) tem atendimento de R$ 0:
+// o ticket vira "por atendimento" e o de quem paga no balcao aparece junto.
+// Sem clube os dois valores sao iguais e a tela fica como antes.
+function hasClubTicket(kpis: DashboardKPIs): boolean {
+  return (kpis.revenueClub ?? 0) > 0
+    || (kpis.ticketWalkIn != null && Math.abs(kpis.ticketWalkIn - kpis.ticketAverage) >= 0.5)
 }
 
 // ─── ticker ────────────────────────────────────────────────────────────────
@@ -147,7 +158,10 @@ function buildTicker(
       Icon:  Banknote,
       tint:  inkLight.ok.text,
       value: money(kpis.revenue),
-      label: periodLabel(period).toLowerCase(),
+      // @eligi:dash-club-label-receita — a receita ja inclui as mensalidades do clube
+      label: (kpis.revenueClub ?? 0) > 0
+        ? `${periodLabel(period).toLowerCase()} · clube ${money(kpis.revenueClub ?? 0)}`
+        : periodLabel(period).toLowerCase(),
       delta: {
         text:     growth.text,
         positive: growth.positive,
@@ -179,7 +193,10 @@ function buildTicker(
       Icon:  Receipt,
       tint:  inkLight.neutral.text,
       value: money(kpis.ticketAverage),
-      label: 'ticket médio',
+      // @eligi:dash-club-label-ticket
+      label: hasClubTicket(kpis)
+        ? `por atendimento · avulso ${money(kpis.ticketWalkIn ?? 0)}`
+        : 'ticket médio',
     },
     {
       key:   'attendance',

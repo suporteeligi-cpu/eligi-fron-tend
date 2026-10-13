@@ -13,6 +13,11 @@ export interface DashboardKPIs {
   revenue:          number
   revenueGrowth:    number | null
   ticketAverage:    number
+  // @eligi:dash-club-tipos — opcionais: back antigo nao manda. revenue ja soma o clube;
+  // ticketAverage = receita total / atendimentos; ticketWalkIn = so vendas pagas.
+  revenueSales?:    number
+  revenueClub?:     number
+  ticketWalkIn?:    number
   attendanceRate:   number
   noShowCount:      number
   noShowRate:       number
