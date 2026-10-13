@@ -207,6 +207,12 @@ const CSS = `
 .cp-sheet .cd.today{border-color:${D.ink}}
 .cp-sheet .cd.on{background:${D.greenBg}}
 .cp-sheet .cd .d{font-size:11px;font-weight:600;color:${D.ink2}}
+/* @eligi:club-painel-ren-css — renovacoes do dia no calendario: pilula tracejada (previsao).
+   No celular so o numero; no calendario grande do computador, "2 renovam". */
+.cp-sheet .cd .top{display:flex;justify-content:space-between;align-items:center;gap:2px;min-width:0}
+.cp-sheet .cd .rn{display:inline-flex;align-items:center;font-size:10px;font-weight:700;line-height:14px;color:${D.ink2};border:1px dashed ${D.ink3};border-radius:999px;padding:0 5px;white-space:nowrap}
+.cp-sheet .cd .rl{display:none}
+@media(min-width:900px){.cp-sheet.big .cd .rn{font-size:11px;line-height:16px;padding:0 7px}.cp-sheet.big .cd .rl{display:inline;white-space:pre}}
 .cp-sheet .cd .c{font-family:var(--font-display);font-weight:600;font-size:12px;color:${D.green};margin-top:auto;white-space:nowrap;overflow:hidden}
 .cp-sheet .nav{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
 .cp-sheet .nav button{width:44px;height:44px;border-radius:12px;border:1px solid ${D.line};background:${D.card2};color:${D.ink};cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -659,15 +665,21 @@ function MonthView({ data, ym, hide, onYm, onDay }: {
           const v = dono ? (cai > 0 ? (hide ? '••' : brlK(cai).replace('R$ ', '')) : '') : (d && d.renovaCount > 0 ? String(d.renovaCount) : '')
           return (
             <button key={date} className={`cd ${date === data.hoje ? 'today' : ''} ${dono && cai > 0 ? 'on' : ''}`} disabled={!d} onClick={() => onDay(date)}
-              aria-label={`${i + 1} de ${MONTHS[mo - 1]}`}>
-              <span className="d">{i + 1}</span>
+              aria-label={`${i + 1} de ${MONTHS[mo - 1]}${d && d.renovaCount > 0 ? `, ${d.renovaCount} ${d.renovaCount > 1 ? 'renovações' : 'renovação'}` : ''}`}>
+              {/* @eligi:club-painel-ren-cell */}
+              <span className="top">
+                <span className="d">{i + 1}</span>
+                {dono && d && d.renovaCount > 0 && (
+                  <span className="rn" aria-hidden="true">{d.renovaCount}<span className="rl">{d.renovaCount > 1 ? ' renovam' : ' renova'}</span></span>
+                )}
+              </span>
               <span className="c num" style={dono ? undefined : { color: D.ink }}>{v}</span>
             </button>
           )
         })}
       </div>
       <p style={{ color: D.ink3, fontSize: 12, marginTop: 12 }}>
-        {dono ? 'Verde: cobrança já paga, esperando liberação. Toque no dia para ver quem.' : 'Número de renovações previstas por dia.'}
+        {dono ? 'Verde: cobrança já paga, esperando liberação. Pílula tracejada: quantos renovam no dia (previsão). Toque no dia para ver quem.' : 'Número de renovações previstas por dia.'}{/* @eligi:club-painel-ren-legenda */}
       </p>
     </>
   )
