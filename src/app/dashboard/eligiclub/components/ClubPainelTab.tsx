@@ -16,6 +16,7 @@
 // O olho e so do dono e fica guardado neste aparelho.
 
 import { useCallback, useEffect, useState, useSyncExternalStore, type ComponentProps } from 'react'
+import { createPortal } from 'react-dom' // @eligi:club-painel-portal-import
 import {
   AlertCircle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, RefreshCw, X,
 } from 'lucide-react'
@@ -174,12 +175,19 @@ const CSS = `
 .cp .meter i{display:block;height:100%;background:linear-gradient(90deg,${brand.core.redDeep},${D.red});border-radius:999px}
 .cp .sk{background:${D.card};border-radius:16px;animation:cp-pulse 1.2s ease-in-out infinite alternate}
 @keyframes cp-pulse{from{opacity:.55}to{opacity:1}}
-.cp-scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:9998}
-@media(min-width:700px){.cp-scrim{align-items:center}}
-.cp-sheet{background:${D.card};color:${D.ink};width:100%;max-width:520px;max-height:88dvh;overflow:auto;border:1px solid ${D.line};border-radius:22px 22px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom,0px));font-family:var(--font-sans);animation:club-panel 220ms cubic-bezier(.22,1,.36,1) both}
-@media(min-width:700px){.cp-sheet{border-radius:22px}}
+/* @eligi:club-painel-sheet-css — folha vai pro body (portal): o painel tem animacao com
+   transform, que prende position:fixed dentro dele. Mobile respeita navbar (104) e
+   bottom nav (64); no computador o calendario abre maior, centralizado na tela. */
+.cp-scrim{position:fixed;left:0;right:0;top:104px;bottom:calc(64px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:11000}
+@media(min-width:900px){.cp-scrim{top:0;bottom:0;align-items:center;padding:24px}}
+.cp-sheet{background:${D.card};color:${D.ink};width:100%;max-width:560px;max-height:100%;/* @eligi:club-painel-sheet-max */overflow:auto;border:1px solid ${D.line};border-radius:22px 22px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom,0px));font-family:var(--font-sans);animation:club-panel 220ms cubic-bezier(.22,1,.36,1) both}
+@media(min-width:900px){.cp-sheet{border-radius:22px;padding:24px 24px 28px}.cp-sheet.big{max-width:820px}.cp-sheet.big .cd{min-height:84px;padding:8px}.cp-sheet.big .cd .d{font-size:13px}.cp-sheet.big .cd .c{font-size:15px}.cp-sheet.big .cal{gap:6px}} /* @eligi:club-painel-sheet-size */
 .cp-sheet .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${D.ink3}}
+/* @eligi:club-painel-h4-cor — o globals.css pinta h1-h6 e 'main p/span/li' de escuro
+   (feito pro dashboard claro). Aqui tudo herda a tinta clara do painel; regras com
+   classe (.lbl, .chip, .rt span...) continuam mandando por especificidade. */
 .cp-sheet h4{font-family:var(--font-display);font-size:20px;font-weight:600;letter-spacing:-.03em;margin:2px 0 0}
+.cp h3,.cp h4,.cp p,.cp span,.cp li,.cp-sheet h4,.cp-sheet p,.cp-sheet span,.cp-sheet li{color:inherit}
 .cp-sheet .x{float:right;width:44px;height:44px;border-radius:12px;border:1px solid ${D.line};background:${D.card2};color:${D.ink};cursor:pointer;display:flex;align-items:center;justify-content:center;margin:-4px 0 0 8px}
 .cp-sheet .ss{margin:16px 0 4px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .cp-sheet .row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid ${D.line}}
@@ -322,16 +330,18 @@ export default function ClubPainelTab({ isMobile, onOpenMembers }: { isMobile: b
         </>
       )}
 
-      {sheet && (
+      {/* @eligi:club-painel-folha-body */}
+      {sheet && createPortal(
         <div className="cp-scrim" onClick={(e) => { if (e.target === e.currentTarget) setSheet(null) }}>
-          <div className="cp-sheet" role="dialog" aria-modal="true" aria-label={sheet.kind === 'day' ? 'Detalhes do dia' : 'Calendário do mês'}>
+          <div className={`cp-sheet ${sheet.kind === 'month' ? 'big' : ''}`} role="dialog" aria-modal="true" aria-label={sheet.kind === 'day' ? 'Detalhes do dia' : 'Calendário do mês'}>
             <button className="x" aria-label="Fechar" onClick={() => setSheet(null)}><X size={18} /></button>
             {sheet.kind === 'day'
               ? <DayView data={data} date={sheet.date} money={m} hide={hide} />
               : <MonthView data={data} ym={sheet.ym} hide={hide} onYm={(ym) => setSheet({ kind: 'month', ym })} onDay={(date) => setSheet({ kind: 'day', date })} />}
           </div>
-        </div>
-      )}
+        </div>,
+        document.body,
+      )} {/* @eligi:club-painel-portal-fim */}
 
       {member && (
         <ClubMemberDetailModal
