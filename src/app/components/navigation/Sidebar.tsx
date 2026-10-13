@@ -1,572 +1,203 @@
 'use client'
+// src/app/components/navigation/Sidebar.tsx
+// @eligi:sb-v2 — Sidebar direcao A "Rail inteligente" (out/2026).
+//
+// Computador: trilho de 72px que ABRE POR CIMA do conteudo ao passar o mouse
+// (ou com o teclado) e pode ser FIXADO aberto. So o fixar muda --sidebar-width;
+// passar o mouse nao mexe mais na tela (antes o conteudo inteiro andava).
+// Celular: barra inferior com abas escolhidas por cargo (mobileTabsByRole) e
+// folha "Mais" com grade de atalhos e o cartao da conta.
+//
+// Conta logada: foto (user.avatarUrl, mesmo formato do ProfAvatar) e logo +
+// nome do estabelecimento (user.logoUrl / businessName), que o /auth/me ja traz.
+// Superficie escura oficial (brand.surfaceDark). Destaque do item ativo desliza
+// (posicionado por DOM no layout effect: React Compiler safe).
 
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { navigationByRole, NavItemType, getRoleLabel } from './navigation.config'
+import { LayoutGrid, LogOut, Pin, PinOff } from 'lucide-react'
+import { navigationByRole, mobileTabsByRole, activeNavPath, getRoleLabel, type NavItemType, type Role } from './navigation.config'
 import { useAuth } from '@/hooks/useAuth'
-import NavItem from './NavItem'
-import { LogOut, MoreHorizontal, X } from 'lucide-react'
+import ProfAvatar from '@/features/agenda/components/shared/ProfAvatar'
 import ConfirmDialog from '@/shared/components/ConfirmDialog'
+import { brand } from '@/shared/brand.generated'
 
 const NAVBAR_OFFSET = 104
-const BOTTOM_NAV_H  = 64 // height of the mobile bottom bar
+const BOTTOM_NAV_H  = 64
+const RAIL_W        = 72
+const OPEN_W        = 256
+const DESKTOP_MQ    = '(min-width: 1024px)'
+const PIN_KEY       = 'eligi-sidebar-pinned'
 
-/* ── helpers ── */
-// getRoleLabel importado de navigation.config
+const D = {
+  bg:    brand.surfaceDark.base,
+  card:  brand.surfaceDark.card,
+  line:  brand.surfaceDark.border,
+  ink:   brand.surfaceDark.textPrimary,
+  ink2:  '#B4B4BE',
+  ink3:  brand.surfaceDark.textMuted,
+  red:   brand.core.red,
+}
 
-/* ============================================================
-   MOBILE BOTTOM NAV
-   - First 4 items pinned as tabs
-   - Overflow items accessible via "Mais" sheet
-============================================================ */
-function MobileBottomNav({
-  navItems,
-  user,
-  logout,
-}: {
-  navItems: NavItemType[]
-  user: { name?: string; role?: string } | null
-  logout: () => void
-}) {
-  const pathname  = usePathname()
-  const [sheetOpen, setSheetOpen] = useState(false)
+// ── lojas externas (sem setState em efeito) ─────────────────────────────────
+function subscribeMq(cb: () => void) {
+  const mq = window.matchMedia(DESKTOP_MQ)
+  mq.addEventListener('change', cb)
+  return () => mq.removeEventListener('change', cb)
+}
+const readDesktop = () => window.matchMedia(DESKTOP_MQ).matches
+const noopSubscribe = () => () => {}
 
-  // Pin up to 4 items; rest go into the "Mais" sheet
-  const pinned   = navItems.slice(0, 4)
-  const overflow = navItems.slice(4)
-  const hasMore  = overflow.length > 0
+let pinMem = false
+const pinListeners = new Set<() => void>()
+function readPinned(): boolean {
+  try { const v = localStorage.getItem(PIN_KEY); return v === null ? pinMem : v === '1' } catch { return pinMem }
+}
+function writePinned(v: boolean) {
+  pinMem = v
+  try { localStorage.setItem(PIN_KEY, v ? '1' : '0') } catch { /* modo privado: so memoria */ }
+  pinListeners.forEach((l) => l())
+}
+function subscribePinned(l: () => void) { pinListeners.add(l); return () => { pinListeners.delete(l) } }
 
-  useEffect(() => {
-    document.body.style.overflow = sheetOpen ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
-  }, [sheetOpen])
+// ── pecas visuais ────────────────────────────────────────────────────────────
+function initialsOf(s: string): string {
+  return s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'
+}
+function isImage(u: string | null | undefined): u is string {
+  return !!u && (u.startsWith('http') || u.startsWith('data:image') || u.startsWith('/'))
+}
 
-  // Expose bottom nav height so main content can add padding
-  useEffect(() => {
-    document.documentElement.style.setProperty('--bottom-nav-h', `${BOTTOM_NAV_H}px`)
-    return () => { document.documentElement.style.removeProperty('--bottom-nav-h') }
-  }, [])
+function BizLogo({ logoUrl, name, size }: { logoUrl: string | null | undefined; name: string; size: number }) {
+  const r = Math.round(size * 0.3)
+  if (isImage(logoUrl)) {
+    return <span aria-hidden className="esb-logo" style={{ width: size, height: size, borderRadius: r, backgroundImage: `url("${logoUrl.replace(/"/g, '%22')}")` }} />
+  }
+  return <span aria-hidden className="esb-logo" style={{ width: size, height: size, borderRadius: r, fontSize: Math.round(size * 0.36) }}>{initialsOf(name || 'Eligi')}</span>
+}
 
+function Me({ name, avatarUrl, size }: { name: string; avatarUrl: string | null | undefined; size: number }) {
   return (
-    <>
-      <style>{`
-        @keyframes eligi-sheet-in {
-          from { transform: translateY(100%); opacity: 0; }
-          to   { transform: translateY(0);    opacity: 1; }
-        }
-        @keyframes eligi-overlay-in {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-
-        /* ── Tab item ── */
-        .eligi-tab {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 3px;
-          flex: 1;
-          padding: 6px 4px;
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          text-decoration: none;
-          color: rgba(255,255,255,0.40);
-          font-size: 10px;
-          font-weight: 500;
-          letter-spacing: 0.01em;
-          position: relative;
-          transition: color 160ms ease, transform 130ms ease;
-          -webkit-tap-highlight-color: transparent;
-          touch-action: manipulation;
-        }
-        .eligi-tab.active {
-          color: #f87171;
-        }
-        .eligi-tab:active {
-          transform: scale(0.90);
-        }
-        .eligi-tab svg {
-          transition: transform 160ms ease, opacity 160ms ease;
-        }
-        .eligi-tab:active svg {
-          transform: scale(0.88);
-        }
-
-        /* Active pip */
-        .eligi-tab.active::after {
-          content: '';
-          position: absolute;
-          bottom: 2px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 18px;
-          height: 2.5px;
-          background: #ef4444;
-          border-radius: 999px;
-          box-shadow: 0 0 6px rgba(239,68,68,0.6);
-        }
-
-        /* ── Sheet item ── */
-        .eligi-sheet-item {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 13px 16px;
-          border-radius: 14px;
-          border: 1px solid transparent;
-          background: transparent;
-          text-decoration: none;
-          color: rgba(255,255,255,0.82);
-          font-size: 14px;
-          font-weight: 500;
-          transition: background 150ms ease, color 150ms ease, transform 120ms ease;
-          -webkit-tap-highlight-color: transparent;
-        }
-        .eligi-sheet-item.active {
-          background: rgba(220,38,38,0.16);
-          border-color: rgba(220,38,38,0.20);
-          color: #f87171;
-        }
-        .eligi-sheet-item:active {
-          transform: scale(0.97);
-        }
-        .eligi-sheet-item:not(.active):active {
-          background: rgba(255,255,255,0.06);
-        }
-
-        /* ── Logout sheet ── */
-        .eligi-sheet-logout {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 13px 16px;
-          border-radius: 14px;
-          border: none;
-          background: transparent;
-          width: 100%;
-          cursor: pointer;
-          color: rgba(255,255,255,0.82);
-          font-size: 14px;
-          font-weight: 500;
-          transition: background 150ms ease, color 150ms ease, transform 120ms ease;
-          -webkit-tap-highlight-color: transparent;
-        }
-        .eligi-sheet-logout:active {
-          background: rgba(220,38,38,0.10);
-          color: #f87171;
-          transform: scale(0.97);
-        }
-      `}</style>
-
-      {/* ── Sheet overlay ── */}
-      {sheetOpen && (
-        <div
-          onClick={() => setSheetOpen(false)}
-          style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(5px)',
-            WebkitBackdropFilter: 'blur(5px)',
-            zIndex: 58,
-            animation: 'eligi-overlay-in 200ms ease',
-          }}
-        />
-      )}
-
-      {/* ── Overflow sheet ── */}
-      {sheetOpen && (
-        <div style={{
-          position: 'fixed',
-          bottom: `${BOTTOM_NAV_H}px`,
-          left: 0, right: 0,
-          zIndex: 59,
-          background: 'rgba(14,14,20,0.97)',
-          backdropFilter: 'blur(24px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-          borderTop: '1px solid rgba(255,255,255,0.09)',
-          borderRadius: '20px 20px 0 0',
-          padding: '8px 12px 12px',
-          animation: 'eligi-sheet-in 260ms cubic-bezier(.22,1,.36,1)',
-          color: 'rgba(255,255,255,0.88)',
-        }}>
-          {/* Drag handle */}
-          <div style={{
-            width: '36px', height: '4px',
-            background: 'rgba(255,255,255,0.18)',
-            borderRadius: '999px',
-            margin: '6px auto 14px',
-          }} />
-
-          {/* User card */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            padding: '12px 16px', borderRadius: '14px',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            marginBottom: '10px',
-          }}>
-            <div style={{
-              width:'38px', height:'38px', borderRadius:'11px', flexShrink:0,
-              background:'linear-gradient(145deg,#ef4444 0%,#dc2626 60%,#b91c1c 100%)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:'14px', fontWeight:700, color:'#fff',
-              boxShadow:'0 3px 10px rgba(220,38,38,0.35)',
-            }}>
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <div style={{ overflow:'hidden' }}>
-              <div style={{ fontSize:'14px', fontWeight:600, color:'rgba(255,255,255,0.90)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                {user?.name}
-              </div>
-              <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.42)', marginTop:'2px' }}>
-                {getRoleLabel(user?.role)}
-              </div>
-            </div>
-          </div>
-
-          {/* Overflow nav items */}
-          {overflow.length > 0 && (
-            <div style={{ display:'flex', flexDirection:'column', gap:'2px', marginBottom:'8px' }}>
-              {overflow.map(item => {
-                const Icon = item.icon
-                const active = pathname === item.path
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className={`eligi-sheet-item${active ? ' active' : ''}`}
-                    onClick={() => setSheetOpen(false)}
-                  >
-                    <Icon size={20} style={{ flexShrink:0, opacity: active ? 1 : 0.70 }} />
-                    {item.label}
-                    {active && (
-                      <div style={{
-                        marginLeft:'auto',
-                        width:'6px', height:'6px', borderRadius:'50%',
-                        background:'#ef4444',
-                        boxShadow:'0 0 6px rgba(239,68,68,0.7)',
-                      }} />
-                    )}
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Divider */}
-          <div style={{
-            height:'1px', background:'rgba(255,255,255,0.07)',
-            margin:'4px 4px 8px', borderRadius:'999px',
-          }} />
-
-          {/* Logout */}
-          <button className="eligi-sheet-logout" onClick={() => { setSheetOpen(false); logout() }}>
-            <LogOut size={20} style={{ flexShrink:0, opacity:0.70 }} />
-            Sair da conta
-          </button>
-        </div>
-      )}
-
-      {/* ── Bottom bar ── */}
-      <nav
-        aria-label="Navegação inferior"
-        style={{
-          position: 'fixed',
-          bottom: 0, left: 0, right: 0,
-          height: `${BOTTOM_NAV_H}px`,
-          zIndex: 60,
-          display: 'flex',
-          alignItems: 'stretch',
-          background: 'rgba(12,12,18,0.92)',
-          backdropFilter: 'blur(24px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 -4px 24px rgba(0,0,0,0.28)',
-          // Safe area for notch phones
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          color: 'rgba(255,255,255,0.88)',
-        }}
-      >
-        {pinned.map(item => {
-          const Icon   = item.icon
-          const active = pathname === item.path
-          return (
-            <Link
-              key={item.path}
-              href={item.path}
-              className={`eligi-tab${active ? ' active' : ''}`}
-            >
-              <Icon size={22} />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
-
-        {/* "Mais" tab — opens sheet with overflow + logout */}
-        {hasMore && (
-          <button
-            className={`eligi-tab${sheetOpen ? ' active' : ''}`}
-            onClick={() => setSheetOpen(v => !v)}
-            aria-label="Mais opções"
-          >
-            {sheetOpen
-              ? <X size={22} />
-              : <MoreHorizontal size={22} />
-            }
-            <span>Mais</span>
-          </button>
-        )}
-
-        {/* If no overflow, show logout as last tab */}
-        {!hasMore && (
-          <button
-            className="eligi-tab"
-            onClick={logout}
-            aria-label="Sair"
-          >
-            <LogOut size={22} />
-            <span>Sair</span>
-          </button>
-        )}
-      </nav>
-    </>
+    <span className="esb-me" style={{ width: size, height: size }}>
+      <ProfAvatar name={name || '?'} avatarUrl={avatarUrl ?? undefined} size={size} />
+    </span>
   )
 }
 
-/* ============================================================
-   SIDEBAR (desktop rail)
-============================================================ */
+const CSS = `
+.esb{font-family:var(--font-sans);color:${D.ink}}
+.esb *{box-sizing:border-box}
+.esb-logo{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;background:#0E0E12 center/cover no-repeat;color:#fff;font-family:var(--font-display);font-weight:700;letter-spacing:-.02em;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.esb-me{position:relative;flex-shrink:0;display:inline-flex}
+.esb-me::after{content:'';position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 2px ${D.bg}}
+/* rail */
+.esb-rail{position:fixed;top:0;left:0;height:100dvh;z-index:50;display:flex;flex-direction:column;background:${D.bg};border-right:1px solid ${D.line};width:${RAIL_W}px;overflow:hidden;transition:width 260ms cubic-bezier(.22,1,.36,1),box-shadow 260ms ease;animation:esb-in 320ms cubic-bezier(.22,1,.36,1) both}
+.esb-rail.open{width:${OPEN_W}px}
+.esb-rail.open:not(.pinned){box-shadow:18px 0 50px rgba(0,0,0,.28)}
+@keyframes esb-in{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
+.esb-scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:${NAVBAR_OFFSET + 12}px 14px 12px}
+.esb-scroll::-webkit-scrollbar{display:none}
+.esb-list{position:relative}
+.esb-ind{position:absolute;left:0;right:0;top:0;height:40px;border-radius:12px;background:rgba(254,0,0,.14);border:1px solid rgba(254,0,0,.28);opacity:0;pointer-events:none;transition:transform 380ms cubic-bezier(.34,1.56,.64,1),height 200ms ease,opacity 200ms ease}
+.esb-ind::before{content:'';position:absolute;left:-1px;top:11px;bottom:11px;width:3px;border-radius:0 3px 3px 0;background:${D.red};box-shadow:0 0 10px rgba(254,0,0,.7)}
+.esb-sec{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${D.ink3};padding:14px 12px 6px;white-space:nowrap;transition:opacity 160ms}
+.esb-rail:not(.open) .esb-sec{height:13px;padding:0;margin:6px 4px;overflow:hidden;color:transparent;border-top:1px solid ${D.line}}
+.esb-rail:not(.open) .esb-sec.first{border-top:0;height:0;margin:0}
+.esb-item{position:relative;z-index:1;display:flex;align-items:center;gap:12px;height:40px;margin-bottom:2px;padding:0 12px;border-radius:12px;color:${D.ink2};font-size:13.5px;font-weight:500;letter-spacing:-.01em;text-decoration:none;white-space:nowrap;transition:color 160ms,background 160ms;-webkit-tap-highlight-color:transparent}
+.esb-item:hover{color:${D.ink};background:rgba(255,255,255,.05)}
+.esb-item.on{color:#fff;font-weight:600}
+.esb-item.on:hover{background:transparent}
+.esb-item svg{flex-shrink:0;transition:transform 250ms cubic-bezier(.34,1.56,.64,1)}
+.esb-item:hover svg{transform:scale(1.08)}
+.esb-item:active{transform:scale(.97)}
+.esb-lbl{transition:opacity 160ms ease,transform 220ms cubic-bezier(.22,1,.36,1)}
+.esb-rail:not(.open) .esb-lbl{opacity:0;transform:translateX(-4px)}
+.esb-foot{padding:10px;border-top:1px solid ${D.line};display:flex;flex-direction:column;gap:4px}
+.esb-acct{display:flex;align-items:center;gap:10px;padding:8px;border-radius:16px;border:1px solid transparent;min-width:0;transition:background 200ms,border-color 200ms}
+.esb-rail.open .esb-acct{background:${D.card};border-color:${D.line}}
+.esb-acct .meta{min-width:0;flex:1;transition:opacity 160ms}
+.esb-rail:not(.open) .esb-acct .meta,.esb-rail:not(.open) .esb-pin{opacity:0;pointer-events:none}
+.esb-acct b{display:block;font-size:13px;font-weight:600;color:${D.ink};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.esb-acct small{display:flex;align-items:center;gap:6px;font-size:11.5px;color:${D.ink3};white-space:nowrap;overflow:hidden}
+.esb-acct small span{overflow:hidden;text-overflow:ellipsis}
+.esb-pin{flex-shrink:0;width:34px;height:34px;border-radius:10px;border:1px solid ${D.line};background:transparent;color:${D.ink3};display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity 160ms,color 160ms,background 160ms}
+.esb-pin:hover{color:${D.ink}}
+.esb-pin.on{color:#fff;background:rgba(254,0,0,.14);border-color:rgba(254,0,0,.28)}
+.esb-out{display:flex;align-items:center;gap:12px;height:42px;padding:0 15px;border:0;border-radius:12px;background:transparent;color:${D.ink3};font:500 13px var(--font-sans);cursor:pointer;white-space:nowrap;transition:color 160ms,background 160ms}
+.esb-out:hover{color:#ff6b6b;background:rgba(254,0,0,.08)}
+/* celular */
+.esb-bar{position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(${BOTTOM_NAV_H}px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);display:flex;align-items:stretch;background:rgba(7,7,11,.95);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-top:1px solid rgba(255,255,255,.06)}
+.esb-mind{position:absolute;top:0;left:0;width:28px;height:3px;border-radius:0 0 3px 3px;background:${D.red};box-shadow:0 0 12px rgba(254,0,0,.8);opacity:0;transition:transform 380ms cubic-bezier(.34,1.56,.64,1),opacity 200ms}
+.esb-tab{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;background:transparent;color:${D.ink3};font:600 10.5px var(--font-sans);text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:color 200ms}
+.esb-tab svg{transition:transform 300ms cubic-bezier(.34,1.56,.64,1)}
+.esb-tab.on{color:#fff}
+.esb-tab.on svg{transform:translateY(-1px) scale(1.06)}
+.esb-tab:active svg{transform:scale(.86)}
+.esb-tab span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.esb-scrim{position:fixed;inset:0;z-index:58;background:rgba(0,0,0,.5);animation:esb-fade 200ms both}
+@keyframes esb-fade{from{opacity:0}}
+.esb-sheet{position:fixed;left:0;right:0;bottom:calc(${BOTTOM_NAV_H}px + env(safe-area-inset-bottom,0px));z-index:59;max-height:calc(100dvh - ${NAVBAR_OFFSET}px - ${BOTTOM_NAV_H}px - 8px);overflow-y:auto;background:${D.bg};border-radius:26px 26px 0 0;border-top:1px solid ${D.line};padding:10px 16px 16px;animation:esb-up 340ms cubic-bezier(.22,1,.36,1) both;scrollbar-width:none}
+@keyframes esb-up{from{transform:translateY(100%)}to{transform:none}}
+.esb-grab{width:40px;height:5px;border-radius:5px;background:rgba(255,255,255,.18);margin:4px auto 14px}
+.esb-mhead{display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:${D.card};border:1px solid ${D.line};margin-bottom:14px;min-width:0}
+.esb-mhead .meta{flex:1;min-width:0}
+.esb-mhead b{display:block;font-size:15px;color:${D.ink};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.esb-mhead small{display:block;font-size:12px;color:${D.ink3};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.esb-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.esb-tile{aspect-ratio:1/1;border-radius:18px;background:${D.card};border:1px solid ${D.line};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:6px;color:${D.ink2};font-size:12px;font-weight:600;text-align:center;text-decoration:none;animation:esb-tile 400ms cubic-bezier(.34,1.56,.64,1) both;-webkit-tap-highlight-color:transparent}
+.esb-tile.on{background:rgba(254,0,0,.14);border-color:rgba(254,0,0,.28);color:#fff}
+.esb-tile:active{transform:scale(.94)}
+@keyframes esb-tile{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+.esb-mout{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:48px;margin-top:14px;border-radius:14px;border:1px solid ${D.line};background:transparent;color:#ff6b6b;font:600 14px var(--font-sans);cursor:pointer}
+.esb span,.esb small,.esb b{color:inherit}
+@media (prefers-reduced-motion: reduce){.esb *,.esb{animation:none!important;transition:none!important}}
+`
+
+interface Account { name: string; avatarUrl: string | null | undefined; roleLabel: string; bizName: string; logoUrl: string | null | undefined }
+
+const SECTIONS: { key: NavItemType['section']; label: string }[] = [
+  { key: 'principal',  label: 'Principal'  },
+  { key: 'financeiro', label: 'Financeiro' },
+  { key: 'gestao',     label: 'Gestão'     },
+  { key: 'admin',      label: 'Admin'      },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const pathname = usePathname()
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false)
+  const desktop  = useSyncExternalStore(subscribeMq, readDesktop, () => false)
+  const pinned   = useSyncExternalStore(subscribePinned, readPinned, () => false)
 
-  const [hovered,  setHovered]  = useState(false)
-  const [isMobile, setIsMobile] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
-  )
-  const [mounted] = useState<boolean>(() => typeof window !== 'undefined')
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
+  // largura que o CONTEUDO respeita: so muda ao fixar; passar o mouse nao mexe na tela
   useEffect(() => {
-    function handleResize() {
-      setIsMobile(window.innerWidth < 1024)
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    const root = document.documentElement.style
+    root.setProperty('--sidebar-width', desktop ? `${pinned ? OPEN_W : RAIL_W}px` : '0px')
+    root.setProperty('--navbar-offset', `${NAVBAR_OFFSET}px`)
+  }, [desktop, pinned])
 
-  function onEnter() {
-    if (closeTimer.current) clearTimeout(closeTimer.current)
-    setHovered(true)
+  if (!hydrated || !user) return null
+
+  const role = (user.role in navigationByRole ? user.role : 'BASIC_STAFF') as Role
+  const items: NavItemType[] = navigationByRole[role]
+  const active = activeNavPath(items, pathname)
+  const account: Account = {
+    name: user.name ?? '',
+    avatarUrl: user.avatarUrl,
+    roleLabel: getRoleLabel(user.role),
+    bizName: user.businessName ?? '',
+    logoUrl: user.logoUrl,
   }
-  function onLeave() {
-    closeTimer.current = setTimeout(() => setHovered(false), 120)
-  }
-
-  const expanded     = !isMobile && hovered
-  const sidebarWidth = expanded ? '220px' : '64px'
-
-  // Sync CSS vars
-  useEffect(() => {
-    if (isMobile) {
-      document.documentElement.style.setProperty('--sidebar-width', '0px')
-    } else {
-      document.documentElement.style.setProperty('--sidebar-width', sidebarWidth)
-      document.documentElement.style.setProperty('--navbar-offset', `${NAVBAR_OFFSET}px`)
-    }
-  }, [sidebarWidth, isMobile])
-
-  if (!user || !mounted) return null
-
-  const role = user.role as keyof typeof navigationByRole
-  const navItems: NavItemType[] = navigationByRole[role] ?? navigationByRole['BASIC_STAFF']
-  const sections = {
-    principal:  navItems.filter(i => i.section === 'principal'),
-    financeiro: navItems.filter(i => i.section === 'financeiro'),
-    gestao:     navItems.filter(i => i.section === 'gestao'),
-    admin:      navItems.filter(i => i.section === 'admin'),
-  }
-
-  /* ── Mobile → bottom nav ── */
-  if (isMobile) {
-    return (
-      <>
-        <MobileBottomNav
-          navItems={navItems}
-          user={user}
-          logout={() => setConfirmOpen(true)}
-        />
-        <ConfirmDialog
-          open={confirmOpen}
-          title="Sair da conta?"
-          message="Você precisará fazer login novamente."
-          confirmLabel="Sair"
-          cancelLabel="Cancelar"
-          onConfirm={() => { setConfirmOpen(false); logout() }}
-          onCancel={() => setConfirmOpen(false)}
-        />
-      </>
-    )
-  }
-
-  /* ── Desktop → vertical rail ── */
-  const initials = user?.name
-    ?.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase() ?? '?'
 
   return (
-    <>
-      <style>{`
-        @keyframes eligi-slide-in {
-          from { opacity: 0; transform: translateX(-16px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes eligi-label-in {
-          from { opacity: 0; transform: translateX(-5px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        .eligi-sb-scroll { scrollbar-width: none; }
-        .eligi-sb-scroll::-webkit-scrollbar { display: none; }
-        .eligi-sec-div {
-          height: 1px;
-          background: rgba(255,255,255,0.07);
-          margin: 6px 4px;
-          border-radius: 999px;
-        }
-        .eligi-sec-label {
-          font-size: 9.5px; font-weight: 700;
-          letter-spacing: 0.10em; text-transform: uppercase;
-          color: rgba(255,255,255,0.88);
-          padding: 0 12px; margin: 8px 0 3px;
-          white-space: nowrap;
-          animation: eligi-label-in 160ms ease both;
-        }
-        .eligi-logout-btn {
-          display: flex; align-items: center; gap: 10px;
-          padding: 10px 0; width: 100%; border: none;
-          border-radius: 12px; background: transparent; cursor: pointer;
-          color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 500;
-          justify-content: center;
-          transition: background 160ms ease, color 160ms ease, transform 130ms ease;
-        }
-        .eligi-logout-btn.exp { padding: 10px 12px; justify-content: flex-start; }
-        .eligi-logout-btn:hover { background: rgba(220,38,38,0.12); color: #ffffff; }
-        .eligi-logout-btn:active { transform: scale(0.95); }
-      `}</style>
-
-      <aside
-        aria-label="Navegação lateral"
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
-        style={{
-          width: sidebarWidth,
-          position: 'fixed',
-          top: 0, left: 0,
-          height: '100dvh',
-          zIndex: 50,
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'rgba(12,12,18,0.86)',
-          backdropFilter: 'blur(24px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-          borderRight: '1px solid rgba(255,255,255,0.07)',
-          boxShadow: expanded
-            ? '4px 0 40px rgba(0,0,0,0.38), 1px 0 0 rgba(255,255,255,0.04)'
-            : '1px 0 0 rgba(255,255,255,0.04)',
-          transition: 'width 230ms cubic-bezier(.4,0,.2,1), box-shadow 230ms ease',
-          overflowX: 'hidden',
-          overflowY: 'hidden',
-          color: 'rgba(255,255,255,0.88)',
-          animation: mounted ? 'eligi-slide-in 300ms cubic-bezier(.22,1,.36,1) both' : 'none',
-        }}
-      >
-        {/* Specular shine */}
-        <div aria-hidden style={{
-          position:'absolute', top:0, left:0, right:0, height:'28%',
-          background:'linear-gradient(180deg,rgba(255,255,255,0.035) 0%,transparent 100%)',
-          pointerEvents:'none', zIndex:0,
-        }} />
-
-        {/* Nav scroll */}
-        <div
-          className="eligi-sb-scroll"
-          style={{
-            flex: 1, overflowY:'auto', overflowX:'hidden',
-            paddingTop: `${NAVBAR_OFFSET + 12}px`,
-            paddingBottom: '12px',
-            paddingLeft: expanded ? '8px' : '4px',
-            paddingRight: expanded ? '8px' : '4px',
-            display:'flex', flexDirection:'column',
-            position:'relative', zIndex:1,
-            transition:'padding-left 230ms cubic-bezier(.4,0,.2,1), padding-right 230ms cubic-bezier(.4,0,.2,1)',
-          }}
-        >
-          <RailSections sections={sections} expanded={expanded} />
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          borderTop:'1px solid rgba(255,255,255,0.07)',
-          padding: expanded ? '10px 8px' : '10px 4px',
-          display:'flex', flexDirection:'column', gap:'4px',
-          position:'relative', zIndex:1,
-          transition:'padding 230ms cubic-bezier(.4,0,.2,1)',
-        }}>
-          {expanded ? (
-            <div style={{
-              display:'flex', alignItems:'center', gap:'10px',
-              padding:'10px 12px', borderRadius:'12px',
-              background:'rgba(255,255,255,0.05)',
-              border:'1px solid rgba(255,255,255,0.08)',
-              marginBottom:'4px',
-              animation:'eligi-label-in 180ms ease both',
-            }}>
-              <div style={{
-                width:'34px', height:'34px', borderRadius:'10px', flexShrink:0,
-                background:'linear-gradient(145deg,#ef4444 0%,#dc2626 60%,#b91c1c 100%)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:'13px', fontWeight:700, color:'#fff',
-                boxShadow:'0 3px 8px rgba(220,38,38,0.35)',
-              }}>
-                {user?.name?.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ overflow:'hidden', flex:1 }}>
-                <div style={{ fontSize:'13px', fontWeight:600, color:'rgba(255,255,255,0.88)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                  {user?.name}
-                </div>
-                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.60)', marginTop:'1px' }}>
-                  {getRoleLabel(user?.role)}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{
-              width:'36px', height:'36px', borderRadius:'10px', margin:'0 auto 4px',
-              background:'linear-gradient(145deg,#ef4444 0%,#dc2626 60%,#b91c1c 100%)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:'12px', fontWeight:700, color:'#fff',
-              boxShadow:'0 3px 8px rgba(220,38,38,0.30)',
-            }}>
-              {initials}
-            </div>
-          )}
-
-          <button
-            className={`eligi-logout-btn${expanded ? ' exp' : ''}`}
-            onClick={() => setConfirmOpen(true)}
-            title="Sair da conta"
-          >
-            <LogOut size={18} style={{ flexShrink:0 }} />
-            {expanded && (
-              <span style={{ animation:'eligi-label-in 180ms ease both' }}>
-                Sair da conta
-              </span>
-            )}
-          </button>
-        </div>
-      </aside>
+    <div className="esb eligi-sidebar">
+      <style>{CSS}</style>
+      {desktop
+        ? <Rail items={items} active={active} pinned={pinned} account={account} onLogout={() => setConfirmOpen(true)} />
+        : <MobileBar role={role} items={items} active={active} account={account} onLogout={() => setConfirmOpen(true)} />}
       <ConfirmDialog
         open={confirmOpen}
         title="Sair da conta?"
@@ -576,42 +207,196 @@ export default function Sidebar() {
         onConfirm={() => { setConfirmOpen(false); logout() }}
         onCancel={() => setConfirmOpen(false)}
       />
-    </>
+    </div>
   )
 }
 
-/* ============================================================
-   RAIL SECTIONS (desktop)
-============================================================ */
-function RailSections({
-  sections,
-  expanded,
-}: {
-  sections: Record<string, NavItemType[]>
-  expanded: boolean
+// ── computador ───────────────────────────────────────────────────────────────
+function Rail({ items, active, pinned, account, onLogout }: {
+  items: NavItemType[]; active: string | null; pinned: boolean; account: Account; onLogout: () => void
 }) {
-  const order = [
-    { key: 'principal',  label: 'Principal'  },
-    { key: 'financeiro', label: 'Financeiro' },
-    { key: 'gestao',     label: 'Gestão'     },
-    { key: 'admin',      label: 'Admin'      },
-  ] as const
+  const [hover, setHover] = useState(false)
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const indRef = useRef<HTMLDivElement>(null)
+  const open = pinned || hover
 
-  const nonEmpty = order.filter(s => sections[s.key].length > 0)
+  const onEnter = useCallback(() => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setHover(true)
+  }, [])
+  const onLeave = useCallback(() => {
+    leaveTimer.current = setTimeout(() => setHover(false), 140)
+  }, [])
+  useEffect(() => () => { if (leaveTimer.current) clearTimeout(leaveTimer.current) }, [])
+
+  // destaque que desliza ate o item ativo (rotulos de secao mudam de altura ao abrir)
+  useLayoutEffect(() => {
+    const list = listRef.current
+    const ind = indRef.current
+    if (!list || !ind) return
+    const on = list.querySelector<HTMLElement>('.esb-item.on')
+    if (!on) { ind.style.opacity = '0'; return }
+    ind.style.opacity = '1'
+    ind.style.height = `${on.offsetHeight}px`
+    ind.style.transform = `translateY(${on.offsetTop}px)`
+  }, [active, open])
+
+  const present = SECTIONS.filter((s) => items.some((i) => i.section === s.key))
+
+  return (
+    <aside
+      aria-label="Navegação lateral"
+      className={`esb-rail${open ? ' open' : ''}${pinned ? ' pinned' : ''}`}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      onFocus={onEnter}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onLeave() }}
+    >
+      <div className="esb-scroll">
+        <div className="esb-list" ref={listRef}>
+          <div className="esb-ind" ref={indRef} aria-hidden />
+          {present.map((s, si) => (
+            <div key={s.key}>
+              <div className={`esb-sec${si === 0 ? ' first' : ''}`}>{s.label}</div>
+              {items.filter((i) => i.section === s.key).map((it) => {
+                const Icon = it.icon
+                const on = it.path === active
+                return (
+                  <Link key={it.path} href={it.path} className={`esb-item${on ? ' on' : ''}`}
+                    aria-current={on ? 'page' : undefined} aria-label={it.label}>
+                    <Icon size={20} strokeWidth={1.9} />
+                    <span className="esb-lbl">{it.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="esb-foot">
+        <div className="esb-acct">
+          <Me name={account.name} avatarUrl={account.avatarUrl} size={38} />
+          <div className="meta">
+            <b>{account.name}</b>
+            <small><span>{account.roleLabel}{account.bizName ? ` · ${account.bizName}` : ''}</span></small>
+          </div>
+          <button type="button" className={`esb-pin${pinned ? ' on' : ''}`} onClick={() => writePinned(!pinned)}
+            aria-pressed={pinned} aria-label={pinned ? 'Soltar menu' : 'Fixar menu aberto'} title={pinned ? 'Soltar menu' : 'Fixar menu aberto'}>
+            {pinned ? <PinOff size={15} /> : <Pin size={15} />}
+          </button>
+        </div>
+        <button type="button" className="esb-out" onClick={onLogout} aria-label="Sair da conta">
+          <LogOut size={18} style={{ flexShrink: 0 }} />
+          <span className="esb-lbl">Sair da conta</span>
+        </button>
+      </div>
+    </aside>
+  )
+}
+
+// ── celular ──────────────────────────────────────────────────────────────────
+function MobileBar({ role, items, active, account, onLogout }: {
+  role: Role; items: NavItemType[]; active: string | null; account: Account; onLogout: () => void
+}) {
+  const [sheet, setSheet] = useState(false)
+  const barRef = useRef<HTMLElement>(null)
+  const indRef = useRef<HTMLSpanElement>(null)
+
+  const wanted = mobileTabsByRole[role]
+  const tabs = wanted
+    ? wanted.map((p) => items.find((i) => i.path === p)).filter((i): i is NavItemType => !!i)
+    : items.slice(0, 4)
+  const rest = items.filter((i) => !tabs.includes(i))
+  const restActive = rest.some((i) => i.path === active)
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--bottom-nav-h', `${BOTTOM_NAV_H}px`)
+    return () => { document.documentElement.style.removeProperty('--bottom-nav-h') }
+  }, [])
+
+  useEffect(() => {
+    if (!sheet) return
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSheet(false) }
+    window.addEventListener('keydown', onKey)
+    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey) }
+  }, [sheet])
+
+  // indicador que desliza ate a aba ativa (ou ate o "Mais" quando o ativo mora la)
+  useLayoutEffect(() => {
+    const bar = barRef.current
+    const ind = indRef.current
+    if (!bar || !ind) return
+    const on = bar.querySelector<HTMLElement>('.esb-tab.on')
+    if (!on) { ind.style.opacity = '0'; return }
+    ind.style.opacity = '1'
+    ind.style.transform = `translateX(${on.offsetLeft + on.offsetWidth / 2 - 14}px)`
+  }, [active, sheet])
 
   return (
     <>
-      {nonEmpty.map((s, idx) => (
-        <div key={s.key}>
-          {idx > 0 && <div className="eligi-sec-div" />}
-          {expanded && <div className="eligi-sec-label">{s.label}</div>}
-          <div style={{ display:'flex', flexDirection:'column', gap:'1px' }}>
-            {sections[s.key].map(item => (
-              <NavItem key={item.path} item={item} collapsed={!expanded} />
-            ))}
+      {sheet && <div className="esb-scrim" onClick={() => setSheet(false)} />}
+      {sheet && (
+        <div className="esb-sheet" role="dialog" aria-modal="true" aria-label="Mais opções">
+          <div className="esb-grab" aria-hidden />
+          <div className="esb-mhead">
+            <Me name={account.name} avatarUrl={account.avatarUrl} size={46} />
+            <div className="meta">
+              <b>{account.name}</b>
+              <small>{account.roleLabel}{account.bizName ? ` · ${account.bizName}` : ''}</small>
+            </div>
+            {account.bizName && <BizLogo logoUrl={account.logoUrl} name={account.bizName} size={38} />}
           </div>
+          {rest.length > 0 && (
+            <div className="esb-tiles">
+              {rest.map((it, i) => {
+                const Icon = it.icon
+                const on = it.path === active
+                return (
+                  <Link key={it.path} href={it.path} className={`esb-tile${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined}
+                    onClick={() => setSheet(false)} style={{ animationDelay: `${i * 25}ms` }}>
+                    <Icon size={24} strokeWidth={1.9} />
+                    {it.label}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+          <button type="button" className="esb-mout" onClick={() => { setSheet(false); onLogout() }}>
+            <LogOut size={18} />Sair da conta
+          </button>
         </div>
-      ))}
+      )}
+
+      <nav aria-label="Navegação inferior" className="esb-bar" ref={barRef}>
+        <span className="esb-mind" ref={indRef} aria-hidden />
+        {tabs.map((it) => {
+          const Icon = it.icon
+          const on = !sheet && it.path === active
+          return (
+            <Link key={it.path} href={it.path} className={`esb-tab${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined}
+              onClick={() => setSheet(false)}>
+              <Icon size={23} strokeWidth={1.9} />
+              <span>{it.short ?? it.label}</span>
+            </Link>
+          )
+        })}
+        {rest.length > 0 && (
+          <button type="button" className={`esb-tab${sheet || restActive ? ' on' : ''}`} onClick={() => setSheet((v) => !v)}
+            aria-expanded={sheet} aria-label="Mais opções">
+            <LayoutGrid size={23} strokeWidth={1.9} />
+            <span>Mais</span>
+          </button>
+        )}
+        {rest.length === 0 && (
+          <button type="button" className="esb-tab" onClick={onLogout} aria-label="Sair da conta">
+            <LogOut size={23} strokeWidth={1.9} />
+            <span>Sair</span>
+          </button>
+        )}
+      </nav>
     </>
   )
 }
