@@ -32,6 +32,7 @@ interface PainelDia { date: string; cai: number | null; caiCount: number; renova
 interface Recebivel {
   id: string; bucket: Bucket; date: string | null; clientName: string; planName: string
   tipo: string | null; bruto: number; liquido: number; taxa: number | null; paidAt: string
+  previsto?: boolean // @eligi:club-painel-ant-tipo — dia estimado (antecipacao sem dados do Asaas)
 }
 interface Renovacao { subId: string; date: string; clientName: string; planName: string; valor: number | null; manual: boolean }
 interface Atencao { kind: AtencaoKind; subId: string; clientName: string; planName: string; valor: number | null; since: string }
@@ -444,7 +445,7 @@ function Strip({ data, hide, onDay, onMonth, money }: {
       )}
       {data.dinheiro && data.dinheiro.antecipando.count > 0 && (
         <div className="note"><span className="dot" style={{ background: D.blue }} />
-          {money(data.dinheiro.antecipando.total)} em antecipação · cai em até 2 dias úteis
+          {money(data.dinheiro.antecipando.total)} em antecipação ainda sem data · cai em até 2 dias úteis {/* @eligi:club-painel-ant-nota */}
         </div>
       )}
     </div>
@@ -589,7 +590,7 @@ function DayView({ data, date, money, hide }: { data: Painel; date: string; mone
               <Avatar name={r.clientName} />
               <div className="rt">
                 <b>{r.clientName}</b>
-                <span>{r.planName} · pago {ddmm(r.paidAt.slice(0, 10))}{r.tipo && <span className="chip">{TIPO[r.tipo] ?? r.tipo}</span>}</span>
+                <span>{r.planName} · pago {ddmm(r.paidAt.slice(0, 10))}{r.tipo && <span className="chip">{TIPO[r.tipo] ?? r.tipo}</span>}{r.bucket === 'ANTECIPANDO' && <span className="chip" style={{ background: D.blueBg, color: D.blue }}>{r.previsto ? 'antecipado · previsto' : 'antecipado'}</span>}</span>{/* @eligi:club-painel-ant-chip */}
               </div>
               <div className="val">{money(r.liquido)}<small>{r.taxa === null ? 'taxa a confirmar' : `taxa ${hide ? '••' : brl(r.taxa)}`}</small></div>
             </div>
