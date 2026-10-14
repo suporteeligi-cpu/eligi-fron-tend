@@ -43,6 +43,7 @@ interface PaidPayout {
 }
 
 interface MyCommissions {
+  periodKind?:    'week' | 'fortnight' | 'month' // @eligi:mycomm-kind-front
   periodLabel:    string
   periodStart:    string
   periodEnd:      string
@@ -70,6 +71,12 @@ function fmtDateBR(iso: string | null) {
 const PERIOD_LABELS: Record<Period, string> = {
   week:      'Esta semana',
   last_week: 'Semana passada',
+  month:     'Este mes',
+}
+// quinzenal: o back devolve o periodo de 14 dias do fechamento; o rotulo acompanha
+const FORTNIGHT_LABELS: Record<Period, string> = {
+  week:      'Esta quinzena',
+  last_week: 'Quinzena passada',
   month:     'Este mes',
 }
 
@@ -191,6 +198,8 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
   const [data,      setData]      = useState<MyCommissions | null>(null)
   const [firstLoad, setFirstLoad] = useState(true)
   const [expanded,  setExpanded]  = useState<Set<string>>(new Set())
+  // a aba "Este mes" nao diz a frequencia: guarda a da ultima resposta semanal/quinzenal
+  const [fortnight, setFortnight] = useState(false)
 
   const cacheRef = useRef<Partial<Record<Period, MyCommissions>>>({})
   const reqRef   = useRef(0)
@@ -209,6 +218,7 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
       const d: MyCommissions | null = res.data?.data ?? null
       if (token !== reqRef.current) return
       if (d) cacheRef.current[p] = d
+      if (d?.periodKind && d.periodKind !== 'month') setFortnight(d.periodKind === 'fortnight')
       setData(d)
       setExpanded(d?.days?.[0] ? new Set([d.days[0].date]) : new Set())
     } catch {
@@ -310,7 +320,7 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
               transition:'all 150ms ease',
             }}
           >
-            {PERIOD_LABELS[p]}
+            {(fortnight ? FORTNIGHT_LABELS : PERIOD_LABELS)[p]}
           </button>
         ))}
       </div>

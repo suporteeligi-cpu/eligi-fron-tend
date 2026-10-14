@@ -10,10 +10,12 @@ import api from '@/shared/lib/apiClient'
 type AccessStatus =
   | 'EXEMPT' | 'ACTIVE' | 'TRIAL'
   | 'BLOCKED_TRIAL_EXPIRED' | 'BLOCKED_PAST_DUE' | 'BLOCKED_CANCELED' | 'CANCELED_GRACE'
+  | 'PENDING_FIRST_PAYMENT' | 'PAST_DUE_GRACE' // @eligi:renew-grace-front-type
 
 interface SubscriptionView {
-  access: { status: AccessStatus; blocked: boolean; trialDaysLeft: number }
+  access: { status: AccessStatus; blocked: boolean; trialDaysLeft: number; graceEndsAt?: string }
   hasSubscription: boolean
+  overdue?: { dueDate: string | null; invoiceUrl: string } | null
   plan?: 'AUTONOMO' | 'ESTABELECIMENTO' | null
   value?: number | null
   currentPeriodEnd?: string | null
@@ -443,6 +445,23 @@ export default function AssinaturaPage() {
               </>
             )}
 
+            {/* @eligi:renew-grace-front-row — renovacao vencida, acesso ainda liberado */}
+            {status === 'PAST_DUE_GRACE' && (
+              <>
+                <StateRow icon={<AlertTriangle size={18} color="#f59e0b" />} title="Pagamento em aberto"
+                  desc={`A mensalidade venceu em ${endLabel}. Se você já pagou, é só aguardar a compensação do banco.${data?.access.graceEndsAt ? ` Seu acesso continua até ${fmtDate(data.access.graceEndsAt)}.` : ''}`} />
+                {data?.overdue?.invoiceUrl && (
+                  <a href={data.overdue.invoiceUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ ...ctaStyle, display: 'inline-flex', alignItems: 'center', minHeight: 44, textDecoration: 'none' }}>
+                    Pagar a fatura
+                  </a>
+                )}
+              </>
+            )}
+            {status === 'PENDING_FIRST_PAYMENT' && (
+              <StateRow icon={<AlertTriangle size={18} color="#f59e0b" />} title="Aguardando o primeiro pagamento"
+                desc="Sua assinatura foi criada. Assim que o banco confirmar o pagamento, ela aparece como ativa aqui." />
+            )}
             {status === 'BLOCKED_PAST_DUE' && (
               <StateRow icon={<AlertTriangle size={18} color="#dc2626" />} title="Pagamento atrasado"
                 desc="Ha uma cobranca em aberto. Regularize para reativar o acesso." />

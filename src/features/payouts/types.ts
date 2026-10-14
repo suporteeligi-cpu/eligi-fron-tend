@@ -11,6 +11,7 @@ export interface PayoutSettings {
   frequency:        PayoutFrequency
   weekday:          number | null
   periodStartDay:   number | null   // dia de início do período (0=Dom…6=Sáb)
+  periodAnchor?:    string | null   // @eligi:payout-anchor-type — quinzenal: "YYYY-MM-DD" em que uma quinzena começa
   monthDay:         number | null
   includeServices:  boolean
   includeProducts:  boolean

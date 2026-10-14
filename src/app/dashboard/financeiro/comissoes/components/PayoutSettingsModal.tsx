@@ -24,13 +24,32 @@ const WEEKDAYS = [
   { label: 'Sáb', value: 6 },
 ] as const
 
-/** Dado periodStartDay e weekday (pagamento), calcula o período da semana atual e scheduledFor */
-function previewPeriod(startDay: number, payDay: number): { start: Date; end: Date; pay: Date } {
-  const today   = new Date(); today.setHours(0,0,0,0)
-  const todayWd = today.getDay()
-  const dBack   = (todayWd - startDay + 7) % 7
-  const start   = new Date(today); start.setDate(today.getDate() - dBack)
-  const end     = new Date(start); end.setDate(start.getDate() + 6)
+/** Inicio da semana atual (dia startDay), meia-noite local. */
+function weekStartOf(startDay: number): Date {
+  const today = new Date(); today.setHours(0,0,0,0)
+  const start = new Date(today); start.setDate(today.getDate() - ((today.getDay() - startDay + 7) % 7))
+  return start
+}
+
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/* @eligi:payout-anchor-phase — quinzenal: a quinzena atual comecou nesta semana (0)
+   ou na semana passada (1). Le do inicio salvo; sem ele, comeca nesta semana. */
+function initialPhase(s: PayoutSettings | null): 0 | 1 {
+  if (!s?.periodAnchor || s.periodStartDay == null) return 0
+  const [y, m, d] = s.periodAnchor.split('-').map(Number)
+  const anchor = new Date(y, m - 1, d)
+  const weeks = Math.round((weekStartOf(s.periodStartDay).getTime() - anchor.getTime()) / (7 * 86_400_000))
+  return (((weeks % 2) + 2) % 2) as 0 | 1
+}
+
+/** Período atual e dia de pagamento. Quinzenal: 14 dias, começando `weeksBack` semanas atrás. */
+function previewPeriod(startDay: number, payDay: number, fortnight: boolean, weeksBack: number): { start: Date; end: Date; pay: Date } {
+  const start   = weekStartOf(startDay)
+  if (fortnight) start.setDate(start.getDate() - 7 * weeksBack)
+  const end     = new Date(start); end.setDate(start.getDate() + (fortnight ? 13 : 6))
   const endWd   = end.getDay()
   const dPay    = (payDay - endWd + 7) % 7
   const pay     = new Date(end); pay.setDate(end.getDate() + (dPay === 0 ? 0 : dPay))
@@ -51,6 +70,7 @@ export default function PayoutSettingsModal({ settings, isMobile, onClose, onSav
   const [weekday,        setWeekday]        = useState<number>(settings?.weekday ?? 2)
   const [periodStartDay, setPeriodStartDay] = useState<number>(settings?.periodStartDay ?? 0)
   const [monthDay,       setMonthDay]       = useState<number>(settings?.monthDay ?? 1)
+  const [phase,          setPhase]          = useState<0 | 1>(() => initialPhase(settings))
   const [includeServices,setIncludeServices]= useState(settings?.includeServices ?? true)
   const [includeProducts,setIncludeProducts]= useState(settings?.includeProducts ?? true)
   const [enabled,        setEnabled]        = useState(settings?.enabled ?? true)
@@ -67,8 +87,14 @@ export default function PayoutSettingsModal({ settings, isMobile, onClose, onSav
 
   const preview = useMemo(() => {
     if (!isWeekBased) return null
-    return previewPeriod(periodStartDay, weekday)
-  }, [isWeekBased, periodStartDay, weekday])
+    return previewPeriod(periodStartDay, weekday, frequency === 'BIWEEKLY', phase)
+  }, [isWeekBased, periodStartDay, weekday, frequency, phase])
+  // as duas opcoes de inicio da quinzena atual (esta semana / semana passada)
+  const phaseStarts = useMemo(() => {
+    const thisWeek = weekStartOf(periodStartDay)
+    const lastWeek = new Date(thisWeek); lastWeek.setDate(thisWeek.getDate() - 7)
+    return [thisWeek, lastWeek] as const
+  }, [periodStartDay])
 
   async function save() {
     setError(null)
@@ -82,6 +108,7 @@ export default function PayoutSettingsModal({ settings, isMobile, onClose, onSav
         frequency,
         weekday:        isWeekBased ? weekday : null,
         periodStartDay: isWeekBased ? periodStartDay : null,
+        periodAnchor:   frequency === 'BIWEEKLY' && preview ? dayKey(preview.start) : null,
         monthDay:       frequency === 'MONTHLY' ? monthDay : null,
         includeServices,
         includeProducts,
@@ -213,6 +240,37 @@ export default function PayoutSettingsModal({ settings, isMobile, onClose, onSav
                 ))}
               </div>
             </div>
+
+            {/* @eligi:payout-anchor-choice — quinzenal: em que semana a quinzena atual comecou */}
+            {frequency === 'BIWEEKLY' && (
+              <div>
+                <label style={labelStyle}>A QUINZENA ATUAL COMEÇOU EM</label>
+                <div style={{ fontSize: typography.scale.xs, color: typography.color.muted, marginBottom: 8 }}>
+                  As quinzenas seguintes contam 14 dias a partir daqui
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {phaseStarts.map((d, i) => {
+                    const on = phase === i
+                    return (
+                      <button key={i} onClick={() => setPhase(i as 0 | 1)} type="button" aria-pressed={on} style={{
+                        minHeight: 48, padding: '8px 10px', borderRadius: radius.sm,
+                        border: `1px solid ${on ? colors.red.DEFAULT : colors.gray.borderMd}`,
+                        background: on ? colors.red.subtle : '#fff',
+                        color: on ? colors.red.DEFAULT : typography.color.primary,
+                        fontSize: typography.scale.sm, fontWeight: typography.weight.semibold,
+                        cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                        transition: `all ${transitions.fast}`, WebkitTapHighlightColor: 'transparent',
+                      }}>
+                        {fmtWd(d)} {fmtShort(d)}
+                        <span style={{ display: 'block', fontSize: typography.scale.xs, fontWeight: 500, color: typography.color.muted }}>
+                          {i === 0 ? 'nesta semana' : 'na semana passada'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Dia de pagamento */}
             <div>
