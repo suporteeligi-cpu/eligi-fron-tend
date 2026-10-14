@@ -1611,7 +1611,9 @@ function MembrosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: str
   }, [fetchData])
 
   const stats = useMemo(() => {
-    const active = subs.filter(s => s.status === 'ACTIVE')
+    // @eligi:club-ativos-membros — manual vencido aparece como vencido na lista;
+    // os numeros do topo concordam com ela (mesma regra do Painel e do relatorio)
+    const active = subs.filter(s => effectiveSubStatus(s) === 'ACTIVE')
     const mrr = active.reduce((acc, s) => acc + (s.value ?? s.plan.price ?? 0), 0)
     return { activeCount: active.length, mrr, total: subs.length }
   }, [subs])
