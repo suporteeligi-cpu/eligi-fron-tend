@@ -12,7 +12,6 @@ import AgendaMobileList  from './AgendaMobileList'
 import SideCheckoutPanel from '@/features/booking/components/SideCheckoutPanel'
 import BookingViewPanel  from '@/features/booking/components/BookingViewPanel'
 import BlockModal        from './BlockModal'
-import AssistantLauncher from './assistant/AssistantLauncher'
 
 import { useAgendaStore }  from '../hooks/useAgendaStore'
 import { useAgendaSocket } from '../hooks/useAgendaSocket'
@@ -346,7 +345,6 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
       )}
 
       {/* Assistente Eligi: portal no body, serve os tres layouts */}
-      <AssistantLauncher />
     </>
   )
 }
