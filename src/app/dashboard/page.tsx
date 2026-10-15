@@ -62,6 +62,7 @@ import TodayScheduleCard       from './components/TodayScheduleCard'
 import PrioritiesCard          from './components/PrioritiesCard'
 import PeriodSelector          from './components/PeriodSelector'
 import OnlineChannelCard      from './components/OnlineChannelCard'
+import OverdueBanner           from './components/OverdueBanner' // @eligi:odue-banner-import
 
 // ─── tokens locais ─────────────────────────────────────────────────────────
 
@@ -431,6 +432,9 @@ export default function DashboardPage() {
         animation:  'fadeUp 0.3s ease',
         fontFamily: typography.fontFamily,
       }}>
+        {/* @eligi:odue-banner-use — mensalidade vencida dentro da tolerancia (so o dono) */}
+        <OverdueBanner />
+
         {/* ── Header ── */}
         <div style={{
           display:        'flex',
