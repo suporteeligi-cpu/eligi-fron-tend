@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { eligiApp } from '@/shared/utils/eligiApp' // @eligi:app-shell-import
 
 type Plat = 'android' | 'ios' | 'inapp' | 'desktop' | 'standalone' | 'unknown'
 
@@ -15,6 +16,8 @@ const RED = '#dc2626'
 
 function detectPlatform(): Plat {
   if (typeof window === 'undefined') return 'unknown'
+  // Dentro do app do Eligi o convite para instalar nao faz sentido. // @eligi:app-shell-standalone
+  if (eligiApp()) return 'standalone'
   const nav = navigator as Navigator & { standalone?: boolean; maxTouchPoints?: number }
   const ua = nav.userAgent || ''
   const standalone =
