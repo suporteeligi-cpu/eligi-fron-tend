@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ShoppingCart, CreditCard, Loader2, XCircle, Layers, Ticket, Globe } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
-import { colors, typography, transitions, radius } from '@/shared/theme'
+import { colors, typography, transitions, radius, inkLight } from '@/shared/theme' // @eligi:svc-prof-ink
 import { Sale, ProfLite, PackageCardLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
 import ClientPicker from './ClientPicker'
@@ -286,7 +286,11 @@ export default function CartPanel({
       && it.appliedPackageCardId == null
       && it.appliedMembershipCardId == null,
   )
-  const canCheckout = sale.items.length > 0 && pendingPriceItems.length === 0
+  // @eligi:svc-prof-gate
+  // Servico sem profissional nao gera comissao, e o back recusa fechar a venda
+  // (SERVICE_WITHOUT_PROFESSIONAL). Trava aqui antes, dizendo o que falta.
+  const missingProfItems = sale.items.filter(it => it.type === 'SERVICE' && !it.professionalId)
+  const canCheckout = sale.items.length > 0 && pendingPriceItems.length === 0 && missingProfItems.length === 0
 
   // ⭐ Venda 100% paga via pacote (ou desconto) — sem modal de pagamento
   const isFreeCheckout = canCheckout && sale.total === 0
@@ -679,6 +683,23 @@ export default function CartPanel({
                 letterSpacing: '-0.02em', lineHeight: 1,
               }}>{formatBRL(sale.total)}</span>
             </div>
+          </div>
+        )}
+
+        {/* @eligi:svc-prof-hint */}
+        {missingProfItems.length > 0 && (
+          <div role="status" style={{
+            padding: '8px 12px',
+            background: inkLight.warn.bg,
+            border: `1px solid ${inkLight.warn.border}`,
+            borderRadius: 8,
+            fontSize: 12,
+            color: inkLight.warn.text,
+            flexShrink: 0,
+          }}>
+            {missingProfItems.length === 1
+              ? `Escolha o profissional de "${missingProfItems[0].name}" para confirmar.`
+              : `Escolha o profissional de: ${missingProfItems.map(it => it.name).join(', ')}.`}
           </div>
         )}
 

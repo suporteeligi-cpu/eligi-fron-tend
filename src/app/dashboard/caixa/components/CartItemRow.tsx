@@ -473,7 +473,7 @@ export default function CartItemRow({
             value={item.professionalId ?? null}
             onChange={onChangeProf}
             label="Profissional do item"
-            disabled={disabled || isCovered}
+            disabled={disabled || (isCovered && !!item.professionalId) /* @eligi:svc-prof-covered */}
             allowNone={!isCheckoutOnly}
             compact
           />

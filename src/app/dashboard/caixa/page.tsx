@@ -228,6 +228,8 @@ export default function CaixaPage() {
     const inherited = activeSale?.items.find(it => it.type === 'SERVICE' && it.professionalId)?.professionalId
     if (inherited) return inherited
     if (isCheckoutOnly && user?.professionalId) return user.professionalId
+    // @eligi:svc-prof-solo - com um profissional so, nao ha o que escolher
+    if (!isCheckoutOnly && professionals.length === 1) return professionals[0].id
     return null
   }
 
