@@ -239,12 +239,13 @@ export default function AgendaToolbar({ onBlockClick, professionals }: Props) {
         .rg-day:active{transform:scale(0.92)}
         .rg-w{font-size:10px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:${INK3}}
         .rg-day.is-wknd .rg-w{color:#b0b0b8}
-        .rg-n{font-family:${typography.fontFamilyDisplay}; font-size:18px; font-weight:600; letter-spacing:-.02em; line-height:1; font-variant-numeric:tabular-nums}
+        /* @eligi:regua-fix-n cor explicita: o globals.css pinta 'main span' de cinza */
+        .rg-n{font-family:${typography.fontFamilyDisplay}; font-size:18px; font-weight:600; letter-spacing:-.02em; line-height:1; font-variant-numeric:tabular-nums; color:${INK}}
         .rg-day.is-today:not(.is-sel) .rg-n{text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:5px}
         .rg-day.is-sel{flex-basis:84px; background:${INK}; color:#fff; box-shadow:0 8px 18px -6px rgba(17,17,20,.45)}
         .rg-day.is-sel .rg-w{color:rgba(255,255,255,.6)}
-        .rg-day.is-sel .rg-n{font-size:21px}
-        .rg-mo{font-family:${typography.fontFamily}; font-size:11px; font-weight:600; opacity:.7; margin-left:3px; letter-spacing:0}
+        .rg-day.is-sel .rg-n{font-size:21px; color:#fff} /* @eligi:regua-fix-sel */
+        .rg-mo{font-family:${typography.fontFamily}; font-size:11px; font-weight:600; opacity:.7; margin-left:3px; letter-spacing:0; color:#fff} /* @eligi:regua-fix-mo */
         .rg-day.is-first::before{content:''; position:absolute; left:-2px; top:12px; bottom:12px; width:1px; background:${LINE}}
         .rg-day.is-sel.is-first::before{display:none}
         .rg-mo1{position:absolute; top:1px; left:50%; transform:translateX(-50%); font-family:${typography.fontFamilyMono}; font-size:8.5px; font-weight:600; letter-spacing:.08em; color:${INK3}}

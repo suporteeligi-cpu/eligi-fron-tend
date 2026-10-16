@@ -205,6 +205,9 @@ export default function CalendarPicker({
       .calp-chip:active:not(:disabled){transform:scale(0.94)}
       .calp-chip:disabled{opacity:0.35; cursor:not-allowed}
       .calp-quick{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; margin:0 -16px; padding:2px 16px 4px}
+      /* @eligi:calp-fix-grade computador: grade 3x2, sem rolagem lateral escondida (no celular a rolagem com o dedo fica) */
+      .calp-quick.is-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; overflow:visible; margin:0; padding:0}
+      .calp-quick.is-grid .calp-chip{min-width:0; padding:0 12px; border-radius:14px}
       .calp-quick::-webkit-scrollbar{display:none}
       .calp-pm{width:44px; height:44px; border-radius:12px; border:0; background:#fff; font-size:20px; font-weight:600; color:${INK}; cursor:pointer; box-shadow:0 1px 2px rgba(17,17,20,0.08); -webkit-tap-highlight-color:transparent; transition:transform 0.16s ${EASE_SPRING}}
       .calp-pm:active:not(:disabled){transform:scale(0.9)}
@@ -492,7 +495,8 @@ export default function CalendarPicker({
   const backInRow = extras ? (
     <>
       <div className="calp-lbl" style={{ marginTop: 10 }}>Voltar em</div>
-      <div className="calp-quick">
+      {/* @eligi:calp-fix-grid-jsx */}
+      <div className={`calp-quick${isMobile ? '' : ' is-grid'}`}>
         {backIn.map(([label, d]) => (
           <button key={label} className="calp-chip" disabled={isDisabled(d)} onClick={() => pick(d)}>
             {label}<small>{shortLabel(d)}</small>
