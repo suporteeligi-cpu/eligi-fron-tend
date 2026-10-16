@@ -16,7 +16,7 @@ import CurrentTimeLine   from './shared/CurrentTimeLine'
 import PreviewGhost, { PreviewItem } from './shared/PreviewGhost'
 
 import { AgendaProfessional, AgendaBooking, AgendaBlock } from '../types'
-import { colors, typography, radius, transitions } from '@/shared/theme'
+import { colors, typography, radius } from '@/shared/theme'
 import { useAgendaStore }    from '../hooks/useAgendaStore'
 import { useCurrentTimeY }   from '../hooks/useCurrentTimeY'
 import { useBookingActions } from '../hooks/useBookingActions'
@@ -37,86 +37,111 @@ import { WorkingHours } from './AgendaBoard'
 const TIME_COL_W = 48
 const ROW_H      = MOBILE_ROW_H
 const PX_PER_MIN = MOBILE_PX_PER_MIN
+const SWIPE_PROF_PX = 60
 
-// ─── Tabs de profissionais ────────────────────────────────────────────────────
-function ProfTabs({ professionals, selected, bookings, onChange }: {
+// ─── Seletor de profissionais (sublinhado) ───────────────────────────────────
+// @eligi:prof-sublinhado (out/2026) — opção 2 "Sublinhado" de 3 mockups.
+// Abas sobre fundo branco; selecionado em grafite com traço que desliza embaixo.
+// Ponto na foto = livre / atendendo / folga, só quando o dia é hoje.
+// Substitui a fila de pílulas vermelhas E a faixa de horários que ficava embaixo
+// (~87 px → ~47 px: a lista da agenda ganha ~40 px).
+type ProfStatus = 'free' | 'busy' | 'off' | null
+
+const STATUS_DOT: Record<Exclude<ProfStatus, null>, { color: string; label: string }> = {
+  free: { color: '#16A34A', label: 'livre agora' },
+  busy: { color: '#f59e0b', label: 'atendendo agora' },
+  off:  { color: '#a1a1aa', label: 'de folga hoje' },
+}
+
+const TAB_INK  = '#111114'
+const TAB_INK3 = '#8a8a93'
+
+function TabAvatar({ p }: { p: AgendaProfessional }) {
+  const isColor  = p.avatarUrl?.startsWith('color:')
+  const colorBg  = isColor ? p.avatarUrl!.replace('color:', '') : null
+  const isPhoto  = p.avatarUrl != null && !isColor
+  const initials = p.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+  return (
+    <span style={{
+      width: 24, height: 24, borderRadius: radius.full,
+      background: colorBg ?? (isPhoto ? 'transparent' : '#e9e9ed'),
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 9, fontWeight: 700, color: colorBg ? '#fff' : TAB_INK,
+      flexShrink: 0, overflow: 'hidden',
+    }}>
+      {isPhoto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={p.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : initials}
+    </span>
+  )
+}
+
+function ProfTabs({ professionals, selected, bookings, statusOf, onChange }: {
   professionals: AgendaProfessional[]
   selected:      string
   bookings:      AgendaBooking[]
+  statusOf:      (p: AgendaProfessional) => ProfStatus
   onChange:      (id: string) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const userInteractedRef = useRef(false)
+  const indRef = useRef<HTMLSpanElement>(null)
+  const firstRef = useRef(true)
 
-  useEffect(() => {
-    if (!userInteractedRef.current) return
-    const el = ref.current?.querySelector('.ptab-active') as HTMLElement | null
-    el?.scrollIntoView({ inline:'center', behavior:'smooth', block:'nearest' })
-  }, [selected])
+  // Traço embaixo do selecionado + centraliza a aba. DOM direto (nada de state).
+  useLayoutEffect(() => {
+    const bar = ref.current
+    const ind = indRef.current
+    const el = bar?.querySelector('.ptab-active') as HTMLElement | null
+    if (!bar || !ind || !el) return
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ind.style.transition = firstRef.current || reduce ? 'none' : ''
+    ind.style.width = `${Math.max(0, el.offsetWidth - 20)}px`
+    ind.style.transform = `translateX(${el.offsetLeft + 10}px)`
+    bar.scrollTo({ left: el.offsetLeft - bar.clientWidth / 2 + el.offsetWidth / 2, behavior: firstRef.current || reduce ? 'auto' : 'smooth' })
+    firstRef.current = false
+  }, [selected, professionals.length])
 
   if (professionals.length <= 1) return null
 
-  function Avatar({ p, isActive }: { p: AgendaProfessional; isActive: boolean }) {
-    const isColor  = p.avatarUrl?.startsWith('color:')
-    const colorBg  = isColor ? p.avatarUrl!.replace('color:','') : null
-    const isPhoto  = p.avatarUrl != null && !isColor
-    const initials = p.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
-    return (
-      <div style={{
-        width:22, height:22, borderRadius:radius.full,
-        background: colorBg ?? (isPhoto ? 'transparent' : isActive ? 'rgba(255,255,255,0.25)' : colors.red.subtle),
-        display:'flex', alignItems:'center', justifyContent:'center',
-        fontSize:9, fontWeight:700,
-        color: isActive ? '#fff' : colors.red.DEFAULT,
-        flexShrink:0, overflow:'hidden',
-      }}>
-        {isPhoto ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={p.avatarUrl} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-        ) : initials}
-      </div>
-    )
-  }
-
   return (
-    <div ref={ref} style={{
-      display:'flex', gap:6, padding:'8px 14px', overflowX:'auto', scrollbarWidth:'none',
-      borderBottom:`1px solid ${colors.gray.border}`,
-      background:'rgba(245,245,247,0.98)', backdropFilter:'blur(12px)', flexShrink:0,
-    }}>
+    <div ref={ref} className="ptab-bar" role="tablist" aria-label="Profissionais">
+      <style>{`
+        .ptab-bar{position:relative; display:flex; gap:2px; padding:0 6px; overflow-x:auto; scrollbar-width:none; background:#fff; border-bottom:1px solid ${colors.gray.border}; flex-shrink:0}
+        .ptab-bar::-webkit-scrollbar{display:none}
+        .ptab{flex:1 0 auto; min-width:88px; height:46px; border:0; background:transparent; display:flex; align-items:center; justify-content:center; gap:7px; padding:0 10px; cursor:pointer; font-family:${typography.fontFamily}; font-size:13px; font-weight:500; color:${TAB_INK3}; white-space:nowrap; -webkit-tap-highlight-color:transparent; transition:color .2s}
+        .ptab.ptab-active{color:${TAB_INK}; font-weight:700}
+        .ptab .ptab-av{position:relative; display:inline-flex}
+        .ptab .ptab-dot{position:absolute; right:-2px; bottom:-2px; width:9px; height:9px; border-radius:50%; border:2px solid #fff}
+        .ptab.is-off .ptab-av > span:first-child{filter:grayscale(1); opacity:.5}
+        .ptab .ptab-ct{font-size:11px; font-weight:600; font-variant-numeric:tabular-nums; color:${TAB_INK3}}
+        .ptab .ptab-nm{color:inherit}
+        .ptab-ind{position:absolute; bottom:0; left:0; height:3px; border-radius:3px 3px 0 0; background:${TAB_INK}; transition:transform .32s cubic-bezier(0.34,1.3,0.64,1), width .32s cubic-bezier(0.34,1.3,0.64,1); pointer-events:none}
+      `}</style>
       {professionals.map(p => {
         const isActive = p.id === selected
         const count    = bookings.filter(b => b.professionalId === p.id).length
+        const st       = statusOf(p)
+        const first    = p.name.split(' ')[0]
         return (
           <button
             key={p.id}
-            className={isActive ? 'ptab-active' : ''}
-            onClick={() => { userInteractedRef.current = true; onChange(p.id) }}
-            style={{
-              display:'flex', alignItems:'center', gap:7,
-              padding:'7px 13px', borderRadius:radius.full,
-              border: `1px solid ${isActive ? 'transparent' : colors.gray.borderMd}`,
-              background: isActive ? colors.red.gradient : colors.background.surface,
-              cursor:'pointer', flexShrink:0, whiteSpace:'nowrap',
-              boxShadow: isActive ? `0 3px 10px ${colors.red.glow}` : 'none',
-              transition: `all ${transitions.spring}`,
-              WebkitTapHighlightColor: 'transparent',
-            }}
+            role="tab"
+            aria-selected={isActive}
+            aria-label={`${p.name}, ${count} ${count === 1 ? 'agendamento' : 'agendamentos'}${st ? `, ${STATUS_DOT[st].label}` : ''}`}
+            className={`ptab${isActive ? ' ptab-active' : ''}${st === 'off' ? ' is-off' : ''}`}
+            onClick={() => onChange(p.id)}
           >
-            <Avatar p={p} isActive={isActive} />
-            <span style={{ fontSize:12, fontWeight:600, color: isActive ? '#fff' : colors.gray[700] }}>
-              {p.name.split(' ')[0]}
+            <span className="ptab-av">
+              <TabAvatar p={p} />
+              {st && <span className="ptab-dot" style={{ background: STATUS_DOT[st].color }} />}
             </span>
-            {count > 0 && (
-              <span style={{
-                fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:radius.full,
-                background: isActive ? 'rgba(255,255,255,0.25)' : colors.red.subtle,
-                color: isActive ? '#fff' : colors.red.DEFAULT,
-              }}>{count}</span>
-            )}
+            <span className="ptab-nm">{first}</span>
+            <span className="ptab-ct">{st === 'off' && count === 0 ? 'folga' : count}</span>
           </button>
         )
       })}
+      <span ref={indRef} className="ptab-ind" aria-hidden />
     </div>
   )
 }
@@ -219,6 +244,41 @@ export default function AgendaMobileList({
   function setDrag(next: ActiveDrag | null) {
     dragRef.current = next
     setDragState(next)
+  }
+
+  // ─── Status do profissional agora (só hoje) ────────────────────────────────
+  // currentY vem do relógio da agenda (useCurrentTimeY): nada de Date.now() no render.
+  const isTodaySel = dayjs(selectedDate).isSame(dayjs(), 'day')
+  const nowMin = isTodaySel && currentY >= 0 ? Math.round(START_MIN + currentY / PX_PER_MIN) : null
+  function statusOf(p: AgendaProfessional): ProfStatus {
+    if (nowMin === null) return null
+    const wh = p.workingHours ?? workingHours
+    if (wh && !wh.open) return 'off'
+    if (wh && (nowMin < toMinutes(wh.startTime) || nowMin >= toMinutes(wh.endTime))) return null
+    const busy = unique.some(b =>
+      b.professionalId === p.id && b.status !== 'CANCELED' && b.status !== 'NO_SHOW'
+      && toMinutes(b.start) <= nowMin && nowMin < toMinutes(b.end))
+    return busy ? 'busy' : 'free'
+  }
+
+  // ─── Arrastar a agenda para o lado troca de profissional ───────────────────
+  // Não briga com arrastar card (exige segurar LONG_PRESS_MS) nem com rolar (vertical).
+  const swipeRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  function onSwipeStart(e: React.TouchEvent) {
+    const t = e.touches[0]
+    swipeRef.current = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY, time: Date.now() } : null
+  }
+  function trySwipe(e: React.TouchEvent) {
+    const s0 = swipeRef.current
+    swipeRef.current = null
+    const t = e.changedTouches[0]
+    if (!s0 || !t || professionals.length <= 1) return
+    const dx = t.clientX - s0.x
+    const dy = t.clientY - s0.y
+    if (Math.abs(dx) < SWIPE_PROF_PX || Math.abs(dx) < Math.abs(dy) * 1.6 || Date.now() - s0.time > 700) return
+    const i = professionals.findIndex(p => p.id === activeProfId)
+    const next = professionals[i + (dx < 0 ? 1 : -1)]
+    if (next) setActiveProfId(next.id)
   }
 
   // ─── Dados do prof ativo ───────────────────────────────────────────────────
@@ -531,46 +591,8 @@ export default function AgendaMobileList({
 
       <ProfTabs
         professionals={professionals} selected={activeProfId}
-        bookings={unique} onChange={setActiveProfId}
+        bookings={unique} statusOf={statusOf} onChange={setActiveProfId}
       />
-
-      {/* Resumo */}
-      {profBookings.length > 0 && (
-        <div style={{
-          display:'flex', alignItems:'center', gap:10,
-          padding:'7px 14px', flexShrink:0,
-          background:'rgba(245,245,247,0.6)',
-          borderBottom:`1px solid ${colors.gray.border}`,
-        }}>
-          <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
-            <div style={{
-              width:6, height:6, borderRadius:'50%',
-              background: colors.red.DEFAULT,
-              boxShadow: `0 0 5px ${colors.red.glow}`,
-            }} />
-            <span style={{ fontSize:12, fontWeight:600, color: colors.gray[700] }}>
-              {profBookings.length} agend.
-            </span>
-          </div>
-          <div style={{ display:'flex', gap:4, overflowX:'auto', scrollbarWidth:'none', flex:1 }}>
-            {profBookings.slice(0, 5).map(b => (
-              <span key={b.id} style={{
-                padding:'2px 8px', borderRadius:radius.full,
-                background: colors.red.subtle, border:`1px solid ${colors.red.border}`,
-                fontSize:11, fontWeight:600, color: colors.red.dark,
-                whiteSpace:'nowrap', flexShrink:0,
-              }}>{b.start}</span>
-            ))}
-            {profBookings.length > 5 && (
-              <span style={{
-                padding:'2px 8px', borderRadius:radius.full,
-                background:'rgba(0,0,0,0.05)', fontSize:11,
-                color: colors.gray.dimText, flexShrink:0,
-              }}>+{profBookings.length - 5}</span>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Grade */}
       <div
@@ -584,8 +606,9 @@ export default function AgendaMobileList({
           paddingBottom: 'calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px))',
         }}
         onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchEnd}
+        onTouchStart={onSwipeStart}
+        onTouchEnd={e => { const dragging = dragRef.current !== null; onTouchEnd(); if (!dragging) trySwipe(e) }}
+        onTouchCancel={() => { swipeRef.current = null; onTouchEnd() }}
       >
         <div style={{ display:'flex', minHeight: TOTAL_H }}>
 
