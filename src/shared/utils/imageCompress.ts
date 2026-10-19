@@ -116,6 +116,21 @@ const MAX_INPUT_BYTES = MAX_INPUT_MB * 1024 * 1024;
  */
 const MAX_INPUT_PIXELS = 40_000_000;
 
+/**
+ * @eligi:canvas-max-area
+ * Teto de area de UM canvas. Safari no iOS recusa canvas acima de
+ * 16.777.216 px (4096x4096): getContext('2d') volta null. Foto de 24 MP
+ * (padrao dos iPhones recentes) passava do teto na 1a copia em resolucao
+ * cheia. Margem abaixo do limite real.
+ */
+const MAX_CANVAS_AREA = 16_000_000;
+
+/** Libera o backing store ja; Safari soma memoria de canvas ate o GC. */
+function releaseCanvas(canvas: HTMLCanvasElement): void {
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
 /** Atributo `accept` pronto pro <input type="file">. */
 export const IMAGE_ACCEPT_ATTR = ACCEPTED_INPUT_TYPES.join(',');
 
@@ -257,11 +272,22 @@ function drawScaled(
   targetWidth: number,
   targetHeight: number,
 ): HTMLCanvasElement {
-  let canvas = createCanvas(decoded.width, decoded.height);
-  get2d(canvas).drawImage(decoded.source, 0, 0, decoded.width, decoded.height);
-
+  // @eligi:canvas-first-step
+  // A 1a etapa ja sai reduzida: nunca aloca canvas acima de MAX_CANVAS_AREA.
+  // O decodificado (bitmap/img) pode ser grande; so o canvas e limitado.
   let currentWidth = decoded.width;
   let currentHeight = decoded.height;
+  while (
+    currentWidth * currentHeight > MAX_CANVAS_AREA &&
+    currentWidth > targetWidth * 2 &&
+    currentHeight > targetHeight * 2
+  ) {
+    currentWidth = Math.max(targetWidth, Math.round(currentWidth / 2));
+    currentHeight = Math.max(targetHeight, Math.round(currentHeight / 2));
+  }
+
+  let canvas = createCanvas(currentWidth, currentHeight);
+  get2d(canvas).drawImage(decoded.source, 0, 0, currentWidth, currentHeight);
 
   while (currentWidth > targetWidth * 2 && currentHeight > targetHeight * 2) {
     const nextWidth = Math.max(targetWidth, Math.round(currentWidth / 2));
@@ -270,6 +296,7 @@ function drawScaled(
     const next = createCanvas(nextWidth, nextHeight);
     get2d(next).drawImage(canvas, 0, 0, nextWidth, nextHeight);
 
+    releaseCanvas(canvas); // @eligi:canvas-release-loop
     canvas = next;
     currentWidth = nextWidth;
     currentHeight = nextHeight;
@@ -278,6 +305,7 @@ function drawScaled(
   if (currentWidth !== targetWidth || currentHeight !== targetHeight) {
     const final = createCanvas(targetWidth, targetHeight);
     get2d(final).drawImage(canvas, 0, 0, targetWidth, targetHeight);
+    releaseCanvas(canvas); // @eligi:canvas-release-final
     canvas = final;
   }
 
