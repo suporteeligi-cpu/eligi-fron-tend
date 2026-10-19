@@ -10,6 +10,7 @@ import {
   refreshRequest, // @eligi:auth-import-refresh
 } from '@/lib/auth.api'
 import { AuthUser } from '@/types/auth.types'
+import { eligiApp } from '@/shared/utils/eligiApp'
 
 type Role = 'BUSINESS_OWNER' | 'AFFILIATE'
 
@@ -128,11 +129,17 @@ export function useAuth() {
   }, [pathname, router])
 
   function redirectByRole(me: AuthUser) {
-    if (me.role === 'BUSINESS_OWNER' && !me.onboardingDone) {
-      router.push('/onboarding')
-    } else {
-      router.push('/dashboard')
+    const target = me.role === 'BUSINESS_OWNER' && !me.onboardingDone ? '/onboarding' : '/dashboard'
+    // @eligi:auth-app-hard-nav
+    // Dentro do app Android/iOS (casca), navegacao COMPLETA em vez de SPA: o
+    // WebView do Android so grava no disco os cookies novos do login quando uma
+    // pagina termina de carregar. Com router.push, fechar o app logo depois de
+    // entrar perdia a sessao (19/10/2026). No navegador continua SPA.
+    if (eligiApp()) {
+      window.location.assign(target)
+      return
     }
+    router.push(target)
   }
 
   async function login(email: string, password: string) {
