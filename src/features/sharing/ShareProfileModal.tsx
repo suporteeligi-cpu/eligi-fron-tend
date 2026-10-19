@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { X, Link2, Copy, Check, Download, Share2 } from 'lucide-react'
 import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
+import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
 
 interface Props {
   onClose:    () => void
@@ -64,6 +65,13 @@ export default function ShareProfileModal({ onClose, qrDataUrl = null }: Props) 
   /* ── Download QR Code ── */
   const handleDownloadQR = useCallback(() => {
     if (!qrDataUrl || !slug) return
+    // @eligi:app-files-qr — no app vai para o menu de salvar/compartilhar.
+    if (appReceivesFiles()) {
+      void fetch(qrDataUrl)
+        .then((r) => r.blob())
+        .then((b) => sendFileToApp(b, `qrcode-${slug}.png`, 'share'))
+      return
+    }
     const a = document.createElement('a')
     a.href     = qrDataUrl
     a.download = `qrcode-${slug}.png`

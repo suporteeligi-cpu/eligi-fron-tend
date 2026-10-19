@@ -20,6 +20,7 @@ import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 
 import api from '@/shared/lib/apiClient'
+import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
 import { typography } from '@/shared/theme'
 import { Sale } from '@/features/sales/types'
 import { formatBRL, shortId, PAYMENT_METHOD_LABEL } from '@/features/sales/utils/format'
@@ -98,6 +99,19 @@ export default function SaleReceiptModal({
 
   const handlePrint = useCallback(async () => {
     pausedRef.current = true
+    // @eligi:app-files-recibo — no app nao ha aba nova: abre no leitor do celular.
+    if (appReceivesFiles()) {
+      try {
+        setStatus({ kind: 'busy', msg: 'Gerando PDF…' })
+        await sendFileToApp(await fetchPdf(), `recibo-${shortId(sale.id)}.pdf`, 'open')
+        setStatus({ kind: 'idle' })
+      } catch {
+        setStatus({ kind: 'err', msg: 'Não foi possível gerar o PDF' })
+      } finally {
+        pausedRef.current = false
+      }
+      return
+    }
     const tab = window.open('', '_blank') // abre ANTES do await (evita bloqueio de pop-up)
     try {
       setStatus({ kind: 'busy', msg: 'Gerando PDF…' })
@@ -113,7 +127,7 @@ export default function SaleReceiptModal({
     } finally {
       pausedRef.current = false
     }
-  }, [fetchPdf])
+  }, [fetchPdf, sale.id])
 
   const canShareFiles = useCallback((file: File) => {
     const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
@@ -126,7 +140,9 @@ export default function SaleReceiptModal({
       setStatus({ kind: 'busy', msg: 'Preparando recibo…' })
       const blob = await fetchPdf()
       const file = new File([blob], `recibo-${shortId(sale.id)}.pdf`, { type: 'application/pdf' })
-      if (canShareFiles(file)) {
+      if (await sendFileToApp(blob, file.name, 'share')) { // @eligi:app-files-recibo-wa
+        setStatus({ kind: 'idle' })
+      } else if (canShareFiles(file)) {
         const nav = navigator as Navigator & { share: (d: ShareData) => Promise<void> }
         await nav.share({ files: [file], title: `Recibo #${shortId(sale.id)}` })
         setStatus({ kind: 'idle' })

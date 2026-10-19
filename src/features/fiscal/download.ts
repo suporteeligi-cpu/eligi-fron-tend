@@ -3,6 +3,7 @@
 // baseURL do apiClient e manda o cookie. URL na mão abriria 401 numa aba
 // em branco e dependeria de env no client.
 import api from '@/shared/lib/apiClient'
+import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
 
 /** Força download de um arquivo (XML — documento de guarda). */
 export async function downloadFile(path: string, filename: string): Promise<void> {
@@ -17,6 +18,11 @@ export async function fetchPdf(path: string): Promise<Blob> {
 }
 
 export function saveBlob(blob: Blob, filename: string): void {
+  // @eligi:app-files-save — no app nao existe download: vai para o menu de salvar/compartilhar.
+  if (appReceivesFiles()) {
+    void sendFileToApp(blob, filename, 'share')
+    return
+  }
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -33,6 +39,7 @@ export function saveBlob(blob: Blob, filename: string): void {
  * quase nunca existe; o chamador cai para download.
  */
 export function canShareFiles(blob: Blob, filename: string): boolean {
+  if (appReceivesFiles()) return true // @eligi:app-files-canshare
   if (typeof navigator === 'undefined' || !navigator.canShare) return false
   try {
     return navigator.canShare({ files: [new File([blob], filename, { type: blob.type })] })
@@ -42,6 +49,7 @@ export function canShareFiles(blob: Blob, filename: string): boolean {
 }
 
 export async function shareBlob(blob: Blob, filename: string, title: string): Promise<void> {
+  if (await sendFileToApp(blob, filename, 'share')) return // @eligi:app-files-share
   const file = new File([blob], filename, { type: blob.type })
   await navigator.share({ files: [file], title })
 }
@@ -54,6 +62,11 @@ export async function shareBlob(blob: Blob, filename: string, title: string): Pr
  * for bloqueado, cai para download.
  */
 export async function openPdf(path: string, filename = 'comprovante.pdf'): Promise<void> {
+  // @eligi:app-files-open — no app nao ha aba nova: o PDF abre no leitor do celular.
+  if (appReceivesFiles()) {
+    await sendFileToApp(await fetchPdf(path), filename, 'open')
+    return
+  }
   const tab = window.open('', '_blank', 'noopener')
   try {
     const blob = await fetchPdf(path)

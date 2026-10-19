@@ -15,6 +15,7 @@ import ClientsSearchBar     from './components/ClientsSearchBar'
 import ClientsTableDesktop  from './components/ClientsTableDesktop'
 import ClientsListMobile    from './components/ClientsListMobile'
 import ImportClientsModal   from './components/ImportClientsModal'
+import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
 
 export default function ClientesPage() {
   const router = useRouter()
@@ -114,10 +115,16 @@ export default function ClientesPage() {
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
     const csv = '\uFEFF' + ['Nome,Telefone', ...rows.map(c => `${esc(c.name)},${esc(c.phone ?? '')}`)].join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const nome = `clientes-${new Date().toISOString().slice(0, 10)}.csv`
+    // @eligi:app-files-clientes — no app vai para o menu de salvar/compartilhar.
+    if (appReceivesFiles()) {
+      void sendFileToApp(blob, nome, 'share')
+      return
+    }
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
     a.href     = url
-    a.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = nome
     document.body.appendChild(a)
     a.click()
     a.remove()

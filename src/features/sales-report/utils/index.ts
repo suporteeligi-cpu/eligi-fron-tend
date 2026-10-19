@@ -1,5 +1,6 @@
 // src/features/sales-report/utils/index.ts
 import { PaymentMethod, SaleReportStatus, ExportRow } from '../types'
+import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
 
 export function fmtBRL(v: number): string {
   return `R$ ${v.toFixed(2).replace('.', ',')}`
@@ -115,10 +116,24 @@ export async function exportToExcel(rows: ExportRow[], filename: string) {
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Vendas')
+  // @eligi:app-files-xlsx — no app o writeFile (download) nao funciona.
+  if (appReceivesFiles()) {
+    const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
+    await sendFileToApp(
+      new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `${filename}.xlsx`,
+      'share',
+    )
+    return
+  }
   XLSX.writeFile(wb, `${filename}.xlsx`)
 }
 
 function downloadBlob(blob: Blob, filename: string) {
+  if (appReceivesFiles()) { // @eligi:app-files-csv
+    void sendFileToApp(blob, filename, 'share')
+    return
+  }
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

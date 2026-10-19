@@ -9,6 +9,7 @@ import { ink, tone, body, brl } from '../ui'
 import { fetchPdf, saveBlob, canShareFiles, shareBlob } from '../download'
 import type { NfseEmission } from '../types'
 import { apiErrorMessage } from '../utils'
+import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
 
 const overlay: CSSProperties = {
   position: 'fixed',
@@ -61,6 +62,12 @@ export default function ReceiptPreviewModal({
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
+  // @eligi:app-files-preview — no app o WebView do Android nao desenha PDF em iframe:
+  // a previa vira um botao que abre o PDF no leitor do celular.
+  const [inApp] = useState(appReceivesFiles)
+  const abrirNoApp = () => {
+    if (blob) void sendFileToApp(blob, filename, 'open')
+  }
 
   const filename = `Comprovante-NFSe-${emission.nfseNumber ?? emission.id}.pdf`
 
@@ -162,7 +169,15 @@ export default function ReceiptPreviewModal({
           {!error && !url && (
             <div style={{ padding: 40, textAlign: 'center', ...body, fontSize: 13 }}>Gerando comprovante…</div>
           )}
-          {url && (
+          {url && inApp && (
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+              <button style={btnDark} onClick={abrirNoApp}>
+                <FileText size={14} strokeWidth={1.8} />
+                Abrir comprovante
+              </button>
+            </div>
+          )}
+          {url && !inApp && (
             <>
               <iframe
                 src={`${url}#toolbar=0&navpanes=0`}
@@ -219,11 +234,19 @@ export default function ReceiptPreviewModal({
               {sharing ? 'Abrindo…' : 'Compartilhar'}
             </button>
           )}
-          <button style={podeCompartilhar ? btn : btnDark} onClick={() => blob && saveBlob(blob, filename)} disabled={!blob}>
-            <Download size={14} strokeWidth={1.8} />
-            Baixar PDF
-          </button>
-          {url && (
+          {!inApp && (
+            <button style={podeCompartilhar ? btn : btnDark} onClick={() => blob && saveBlob(blob, filename)} disabled={!blob}>
+              <Download size={14} strokeWidth={1.8} />
+              Baixar PDF
+            </button>
+          )}
+          {inApp && blob && (
+            <button style={btn} onClick={abrirNoApp}>
+              <ExternalLink size={14} strokeWidth={1.8} />
+              Abrir
+            </button>
+          )}
+          {url && !inApp && (
             <a href={url} target="_blank" rel="noopener noreferrer" style={{ ...btn, textDecoration: 'none' }}>
               <ExternalLink size={14} strokeWidth={1.8} />
               Abrir
