@@ -10,7 +10,7 @@
 // Visao geral — direcao "Cockpit" (fatia 1).
 //
 // O que esta fatia entrega:
-//   - saudacao contextual (sem nome: a AppNavbar ja mostra "Ola, <nome>")
+//   - saudacao contextual com o primeiro nome (@eligi:greet-nome: a AppNavbar deixou de mostrar "Ola, <nome>" em out/2026)
 //   - ticker horizontal de KPIs no lugar do hero + side card + strip de 3
 //   - glassCard / inkLight do theme.ts no lugar do token CARD local
 //   - fim do EmptySlot ("EM BREVE")
@@ -74,12 +74,18 @@ const MOBILE_GUTTER  = 12
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
-/** Saudacao por faixa horaria. Sem nome: a AppNavbar ja identifica o usuario. */
+/** Saudacao por faixa horaria. O nome entra no render (withName). */
 function greetingFor(hour: number): string {
   if (hour < 5)  return 'Boa madrugada!'
   if (hour < 12) return 'Bom dia!'
   if (hour < 18) return 'Boa tarde!'
   return 'Boa noite!'
+}
+
+/** "Boa tarde!" + "Gilson Calixta" -> "Boa tarde, Gilson!" */
+function withName(greeting: string, fullName?: string | null): string {
+  const first = (fullName ?? '').trim().split(' ')[0]
+  return first ? greeting.replace(/!$/, `, ${first}!`) : greeting
 }
 
 function plural(n: number, singular: string, pluralWord: string): string {
@@ -453,7 +459,7 @@ export default function DashboardPage() {
               letterSpacing: '-.025em',
               lineHeight:    1.1,
             }}>
-              {greeting}
+              {withName(greeting, authUser?.name)}
             </h1>
             <p style={{
               fontSize:      13,

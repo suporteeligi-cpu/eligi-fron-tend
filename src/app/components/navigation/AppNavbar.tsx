@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback, useLayoutEffect } from 'react
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
-  Bell, Sun, Moon, Search, X, Calendar, Users, ChevronRight, Clock, Share2, Store,
+  Bell, Search, X, Calendar, Users, ChevronRight, ChevronDown, Clock, Share2, Store, Settings, LogOut,
   Sunrise, CalendarPlus, CalendarClock, CalendarX, UserX, Package, CreditCard, UserPlus, CheckCheck,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -15,7 +15,10 @@ import { io, Socket } from 'socket.io-client'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import relativeTime from 'dayjs/plugin/relativeTime'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import { navigationByRole, activeNavPath, type Role } from './navigation.config'
+import { canAccessRoute } from './routeAccess'
+import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
 import ShareProfileModal from '@/features/sharing/ShareProfileModal'
 import ProfAvatar from '@/features/agenda/components/shared/ProfAvatar'
 import QRCode from 'qrcode'
@@ -428,12 +431,34 @@ const ROLE_LABEL: Record<string, string> = {
   AFFILIATE:      'Afiliado',
 }
 
+// @eligi:navbar-contexto (out/2026) — direção A "Contexto" de 3 mockups.
+// Esquerda: o nome da tela + o dia (na agenda, o dia escolhido). Centro: busca.
+// Direita: link de agendamento, sino (contador grafite) e UM botão de conta com a
+// logo do estabelecimento, que abre conta, link, configurações e sair.
+// Saíram: "Olá, nome" (repetia o rodapé do menu lateral) e o botão de modo
+// escuro, que estava bloqueado. Altura igual (60 px, topo em 16): o 104 dos
+// outros arquivos não muda.
+const WEEK_PT  = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+const MONTH_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+const NAV_INK  = '#111114'
+const NAV_INK3 = '#8a8a93'
+
+/** Títulos que não são o rótulo do menu lateral. */
+const TITLE_OVERRIDE: Record<string, string> = { '/dashboard': 'Visão geral' }
+
+function longDay(d: dayjs.Dayjs): string {
+  return `${WEEK_PT[d.day()]}, ${d.date()} de ${MONTH_PT[d.month()]}`
+}
+
 export default function AppNavbar() {
   const auth     = useAuth()
   const isMobile = useIsMobile(768)
+  const router   = useRouter()
+  const pathname = usePathname()
+  const agendaDate = useAgendaStore(s => s.selectedDate)
 
   const [scrolled,    setScrolled]    = useState(false)
-  const [darkMode,    setDarkMode]    = useState<boolean>(() =>
+  const [darkMode]                    = useState<boolean>(() =>
     typeof window !== 'undefined' ? localStorage.getItem('eligi-theme') === 'dark' : false
   )
   const [showSearch,  setShowSearch]  = useState(false)
@@ -443,10 +468,8 @@ export default function AppNavbar() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [toast,       setToast]       = useState<ToastState>(null)
   const [refreshKey,  setRefreshKey]  = useState(0)
-  const [avatarHover, setAvatarHover] = useState(false)
-  const [shareHover,  setShareHover]  = useState(false)
-  const [themeNotice, setThemeNotice] = useState(false)
-  const [themeShake,  setThemeShake]  = useState(false)
+  const [menuAt,      setMenuAt]      = useState<{ top: number; right: number } | null>(null)
+  const [confirmOut,  setConfirmOut]  = useState(false)
 
   const businessId = auth?.user?.businessId ?? ''
 
@@ -462,6 +485,8 @@ export default function AppNavbar() {
       .catch(() => setQrDataUrl(null))
   }, [auth?.user?.businessSlug])
 
+  // Modo escuro segue desligado (em desenvolvimento): só respeita quem já tinha
+  // salvo 'dark' antes do bloqueio. O botão saiu da barra.
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark')
     else          document.documentElement.classList.remove('dark')
@@ -476,6 +501,7 @@ export default function AppNavbar() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowSearch(v => !v) }
+      if (e.key === 'Escape') { setMenuAt(null); setConfirmOut(false) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -553,70 +579,59 @@ export default function AppNavbar() {
     }
   }, [businessId])
 
-  function toggleTheme() {
-    const next = !darkMode
-    setDarkMode(next)
-    localStorage.setItem('eligi-theme', next ? 'dark' : 'light')
-  }
-  /** TEMPORARIO: modo escuro ainda em desenvolvimento. Bloqueia o clique
-   *  mantendo toggleTheme/darkMode intactos. Reativar = trocar onClick de volta. */
-  function denyTheme() {
-    setThemeShake(true)
-    setThemeNotice(true)
-    window.setTimeout(() => setThemeShake(false), 380)
-    window.setTimeout(() => setThemeNotice(false), 2600)
-  }
-
-  const firstName = auth?.user?.name?.split(' ')[0] ?? ''
-  const roleLabel = ROLE_LABEL[auth?.user?.role ?? ''] ?? ''
+  const role      = auth?.user?.role ?? ''
+  const fullName  = auth?.user?.name ?? ''
+  const firstName = fullName.split(' ')[0] ?? ''
+  const roleLabel = ROLE_LABEL[role] ?? ''
   const logoUrl   = auth?.user?.logoUrl ?? null
   const bizName   = auth?.user?.businessName ?? ''
+  const canSettings = canAccessRoute(role, '/dashboard/configuracoes')
+
+  // ── Onde estou: rótulo do item do menu lateral (prefixo mais longo) ──
+  const navItems = navigationByRole[role as Role] ?? []
+  const activePath = activeNavPath(navItems, pathname)
+  const pageTitle = activePath
+    ? (TITLE_OVERRIDE[activePath] ?? navItems.find(i => i.path === activePath)?.label ?? '')
+    : ''
+  const onAgenda = activePath === '/dashboard/agenda'
+  const subDay = longDay(onAgenda && agendaDate ? dayjs(agendaDate) : dayjs())
+  const subDayShort = (() => {
+    const d = onAgenda && agendaDate ? dayjs(agendaDate) : dayjs()
+    return `${WEEK_PT[d.day()].slice(0, 3)}, ${d.date()} ${MONTH_PT[d.month()].slice(0, 3)}`
+  })()
+
+  function openMenu(e: React.MouseEvent<HTMLButtonElement>) {
+    if (menuAt) { setMenuAt(null); setConfirmOut(false); return }
+    const r = e.currentTarget.getBoundingClientRect()
+    setMenuAt({ top: r.bottom + 10, right: Math.max(12, window.innerWidth - r.right) })
+    setConfirmOut(false)
+  }
+  function closeMenu() { setMenuAt(null); setConfirmOut(false) }
+
+  const bellLabel = unreadCount > 0 ? `Notificações, ${unreadCount} não lidas` : 'Notificações'
+  const badgeText = unreadCount > 9 ? '9+' : String(unreadCount)
+
+  const logoBox = (size: number) => (
+    <span className="nb-logo" style={{ width: size, height: size }} aria-hidden>
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+      ) : (
+        <Store size={Math.round(size * 0.5)} color="#fff" strokeWidth={2} />
+      )}
+    </span>
+  )
 
   return (
     <>
-      {themeNotice && (
-        <div
-          role="status"
-          style={{
-            position: 'fixed', top: 70, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 999999,
-            padding: '10px 16px',
-            background: 'rgba(24,24,27,0.92)',
-            color: '#fff',
-            borderRadius: 12,
-            fontSize: 13, fontWeight: 500,
-            boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
-            animation: 'eligi-theme-toast-in 0.18s ease-out',
-          }}
-        >
-          Modo escuro em desenvolvimento. Volta em breve.
-        </div>
-      )}
       <style>{`
-        @keyframes eligi-shake {
-          0%, 100% { transform: translateX(0); }
-          15%, 55% { transform: translateX(-3px); }
-          30%, 70% { transform: translateX(3px); }
-          85%      { transform: translateX(-1px); }
-        }
-        .eligi-shake { animation: eligi-shake 0.38s ease-in-out; }
-        @keyframes eligi-theme-toast-in {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes eligi-pulse {
-          0%   { transform:scale(1);   opacity:0.85; }
-          65%  { transform:scale(2.6); opacity:0; }
-          100% { transform:scale(2.6); opacity:0; }
-        }
         @keyframes eligi-navbar-in {
           from { opacity:0; transform:translateY(-10px) scale(0.98); }
           to   { opacity:1; transform:translateY(0) scale(1); }
         }
+        @keyframes nb-menu-in { from{opacity:0; transform:translateY(-4px) scale(.98)} to{opacity:1; transform:none} }
         .eligi-icon-btn {
-          position:relative; width:38px; height:38px; border-radius:11px;
+          position:relative; width:40px; height:40px; border-radius:12px;
           border:1px solid transparent; background:transparent; cursor:pointer;
           display:flex; align-items:center; justify-content:center;
           color:var(--text-secondary);
@@ -626,19 +641,84 @@ export default function AppNavbar() {
         .eligi-icon-btn:hover { background:var(--surface-1); border-color:var(--glass-border); color:var(--text-primary); }
         .eligi-icon-btn:active { transform:scale(0.91); }
         .eligi-search-bar {
-          display:flex; align-items:center; gap:8px;
-          padding:7px 14px; border-radius:11px;
+          display:flex; align-items:center; gap:8px; height:38px;
+          padding:0 12px; border-radius:12px;
           background:var(--surface-2); border:1px solid var(--divider);
           cursor:pointer; transition:all 160ms ease;
-          min-width:180px;
+          flex:1 1 auto; min-width:160px; max-width:340px; margin:0 auto;
         }
         .eligi-search-bar:hover { background:var(--surface-1); border-color:var(--glass-border); }
+        .nb-title{display:flex; flex-direction:column; line-height:1.15; min-width:0}
+        .nb-title b{font-family:${typography.fontFamilyDisplay}; font-size:18px; font-weight:600; letter-spacing:-.025em; color:${NAV_INK}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+        .nb-title span{font-size:11.5px; color:${NAV_INK3}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+        .nb-link{display:flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:11px; border:1px solid var(--divider); background:var(--surface-2); cursor:pointer; font-family:${typography.fontFamily}; font-size:12.5px; font-weight:600; color:var(--text-primary); white-space:nowrap; transition:all 160ms ease}
+        .nb-link:hover{background:var(--surface-1); border-color:var(--glass-border)}
+        .nb-badge{position:absolute; top:3px; right:2px; min-width:17px; height:17px; padding:0 4px; border-radius:999px; background:${NAV_INK}; color:#fff; font-family:${typography.fontFamily}; font-size:10px; font-weight:700; line-height:13px; text-align:center; border:2px solid #fff; font-variant-numeric:tabular-nums}
+        .nb-logo{border-radius:10px; flex-shrink:0; overflow:hidden; display:flex; align-items:center; justify-content:center; background:${NAV_INK}; border:1px solid var(--glass-border)}
+        .nb-acct{display:flex; align-items:center; gap:9px; height:44px; padding:0 8px 0 4px; border-radius:14px; border:1px solid transparent; background:transparent; cursor:pointer; min-width:0; max-width:240px; font-family:${typography.fontFamily}; transition:background 160ms ease}
+        .nb-acct:hover, .nb-acct[aria-expanded="true"]{background:var(--surface-1)}
+        .nb-acct .nb-t{display:flex; flex-direction:column; line-height:1.2; text-align:left; min-width:0}
+        .nb-acct .nb-t b{font-size:13px; font-weight:600; color:${NAV_INK}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+        .nb-acct .nb-t span{font-size:11px; color:${NAV_INK3}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+        .nb-menu{position:fixed; z-index:100000; width:264px; background:#fff; border-radius:16px; padding:6px; box-shadow:0 24px 50px -12px rgba(7,7,11,.28), 0 0 0 1px rgba(17,17,20,.07); font-family:${typography.fontFamily}; color:${NAV_INK}; animation:nb-menu-in .18s cubic-bezier(.34,1.56,.64,1)}
+        .nb-menu .nb-hd{display:flex; align-items:center; gap:10px; padding:10px 10px 12px; border-bottom:1px solid rgba(17,17,20,.08); margin-bottom:4px; min-width:0}
+        .nb-menu .nb-hd b{display:block; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:${NAV_INK}}
+        .nb-menu .nb-hd span{display:block; font-size:11.5px; color:${NAV_INK3}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+        .nb-mi{display:flex; align-items:center; gap:10px; width:100%; height:42px; padding:0 10px; border:0; border-radius:10px; background:transparent; font-family:inherit; font-size:13px; font-weight:500; color:${NAV_INK}; cursor:pointer; text-align:left}
+        .nb-mi:hover{background:#f0f0f3}
+        .nb-mi span{color:${NAV_INK}}
+        .nb-hr{border:0; border-top:1px solid rgba(17,17,20,.08); margin:4px 6px}
+        .nb-confirm{padding:8px 10px 6px}
+        .nb-confirm p{margin:0 0 10px; font-size:13px; color:#4b4b52}
+        .nb-confirm div{display:flex; gap:8px}
+        .nb-confirm button{flex:1; height:38px; border-radius:10px; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer}
+        @media (prefers-reduced-motion: reduce){ .nb-menu{animation:none} }
       `}</style>
 
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
       {showNotifs && <NotifPanel onClose={() => setShowNotifs(false)} isMobile={isMobile} refreshKey={refreshKey} onUnread={setUnreadCount} />}
       {showShare  && <ShareProfileModal onClose={() => setShowShare(false)} qrDataUrl={qrDataUrl} />}
       {toast && <NotifToast toast={toast} isMobile={isMobile} onClose={() => setToast(null)} />}
+
+      {menuAt && typeof document !== 'undefined' && createPortal(
+        <>
+          <div onClick={closeMenu} style={{ position:'fixed', inset:0, zIndex:99999 }} />
+          <div className="nb-menu" role="menu" style={{ top: menuAt.top, right: menuAt.right }}>
+            <div className="nb-hd">
+              <ProfAvatar name={fullName || '?'} avatarUrl={auth?.user?.avatarUrl ?? undefined} size={36} />
+              <div style={{ minWidth:0 }}>
+                <b>{fullName}</b>
+                <span>{[roleLabel, bizName].filter(Boolean).join(' · ')}</span>
+              </div>
+            </div>
+            {confirmOut ? (
+              <div className="nb-confirm">
+                <p>Sair da sua conta neste aparelho?</p>
+                <div>
+                  <button onClick={() => setConfirmOut(false)} style={{ border:'1px solid rgba(17,17,20,.14)', background:'#fff', color:NAV_INK }}>Cancelar</button>
+                  <button onClick={() => { closeMenu(); void auth?.logout?.() }} style={{ border:0, background:NAV_INK, color:'#fff' }}>Sair</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <button className="nb-mi" role="menuitem" onClick={() => { closeMenu(); setShowShare(true) }}>
+                  <Share2 size={16} color="#4b4b52" strokeWidth={2} /><span>Link de agendamento</span>
+                </button>
+                {canSettings && (
+                  <button className="nb-mi" role="menuitem" onClick={() => { closeMenu(); router.push('/dashboard/configuracoes') }}>
+                    <Settings size={16} color="#4b4b52" strokeWidth={2} /><span>Configurações</span>
+                  </button>
+                )}
+                <hr className="nb-hr" />
+                <button className="nb-mi" role="menuitem" onClick={() => setConfirmOut(true)}>
+                  <LogOut size={16} color="#4b4b52" strokeWidth={2} /><span>Sair</span>
+                </button>
+              </>
+            )}
+          </div>
+        </>,
+        document.body,
+      )}
 
       <div style={{ position:'fixed', top:16, left:0, right:0, display:'flex', justifyContent:'center', zIndex:1000, pointerEvents:'none' }}>
         <header style={{
@@ -648,8 +728,8 @@ export default function AppNavbar() {
           maxWidth:1400,
           height:60,
           borderRadius:18,
-          display:'flex', alignItems:'center', justifyContent:'space-between',
-          padding: isMobile ? '0 12px' : '0 18px',
+          display:'flex', alignItems:'center', gap: isMobile ? 4 : 14,
+          padding: isMobile ? '0 6px 0 10px' : '0 10px 0 18px',
           backdropFilter:'var(--glass-blur)',
           WebkitBackdropFilter:'var(--glass-blur)',
           background: scrolled ? 'var(--glass-bg-hover)' : 'var(--glass-bg)',
@@ -664,135 +744,62 @@ export default function AppNavbar() {
           {/* Specular shine */}
           <div aria-hidden style={{ position:'absolute', top:0, left:0, right:0, height:'50%', background:'linear-gradient(180deg,var(--glass-shine) 0%,transparent 100%)', opacity:0.45, pointerEvents:'none', borderRadius:'18px 18px 0 0' }} />
 
-          {/* LEFT — avatar do usuário + saudação + cargo */}
-          <div style={{ display:'flex', alignItems:'center', gap:10, zIndex:1 }}>
-            <div style={{ borderRadius:'50%', padding:2, border:'2px solid var(--glass-border)', display:'flex', flexShrink:0 }}>
-              <ProfAvatar name={auth?.user?.name ?? '?'} avatarUrl={auth?.user?.avatarUrl ?? undefined} size={32} />
-            </div>
-            {!isMobile && (
-              <div style={{ display:'flex', flexDirection:'column', lineHeight:1.2, minWidth:0 }}>
-                <span style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', letterSpacing:'-0.02em', whiteSpace:'nowrap' }}>
-                  Olá, {firstName}
-                </span>
-                {roleLabel && (
-                  <span style={{ fontSize:11, color:'var(--text-muted)', whiteSpace:'nowrap' }}>{roleLabel}</span>
-                )}
+          {/* LEFT — onde estou */}
+          <div style={{ display:'flex', alignItems:'center', gap:10, zIndex:1, minWidth:0, flex: isMobile ? '1 1 auto' : '0 1 auto' }}>
+            {isMobile && logoBox(32)}
+            {pageTitle && (
+              <div className="nb-title">
+                <b>{pageTitle}</b>
+                <span>{isMobile ? subDayShort : subDay}</span>
               </div>
             )}
           </div>
 
-          {/* CENTER — search bar (desktop) / search icon (mobile) */}
-          {!isMobile ? (
+          {/* CENTER — busca */}
+          {!isMobile && (
             <button className="eligi-search-bar" onClick={() => setShowSearch(true)} style={{ zIndex:1 }}>
-              <Search size={13} color="var(--text-muted)" />
-              <span style={{ fontSize:13, color:'var(--text-muted)', flex:1, textAlign:'left' }}>Buscar clientes...</span>
+              <Search size={14} color="var(--text-muted)" />
+              <span style={{ fontSize:13, color:'var(--text-muted)', flex:1, textAlign:'left' }}>Buscar clientes…</span>
               <kbd style={{ fontSize:10, color:'var(--text-muted)', fontWeight:600, border:'1px solid var(--divider)', padding:'1px 5px', borderRadius:5, background:'var(--surface-1)', letterSpacing:'.01em' }}>⌘K</kbd>
-            </button>
-          ) : (
-            <button className="eligi-icon-btn" onClick={() => setShowSearch(true)} style={{ zIndex:1 }} title="Buscar">
-              <Search size={18} />
             </button>
           )}
 
           {/* RIGHT */}
-          <div style={{ display:'flex', alignItems:'center', gap:4, zIndex:1 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:4, zIndex:1, flexShrink:0, marginLeft: isMobile ? 0 : 'auto' }}>
+            {isMobile && (
+              <button className="eligi-icon-btn" onClick={() => setShowSearch(true)} aria-label="Buscar clientes">
+                <Search size={18} />
+              </button>
+            )}
 
-            {/* ── Botão Link de agendamento ── */}
-            {!isMobile && (
-              <button
-                onClick={() => setShowShare(true)}
-                onMouseEnter={() => setShareHover(true)}
-                onMouseLeave={() => setShareHover(false)}
-                title="Compartilhar link de agendamento"
-                style={{
-                  display:      'flex',
-                  alignItems:   'center',
-                  gap:          6,
-                  padding:      '6px 13px',
-                  borderRadius: 10,
-                  border:       `1px solid ${shareHover ? 'var(--glass-border)' : 'var(--divider)'}`,
-                  background:   shareHover ? 'var(--surface-1)' : 'var(--surface-2)',
-                  cursor:       'pointer',
-                  fontSize:     12,
-                  fontWeight:   600,
-                  color:        'var(--text-primary)',
-                  transition:   'all 160ms ease',
-                  whiteSpace:   'nowrap',
-                  fontFamily:   typography.fontFamily,
-                  marginRight:  4,
-                }}
-              >
-                <Share2 size={13} color="var(--text-secondary)" strokeWidth={2} />
+            {isMobile ? (
+              <button className="eligi-icon-btn" onClick={() => setShowShare(true)} aria-label="Link de agendamento">
+                <Share2 size={18} />
+              </button>
+            ) : (
+              <button className="nb-link" onClick={() => setShowShare(true)} title="Compartilhar link de agendamento" style={{ marginRight:2 }}>
+                <Share2 size={14} color="var(--text-secondary)" strokeWidth={2} />
                 Link de agendamento
               </button>
             )}
 
-            {/* Mobile: só ícone */}
-            {isMobile && (
-              <button
-                className="eligi-icon-btn"
-                onClick={() => setShowShare(true)}
-                title="Link de agendamento"
-              >
-                <Share2 size={18} />
+            {/* Sino — contador grafite (vermelho fica para o que pede ação) */}
+            <button className="eligi-icon-btn" onClick={() => setShowNotifs(v => !v)} aria-label={bellLabel}>
+              <Bell size={18} />
+              {unreadCount > 0 && <span className="nb-badge">{badgeText}</span>}
+            </button>
+
+            {/* Conta: logo do estabelecimento + nome; abre o menu */}
+            {!isMobile && (
+              <button className="nb-acct" onClick={openMenu} aria-haspopup="menu" aria-expanded={menuAt !== null} title={bizName}>
+                {logoBox(36)}
+                <span className="nb-t">
+                  <b>{bizName || firstName}</b>
+                  <span>{[firstName, roleLabel].filter(Boolean).join(' · ')}</span>
+                </span>
+                <ChevronDown size={14} color={NAV_INK3} strokeWidth={2.4} />
               </button>
             )}
-
-            {/* Bell */}
-            <button
-              className="eligi-icon-btn"
-              onClick={() => setShowNotifs(v => !v)}
-              title="Notificações"
-            >
-              <Bell size={18} />
-              {unreadCount > 0 && (
-                <>
-                  <span style={{ position:'absolute', top:8, right:8, width:7, height:7, borderRadius:'50%', background:'var(--eligi-red)', border:'1.5px solid transparent', zIndex:2 }} />
-                  <span style={{ position:'absolute', top:8, right:8, width:7, height:7, borderRadius:'50%', background:'var(--eligi-red)', animation:'eligi-pulse 1.8s ease-out infinite', zIndex:1 }} />
-                </>
-              )}
-            </button>
-
-            {/* Dark mode - TEMPORARIAMENTE em desenvolvimento (denyTheme) */}
-            <button
-              className={`eligi-icon-btn${themeShake ? ' eligi-shake' : ''}`}
-              onClick={denyTheme}
-              title="Modo escuro em desenvolvimento"
-              aria-disabled="true"
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}
-            >
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-
-            {/* Logo do estabelecimento + nome */}
-            {!isMobile && bizName && (
-              <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)', whiteSpace:'nowrap', marginLeft:2, maxWidth:140, overflow:'hidden', textOverflow:'ellipsis' }}>
-                {bizName}
-              </span>
-            )}
-            <div
-              onMouseEnter={() => setAvatarHover(true)}
-              onMouseLeave={() => setAvatarHover(false)}
-              title={bizName}
-              style={{
-                marginLeft:4,
-                width:36, height:36, borderRadius:10,
-                background: logoUrl ? 'var(--surface-2)' : 'linear-gradient(145deg,#ef4444 0%,#dc2626 60%,#b91c1c 100%)',
-                border:'1px solid var(--glass-border)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', overflow:'hidden', flexShrink:0,
-                boxShadow: avatarHover ? '0 6px 18px rgba(0,0,0,0.18)' : '0 2px 8px rgba(0,0,0,0.10)',
-                transform: avatarHover ? 'scale(1.07)' : 'scale(1)',
-                transition:'all 160ms ease', userSelect:'none',
-              }}
-            >
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={bizName || 'Logo'} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-              ) : (
-                <Store size={18} color="#fff" strokeWidth={2} />
-              )}
-            </div>
           </div>
         </header>
       </div>
