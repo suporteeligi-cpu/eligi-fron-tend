@@ -8,6 +8,7 @@ import { AuthInput }        from '../components/auth/AuthInput'
 import { AuthButton }       from '../components/auth/AuthButton'
 import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
 import { mapAuthError }     from '@/lib/auth.error.map'
+import { appSupportsGoogle, nativeGoogleIdToken } from '@/shared/utils/appGoogle'
 import styles from '../components/auth/auth.module.css'
 
 /* ── Types ── */
@@ -50,6 +51,13 @@ export default function LoginForm() {
     try {
       setLoading(true)
       setErrors({})
+
+      // @eligi:app-google-login — no app o Google nao abre no WebView: login nativo.
+      if (appSupportsGoogle()) {
+        const idToken = await nativeGoogleIdToken(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!)
+        if (idToken) await loginWithGoogle(idToken, 'login')
+        return
+      }
 
       if (!window.google) {
         setErrors({ general: 'Google não disponível.' })

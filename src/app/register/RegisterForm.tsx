@@ -9,6 +9,7 @@ import { AuthButton }       from '../components/auth/AuthButton'
 import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
 import { PasswordChecklist } from '../components/auth/PasswordChecklist'
 import { mapAuthError }     from '@/lib/auth.error.map'
+import { appSupportsGoogle, nativeGoogleIdToken } from '@/shared/utils/appGoogle'
 import { firstPasswordError } from '@/lib/passwordRules'
 import styles from '../components/auth/auth.module.css'
 
@@ -78,13 +79,23 @@ export default function RegisterForm() {
 
   /* ── Google click ── */
   const handleGoogleClick = useCallback(() => {
+    // @eligi:app-google-register — no app o Google nao abre no WebView: login nativo.
+    if (appSupportsGoogle()) {
+      setErrors({})
+      setLoading(true)
+      nativeGoogleIdToken(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!)
+        .then((idToken) => (idToken ? loginWithGoogle(idToken, 'register') : undefined))
+        .catch(() => setErrors({ general: 'Erro ao registrar com Google.' }))
+        .finally(() => setLoading(false))
+      return
+    }
     if (!window.google) {
       setErrors({ general: 'Google não disponível.' })
       return
     }
     setErrors({})
     window.google.accounts.id.prompt()
-  }, [])
+  }, [loginWithGoogle])
 
   /* ── Submit ── */
   async function handleSubmit(e: React.FormEvent) {
