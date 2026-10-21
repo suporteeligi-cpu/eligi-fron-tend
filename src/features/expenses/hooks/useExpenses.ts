@@ -1,97 +1,106 @@
 // src/features/expenses/hooks/useExpenses.ts
+// @eligi:expcat-front-hook
+// Busca o MES inteiro, sem filtro: os cartoes de categoria (direcao C) precisam
+// do total de todas as categorias mesmo com uma selecionada. O filtro e feito na
+// tela, sobre a mesma lista. Depois de gravar, recarrega do back (os KPIs sao
+// do back, nao recalculados aqui).
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import dayjs from 'dayjs'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '@/shared/lib/apiClient'
 import type {
   Expense,
   ExpenseKPIs,
-  ExpenseCategory,
   CreateExpensePayload,
   UpdateExpensePayload,
   ExpensesResponse,
 } from '../types'
 
-interface UseExpensesOptions {
-  month:     string
-  category?: ExpenseCategory | ''
+const EMPTY_KPIS: ExpenseKPIs = { total: 0, fixed: 0, variable: 0, byCategory: {}, byKey: {} }
+
+interface State {
+  month:    string | null
+  expenses: Expense[]
+  kpis:     ExpenseKPIs
+  error:    string | null
 }
 
-export function useExpenses({ month, category }: UseExpensesOptions) {
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [kpis, setKpis]         = useState<ExpenseKPIs>({
-    total: 0, fixed: 0, variable: 0, byCategory: {},
-  })
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
+async function fetchMonth(month: string): Promise<State> {
+  try {
+    const { data } = await api.get<ExpensesResponse>('/expenses', { params: { month } })
+    return { month, expenses: data.expenses, kpis: { ...EMPTY_KPIS, ...data.kpis }, error: null }
+  } catch {
+    return { month, expenses: [], kpis: EMPTY_KPIS, error: 'Não foi possível carregar as despesas.' }
+  }
+}
 
-  const fetch = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params: Record<string, string> = { month }
-      if (category) params.category = category
-      const { data } = await api.get<ExpensesResponse>('/expenses', { params })
-      setExpenses(data.expenses)
-      setKpis(data.kpis)
-    } catch {
-      setError('Erro ao carregar despesas')
-    } finally {
-      setLoading(false)
-    }
-  }, [month, category])
+export function useExpenses(month: string) {
+  const [state, setState] = useState<State>({ month: null, expenses: [], kpis: EMPTY_KPIS, error: null })
+  const reqRef = useRef(0)
 
-  useEffect(() => { fetch() }, [fetch])
+  // Resultado da busca vira estado so no callback da promise (regra do React
+  // Compiler: nada de setState sincrono no corpo do efeito). O token descarta
+  // resposta atrasada de outro mes.
+  const load = useCallback(() => {
+    const req = ++reqRef.current
+    return fetchMonth(month).then((next) => {
+      if (req === reqRef.current) setState((s) => next.error ? { ...s, month, error: next.error } : next)
+    })
+  }, [month])
+
+  useEffect(() => { void load() }, [load])
+
+  // carregando = ainda nao chegou resposta do mes pedido (troca de mes mostra esqueleto)
+  const loading = state.month !== month
 
   const create = useCallback(async (payload: CreateExpensePayload) => {
     const { data } = await api.post<Expense>('/expenses', payload)
-    const expMonth = dayjs(data.date).format('YYYY-MM')
-    if (expMonth === month) {
-      setExpenses(prev =>
-        [data, ...prev].sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix())
-      )
-      setKpis(prev => ({
-        total:    prev.total + data.amount,
-        fixed:    prev.fixed    + (data.isRecurring ? data.amount : 0),
-        variable: prev.variable + (data.isRecurring ? 0 : data.amount),
-        byCategory: {
-          ...prev.byCategory,
-          [data.category]: (prev.byCategory[data.category] ?? 0) + data.amount,
-        },
-      }))
-    }
+    await load()
     return data
-  }, [month])
+  }, [load])
 
   const update = useCallback(async (id: string, payload: UpdateExpensePayload) => {
     const { data } = await api.put<Expense>(`/expenses/${id}`, payload)
-    setExpenses(prev => prev.map(e => e.id === id ? data : e))
-    await fetch()
+    await load()
     return data
-  }, [fetch])
+  }, [load])
 
   const remove = useCallback(async (id: string) => {
     await api.delete(`/expenses/${id}`)
-    setExpenses(prev => prev.filter(e => e.id !== id))
-    await fetch()
-  }, [fetch])
+    await load()
+  }, [load])
 
-  // Pular ocorrência recorrente: o backend faz soft-delete (RECURRING_SKIPPED)
-  // e a competência ocupada impede o materializador de recriar. No front é
-  // idêntico ao remove — some da lista + reconcilia KPIs via fetch.
-  const skipOccurrence = useCallback(async (id: string) => {
-    await api.delete(`/expenses/${id}`)
-    setExpenses(prev => prev.filter(e => e.id !== id))
-    await fetch()
-  }, [fetch])
+  // Pular ocorrencia recorrente: o back faz soft-delete (RECURRING_SKIPPED).
+  const skipOccurrence = remove
 
-  // Parar recorrência: desativa o template. NÃO remove ocorrência já
-  // materializada (Opção C) — só reconcilia pra refletir que não nasce mês novo.
+  // Parar recorrencia: desativa o modelo; o que ja foi lancado fica.
   const stopRecurrence = useCallback(async (recurrenceId: string) => {
     await api.patch(`/expenses/recurrences/${recurrenceId}/stop`)
-    await fetch()
-  }, [fetch])
+    await load()
+  }, [load])
 
-  return { expenses, kpis, loading, error, refetch: fetch, create, update, remove, skipOccurrence, stopRecurrence }
+  return {
+    expenses: loading ? [] : state.expenses,
+    kpis:     loading ? EMPTY_KPIS : state.kpis,
+    loading,
+    error:    loading ? null : state.error,
+    refetch:  load,
+    create, update, remove, skipOccurrence, stopRecurrence,
+  }
+}
+
+/**
+ * Total de um mes (para comparar com o mes anterior no topo da tela).
+ * Falha = null: a comparacao some, a tela continua.
+ */
+export function useMonthTotal(month: string): number | null {
+  const [state, setState] = useState<{ month: string; total: number | null } | null>(null)
+  useEffect(() => {
+    let alive = true
+    api.get<ExpensesResponse>('/expenses', { params: { month } })
+      .then(({ data }) => { if (alive) setState({ month, total: data.kpis?.total ?? 0 }) })
+      .catch(() => { if (alive) setState({ month, total: null }) })
+    return () => { alive = false }
+  }, [month])
+  return state && state.month === month ? state.total : null
 }

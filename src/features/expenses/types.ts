@@ -1,25 +1,37 @@
 // src/features/expenses/types.ts
+// @eligi:expcat-front-types — categorias proprias do dono (out/2026).
 
 export type ExpenseCategory = 'OPERACIONAL' | 'MARKETING' | 'COMISSAO' | 'ESTOQUE' | 'TAXA_CARTAO' | 'OUTROS'
 export type ExpenseOrigin   = 'MANUAL' | 'RECURRING' | 'RECURRING_SKIPPED' | 'AUTO_COMISSAO' | 'AUTO_ESTOQUE' | 'AUTO_CLUBE' | 'AUTO_TAXA_CARTAO'
 
+/** Categoria criada pelo dono, como vem dentro da despesa. */
+export interface ExpenseCustomCategoryRef {
+  id:         string
+  name:       string
+  color:      string
+  icon:       string
+  archivedAt: string | null
+}
+
 export interface Expense {
-  id:             string
-  businessId:     string
-  date:           string        // ISO string
-  amount:         number
-  description:    string
-  category:       ExpenseCategory
-  origin:         ExpenseOrigin
-  professionalId: string | null
-  productId:      string | null
-  saleId:         string | null
-  isRecurring:    boolean
-  recurrenceId:   string | null
-  competence:     string | null
-  recurringDay:   number | null
-  createdAt:      string
-  updatedAt:      string
+  id:               string
+  businessId:       string
+  date:             string        // ISO string
+  amount:           number
+  description:      string
+  category:         ExpenseCategory
+  customCategoryId: string | null
+  customCategory:   ExpenseCustomCategoryRef | null
+  origin:           ExpenseOrigin
+  professionalId:   string | null
+  productId:        string | null
+  saleId:           string | null
+  isRecurring:      boolean
+  recurrenceId:     string | null
+  competence:       string | null
+  recurringDay:     number | null
+  createdAt:        string
+  updatedAt:        string
 }
 
 export interface ExpenseKPIs {
@@ -27,6 +39,8 @@ export interface ExpenseKPIs {
   fixed:      number
   variable:   number
   byCategory: Record<string, number>
+  /** 'custom:<id>' para categoria propria, o enum para as do Eligi. */
+  byKey:      Record<string, number>
 }
 
 export interface ExpensesResponse {
@@ -35,75 +49,30 @@ export interface ExpensesResponse {
 }
 
 export interface CreateExpensePayload {
-  date:         string      // ISO
-  amount:       number
-  description:  string
-  category:     ExpenseCategory
-  isRecurring:  boolean
-  recurringDay: number | null
+  date:             string      // ISO
+  amount:           number
+  description:      string
+  category:         ExpenseCategory
+  customCategoryId: string | null
+  isRecurring:      boolean
+  recurringDay:     number | null
 }
 
 export type UpdateExpensePayload = Partial<CreateExpensePayload>
 
-// ── Metadados visuais por categoria ────────────────────────────────────────
-
-export interface CategoryMeta {
-  label:      string
-  color:      string     // hex — bg do badge
-  textColor:  string     // hex — texto do badge
-  dotColor:   string     // hex — dot na lista
-  iconName:   string     // nome do ícone Lucide
+/** Categoria propria como vem de GET /expenses/categories. */
+export interface CustomCategory {
+  id:        string
+  name:      string
+  color:     string
+  icon:      string
+  archived:  boolean
+  usage:     { expenses: number; recurrences: number }
+  canDelete: boolean
 }
 
-export const CATEGORY_META: Record<ExpenseCategory, CategoryMeta> = {
-  OPERACIONAL: {
-    label:     'Operacional',
-    color:     'rgba(8,145,178,0.15)',
-    textColor: '#0891b2',
-    dotColor:  '#0891b2',
-    iconName:  'Wrench',
-  },
-  MARKETING: {
-    label:     'Marketing',
-    color:     'rgba(124,58,237,0.15)',
-    textColor: '#7c3aed',
-    dotColor:  '#7c3aed',
-    iconName:  'Megaphone',
-  },
-  COMISSAO: {
-    label:     'Comissão',
-    color:     'rgba(220,38,38,0.12)',
-    textColor: '#dc2626',
-    dotColor:  '#dc2626',
-    iconName:  'Users',
-  },
-  ESTOQUE: {
-    label:     'Estoque',
-    color:     'rgba(217,119,6,0.15)',
-    textColor: '#d97706',
-    dotColor:  '#d97706',
-    iconName:  'Package',
-  },
-  TAXA_CARTAO: {
-    label:     'Taxa de cartão',
-    color:     'rgba(0,184,169,0.15)',
-    textColor: '#00B8A9',
-    dotColor:  '#00B8A9',
-    iconName:  'Tag',
-  },
-  OUTROS: {
-    label:     'Outros',
-    color:     'rgba(100,116,139,0.15)',
-    textColor: '#64748b',
-    dotColor:  '#94a3b8',
-    iconName:  'MoreHorizontal',
-  },
+export interface CustomCategoryInput {
+  name:  string
+  color: string
+  icon:  string
 }
-
-export const CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
-  { value: 'OPERACIONAL', label: 'Operacional' },
-  { value: 'MARKETING',   label: 'Marketing'   },
-  { value: 'COMISSAO',    label: 'Comissão'    },
-  { value: 'ESTOQUE',     label: 'Estoque'     },
-  { value: 'OUTROS',      label: 'Outros'      },
-]

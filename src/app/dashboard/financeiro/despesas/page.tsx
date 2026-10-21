@@ -1,494 +1,393 @@
 'use client'
 // src/app/dashboard/financeiro/despesas/page.tsx
+// @eligi:expcat-page — direcao C "Por categoria" (out/2026).
+// Topo com o total do mes, um cartao por categoria (tocar filtra a lista) e os
+// lancamentos por dia. Botao principal PRETO; vermelho so em acao destrutiva
+// (pedido do Eli). Layout por @media; useIsMobile so para o CalendarPicker,
+// que pede a prop.
 
-import { useState, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, SlidersHorizontal, Tag } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
-import { typography } from '@/shared/theme'
-import CalendarPicker from '@/shared/components/CalendarPicker'  // [fatia3-month-trigger]
-import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
-import { useExpenses }   from '@/features/expenses/hooks/useExpenses'
-import ExpenseKPIs       from '@/features/expenses/components/ExpenseKPIs'
-import ExpenseList       from '@/features/expenses/components/ExpenseList'
-import ExpenseModal      from '@/features/expenses/components/ExpenseModal'
+import CalendarPicker from '@/shared/components/CalendarPicker'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { useExpenses, useMonthTotal } from '@/features/expenses/hooks/useExpenses'
+import { useExpenseCategories } from '@/features/expenses/hooks/useExpenseCategories'
+import { customView, expenseKey, expenseView } from '@/features/expenses/categories'
+import ExpenseCategoryGrid, { type CategoryCard } from '@/features/expenses/components/ExpenseCategoryGrid'
+import ExpenseList from '@/features/expenses/components/ExpenseList'
+import ExpenseModal from '@/features/expenses/components/ExpenseModal'
+import ExpenseSheet from '@/features/expenses/components/ExpenseSheet'
+import CategoryEditorSheet from '@/features/expenses/components/CategoryEditorSheet'
+import CategoryManagerSheet from '@/features/expenses/components/CategoryManagerSheet'
 import ExpenseSettingsSheet from '@/features/expenses/components/ExpenseSettingsSheet'
-import ExpenseActionSheet   from '@/features/expenses/components/ExpenseActionSheet'
+import ExpenseActionSheet from '@/features/expenses/components/ExpenseActionSheet'
 import type {
-  Expense,
-  ExpenseCategory,
-  CreateExpensePayload,
+  CreateExpensePayload, CustomCategory, CustomCategoryInput, Expense,
 } from '@/features/expenses/types'
 
 dayjs.locale('pt-br')
 
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+
+function splitBRL(v: number): [string, string] {
+  const s = BRL.format(v)
+  const i = s.lastIndexOf(',')
+  return i < 0 ? [s, ''] : [s.slice(0, i), s.slice(i)]
+}
+
+type EditorState = { editing: CustomCategory | null } | null
+
 export default function DespesasPage() {
-  const mode     = useDeviceMode()
-  const isMobile = mode === 'mobile'
+  const isMobile = useIsMobile()
 
-  // ── Navegação de mês ─────────────────────────────────────────────────────
-  const [currentMonth, setCurrentMonth] = useState(() => dayjs().format('YYYY-MM'))
-  const goPrev = useCallback(() =>
-    setCurrentMonth(m => dayjs(m + '-01').subtract(1, 'month').format('YYYY-MM')), [])
-  const goNext = useCallback(() =>
-    setCurrentMonth(m => dayjs(m + '-01').add(1, 'month').format('YYYY-MM')), [])
-
-  // ── Filtro por categoria (controlado pelos mini-cards da V3) ─────────────
-  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | ''>('')
+  // ── mes ────────────────────────────────────────────────────────────────
+  const [month, setMonth] = useState(() => dayjs().format('YYYY-MM'))
   const [monthOpen, setMonthOpen] = useState(false)
+  const prevMonth = dayjs(`${month}-01`).subtract(1, 'month').format('YYYY-MM')
+  const monthRaw = dayjs(`${month}-01`).format('MMMM [de] YYYY')
+  const monthLabel = monthRaw.charAt(0).toUpperCase() + monthRaw.slice(1)
 
-  // ── Modal criar/editar ───────────────────────────────────────────────────
-  const [modalOpen,    setModalOpen]    = useState(false)
-  const [editTarget,   setEditTarget]   = useState<Expense | null>(null)
+  // ── dados ──────────────────────────────────────────────────────────────
+  const { expenses, kpis, loading, error, refetch, create, update, remove, skipOccurrence, stopRecurrence } = useExpenses(month)
+  const prevTotal = useMonthTotal(prevMonth)
+  const cats = useExpenseCategories()
 
-  // ── Confirmação de exclusão ──────────────────────────────────────────────
-  const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null)
-  const [deleting,     setDeleting]     = useState(false)
-
-  // ── Toast ────────────────────────────────────────────────────────────────
-  const [toastMsg, setToastMsg] = useState<string | null>(null)
+  // ── filtro / folhas ────────────────────────────────────────────────────
+  const [selected, setSelected] = useState('')
+  const [modal, setModal] = useState<{ expense: Expense | null; seq: number } | null>(null)
+  const [editor, setEditor] = useState<EditorState>(null)
+  const [managerOpen, setManagerOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [menuTarget, setMenuTarget] = useState<Expense | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null)
   const [stopTarget, setStopTarget] = useState<Expense | null>(null)
-  const [stopping,   setStopping]   = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
+
+  // ── toast ──────────────────────────────────────────────────────────────
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   function showToast(msg: string) {
-    setToastMsg(msg)
-    setTimeout(() => setToastMsg(null), 3000)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast(msg)
+    toastTimer.current = setTimeout(() => setToast(null), 2800)
   }
 
-  // ── Dados ────────────────────────────────────────────────────────────────
-  const { expenses, kpis, loading, create, update, remove, skipOccurrence, stopRecurrence } = useExpenses({
-    month:    currentMonth,
-    category: selectedCategory || undefined,
-  })
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
-  function handleNew() { setEditTarget(null); setModalOpen(true) }
-  function handleEdit(e: Expense) { setEditTarget(e); setModalOpen(true) }
-
-  async function handleSave(payload: CreateExpensePayload) {
-    try {
-      if (editTarget) {
-        await update(editTarget.id, payload)
-        showToast('Despesa atualizada')
-      } else {
-        await create(payload)
-        showToast('Despesa adicionada')
-      }
-    } catch {
-      showToast('Erro ao salvar despesa')
-      throw new Error('save failed')
+  // ── cartoes por categoria ──────────────────────────────────────────────
+  const cards = useMemo<CategoryCard[]>(() => {
+    const acc = new Map<string, CategoryCard>()
+    for (const e of expenses) {
+      const key = expenseKey(e)
+      const cur = acc.get(key)
+      if (cur) { cur.total += e.amount; cur.count += 1 }
+      else acc.set(key, { view: expenseView(e), total: e.amount, count: 1 })
     }
+    const used = [...acc.values()].sort((a, b) => b.total - a.total)
+    // categorias proprias ativas sem despesa no mes aparecem no fim
+    const idle = cats.items
+      .filter((c) => !c.archived && !acc.has(`custom:${c.id}`))
+      .map((c) => ({ view: customView(c), total: 0, count: 0 }))
+    return [...used, ...idle]
+  }, [expenses, cats.items])
+
+  // filtro selecionado que deixou de existir (troca de mes) nao prende a lista vazia
+  const activeFilter = cards.some((c) => c.view.key === selected) ? selected : ''
+  const visible = activeFilter ? expenses.filter((e) => expenseKey(e) === activeFilter) : expenses
+  const filterLabel = activeFilter ? cards.find((c) => c.view.key === activeFilter)?.view.label : null
+
+  const total = kpis.total
+  const [whole, cents] = splitBRL(total)
+  const delta = prevTotal != null && prevTotal > 0 && !loading ? (total - prevTotal) / prevTotal : null
+
+  // ── acoes ──────────────────────────────────────────────────────────────
+  async function handleSave(payload: CreateExpensePayload) {
+    const target = modal?.expense
+    if (target) await update(target.id, payload)
+    else await create(payload)
+    void cats.reload() // contagem de uso das categorias mudou
+    showToast(target ? 'Despesa atualizada' : 'Despesa adicionada')
+  }
+
+  async function handleCreateCategory(input: CustomCategoryInput) {
+    const created = await cats.create(input)
+    showToast(`Categoria "${created.name}" criada`)
+    return created
   }
 
   async function handleSkip(e: Expense) {
     setMenuTarget(null)
-    try {
-      await skipOccurrence(e.id)
-      showToast('Despesa pulada neste mês')
-    } catch {
-      showToast('Erro ao pular a despesa')
-    }
+    try { await skipOccurrence(e.id); showToast('Despesa pulada neste mês') }
+    catch { showToast('Não foi possível pular a despesa') }
   }
 
-  async function handleConfirmStop() {
-    if (!stopTarget?.recurrenceId) { setStopTarget(null); return }
-    setStopping(true)
+  async function confirm(kind: 'delete' | 'stop') {
+    const target = kind === 'delete' ? deleteTarget : stopTarget
+    if (!target) return
+    setBusy(true)
+    setConfirmError(null)
     try {
-      await stopRecurrence(stopTarget.recurrenceId)
-      showToast('Recorrência parada')
-      setStopTarget(null)
+      if (kind === 'delete') { await remove(target.id); setDeleteTarget(null); showToast('Despesa removida') }
+      else if (target.recurrenceId) { await stopRecurrence(target.recurrenceId); setStopTarget(null); showToast('Despesa fixa encerrada') }
+      else setStopTarget(null)
+      void cats.reload()
     } catch {
-      showToast('Erro ao parar a recorrência')
+      setConfirmError(kind === 'delete' ? 'Não foi possível remover. Tente de novo.' : 'Não foi possível parar. Tente de novo.')
     } finally {
-      setStopping(false)
+      setBusy(false)
     }
   }
 
-    
-async function handleConfirmDelete() {
-    if (!deleteTarget) return
-    setDeleting(true)
-    try {
-      await remove(deleteTarget.id)
-      setDeleteTarget(null)
-      showToast('Despesa removida')
-    } catch {
-      showToast('Erro ao remover despesa')
-    } finally {
-      setDeleting(false)
-    }
+  function closeConfirm() {
+    if (busy) return
+    setDeleteTarget(null); setStopTarget(null); setConfirmError(null)
   }
 
-  const monthLabel     = dayjs(currentMonth + '-01').format('MMMM [de] YYYY')
-  const isCurrentMonth = currentMonth === dayjs().format('YYYY-MM')
+  const confirmTarget = deleteTarget ?? stopTarget
+  const confirmKind: 'delete' | 'stop' = deleteTarget ? 'delete' : 'stop'
 
   return (
-    <>
-      <style>{`
-        @keyframes fadeUp  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes toastIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-      `}</style>
+    <div className="dp">
+      <style>{CSS}</style>
 
-      <div style={{
-        maxWidth:   900,
-        padding:    isMobile ? '0 12px' : 0,
-        animation:  'fadeUp 0.3s ease',
-        fontFamily: typography.fontFamily,
-      }}>
-
-        {/* ── Header ────────────────────────────────────────────────────── */}
-        <div style={{
-          display:        'flex',
-          alignItems:     isMobile ? 'flex-start' : 'center',
-          justifyContent: 'space-between',
-          flexDirection:  isMobile ? 'column' : 'row',
-          gap:            10,
-          marginBottom:   20,
-        }}>
-          <div>
-            <h1 style={{
-              fontSize:      isMobile ? 22 : 26,
-              fontWeight:    typography.weight.bold,
-              color:         typography.color.primary,
-              margin:        0,
-              letterSpacing: '-0.02em',
-            }}>
-              Despesas
-            </h1>
-            <p style={{
-              fontSize:  typography.scale.base,
-              color:     typography.color.muted,
-              margin:    '3px 0 0',
-            }}>
-              Custos operacionais e saídas do negócio
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              title="Despesas automáticas"
-              aria-label="Configurações de despesas automáticas"
-              style={{
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'center',
-                padding:        isMobile ? '10px' : '10px 12px',
-                borderRadius:   10,
-                border:         '1px solid var(--border, #e5e7eb)',
-                background:     'var(--card-bg, #fff)',
-                color:          typography.color.muted,
-                cursor:         'pointer',
-              }}
-            >
-              <Settings size={16} />
-            </button>
-            <button
-              onClick={handleNew}
-              style={{
-                display:      'flex',
-                alignItems:   'center',
-                gap:          7,
-                padding:      isMobile ? '10px 18px' : '10px 20px',
-                borderRadius: 10,
-                border:       'none',
-                background:   'linear-gradient(135deg,#dc2626,#b91c1c)',
-                color:        '#fff',
-                fontSize:     14,
-                fontWeight:   700,
-                cursor:       'pointer',
-                whiteSpace:   'nowrap',
-                boxShadow:    '0 2px 8px rgba(220,38,38,0.25)',
-              }}
-            >
-              <Plus size={16} />
-              Nova despesa
-            </button>
+      {/* ── cabecalho ─────────────────────────────────────────────────── */}
+      <header className="dp-head">
+        <div style={{ minWidth: 0 }}>
+          <h1 className="dp-h1">Despesas</h1>
+          <div className="dp-month">
+            <button type="button" className="dp-mbtn" aria-label="Mês anterior"
+              onClick={() => setMonth(prevMonth)}><ChevronLeft size={17} /></button>
+            <button type="button" className="dp-mlbl" onClick={() => setMonthOpen(true)}>{monthLabel}</button>
+            <button type="button" className="dp-mbtn" aria-label="Próximo mês"
+              onClick={() => setMonth(dayjs(`${month}-01`).add(1, 'month').format('YYYY-MM'))}><ChevronRight size={17} /></button>
           </div>
         </div>
-
-        {/* ── Seletor de mês ────────────────────────────────────────────── */}
-        <div style={{
-          display:     'flex',
-          alignItems:  'center',
-          gap:         6,
-          marginBottom: 14,
-          width:       'fit-content',
-        }}>
-          <div style={{
-            display:      'flex',
-            alignItems:   'center',
-            gap:          2,
-            background:   'var(--card-bg,#fff)',
-            border:       '1px solid var(--border,#e5e7eb)',
-            borderRadius: 10,
-            padding:      '4px 6px',
-          }}>
-            <button
-              onClick={goPrev}
-              style={{
-                background: 'transparent', border: 'none',
-                cursor: 'pointer', padding: 5, borderRadius: 7,
-                color: typography.color.muted, lineHeight: 0,
-              }}
-            >
-              <ChevronLeft size={15} />
-            </button>
-
-            <button
-              onClick={() => setMonthOpen(true)}
-              style={{
-                fontSize:      13,
-                fontWeight:    600,
-                color:         typography.color.primary,
-                padding:       '0 8px',
-                minWidth:      isMobile ? 118 : 148,
-                textAlign:     'center',
-                textTransform: 'capitalize',
-                background:    'transparent',
-                border:        'none',
-                cursor:        'pointer',
-                lineHeight:    'inherit',
-              }}
-            >
-              {monthLabel}
-              {isCurrentMonth && (
-                <span style={{
-                  fontSize:     10,
-                  fontWeight:   600,
-                  color:        '#dc2626',
-                  marginLeft:   6,
-                  background:   'rgba(220,38,38,0.1)',
-                  padding:      '1px 6px',
-                  borderRadius: 10,
-                }}>
-                  atual
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={goNext}
-              style={{
-                background: 'transparent', border: 'none',
-                cursor: 'pointer', padding: 5, borderRadius: 7,
-                color: typography.color.muted, lineHeight: 0,
-              }}
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
+        <div className="dp-acts">
+          <button type="button" className="dp-ghost" onClick={() => setManagerOpen(true)} aria-label="Categorias">
+            <Tag size={16} /><span className="dp-ghl">Categorias</span>
+          </button>
+          <button type="button" className="dp-ghost is-icon" onClick={() => setSettingsOpen(true)} aria-label="Despesas automáticas">
+            <SlidersHorizontal size={16} />
+          </button>
+          <button type="button" className="dp-new" onClick={() => setModal({ expense: null, seq: Date.now() })} aria-label="Nova despesa">
+            <Plus size={18} /><span className="dp-newl">Nova despesa</span>
+          </button>
         </div>
+      </header>
 
-        {/* ── KPIs (total + barra + mini-cards clicáveis) ───────────────── */}
-        <ExpenseKPIs
-          kpis={kpis}
-          loading={loading}
-          isMobile={isMobile}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-        />
+      {/* ── total do mes ──────────────────────────────────────────────── */}
+      <section className="dp-hero" aria-live="polite">
+        <div className="dp-eyebrow">SAIU NESTE MÊS</div>
+        {loading ? (
+          <div className="dp-skel" style={{ width: 200, height: 46, marginTop: 6 }} />
+        ) : (
+          <div className="dp-total"><span>{whole}</span><span className="dp-cents">{cents}</span></div>
+        )}
+        <div className="dp-sub">
+          {delta != null && (
+            <span className={`dp-delta ${delta > 0 ? 'is-up' : 'is-down'}`}>
+              {delta > 0 ? '▲' : '▼'} {Math.abs(Math.round(delta * 100))}% vs {dayjs(`${prevMonth}-01`).format('MMM')}
+            </span>
+          )}
+          {!loading && (
+            <span className="dp-fix">
+              <RefreshCw size={12} /> {BRL.format(kpis.fixed)} em fixas · {expenses.length} lançamento{expenses.length === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
+      </section>
 
-        {/* ── Lista ─────────────────────────────────────────────────────── */}
-        <ExpenseList
-          expenses={expenses}
-          loading={loading}
-          isMobile={isMobile}
-          selectedCategory={selectedCategory}
-          onEdit={handleEdit}
-          onDelete={e => setDeleteTarget(e)}
-          onMenu={e => setMenuTarget(e)}
-        />
+      {/* ── categorias ────────────────────────────────────────────────── */}
+      <ExpenseCategoryGrid
+        cards={cards}
+        monthTotal={total}
+        selected={activeFilter}
+        loading={loading}
+        onSelect={setSelected}
+        onCreate={() => setEditor({ editing: null })}
+      />
+
+      {/* ── lancamentos ──────────────────────────────────────────────── */}
+      <div className="dp-lhead">
+        <h2 className="dp-h2">{filterLabel ?? 'Lançamentos'}</h2>
+        {filterLabel && <button type="button" className="dp-clear" onClick={() => setSelected('')}>Ver todas</button>}
       </div>
 
-      {monthOpen && (
-        <CalendarPicker
-          mode="month"
-          date={dayjs(`${currentMonth}-01`)}
-          isMobile={isMobile}
-          monthValue={currentMonth}
-          maxMonth={dayjs().format('YYYY-MM')}
-          onSelect={() => {}}
-          onClose={() => setMonthOpen(false)}
-          onSelectMonth={(m) => { setCurrentMonth(m); setMonthOpen(false) }}
+      {error ? (
+        <div className="dp-state">
+          <div className="dp-st">{error}</div>
+          <button type="button" className="dp-ghost" onClick={() => void refetch()}>Tentar de novo</button>
+        </div>
+      ) : loading ? (
+        <div className="dp-skel" style={{ height: 180, borderRadius: 16 }} />
+      ) : visible.length === 0 ? (
+        <div className="dp-state">
+          <div className="dp-st">{filterLabel ? `Nada em ${filterLabel} neste mês.` : 'Nenhuma despesa neste mês.'}</div>
+          <div className="dp-ss">Lance contas, compras e fixas para ver para onde vai o dinheiro.</div>
+          <button type="button" className="dp-new" onClick={() => setModal({ expense: null, seq: Date.now() })}>
+            <Plus size={18} /><span className="dp-newl is-always">Nova despesa</span>
+          </button>
+        </div>
+      ) : (
+        <ExpenseList
+          expenses={visible}
+          onEdit={(e) => setModal({ expense: e, seq: Date.now() })}
+          onDelete={(e) => { setConfirmError(null); setDeleteTarget(e) }}
+          onMenu={setMenuTarget}
         />
       )}
 
-      {/* ── Modal criar/editar ─────────────────────────────────────────── */}
-      {settingsOpen && (
-        <ExpenseSettingsSheet
-          onClose={() => setSettingsOpen(false)}
+      {/* ── folhas ───────────────────────────────────────────────────── */}
+      {modal && (
+        <ExpenseModal
+          key={`${modal.expense?.id ?? 'new'}-${modal.seq}`}
+          expense={modal.expense}
+          categories={cats.items}
+          onCreateCategory={handleCreateCategory}
+          onSave={handleSave}
+          onClose={() => setModal(null)}
         />
       )}
+
+      {managerOpen && (
+        <CategoryManagerSheet
+          items={cats.items}
+          onCreate={() => setEditor({ editing: null })}
+          onEdit={(c) => setEditor({ editing: c })}
+          onArchive={async (id) => { await cats.archive(id); showToast('Categoria arquivada') }}
+          onRestore={async (id) => { await cats.restore(id); showToast('Categoria restaurada') }}
+          onDelete={async (id) => { await cats.remove(id); showToast('Categoria apagada') }}
+          onClose={() => setManagerOpen(false)}
+        />
+      )}
+
+      {editor && (
+        <CategoryEditorSheet
+          key={editor.editing?.id ?? 'new'}
+          existing={cats.items}
+          editing={editor.editing}
+          level={managerOpen ? 2 : 1}
+          onClose={() => setEditor(null)}
+          onSubmit={async (input) => {
+            if (editor.editing) {
+              await cats.update(editor.editing.id, input)
+              await refetch() // nome/cor novos aparecem nas despesas
+              showToast('Categoria salva')
+            } else {
+              await handleCreateCategory(input)
+            }
+          }}
+        />
+      )}
+
+      {settingsOpen && <ExpenseSettingsSheet onClose={() => setSettingsOpen(false)} onSaved={() => void refetch()} />}
 
       {menuTarget && (
         <ExpenseActionSheet
           expense={menuTarget}
           onSkip={handleSkip}
-          onStop={(e) => { setMenuTarget(null); setStopTarget(e) }}
+          onStop={(e) => { setMenuTarget(null); setConfirmError(null); setStopTarget(e) }}
           onClose={() => setMenuTarget(null)}
         />
       )}
 
-      <ExpenseModal
-        open={modalOpen}
-        expense={editTarget}
-        onClose={() => setModalOpen(false)}
-        onSave={handleSave}
-      />
-
-      {/* ── Modal confirmação exclusão ─────────────────────────────────── */}
-      {deleteTarget && (
-        <>
-          <div
-            onClick={() => !deleting && setDeleteTarget(null)}
-            style={{
-              position: 'fixed', inset: 0,
-              background: 'rgba(0,0,0,0.4)', zIndex: 9997,
-            }}
-          />
-          <div style={{
-            position:   'fixed',
-            top:        '50%', left: '50%',
-            transform:  'translate(-50%,-50%)',
-            zIndex:     9998,
-            background: 'var(--card-bg,#fff)',
-            borderRadius: 16,
-            padding:    '24px 28px',
-            width:      'min(380px, 90vw)',
-            boxShadow:  '0 20px 60px rgba(0,0,0,0.2)',
-            animation:  'fadeUp 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-          }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 12,
-              background: 'linear-gradient(135deg,#dc2626,#b91c1c)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: 14, fontSize: 22, fontWeight: 900,
-              color: '#fff', fontFamily: 'serif',
-            }}>
-              e
-            </div>
-            <div style={{
-              fontSize: 16, fontWeight: typography.weight.bold,
-              color: typography.color.primary, marginBottom: 6,
-            }}>
-              Remover despesa?
-            </div>
-            <div style={{
-              fontSize: 13, color: typography.color.muted, marginBottom: 20,
-            }}>
-              &quot;<strong>{deleteTarget.description}</strong>&quot; será removida permanentemente.
-              Essa ação não pode ser desfeita.
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
-                style={{
-                  flex: 1, padding: '10px 0', borderRadius: 10,
-                  border: '1.5px solid var(--border,#e5e7eb)',
-                  background: 'transparent', cursor: 'pointer',
-                  fontSize: 14, fontWeight: 600, color: typography.color.muted,
-                }}
-              >
-                Voltar
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                disabled={deleting}
-                style={{
-                  flex: 2, padding: '10px 0', borderRadius: 10,
-                  border: 'none',
-                  background: deleting ? '#94a3b8' : 'linear-gradient(135deg,#dc2626,#b91c1c)',
-                  cursor: deleting ? 'not-allowed' : 'pointer',
-                  fontSize: 14, fontWeight: 700, color: '#fff',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {deleting ? 'REMOVENDO…' : 'REMOVER'}
-              </button>
-            </div>
-          </div>
-        </>
+      {confirmTarget && (
+        <ExpenseSheet
+          title={confirmKind === 'delete' ? 'Remover despesa?' : 'Parar despesa fixa?'}
+          onClose={closeConfirm}
+          footer={
+            <>
+              {confirmError && <div className="dp-cerr" role="alert">{confirmError}</div>}
+              <div className="dp-cacts">
+                <button type="button" className="dp-ghost dp-grow" onClick={closeConfirm} disabled={busy}>Voltar</button>
+                <button type="button" className="dp-danger dp-grow" onClick={() => void confirm(confirmKind)} disabled={busy}>
+                  {busy ? 'Aguarde…' : confirmKind === 'delete' ? 'Remover' : 'Parar'}
+                </button>
+              </div>
+            </>
+          }
+        >
+          <p className="dp-ctext">
+            {confirmKind === 'delete'
+              ? <>“{confirmTarget.description}” ({BRL.format(confirmTarget.amount)}) sai do mês. Não dá para desfazer.</>
+              : <>“{confirmTarget.description}” deixa de ser lançada a partir do próximo mês. O que já foi lançado continua no histórico.</>}
+          </p>
+        </ExpenseSheet>
       )}
 
-      {/* ── Toast ─────────────────────────────────────────────────────── */}
-      {stopTarget && (
-        <>
-          <div
-            onClick={() => !stopping && setStopTarget(null)}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9997 }}
-          />
-          <div style={{
-            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-            zIndex: 9998, background: 'var(--card-bg,#fff)', borderRadius: 16,
-            padding: '24px 28px', width: 'min(380px, 90vw)',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-            animation: 'fadeUp 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-          }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 12,
-              background: 'linear-gradient(135deg,#dc2626,#b91c1c)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: 14, fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'serif',
-            }}>e</div>
-            <div style={{ fontSize: 16, fontWeight: typography.weight.bold, color: typography.color.primary, marginBottom: 6 }}>
-              Parar recorrência?
-            </div>
-            <div style={{ fontSize: 13, color: typography.color.muted, marginBottom: 20 }}>
-              &quot;<strong>{stopTarget.description}</strong>&quot; não será mais lançada a partir do próximo mês.
-              As despesas já lançadas continuam no histórico.
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setStopTarget(null)}
-                disabled={stopping}
-                style={{
-                  flex: 1, padding: '10px 0', borderRadius: 10,
-                  border: '1.5px solid var(--border,#e5e7eb)', background: 'transparent',
-                  cursor: 'pointer', fontSize: 14, fontWeight: 600, color: typography.color.muted,
-                }}
-              >
-                Voltar
-              </button>
-              <button
-                onClick={handleConfirmStop}
-                disabled={stopping}
-                style={{
-                  flex: 2, padding: '10px 0', borderRadius: 10, border: 'none',
-                  background: stopping ? '#94a3b8' : 'linear-gradient(135deg,#dc2626,#b91c1c)',
-                  cursor: stopping ? 'not-allowed' : 'pointer',
-                  fontSize: 14, fontWeight: 700, color: '#fff', letterSpacing: '0.04em',
-                }}
-              >
-                {stopping ? 'PARANDO…' : 'PARAR'}
-              </button>
-            </div>
-          </div>
-        </>
+      {monthOpen && (
+        <CalendarPicker
+          mode="month"
+          date={dayjs(`${month}-01`)}
+          isMobile={isMobile}
+          monthValue={month}
+          maxMonth={dayjs().format('YYYY-MM')}
+          onSelect={() => {}}
+          onClose={() => setMonthOpen(false)}
+          onSelectMonth={(m) => { setMonth(m); setMonthOpen(false) }}
+        />
       )}
 
-      {toastMsg && (
-        <div style={{
-          position:     'fixed',
-          bottom:       isMobile ? 80 : 24,
-          left:         '50%',
-          transform:    'translateX(-50%)',
-          zIndex:       10000,
-          background:   '#1e293b',
-          color:        '#fff',
-          padding:      '10px 20px',
-          borderRadius: 10,
-          fontSize:     13,
-          fontWeight:   600,
-          animation:    'toastIn 0.2s ease',
-          boxShadow:    '0 4px 20px rgba(0,0,0,0.2)',
-          whiteSpace:   'nowrap',
-        }}>
-          {toastMsg}
-        </div>
-      )}
-    </>
+      {toast && <div className="dp-toast" role="status">{toast}</div>}
+    </div>
   )
 }
+
+const CSS = `
+.dp{max-width:980px;margin:0 auto;padding:4px 16px 96px;font-family:var(--font-sans);color:#111114}
+@media (min-width:720px){.dp{padding:8px 24px 64px}}
+@media (max-width:359px){.dp-h1{font-size:22px}.dp-acts{gap:6px}}
+.dp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+.dp-h1{font-family:var(--font-display);font-size:28px;font-weight:700;letter-spacing:-.04em;margin:0;color:#111114;line-height:1.1}
+.dp-month{display:flex;align-items:center;gap:2px;margin-top:6px;margin-left:-8px}
+.dp-mbtn{width:36px;height:36px;border-radius:10px;border:0;background:none;color:#4b4b52;display:grid;place-items:center;cursor:pointer}
+.dp-mbtn:hover{background:#ececf0}
+.dp-mlbl{min-height:36px;padding:0 6px;border:0;background:none;font-family:inherit;font-size:14.5px;font-weight:600;color:#111114;white-space:nowrap;cursor:pointer;border-radius:10px}
+.dp-mlbl:hover{background:#ececf0}
+.dp-acts{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.dp-ghost{min-height:44px;padding:0 14px;border-radius:12px;border:1px solid rgba(17,17,20,.12);background:#fff;color:#111114;font-family:inherit;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}
+.dp-ghost:hover{background:#f5f5f7}
+.dp-ghost span{color:#111114}
+.dp-ghost:disabled{opacity:.5;cursor:not-allowed}
+.dp-ghost.is-icon{width:44px;padding:0}
+.dp-new{min-height:44px;min-width:44px;padding:0 16px;border-radius:12px;border:0;background:#111114;color:#fff;font-family:inherit;font-size:14px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}
+.dp-new:hover{background:#26262c}
+.dp-new span{color:#fff}
+@media (max-width:639px){
+  .dp-ghl,.dp-newl:not(.is-always){display:none}
+  .dp-ghost:not(.is-icon){width:44px;padding:0}
+  .dp-acts .dp-new{width:44px;padding:0;border-radius:50%}
+}
+.dp-hero{margin-bottom:18px}
+.dp-eyebrow{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.1em;color:#8a8a93}
+.dp-total{font-family:var(--font-display);font-size:44px;font-weight:700;letter-spacing:-.05em;line-height:1.05;font-variant-numeric:tabular-nums;margin-top:4px}
+.dp-total span{color:#111114}
+.dp-total .dp-cents{font-size:24px;color:#8a8a93;letter-spacing:-.03em}
+@media (min-width:720px){.dp-total{font-size:52px}.dp-total .dp-cents{font-size:28px}}
+.dp-sub{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:8px}
+.dp-delta{font-size:12.5px;font-weight:600;padding:3px 8px;border-radius:8px;font-variant-numeric:tabular-nums}
+.dp-delta.is-up{color:#b45309;background:#fffbeb}
+.dp-delta.is-down{color:#0f6e56;background:#ecfdf5}
+.dp-fix{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:#8a8a93;font-variant-numeric:tabular-nums}
+.dp-lhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}
+.dp-h2{font-family:var(--font-display);font-size:19px;font-weight:700;letter-spacing:-.03em;margin:0;color:#111114}
+.dp-clear{min-height:40px;padding:0 10px;border:0;background:none;font-family:inherit;font-size:13.5px;font-weight:600;color:#4b4b52;cursor:pointer;border-radius:10px}
+.dp-clear:hover{background:#ececf0}
+.dp-state{background:#fff;border:1px solid rgba(17,17,20,.07);border-radius:16px;padding:28px 20px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;margin-top:10px}
+.dp-st{font-size:15px;font-weight:600;color:#111114}
+.dp-ss{font-size:13px;color:#8a8a93;max-width:320px;line-height:1.45;margin-bottom:6px}
+.dp-skel{background:linear-gradient(90deg,#ececf0 25%,#f5f5f7 50%,#ececf0 75%);background-size:200% 100%;animation:dp-sh 1.2s infinite;border-radius:10px;margin-top:10px}
+@keyframes dp-sh{from{background-position:200% 0}to{background-position:-200% 0}}
+.dp-cacts{display:flex;gap:10px}
+.dp-grow{flex:1}
+.dp-danger{min-height:48px;border-radius:12px;border:0;background:#dc2626;color:#fff;font-family:inherit;font-size:14.5px;font-weight:700;cursor:pointer}
+.dp-danger:hover{background:#b91c1c}
+.dp-danger:disabled{background:#a1a1aa;cursor:not-allowed}
+.dp-cacts .dp-ghost{min-height:48px}
+.dp-ctext{font-size:14px;color:#4b4b52;line-height:1.5;margin:4px 0 6px}
+.dp-cerr{font-size:13px;color:#b91c1c;margin-bottom:10px}
+.dp-toast{position:fixed;left:50%;bottom:calc(var(--bottom-nav-h,0px) + 20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10010;background:#111114;color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(17,17,20,.25);white-space:nowrap;animation:dp-toast .2s ease}
+@keyframes dp-toast{from{opacity:0;transform:translate(-50%,8px)}}
+@media (prefers-reduced-motion:reduce){.dp-skel,.dp-toast{animation:none}}
+`
