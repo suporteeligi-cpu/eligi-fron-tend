@@ -10,6 +10,7 @@ import LegalModal from '@/shared/legal/LegalModal'
 // @eligi:coupon-guard-import
 import { type CouponPreview } from '@/shared/coupon/coupon'
 import { useCouponClaim } from '@/shared/coupon/useCouponClaim'
+import DeletionScheduledNotice from '@/features/account/DeletionScheduledNotice' // @eligi:guard-deletion-import
 
 
 type Plan = 'AUTONOMO' | 'ESTABELECIMENTO'
@@ -311,8 +312,12 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
     return (
       <div style={overlay}>
         <div style={modal}>
-          <p style={titleStyle}>{REASONS.BLOCKED_ARCHIVED.title}</p>
-          <p style={subStyle}>{REASONS.BLOCKED_ARCHIVED.sub}</p>
+          {/* @eligi:guard-deletion-notice: exclusao no prazo mostra o cancelar; o resto, suporte */}
+          <DeletionScheduledNotice
+            title={REASONS.BLOCKED_ARCHIVED.title}
+            sub={REASONS.BLOCKED_ARCHIVED.sub}
+            onLogout={logout}
+          />
         </div>
       </div>
     )

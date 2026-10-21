@@ -63,6 +63,7 @@ export const ROUTE_ACCESS_BY_ROLE: Record<Role, readonly string[]> = {
 /** Rotas transversais liberadas para QUALQUER cargo logado (evita loop de redirect). */
 export const ALWAYS_ALLOWED: readonly string[] = [
   '/dashboard/acesso-negado',
+  '/dashboard/conta', // @eligi:route-conta-excluir (excluir a propria conta: todo cargo)
 ]
 
 /** Landing amigável e destino da tela de negação. */

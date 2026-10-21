@@ -230,6 +230,7 @@ const CSS = `
 .esb-tile:active{transform:scale(.94)}
 @keyframes esb-tile{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
 .esb-mout{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:48px;margin-top:14px;border-radius:14px;border:1px solid ${D.line};background:transparent;color:#ff6b6b;font:600 14px var(--font-sans);cursor:pointer}
+.esb-del{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;margin-top:6px;color:rgba(255,255,255,.5);font:500 13px var(--font-sans);text-decoration:none} /* @eligi:sheet-excluir-css */
 .esb span,.esb small,.esb b{color:inherit}
 @media (prefers-reduced-motion: reduce){.esb *,.esb{animation:none!important;transition:none!important}}
 `
@@ -467,6 +468,10 @@ function MobileBar({ role, items, active, badges, account, onLogout }: {
           <button type="button" className="esb-mout" onClick={() => { setSheet(false); onLogout() }}>
             <LogOut size={18} />Sair da conta
           </button>
+          {/* @eligi:sheet-excluir-conta */}
+          <Link href="/dashboard/conta/excluir" className="esb-del" onClick={() => setSheet(false)}>
+            Excluir conta
+          </Link>
         </div>
       )}
 

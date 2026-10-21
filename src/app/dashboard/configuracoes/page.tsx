@@ -8,6 +8,7 @@ import {
   Calendar, Building2, CreditCard, Users,
   Sliders, Bell, Shield, ChevronRight, Scissors, Sparkles, Palette,
   FileText, Lock, Globe, MessageSquare, // @eligi:msgtpl-nav-icon
+  UserX, // @eligi:cfg-conta-icon
 } from 'lucide-react'
 
 type ModuleItem = {
@@ -115,6 +116,19 @@ const MODULES: ModuleGroup[] = [
         label:       'Privacidade e segurança',
         description: 'Controle de dados, LGPD e configurações de acesso.',
         available:   false,
+      },
+    ],
+  },
+  // @eligi:cfg-conta-excluir
+  {
+    group: 'Conta',
+    items: [
+      {
+        href:        '/dashboard/conta/excluir',
+        icon:        UserX,
+        label:       'Excluir conta',
+        description: 'Encerrar o Eligi deste negócio. Dá para desistir por 7 dias.',
+        available:   true,
       },
     ],
   },

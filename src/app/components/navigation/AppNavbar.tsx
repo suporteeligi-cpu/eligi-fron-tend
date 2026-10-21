@@ -709,6 +709,10 @@ export default function AppNavbar() {
                     <Settings size={16} color="#4b4b52" strokeWidth={2} /><span>Configurações</span>
                   </button>
                 )}
+                {/* @eligi:nav-excluir-conta */}
+                <button className="nb-mi" role="menuitem" onClick={() => { closeMenu(); router.push('/dashboard/conta/excluir') }}>
+                  <UserX size={16} color="#4b4b52" strokeWidth={2} /><span>Excluir conta</span>
+                </button>
                 <hr className="nb-hr" />
                 <button className="nb-mi" role="menuitem" onClick={() => setConfirmOut(true)}>
                   <LogOut size={16} color="#4b4b52" strokeWidth={2} /><span>Sair</span>
