@@ -24,7 +24,7 @@ import CategoryManagerSheet from '@/features/expenses/components/CategoryManager
 import ExpenseSettingsSheet from '@/features/expenses/components/ExpenseSettingsSheet'
 import ExpenseActionSheet from '@/features/expenses/components/ExpenseActionSheet'
 import type {
-  CreateExpensePayload, CustomCategory, CustomCategoryInput, Expense,
+  CreateExpensePayload, CustomCategory, CustomCategoryInput, EditRecurringPayload, Expense,
 } from '@/features/expenses/types'
 
 dayjs.locale('pt-br')
@@ -50,7 +50,7 @@ export default function DespesasPage() {
   const monthLabel = monthRaw.charAt(0).toUpperCase() + monthRaw.slice(1)
 
   // ── dados ──────────────────────────────────────────────────────────────
-  const { expenses, kpis, loading, error, refetch, create, update, remove, skipOccurrence, stopRecurrence } = useExpenses(month)
+  const { expenses, kpis, loading, error, refetch, create, update, editRecurring, remove, skipOccurrence, stopRecurrence } = useExpenses(month)
   const prevTotal = useMonthTotal(prevMonth)
   const cats = useExpenseCategories()
 
@@ -108,6 +108,15 @@ export default function DespesasPage() {
     else await create(payload)
     void cats.reload() // contagem de uso das categorias mudou
     showToast(target ? 'Despesa atualizada' : 'Despesa adicionada')
+  }
+
+  // @eligi:exprec-front-page — despesa fixa: so este mes ou daqui pra frente
+  async function handleSaveRecurring(payload: EditRecurringPayload) {
+    const target = modal?.expense
+    if (!target) return
+    await editRecurring(target.id, payload)
+    void cats.reload()
+    showToast(payload.scope === 'FORWARD' ? 'Despesa fixa atualizada daqui para frente' : 'Despesa atualizada só neste mês')
   }
 
   async function handleCreateCategory(input: CustomCategoryInput) {
@@ -246,6 +255,7 @@ export default function DespesasPage() {
           categories={cats.items}
           onCreateCategory={handleCreateCategory}
           onSave={handleSave}
+          onSaveRecurring={handleSaveRecurring}
           onClose={() => setModal(null)}
         />
       )}
@@ -286,6 +296,7 @@ export default function DespesasPage() {
       {menuTarget && (
         <ExpenseActionSheet
           expense={menuTarget}
+          onEdit={(e) => { setMenuTarget(null); setModal({ expense: e, seq: Date.now() }) }}
           onSkip={handleSkip}
           onStop={(e) => { setMenuTarget(null); setConfirmError(null); setStopTarget(e) }}
           onClose={() => setMenuTarget(null)}

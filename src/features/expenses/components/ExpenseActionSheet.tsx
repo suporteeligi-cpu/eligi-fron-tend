@@ -1,7 +1,7 @@
 // src/features/expenses/components/ExpenseActionSheet.tsx
 'use client'
 
-import { CalendarOff, Ban, X } from 'lucide-react'
+import { CalendarOff, Ban, Pencil, X } from 'lucide-react'
 import { typography } from '@/shared/theme'
 import type { Expense } from '../types'
 
@@ -11,6 +11,7 @@ function fmtBRL(v: number) {
 
 interface Props {
   expense:   Expense
+  onEdit:    (e: Expense) => void   // editar (só este mês ou daqui pra frente) — @eligi:exprec-front-menu
   onSkip:    (e: Expense) => void   // pular este mês  (DELETE /:id → RECURRING_SKIPPED)
   onStop:    (e: Expense) => void   // parar recorrência (PATCH /recurrences/:id/stop)
   onClose:   () => void
@@ -20,7 +21,7 @@ interface Props {
 // "Pular" neutro; "Parar" em vermelho (destrutivo, separado por divisor).
 // position: fixed no wrapper; a animação de entrada mora no elemento interno
 // (relative) — evita o deslocamento de `fixed + transform` no Android Chrome.
-export default function ExpenseActionSheet({ expense, onSkip, onStop, onClose }: Props) {
+export default function ExpenseActionSheet({ expense, onEdit, onSkip, onStop, onClose }: Props) {
   return (
     <>
       <style>{`
@@ -100,6 +101,24 @@ export default function ExpenseActionSheet({ expense, onSkip, onStop, onClose }:
               <X size={20} />
             </button>
           </div>
+
+          {/* Ação 0: Editar (neutro) */}
+          <button
+            onClick={() => onEdit(expense)}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+              padding: '14px 18px', background: 'transparent', border: 'none',
+              cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <Pencil size={20} color={typography.color.muted} style={{ flexShrink: 0 }} />
+            <span style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: 14, color: typography.color.primary }}>Editar valor ou nome</span>
+              <span style={{ fontSize: 11, color: typography.color.muted, marginTop: 1 }}>
+                Só este mês ou daqui para frente.
+              </span>
+            </span>
+          </button>
 
           {/* Ação 1: Pular este mês (neutro) */}
           <button

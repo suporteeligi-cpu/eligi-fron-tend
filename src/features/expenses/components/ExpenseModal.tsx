@@ -2,6 +2,9 @@
 // @eligi:expcat-modal — lancar ou editar despesa (direcao C, out/2026).
 // A pagina monta este componente so quando abre (e com key por despesa), entao
 // o estado nasce do valor inicial: nada de efeito copiando prop para state.
+// @eligi:exprec-front-modal — despesa fixa (origin RECURRING): dia do mes no
+// lugar da data e escolha entre so este mes / este e os proximos. Manda so os
+// campos que mudaram: senao um ajuste feito so neste mes vazaria para os proximos.
 'use client'
 
 import { useMemo, useState } from 'react'
@@ -14,7 +17,8 @@ import {
   type CategoryView,
 } from '../categories'
 import type {
-  CreateExpensePayload, CustomCategory, CustomCategoryInput, Expense, ExpenseCategory,
+  CreateExpensePayload, CustomCategory, CustomCategoryInput, EditRecurringPayload, Expense, ExpenseCategory,
+  RecurringScope,
 } from '../types'
 
 interface Props {
@@ -22,6 +26,7 @@ interface Props {
   categories:       CustomCategory[]
   onCreateCategory: (input: CustomCategoryInput) => Promise<CustomCategory>
   onSave:           (payload: CreateExpensePayload) => Promise<void>
+  onSaveRecurring:  (payload: EditRecurringPayload) => Promise<void>
   onClose:          () => void
 }
 
@@ -31,12 +36,20 @@ function centsFromAmount(v: number): string {
   return v > 0 ? String(Math.round(v * 100)) : ''
 }
 
-export default function ExpenseModal({ expense, categories, onCreateCategory, onSave, onClose }: Props) {
+function catKeyOf(e: Expense): string {
+  return e.customCategoryId ? `custom:${e.customCategoryId}` : e.category
+}
+
+export default function ExpenseModal({ expense, categories, onCreateCategory, onSave, onSaveRecurring, onClose }: Props) {
+  // ocorrencia de despesa fixa: edita so este mes ou daqui pra frente
+  const fixed = expense?.origin === 'RECURRING' && !!expense.recurrenceId && !!expense.competence
+  const monthName = expense?.competence ? dayjs(`${expense.competence}-01`).format('MMMM') : ''
+  const MonthName = monthName.charAt(0).toUpperCase() + monthName.slice(1)
+  const [scope, setScope] = useState<RecurringScope>('FORWARD')
   const [cents, setCents] = useState(() => centsFromAmount(expense?.amount ?? 0))
   const [description, setDescription] = useState(expense?.description ?? '')
   const [date, setDate] = useState(() => dayjs(expense?.date ?? undefined).format('YYYY-MM-DD'))
-  const [catKey, setCatKey] = useState<string>(() =>
-    expense ? (expense.customCategoryId ? `custom:${expense.customCategoryId}` : expense.category) : '')
+  const [catKey, setCatKey] = useState<string>(() => (expense ? catKeyOf(expense) : ''))
   const [isRecurring, setIsRecurring] = useState(expense?.isRecurring ?? false)
   const [recurringDay, setRecurringDay] = useState<number>(() => expense?.recurringDay ?? Math.min(dayjs().date(), 28))
   const [touched, setTouched] = useState(false)
@@ -56,11 +69,25 @@ export default function ExpenseModal({ expense, categories, onCreateCategory, on
     return [...base, ...own]
   }, [categories, catKey])
 
+  // so o que mudou em relacao a esta ocorrencia (despesa fixa)
+  const changes: Omit<EditRecurringPayload, 'scope'> = {}
+  if (fixed && expense) {
+    if (Math.round(amount * 100) !== Math.round(expense.amount * 100)) changes.amount = amount
+    if (description.trim() !== expense.description) changes.description = description.trim()
+    if (catKey !== catKeyOf(expense)) {
+      const custom = catKey.startsWith('custom:') ? catKey.slice(7) : null
+      changes.customCategoryId = custom
+      changes.category = custom ? 'OUTROS' : (catKey as ExpenseCategory)
+    }
+    if (recurringDay !== expense.recurringDay) changes.recurringDay = recurringDay
+  }
+
   const errors = {
     amount: amount <= 0 ? 'Informe o valor.' : null,
     description: description.trim().length < 2 ? 'Descreva a despesa (mínimo 2 letras).' : null,
-    date: !date ? 'Escolha a data.' : null,
+    date: !fixed && !date ? 'Escolha a data.' : null,
     category: !catKey ? 'Escolha uma categoria.' : null,
+    nothing: fixed && Object.keys(changes).length === 0 ? 'Nada mudou ainda.' : null,
   }
   const firstError = Object.values(errors).find(Boolean) ?? null
 
@@ -71,6 +98,11 @@ export default function ExpenseModal({ expense, categories, onCreateCategory, on
     setServerError(null)
     const custom = catKey.startsWith('custom:') ? catKey.slice(7) : null
     try {
+      if (fixed) {
+        await onSaveRecurring({ scope, ...changes })
+        onClose()
+        return
+      }
       await onSave({
         date: dayjs(date).hour(12).toISOString(),
         amount,
@@ -91,7 +123,7 @@ export default function ExpenseModal({ expense, categories, onCreateCategory, on
   return (
     <>
       <ExpenseSheet
-        title={expense ? 'Editar despesa' : 'Nova despesa'}
+        title={fixed ? 'Editar despesa fixa' : expense ? 'Editar despesa' : 'Nova despesa'}
         onClose={onClose}
         footer={
           <>
@@ -99,7 +131,9 @@ export default function ExpenseModal({ expense, categories, onCreateCategory, on
               <div className="em-ferr" role="alert">{serverError ?? firstError}</div>
             )}
             <button type="button" className="em-save" onClick={save} disabled={saving}>
-              {saving ? 'Salvando…' : expense ? 'Salvar alterações' : 'Adicionar despesa'}
+              {saving ? 'Salvando…'
+                : fixed ? (scope === 'FORWARD' ? 'Salvar daqui para frente' : `Salvar só em ${monthName}`)
+                : expense ? 'Salvar alterações' : 'Adicionar despesa'}
             </button>
           </>
         }
@@ -128,14 +162,27 @@ export default function ExpenseModal({ expense, categories, onCreateCategory, on
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <label className="em-lbl" htmlFor="em-date">Data</label>
-        <input
-          id="em-date"
-          type="date"
-          className={`em-in${touched && errors.date ? ' is-err' : ''}`}
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        {fixed ? (
+          <div className="em-day is-solo">
+            <span className="em-dayl">Dia do mês</span>
+            <div className="em-step">
+              <button type="button" aria-label="Dia anterior" onClick={() => setRecurringDay((d) => (d <= 1 ? 28 : d - 1))}>−</button>
+              <span className="em-dayv">{recurringDay}</span>
+              <button type="button" aria-label="Próximo dia" onClick={() => setRecurringDay((d) => (d >= 28 ? 1 : d + 1))}>+</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <label className="em-lbl" htmlFor="em-date">Data</label>
+            <input
+              id="em-date"
+              type="date"
+              className={`em-in${touched && errors.date ? ' is-err' : ''}`}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </>
+        )}
 
         <div className="em-lbl">Categoria</div>
         <div className={`em-cats${touched && errors.category ? ' is-err' : ''}`} role="radiogroup" aria-label="Categoria">
@@ -183,6 +230,28 @@ export default function ExpenseModal({ expense, categories, onCreateCategory, on
               </div>
             )}
           </div>
+        ) : fixed ? (
+          <>
+            <div className="em-lbl">Aplicar a</div>
+            <div className="em-scopes" role="radiogroup" aria-label="Aplicar a">
+              <button type="button" role="radio" aria-checked={scope === 'THIS'}
+                className={`em-scope${scope === 'THIS' ? ' is-on' : ''}`} onClick={() => setScope('THIS')}>
+                <span className="em-dot" aria-hidden />
+                <span className="em-st">
+                  <span className="em-stt">Só {monthName}</span>
+                  <span className="em-sts">Os outros meses continuam como estão</span>
+                </span>
+              </button>
+              <button type="button" role="radio" aria-checked={scope === 'FORWARD'}
+                className={`em-scope${scope === 'FORWARD' ? ' is-on' : ''}`} onClick={() => setScope('FORWARD')}>
+                <span className="em-dot" aria-hidden />
+                <span className="em-st">
+                  <span className="em-stt">{MonthName} e os próximos meses</span>
+                  <span className="em-sts">Os meses que já passaram não mudam</span>
+                </span>
+              </button>
+            </div>
+          </>
         ) : expense.isRecurring ? (
           <div className="em-note"><RefreshCw size={13} /> Despesa fixa. Para mudar a recorrência, use o menu da despesa na lista.</div>
         ) : null}
@@ -230,6 +299,16 @@ const CSS = `
 .em-step{display:flex;align-items:center;gap:4px}
 .em-step button{width:44px;height:44px;border-radius:12px;border:1px solid rgba(17,17,20,.14);background:#fff;font-size:20px;color:#111114;cursor:pointer;font-family:inherit}
 .em-dayv{min-width:40px;text-align:center;font-family:var(--font-display);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:#111114}
+.em-day.is-solo{margin:0 0 16px;padding:8px 12px;border:1px solid rgba(17,17,20,.08);border-radius:14px}
+.em-scopes{display:flex;flex-direction:column;gap:8px}
+.em-scope{display:flex;align-items:center;gap:12px;min-height:60px;width:100%;padding:10px 14px;border-radius:14px;border:1px solid rgba(17,17,20,.1);background:#fff;cursor:pointer;font-family:inherit;text-align:left}
+.em-scope:hover{background:#fafafb}
+.em-scope.is-on{box-shadow:inset 0 0 0 2px #111114}
+.em-dot{width:20px;height:20px;border-radius:50%;border:2px solid #c4c4cc;flex-shrink:0;box-sizing:border-box}
+.em-scope.is-on .em-dot{border:6px solid #111114}
+.em-st{display:flex;flex-direction:column;min-width:0}
+.em-stt{font-size:14.5px;font-weight:600;color:#111114}
+.em-sts{font-size:12.5px;color:#8a8a93;margin-top:2px}
 .em-note{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#8a8a93;padding:4px 2px}
 .em-ferr{font-size:13px;color:#b91c1c;margin-bottom:10px}
 .em-save{width:100%;height:50px;border-radius:14px;border:0;background:#111114;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}

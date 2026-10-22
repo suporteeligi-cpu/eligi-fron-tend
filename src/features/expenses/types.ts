@@ -60,6 +60,18 @@ export interface CreateExpensePayload {
 
 export type UpdateExpensePayload = Partial<CreateExpensePayload>
 
+// @eligi:exprec-front-types — editar despesa fixa (PATCH /expenses/:id/recurring)
+export type RecurringScope = 'THIS' | 'FORWARD'
+
+export interface EditRecurringPayload {
+  scope:             RecurringScope
+  amount?:           number
+  description?:      string
+  category?:         ExpenseCategory
+  customCategoryId?: string | null
+  recurringDay?:     number
+}
+
 /** Categoria propria como vem de GET /expenses/categories. */
 export interface CustomCategory {
   id:        string

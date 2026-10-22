@@ -14,6 +14,7 @@ import type {
   CreateExpensePayload,
   UpdateExpensePayload,
   ExpensesResponse,
+  EditRecurringPayload,
 } from '../types'
 
 const EMPTY_KPIS: ExpenseKPIs = { total: 0, fixed: 0, variable: 0, byCategory: {}, byKey: {} }
@@ -65,6 +66,12 @@ export function useExpenses(month: string) {
     return data
   }, [load])
 
+  // @eligi:exprec-front-hook — so este mes (THIS) ou este e os proximos (FORWARD)
+  const editRecurring = useCallback(async (id: string, payload: EditRecurringPayload) => {
+    await api.patch(`/expenses/${id}/recurring`, payload)
+    await load()
+  }, [load])
+
   const remove = useCallback(async (id: string) => {
     await api.delete(`/expenses/${id}`)
     await load()
@@ -85,7 +92,7 @@ export function useExpenses(month: string) {
     loading,
     error:    loading ? null : state.error,
     refetch:  load,
-    create, update, remove, skipOccurrence, stopRecurrence,
+    create, update, editRecurring, remove, skipOccurrence, stopRecurrence,
   }
 }
 

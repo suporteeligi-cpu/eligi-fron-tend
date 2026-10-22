@@ -1,7 +1,8 @@
 // src/features/expenses/components/ExpenseList.tsx
 // @eligi:expcat-list — lancamentos agrupados por dia, com o subtotal do dia.
-// Acoes por origem: MANUAL edita (toque na linha) e remove; RECURRING abre o
-// menu (pular mes / parar); automatica e so leitura.
+// Acoes por origem: MANUAL edita (toque na linha) e remove; RECURRING edita
+// (toque na linha) e abre o menu (pular mes / parar); automatica e so leitura.
+// @eligi:exprec-front-list
 'use client'
 
 import { MoreHorizontal, RefreshCw, Trash2, Zap } from 'lucide-react'
@@ -55,9 +56,9 @@ export default function ExpenseList({ expenses, onEdit, onDelete, onMenu }: Prop
                   <button
                     type="button"
                     className="xl-main"
-                    disabled={!manual}
-                    onClick={() => manual && onEdit(e)}
-                    aria-label={manual ? `Editar ${e.description}` : undefined}
+                    disabled={auto}
+                    onClick={() => !auto && onEdit(e)}
+                    aria-label={auto ? undefined : `Editar ${e.description}`}
                   >
                     <span className="xl-tile" style={{ background: tint(v.color, 0.13), color: v.color }}>
                       <Icon size={17} />
