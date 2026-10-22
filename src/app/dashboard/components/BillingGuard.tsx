@@ -11,6 +11,8 @@ import LegalModal from '@/shared/legal/LegalModal'
 import { type CouponPreview } from '@/shared/coupon/coupon'
 import { useCouponClaim } from '@/shared/coupon/useCouponClaim'
 import DeletionScheduledNotice from '@/features/account/DeletionScheduledNotice' // @eligi:guard-deletion-import
+import { useInEligiApp } from '@/shared/utils/useEligiApp' // @eligi:guard-app-import
+import AppPlanNotice from '@/shared/components/AppPlanNotice'
 
 
 type Plan = 'AUTONOMO' | 'ESTABELECIMENTO'
@@ -52,10 +54,29 @@ const REASONS: Record<string, { title: string; sub: string; cta: string }> = {
     sub: 'O acesso ao painel foi desativado. Seus dados seguem salvos. Se isso nao estava previsto, fale com o suporte do Eligi.',
     cta: 'Falar com o suporte',
   },
+  // @eligi:guard-app-reasons ficam logo abaixo (APP_REASONS)
   VOLUNTARY: {
     title: 'Assine o Eligi',
     sub: 'Garanta o acesso a sua agenda, equipe e caixa sem interrupcao. Pagamento por boleto ou Pix.',
     cta: 'Assinar',
+  },
+}
+
+/* @eligi:guard-app-reasons
+   Dentro do app (Android e iPhone) o bloqueio NAO oferece plano, preco nem
+   pagamento (regra das lojas, ver useEligiApp.ts). Fica o aviso e o suporte. */
+const APP_REASONS: Record<string, { title: string; sub: string }> = {
+  BLOCKED_TRIAL_EXPIRED: {
+    title: 'Seu período de teste terminou',
+    sub: 'Seus dados estão salvos. Fale com a gente para continuar usando o Eligi.',
+  },
+  BLOCKED_PAST_DUE: {
+    title: 'Acesso pausado',
+    sub: 'Seus dados estão salvos. Fale com a gente para liberar o acesso.',
+  },
+  BLOCKED_CANCELED: {
+    title: 'Assinatura encerrada',
+    sub: 'Seus dados estão salvos. Fale com a gente para voltar a usar o Eligi.',
   },
 }
 
@@ -92,6 +113,7 @@ function readSeatGate(err: unknown, plan: Plan): SeatGate | null {
 }
 
 export default function BillingGuard({ children }: { children: ReactNode }) {
+  const inApp = useInEligiApp() // @eligi:guard-app-voluntary
   const [blocked, setBlocked] = useState(false)
   const [reason, setReason] = useState('VOLUNTARY')
 
@@ -151,7 +173,10 @@ export default function BillingGuard({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      {blocked && <BlockOverlay reason={reason} onResolved={check} onClose={() => setBlocked(false)} />}
+      {/* no app, "Assine o Eligi" (escolha voluntaria) nao abre: nao ha o que contratar ali */}
+      {blocked && !(inApp && reason === 'VOLUNTARY') && (
+        <BlockOverlay reason={reason} onResolved={check} onClose={() => setBlocked(false)} />
+      )}
     </>
   )
 }
@@ -177,6 +202,7 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
   // @eligi:overdue-state
   const [overdue, setOverdue] = useState<OverdueInfo | null>(null)
   const [planValue, setPlanValue] = useState<number | null>(null)
+  const inApp = useInEligiApp() // @eligi:guard-app-overlay-flag
 
   // @eligi:coupon-overlay-fetch
   // O /billing/access nao carrega cupom — precisa do /billing/subscription.
@@ -265,6 +291,29 @@ function BlockOverlay({ reason, onResolved, onClose }: { reason: string; onResol
   }
 
   const busy = submitting !== null
+
+  // @eligi:guard-app-overlay
+  // Dentro do app: aviso + suporte, sem fatura, plano ou preco. Conta encerrada
+  // segue no ramo dela (abaixo), que ja nao oferece pagamento.
+  if (inApp && reason !== 'BLOCKED_ARCHIVED') {
+    const a = APP_REASONS[reason] ?? APP_REASONS.BLOCKED_TRIAL_EXPIRED
+    return (
+      <div style={overlay}>
+        <div style={{ ...modal, maxWidth: 440, textAlign: 'left' }}>
+          <AppPlanNotice
+            bare
+            title={a.title}
+            text={a.sub}
+            support
+            supportText="Olá! Meu acesso ao Eligi está bloqueado e preciso de ajuda."
+          />
+          <button type="button" onClick={logout} style={overdueExit}>
+            Sair da conta
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // @eligi:overdue-overlay
   // PAST_DUE com fatura vencida NAO e contratacao, e cobranca. Ele ja tem

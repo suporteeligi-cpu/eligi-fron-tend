@@ -7,6 +7,7 @@ import { ReceiptText } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { colors, glassCard, inkLight, radius, shadows } from '@/shared/theme'
 import { apiErrorMessage } from '../utils'
+import { useCanBuyPlan } from '@/shared/utils/useEligiApp' // @eligi:fiscal-app-import
 
 interface Props {
   hasSubscription: boolean
@@ -15,6 +16,7 @@ interface Props {
 
 export default function FiscalPaywall({ hasSubscription, onActivated }: Props) {
   const [busy, setBusy] = useState(false)
+  const canBuy = useCanBuyPlan() // @eligi:fiscal-app-flag
   const [error, setError] = useState<string | null>(null)
 
   const activate = () => {
@@ -92,6 +94,8 @@ export default function FiscalPaywall({ hasSubscription, onActivated }: Props) {
             fechado pode virar nota — automática, oficial, sem site de prefeitura.
           </p>
 
+          {/* @eligi:fiscal-app-paywall — no app: sem preco nem botao de contratar */}
+          {canBuy ? (<>
           <div style={{ fontSize: 15, color: inkLight.label, marginBottom: 4 }}>
             <b style={{ fontSize: 30, fontWeight: 700, color: inkLight.strong, letterSpacing: '-0.8px' }}>R$ 29,90</b>
             /mês
@@ -128,6 +132,16 @@ export default function FiscalPaywall({ hasSubscription, onActivated }: Props) {
               <Link href="/dashboard/configuracoes" style={{ color: colors.red.DEFAULT, textDecoration: 'underline' }}>
                 Ativar assinatura
               </Link>
+            </div>
+          )}
+
+          </>) : (
+            <div style={{
+              fontSize: 13, color: inkLight.neutral.text, background: inkLight.neutral.bg,
+              border: `1px solid ${inkLight.neutral.border}`, borderRadius: radius.md,
+              padding: '12px 14px', lineHeight: 1.5,
+            }}>
+              O módulo de Notas Fiscais não está ativo nesta conta e não é contratado pelo app.
             </div>
           )}
 

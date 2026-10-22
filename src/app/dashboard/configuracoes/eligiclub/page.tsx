@@ -21,6 +21,7 @@ import api from '@/shared/lib/apiClient'
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
 import AsaasSeal, { AsaasSupportNote } from '@/shared/components/AsaasSeal'
+import { useCanBuyPlan } from '@/shared/utils/useEligiApp' // @eligi:club-cfg-app-import
 
 // ── tipos ───────────────────────────────────────────────────────────────────
 interface AccountOnboarding {
@@ -473,6 +474,7 @@ function PendingRow({
 // ── página ──────────────────────────────────────────────────────────────────
 export default function EligiClubCobrancaPage() {
   const router = useRouter()
+  const canBuy = useCanBuyPlan() // @eligi:club-cfg-app-flag
 
   const [acc, setAcc] = useState<AccountOnboarding | null>(null)
   const [loading, setLoading] = useState(true)
@@ -663,8 +665,12 @@ export default function EligiClubCobrancaPage() {
 
       {/* ── 1: não conectado ── */}
       {/* @eligi:club-pitch-render */}
-      {!connected && <ClubPitch />}
-      {!connected && (
+      {/* @eligi:club-cfg-app — no app: sem ativacao (cobra R$ 12,90 no plano) */}
+      {!connected && !canBuy && (
+        <Banner tone="amber">A ativação do EligiClub não é feita pelo app.</Banner>
+      )}
+      {!connected && canBuy && <ClubPitch />}
+      {!connected && canBuy && (
         <div style={CARD}>
           <p style={{ fontSize: 12.5, color: 'rgba(0,0,0,0.5)', lineHeight: 1.55, marginBottom: 18 }}>
             Sua conta de pagamentos é aberta no <b>Asaas</b>, sem você sair do Eligi. Confirme alguns

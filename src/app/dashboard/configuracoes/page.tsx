@@ -4,6 +4,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import LegalModal from '@/shared/legal/LegalModal'
+import { useCanBuyPlan } from '@/shared/utils/useEligiApp' // @eligi:cfg-web-only-import
 import {
   Calendar, Building2, CreditCard, Users,
   Sliders, Bell, Shield, ChevronRight, Scissors, Sparkles, Palette,
@@ -18,6 +19,8 @@ type ModuleItem = {
   label:       string
   description: string
   available:   boolean
+  /** So no navegador: contratar/pagar o plano nao aparece no app. @eligi:cfg-web-only */
+  webOnly?:    boolean
 }
 type ModuleGroup = { group: string; items: ModuleItem[] }
 
@@ -50,6 +53,7 @@ const MODULES: ModuleGroup[] = [
         label:       'Sua Assinatura Eligi',
         description: 'Seu plano, valor mensal e situacao da cobranca.',
         available:   true,
+        webOnly:     true,
       },
       {
         href:        '/dashboard/configuracoes/eligiclub',
@@ -243,6 +247,7 @@ function ModuleCard({
 }
 
 export default function ConfiguracoesPage() {
+  const canBuy = useCanBuyPlan() // @eligi:cfg-web-only-flag
   const [legal, setLegal] = useState<null | 'termos' | 'privacidade'>(null)
   return (
     <>
@@ -259,7 +264,7 @@ export default function ConfiguracoesPage() {
                 {group.group}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {group.items.map(item => (
+                {group.items.filter(item => !item.webOnly || canBuy).map(item => (
                   <ModuleCard key={item.href ?? item.modal ?? item.label} {...item} onOpenModal={setLegal} />
                 ))}
               </div>

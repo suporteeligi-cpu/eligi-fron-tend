@@ -17,6 +17,7 @@ import { AlertTriangle } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, inkLight } from '@/shared/theme'
+import { useCanBuyPlan } from '@/shared/utils/useEligiApp' // @eligi:odue-app-import
 
 const DISPLAY_FONT = `'Space Grotesk', ${typography.fontFamily}`
 const TZ = 'America/Sao_Paulo'
@@ -54,6 +55,9 @@ function fmtBRL(v: number): string {
 
 export default function OverdueBanner() {
   const [banner, setBanner] = useState<Banner | null>(null)
+  // @eligi:odue-app — no app (Android/iPhone) o aviso fica, sem valor e sem
+  // botao de pagar: as lojas nao deixam levar a pagamento fora delas.
+  const canPay = useCanBuyPlan()
   const [lastCheck, setLastCheck] = useState(0)
 
   const check = useCallback(async () => {
@@ -110,7 +114,7 @@ export default function OverdueBanner() {
 
   const title = banner.lastDay
     ? 'Último dia de acesso'
-    : banner.value != null
+    : canPay && banner.value != null
       ? `Mensalidade de ${fmtBRL(banner.value)} em aberto`
       : 'Mensalidade em aberto'
 
@@ -164,7 +168,7 @@ export default function OverdueBanner() {
           {body}
         </div>
       </div>
-      <a
+      {canPay && (<a
         className="eligi-odue-cta"
         href={banner.href}
         {...(banner.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
@@ -176,7 +180,7 @@ export default function OverdueBanner() {
         }}
       >
         Pagar a fatura
-      </a>
+      </a>)}
     </div>
   )
 }

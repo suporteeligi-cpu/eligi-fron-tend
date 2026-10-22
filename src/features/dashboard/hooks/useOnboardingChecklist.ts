@@ -9,6 +9,29 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import api from '@/shared/lib/apiClient'
+import { eligiApp } from '@/shared/utils/eligiApp' // @eligi:checklist-app-import
+
+/* @eligi:checklist-app
+   No app (Android/iPhone) "Ativar assinatura" nao entra no checklist: a tela
+   de plano nao existe ali (regra das lojas). Progresso recalculado sem ele. */
+const WEB_ONLY_KEYS = new Set(['subscription'])
+
+export function withoutWebOnly(d: ChecklistData): ChecklistData {
+  const items = d.items.filter((i) => !WEB_ONLY_KEYS.has(i.key))
+  if (items.length === d.items.length) return d
+  // mesma conta do back (onboarding.service): progresso so dos essenciais
+  const essential = items.filter((i) => i.group === 'essential')
+  const done = essential.filter((i) => i.done).length
+  const total = essential.length
+  return {
+    ...d,
+    items,
+    done,
+    total,
+    complete: done === total,
+    progress: total === 0 ? 100 : Math.round((done / total) * 100),
+  }
+}
 
 export type ChecklistGroup = 'essential' | 'recommended'
 
@@ -57,7 +80,7 @@ export function useOnboardingChecklist(): OnboardingChecklistState {
     api
       .get<ChecklistData>('/onboarding/checklist')
       .then((res) => {
-        setData(res.data)
+        setData(eligiApp() && res.data ? withoutWebOnly(res.data) : res.data)
         setFailed(false)
       })
       .catch(() => {

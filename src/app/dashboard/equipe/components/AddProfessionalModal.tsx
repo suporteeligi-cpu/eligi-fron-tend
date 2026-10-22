@@ -9,6 +9,7 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography, shadows } from '@/shared/theme'
 import { Professional } from '@/features/professionals/types'
 import ConfirmModal from './ConfirmModal'
+import { useCanBuyPlan } from '@/shared/utils/useEligiApp' // @eligi:seat-app-import
 
 type SeatCode = 'UPGRADE_REQUIRED' | 'EXTRA_SEAT_REQUIRED'
 interface SeatPrompt { code: SeatCode; newValue: number; extraPrice?: number; newPlan?: string }
@@ -49,6 +50,9 @@ export default function AddProfessionalModal({ isMobile, onCreated, onClose }: P
   const [role,   setRole]   = useState('')
   const [saving, setSaving] = useState<'' | 'saving' | 'error'>('')
   const [seatPrompt, setSeatPrompt] = useState<SeatPrompt | null>(null)
+  // @eligi:seat-app — no app nao se aumenta a cobranca do plano (regra das
+  // lojas): o aviso explica o limite e so fecha.
+  const canBuy = useCanBuyPlan()
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Foca input ao abrir (não-mobile evita teclado pular automático)
@@ -322,7 +326,18 @@ export default function AddProfessionalModal({ isMobile, onCreated, onClose }: P
           </button>
         </div>
       </div>
-      {seatPrompt && (
+      {seatPrompt && !canBuy && (
+        <ConfirmModal
+          isMobile={isMobile}
+          title="Limite de profissionais do plano"
+          body="Seu plano atual não comporta mais um profissional. A mudança de plano não é feita pelo app."
+          confirmLabel="Entendi"
+          confirming={false}
+          onConfirm={() => setSeatPrompt(null)}
+          onCancel={() => setSeatPrompt(null)}
+        />
+      )}
+      {seatPrompt && canBuy && (
         <ConfirmModal
           isMobile={isMobile}
           title={seatPrompt.code === 'UPGRADE_REQUIRED' ? 'Mudar para Estabelecimento?' : 'Adicionar profissional extra?'}

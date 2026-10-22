@@ -6,6 +6,8 @@ import type { CSSProperties, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, Sparkles, Gift, CheckCircle2, AlertTriangle } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
+import { useEligiAppState } from '@/shared/utils/useEligiApp' // @eligi:plan-app-import
+import AppPlanNotice from '@/shared/components/AppPlanNotice'
 
 type AccessStatus =
   | 'EXEMPT' | 'ACTIVE' | 'TRIAL'
@@ -59,7 +61,41 @@ const fmtBRL = (v: number) =>
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
+/* @eligi:plan-app-wrap
+   No app (Android/iPhone) esta tela nao existe: plano, valor e pagamento
+   ficam fora do app por regra das lojas (ver useEligiApp.ts). Antes de saber
+   se e o app ("unknown", na hidratacao) nao desenha nada, para nao piscar. */
 export default function AssinaturaPage() {
+  const app = useEligiAppState()
+  const router = useRouter()
+  if (app === 'unknown') return null
+  if (app !== 'web') {
+    return (
+      <div style={{ maxWidth: 560, fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
+        <button
+          onClick={() => router.push('/dashboard/configuracoes')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, minHeight: 44,
+            background: 'transparent', border: 'none',
+            color: 'rgba(0,0,0,0.45)', fontSize: 13, cursor: 'pointer',
+            padding: 0, marginBottom: 12,
+          }}
+        >
+          <ArrowLeft size={15} /> Configurações
+        </button>
+        <AppPlanNotice
+          title="Assinatura"
+          text="O plano e a cobrança do Eligi não são gerenciados pelo app."
+          support
+          supportText="Olá! Tenho uma dúvida sobre a minha assinatura do Eligi."
+        />
+      </div>
+    )
+  }
+  return <AssinaturaWeb />
+}
+
+function AssinaturaWeb() {
   const router = useRouter()
   const [data, setData] = useState<SubscriptionView | null>(null)
   const [loading, setLoading] = useState(true)

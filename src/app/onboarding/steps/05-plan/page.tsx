@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import LegalModal from '@/shared/legal/LegalModal';
 // @eligi:coupon-onboarding
 import { useCouponClaim } from '@/shared/coupon/useCouponClaim';
+import { useCanBuyPlan } from '@/shared/utils/useEligiApp'; // @eligi:ob-plan-app-import
 
 
 type Plan = 'trial' | 'subscribe';
@@ -35,6 +36,9 @@ export default function PlanStep() {
     : REGULAR_PRICE;
 
   const [plan, setPlan] = useState<Plan>('trial');
+  // @eligi:ob-plan-app — no app (Android/iPhone) so existe o teste gratis:
+  // "Assinar agora", preco e cupom ficam no navegador (regra das lojas).
+  const canBuy = useCanBuyPlan();
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +72,7 @@ export default function PlanStep() {
       </p>
 
       {/* @eligi:coupon-onboarding-banner */}
-      {coupon && (
+      {canBuy && coupon && (
         <div
           className="ob-anim"
           style={{
@@ -102,10 +106,10 @@ export default function PlanStep() {
             <span className="ob-plan-name">7 dias grátis</span>
           </div>
           <div className="ob-plan-price" style={{ color: '#dc2626' }}>Sem cartão agora</div>
-          <div className="ob-plan-desc">Explore tudo sem pagar nada. No 8º dia você decide.</div>
+          <div className="ob-plan-desc">{canBuy ? 'Explore tudo sem pagar nada. No 8º dia você decide.' : 'Explore tudo por 7 dias, sem cartão.'}</div>
         </button>
 
-        <button
+        {canBuy && (<button
           type="button"
           onClick={() => setPlan('subscribe')}
           className={plan === 'subscribe' ? 'ob-plan ob-plan--active' : 'ob-plan'}
@@ -126,7 +130,7 @@ export default function PlanStep() {
             <span className="ob-plan-price-unit">/mês</span>
           </div>
           <div className="ob-plan-desc">Ativa na hora, sem prazo. Para quem já está convencido.</div>
-        </button>
+        </button>)}
       </div>
 
       <label className="ob-terms ob-anim" style={{ animationDelay: '.2s' }}>
@@ -161,9 +165,11 @@ export default function PlanStep() {
           : (<>Ir para o pagamento <ArrowRight size={17} /></>)}
       </button>
 
-      <p className="ob-secure ob-anim" style={{ animationDelay: '.3s' }}>
-        <Lock size={14} /> Pagamento seguro via Asaas · cancele quando quiser
-      </p>
+      {canBuy && (
+        <p className="ob-secure ob-anim" style={{ animationDelay: '.3s' }}>
+          <Lock size={14} /> Pagamento seguro via Asaas · cancele quando quiser
+        </p>
+      )}
 
       <div className="ob-nav" style={{ justifyContent: 'flex-start' }}>
         <button

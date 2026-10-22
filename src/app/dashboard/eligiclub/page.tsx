@@ -25,6 +25,7 @@ import { colors, typography, transitions } from '@/shared/theme'
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 import AsaasSeal from '@/shared/components/AsaasSeal' // @eligi:club-gate-seal
+import { useCanBuyPlan } from '@/shared/utils/useEligiApp' // @eligi:club-gate-app-import
 import ClubPlanEditorModal from './components/ClubPlanEditorModal'
 import ClubSubscriptionModal from './components/ClubSubscriptionModal'
 import ClubMemberDetailModal from './components/ClubMemberDetailModal'
@@ -192,6 +193,9 @@ const CLUB_GATE_BENEFITS: { Icon: LucideIcon; title: string; text: string }[] = 
 ]
 
 function ClubGateScreen({ onGo, isMobile }: { onGo: () => void; isMobile: boolean }) {
+  // @eligi:club-gate-app — a ativacao cobra R$ 12,90 na mensalidade do Eligi:
+  // no app (regra das lojas) nao ha botao nem preco, so o aviso.
+  const canBuy = useCanBuyPlan()
   return (
     <div style={{
       maxWidth: 560, margin: '0 auto', padding: isMobile ? '24px 16px 48px' : '40px 20px 60px',
@@ -245,6 +249,7 @@ function ClubGateScreen({ onGo, isMobile }: { onGo: () => void; isMobile: boolea
         ))}
       </div>
 
+      {canBuy ? (<>
       <button
         onClick={onGo}
         style={{
@@ -275,6 +280,15 @@ function ClubGateScreen({ onGo, isMobile }: { onGo: () => void; isMobile: boolea
       }}>
         A conta e aberta no Asaas, em seu nome. A analise cadastral leva ate 48h.
       </p>
+
+      </>) : (
+        <p style={{
+          fontSize: 13.5, lineHeight: 1.55, color: '#64748b', background: 'rgba(100,116,139,0.10)',
+          border: '1px solid rgba(100,116,139,0.22)', borderRadius: 14, padding: '13px 15px', margin: '0 0 20px',
+        }}>
+          A ativação do EligiClub não é feita pelo app.
+        </p>
+      )}
 
       <AsaasSeal variant="positivo" />
     </div>
