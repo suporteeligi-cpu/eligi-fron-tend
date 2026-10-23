@@ -12,6 +12,10 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const DISMISS_KEY = 'eligi-install-dismissed'
+// @eligi:play-popup-const Android no navegador: convite da Play a cada abertura do painel
+// (uma vez por aba, nao a cada troca de tela). Decisao do Eli, 23/10/2026.
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=br.com.eligi.app'
+const PLAY_SEEN_KEY = 'eligi-play-popup-seen'
 const RED = '#dc2626'
 
 function detectPlatform(): Plat {
@@ -20,6 +24,9 @@ function detectPlatform(): Plat {
   if (eligiApp()) return 'standalone'
   const nav = navigator as Navigator & { standalone?: boolean; maxTouchPoints?: number }
   const ua = nav.userAgent || ''
+  // Android vai para o app da Play Store, inclusive no atalho instalado e no // @eligi:play-popup-detect
+  // navegador do WhatsApp/Instagram (o link da Play abre o app da loja).
+  if (/Android/i.test(ua)) return 'android'
   const standalone =
     window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true
   if (standalone) return 'standalone'
@@ -95,19 +102,129 @@ function Steps({ plat }: { plat: Plat }) {
   )
 }
 
+// @eligi:play-popup-component
+function PlayPopup({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      role="presentation"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 10050,
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        background: 'rgba(7,7,11,0.45)',
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="eligi-play-title"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 480,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          background: '#fff',
+          padding: '20px 20px calc(env(safe-area-inset-bottom) + 20px)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+        }}
+      >
+        <div style={{ margin: '0 auto', height: 4, width: 36, borderRadius: 9999, background: '#d4d4d8' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192x192.png" alt="" style={{ height: 56, width: 56, flexShrink: 0, borderRadius: 14 }} />
+          <div style={{ minWidth: 0 }}>
+            <h3 id="eligi-play-title" style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#111114', lineHeight: 1.25 }}>
+              O Eligi agora tem app
+            </h3>
+            <p style={{ margin: '2px 0 0', fontSize: 13, color: '#6b7280' }}>Grátis na Google Play</p>
+          </div>
+        </div>
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[
+            'Aviso no celular a cada agendamento',
+            'Abre direto no painel, sem digitar endereço',
+            'Mesma conta e mesmos dados de agora',
+          ].map((t) => (
+            <li key={t} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#374151' }}>
+              <span aria-hidden style={{ height: 6, width: 6, flexShrink: 0, borderRadius: 9999, background: RED }} />
+              {t}
+            </li>
+          ))}
+        </ul>
+        <a
+          href={PLAY_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onClose}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 48,
+            borderRadius: 14,
+            fontSize: 15,
+            fontWeight: 700,
+            color: '#fff',
+            background: RED,
+            textDecoration: 'none',
+          }}
+        >
+          Baixar na Google Play
+        </a>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            minHeight: 44,
+            borderRadius: 12,
+            fontSize: 14,
+            fontWeight: 600,
+            color: '#6b7280',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          Agora não
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function InstallAppBar() {
   const pathname = usePathname()
   const [plat, setPlat] = useState<Plat>('unknown')
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
   const [hidden, setHidden] = useState(true)
   const [modal, setModal] = useState(false)
+  const [playOpen, setPlayOpen] = useState(false) // @eligi:play-popup-state
 
   useEffect(() => {
     let cancelled = false
     const run = async () => {
       await Promise.resolve()
       if (cancelled) return
-      setPlat(detectPlatform())
+      const p = detectPlatform()
+      setPlat(p)
+      if (p === 'android') { // @eligi:play-popup-open
+        let seen = false
+        try {
+          seen = sessionStorage.getItem(PLAY_SEEN_KEY) === '1'
+          sessionStorage.setItem(PLAY_SEEN_KEY, '1')
+        } catch {
+          seen = false
+        }
+        setPlayOpen(!seen)
+        return
+      }
       let dismissed = false
       try {
         dismissed = localStorage.getItem(DISMISS_KEY) === '1'
@@ -156,6 +273,9 @@ export function InstallAppBar() {
   // só no dashboard, só mobile, escondido quando já instalado / dispensado / desktop
   const onDashboard = pathname?.startsWith('/dashboard') ?? false
   if (!onDashboard) return null
+  if (plat === 'android') { // @eligi:play-popup-render
+    return playOpen ? <PlayPopup onClose={() => setPlayOpen(false)} /> : null
+  }
   if (hidden || plat === 'standalone' || plat === 'unknown' || plat === 'desktop') return null
 
   const canInstall = !!deferred
