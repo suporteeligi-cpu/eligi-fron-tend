@@ -240,6 +240,9 @@ export function MobileProfileEditor({
               onPickFile={onPickFile}
               onRemovePhoto={i => draft.setGallery(arr => arr.filter((_, j) => j !== i))}
               showTeamNote={false}
+              pros={draft.pros}
+              galleryPros={draft.galleryPros}
+              onSetPro={draft.setGalleryPro} // @eligi:gpro-mobile
             />
           )}
         </EditSheet>

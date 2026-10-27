@@ -21,7 +21,7 @@
 // - Depende do PATCH parcial do back (campo ausente nao e' tocado). Sem isso,
 //   salvar uma secao apagaria as outras.
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react' // @eligi:gpro-react
 import api from '@/shared/lib/apiClient'
 import {
   type BusinessTheme,
@@ -30,6 +30,32 @@ import {
 } from '@/shared/profileTheme'
 
 const SETTINGS_BASE = '/business-settings'
+
+// @eligi:gpro-tipos
+// Profissional que pode ser creditado numa foto da galeria. So id e nome: o
+// seletor nao precisa de mais nada e o resto da Equipe nao atravessa a tela.
+export interface GalleryPro {
+  id: string
+  name: string
+}
+
+export interface GalleryItemInit {
+  url: string
+  professionalId: string | null
+}
+
+interface EquipeRow {
+  id: string
+  name: string
+  active?: boolean
+  availableOnline?: boolean
+}
+
+function isEquipeRow(x: unknown): x is EquipeRow {
+  if (!x || typeof x !== 'object') return false
+  const o = x as Record<string, unknown>
+  return typeof o.id === 'string' && typeof o.name === 'string'
+}
 
 export type ProfileSection = 'theme' | 'images' | 'profile' | 'gallery'
 export type SectionStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -71,6 +97,7 @@ export interface BusinessProfileDraftInit {
   lng?: number | null
   socials?: BusinessSocials | null
   gallery?: string[] | null
+  galleryItems?: GalleryItemInit[] | null // @eligi:gpro-init
 }
 
 function messageOf(err: unknown): string {
@@ -91,6 +118,54 @@ export function useBusinessProfileDraft(init: BusinessProfileDraftInit) {
   const [socials, setSocials] = useState<BusinessSocials>(init.socials ?? {})
   const [gallery, setGallery] = useState<string[]>(init.gallery ?? [])
 
+  // @eligi:gpro-estado
+  // Profissional de cada foto, chaveado pela URL (a lista `gallery` continua
+  // sendo a fonte da ordem e do que existe). Foto removida simplesmente deixa
+  // de ser consultada; nao precisa limpar o mapa.
+  const [galleryPros, setGalleryPros] = useState<Record<string, string | null>>(() => {
+    const m: Record<string, string | null> = {}
+    for (const it of init.galleryItems ?? []) m[it.url] = it.professionalId
+    return m
+  })
+  const [pros, setPros] = useState<GalleryPro[]>([])
+
+  // @eligi:gpro-fetch
+  // Quem pode ser creditado: ativo e com agendamento online. Oculto do link nem
+  // aparece na opcao (decisao do Eli); o back confere de novo ao gravar.
+  // Falhou? sem seletor — a galeria continua salvando normalmente.
+  useEffect(() => {
+    let alive = true
+    api.get('/equipe')
+      .then((res) => {
+        const list: unknown = res.data?.data
+        if (!alive || !Array.isArray(list)) return
+        setPros(
+          list
+            .filter(isEquipeRow)
+            .filter((p) => p.active !== false && p.availableOnline !== false)
+            .map((p) => ({ id: p.id, name: p.name })),
+        )
+      })
+      .catch((err: unknown) => {
+        console.error('[perfil] lista de profissionais da galeria falhou', err)
+      })
+    return () => { alive = false }
+  }, [])
+
+  const setGalleryPro = useCallback((url: string, professionalId: string | null) => {
+    setGalleryPros(m => ({ ...m, [url]: professionalId }))
+  }, [])
+
+  /** O upload troca o dataUrl pela URL do bucket; o credito acompanha a troca. */
+  const moveGalleryPro = useCallback((from: string, to: string) => {
+    setGalleryPros(m => {
+      if (!(from in m)) return m
+      const next = { ...m, [to]: m[from] }
+      delete next[from]
+      return next
+    })
+  }, [])
+
   const [status, setStatus] = useState<StatusMap>(IDLE_STATUS)
   const [errors, setErrors] = useState<ErrorMap>(NO_ERRORS)
 
@@ -107,9 +182,15 @@ export function useBusinessProfileDraft(init: BusinessProfileDraftInit) {
           socials,
         }
       }
-      return { gallery }
+      // @eligi:gpro-body
+      // `items` e o contrato novo; `gallery` vai junto para o back antigo
+      // (que ignora `items`) nao interpretar o corpo como galeria vazia.
+      return {
+        gallery,
+        items: gallery.map((url) => ({ url, professionalId: galleryPros[url] ?? null })),
+      }
     },
-    [theme, logoUrl, coverUrl, about, address, lat, lng, socials, gallery],
+    [theme, logoUrl, coverUrl, about, address, lat, lng, socials, gallery, galleryPros],
   )
 
   /** Salva UMA secao. Devolve true em sucesso. Nunca lanca. */
@@ -163,6 +244,7 @@ export function useBusinessProfileDraft(init: BusinessProfileDraftInit) {
     lng, setLng,
     socials, setSocials,
     gallery, setGallery,
+    galleryPros, setGalleryPro, moveGalleryPro, pros, // @eligi:gpro-retorno
     status, errors, busy, failed,
     saveSection, saveAll,
   }

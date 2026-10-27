@@ -28,7 +28,7 @@ import {
 // @eligi:editor-consome-draft-hook
 // `api` e `sanitizeTheme` sairam daqui: quem fala com a API e quem sanitiza o
 // tema inicial agora e' o hook. Import orfao e' erro no lint.
-import { useBusinessProfileDraft, SECTION_LABEL } from '../hooks/useBusinessProfileDraft';
+import { useBusinessProfileDraft, SECTION_LABEL, type GalleryItemInit } from '../hooks/useBusinessProfileDraft'; // @eligi:gpro-editor-tipo
 import { uploadBlob } from '@/shared/utils/uploadImage';
 import type { ImagePresetName } from '@/shared/utils/imageCompress';
 import ImageCropper from './ImageCropper';
@@ -123,6 +123,7 @@ interface Props {
   initialLng?: number | null;
   initialSocials?: BusinessSocials | null;
   initialGallery?: string[] | null;
+  initialGalleryItems?: GalleryItemInit[] | null; // @eligi:gpro-editor-prop
   onSaved?: (theme: BusinessTheme) => void;
 }
 
@@ -131,7 +132,7 @@ interface Props {
 export function ProfileThemeEditor({
   businessName = 'Seu negócio',
   initialTheme, initialLogo, initialCover,
-  initialAbout, initialAddress, initialLat, initialLng, initialSocials, initialGallery,
+  initialAbout, initialAddress, initialLat, initialLng, initialSocials, initialGallery, initialGalleryItems, // @eligi:gpro-editor-args
   onSaved,
 }: Props) {
   // Estado puramente de UI fica aqui; o rascunho persistivel vive no hook.
@@ -156,6 +157,7 @@ export function ProfileThemeEditor({
     lng: initialLng,
     socials: initialSocials,
     gallery: initialGallery,
+    galleryItems: initialGalleryItems, // @eligi:gpro-editor-init
   });
 
   // @eligi:draft-desestrutura
@@ -251,6 +253,7 @@ export function ProfileThemeEditor({
       // dataUrl), sem depender de indice — o usuario pode ter removido outra
       // foto enquanto o upload corria.
       setGallery(g => g.map(item => (item === dataUrl ? result.value : item)));
+      draft.moveGalleryPro(dataUrl, result.value); // @eligi:gpro-editor-move
     }
   }
 
@@ -359,6 +362,9 @@ export function ProfileThemeEditor({
             gallery={gallery}
             onPickFile={openCrop}
             onRemovePhoto={i => { touch(); setGallery(arr => arr.filter((_, j) => j !== i)); }}
+            pros={draft.pros}
+            galleryPros={draft.galleryPros}
+            onSetPro={(url, id) => { touch(); draft.setGalleryPro(url, id); }} // @eligi:gpro-editor-uso
           />
         )}
 

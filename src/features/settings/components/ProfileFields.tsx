@@ -269,14 +269,29 @@ export function SocialsField({ socials, onChange, showLabel = true }: { socials:
 
 /* ---------- EQUIPE (aviso) + FOTOS ---------- */
 
+// @eligi:gpro-fields
+// Seletor "quem fez" embaixo de cada foto. Opcional por prop: sem `onSetPro`
+// (ou sem profissional online) a grade fica como antes.
 interface TeamPhotosProps {
   gallery: string[];
   onPickFile: (file: File, target: CropTarget) => void;
   onRemovePhoto: (index: number) => void;
   showTeamNote?: boolean;
+  pros?: Array<{ id: string; name: string }>;
+  galleryPros?: Record<string, string | null>;
+  onSetPro?: (url: string, professionalId: string | null) => void;
 }
 
-export function TeamAndPhotosFields({ gallery, onPickFile, onRemovePhoto, showTeamNote = true }: TeamPhotosProps) {
+const proSelect: React.CSSProperties = {
+  width: '100%', minHeight: 40, border: '1px solid #e7e7ec', borderRadius: 10, padding: '0 8px',
+  fontFamily: 'inherit', fontSize: 12, color: '#0c0c12', background: '#fff', cursor: 'pointer',
+};
+
+export function TeamAndPhotosFields({
+  gallery, onPickFile, onRemovePhoto, showTeamNote = true, pros = [], galleryPros = {}, onSetPro,
+}: TeamPhotosProps) {
+  const canCredit = typeof onSetPro === 'function' && pros.length > 0;
+  const proIds = new Set(pros.map(p => p.id));
   return (
     <div>
       {showTeamNote && (
@@ -289,18 +304,37 @@ export function TeamAndPhotosFields({ gallery, onPickFile, onRemovePhoto, showTe
         </>
       )}
 
-      <div style={glabel}>Fotos do estabelecimento <span style={{ color: '#a1a1aa', fontWeight: 600 }}>· até 3</span></div>
+      {/* @eligi:gpro-rotulo — era "ate 3" com o teto ja em 12 */}
+      <div style={glabel}>Fotos do estabelecimento <span style={{ color: '#a1a1aa', fontWeight: 600 }}>· até {GALLERY_MAX}</span></div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-        {gallery.map((g, i) => (
-          <div key={`${i}-${g.slice(-24)}`} style={{ position: 'relative', aspectRatio: '1', borderRadius: 11, overflow: 'hidden', boxShadow: '0 0 0 1px #e7e7ec' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={g} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <button onClick={() => onRemovePhoto(i)} aria-label="Remover foto"
-              style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', background: 'rgba(12,12,18,.7)', color: '#fff', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
-              <Trash2 size={12} />
-            </button>
-          </div>
-        ))}
+        {gallery.map((g, i) => {
+          // @eligi:gpro-tile — valor fora da lista (ficou oculto/inativo) mostra "Sem profissional"
+          const current = galleryPros[g] ?? '';
+          const value = proIds.has(current) ? current : '';
+          return (
+            <div key={`${i}-${g.slice(-24)}`} style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+              <div style={{ position: 'relative', aspectRatio: '1', borderRadius: 11, overflow: 'hidden', boxShadow: '0 0 0 1px #e7e7ec' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={g} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <button onClick={() => onRemovePhoto(i)} aria-label="Remover foto"
+                  style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', background: 'rgba(12,12,18,.7)', color: '#fff', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                  <Trash2 size={12} />
+                </button>
+              </div>
+              {canCredit && (
+                <select
+                  aria-label={`Profissional da foto ${i + 1}`}
+                  value={value}
+                  onChange={e => onSetPro?.(g, e.target.value || null)}
+                  style={proSelect}
+                >
+                  <option value="">Sem profissional</option>
+                  {pros.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              )}
+            </div>
+          );
+        })}
         {gallery.length < GALLERY_MAX && (
           <label style={{ aspectRatio: '1', borderRadius: 11, border: '1.5px dashed #e7e7ec', display: 'grid', placeItems: 'center', cursor: 'pointer', color: '#a1a1aa' }}>
             <UploadCloud size={18} />
@@ -308,7 +342,11 @@ export function TeamAndPhotosFields({ gallery, onPickFile, onRemovePhoto, showTe
           </label>
         )}
       </div>
-      <div style={{ fontSize: 11, color: '#a1a1aa', marginTop: 8 }}>Até 12 fotos. Cada uma passa pelo recortador (quadrada).</div>
+      {/* @eligi:gpro-ajuda */}
+      <div style={{ fontSize: 11, color: '#71717a', marginTop: 8, lineHeight: 1.45 }}>
+        Até {GALLERY_MAX} fotos. Cada uma passa pelo recortador (quadrada).
+        {canCredit && ' Escolha quem fez cada trabalho: o cliente vê o nome no portfólio e já agenda com essa pessoa.'}
+      </div>
     </div>
   );
 }

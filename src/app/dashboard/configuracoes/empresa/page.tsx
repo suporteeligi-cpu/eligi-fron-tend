@@ -23,6 +23,7 @@ interface BusinessSettings {
   lng:      number | null
   socials:  BusinessSocials | null
   gallery:  string[] | null
+  galleryItems?: Array<{ url: string; professionalId: string | null }> | null // @eligi:gpro-page-tipo
 }
 
 export default function EmpresaPage() {
@@ -185,6 +186,7 @@ export default function EmpresaPage() {
                   initialLng={data.lng}
                   initialSocials={data.socials}
                   initialGallery={data.gallery}
+                  initialGalleryItems={data.galleryItems ?? null} // @eligi:gpro-page-prop
                   onSaved={(theme) => setData(d => d ? { ...d, theme } : d)}
                 />
               </div>

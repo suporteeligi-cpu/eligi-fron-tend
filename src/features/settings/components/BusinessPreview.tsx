@@ -155,6 +155,8 @@ export function BusinessPreview({
   const aboutText = (about ?? '').trim();
   const addressText = (address ?? '').trim();
   const photos = (gallery ?? []).filter(Boolean).slice(0, 3);
+  // @eligi:gpro-preview-mais — a previa mostra 3; o link mostra todas
+  const morePhotos = Math.max(0, (gallery ?? []).filter(Boolean).length - photos.length);
 
   const socialItems: Array<{ key: string; icon: React.ReactNode; label: string }> = [];
   if (socials?.instagram) {
@@ -387,10 +389,17 @@ export function BusinessPreview({
                       borderRadius: 10,
                       overflow: 'hidden',
                       boxShadow: 'inset 0 0 0 1px var(--p-line)',
+                      position: 'relative',
                     }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {/* @eligi:gpro-preview-badge — div com cor explicita: main span pinta de cinza */}
+                    {i === photos.length - 1 && morePhotos > 0 && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(17,17,20,.62)', color: '#fff', fontWeight: 700, fontSize: 15 }}>
+                        +{morePhotos}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
