@@ -10,6 +10,7 @@ import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
 import { PasswordChecklist } from '../components/auth/PasswordChecklist'
 import { mapAuthError }     from '@/lib/auth.error.map'
 import { appSupportsGoogle, nativeGoogleIdToken } from '@/shared/utils/appGoogle'
+import { useEligiAppState } from '@/shared/utils/useEligiApp' // @eligi:ios-no-google-import
 import { firstPasswordError } from '@/lib/passwordRules'
 import styles from '../components/auth/auth.module.css'
 
@@ -43,6 +44,7 @@ declare global {
 /* ── Component ── */
 export default function RegisterForm() {
   const router                        = useRouter()
+  const showGoogle = useEligiAppState() !== 'ios' // @eligi:ios-no-google-flag
   const { register, loginWithGoogle } = useAuth()
 
   const [name,     setName]     = useState('')
@@ -150,18 +152,24 @@ export default function RegisterForm() {
       </div>
 
       {/* @eligi:auth-google-first — quem entra com Google nao deveria
-          rolar ate o rodape para descobrir que da. */}
-      <div className={styles.googleWrapper}>
-        <GoogleAuthButton
-          onClick={handleGoogleClick}
-          loading={loading}
-          label="Criar conta com Google"
-        />
-      </div>
+          rolar ate o rodape para descobrir que da.
+          @eligi:ios-no-google — no app de iPhone nao ha Google: a Apple exige
+          "Entrar com a Apple" junto (diretriz 4.8). Decisao do Eli, 29/10/2026. */}
+      {showGoogle && (
+        <>
+          <div className={styles.googleWrapper}>
+            <GoogleAuthButton
+              onClick={handleGoogleClick}
+              loading={loading}
+              label="Criar conta com Google"
+            />
+          </div>
 
-      <div className={styles.divider}>
-        <span className={styles.dividerLabel}>ou preencha seus dados</span>
-      </div>
+          <div className={styles.divider}>
+            <span className={styles.dividerLabel}>ou preencha seus dados</span>
+          </div>
+        </>
+      )}
 
       {/* Form */}
       <form className={styles.authForm} onSubmit={handleSubmit} noValidate>

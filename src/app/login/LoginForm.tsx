@@ -9,6 +9,7 @@ import { AuthButton }       from '../components/auth/AuthButton'
 import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
 import { mapAuthError }     from '@/lib/auth.error.map'
 import { appSupportsGoogle, nativeGoogleIdToken } from '@/shared/utils/appGoogle'
+import { useEligiAppState } from '@/shared/utils/useEligiApp' // @eligi:ios-no-google-import
 import styles from '../components/auth/auth.module.css'
 
 /* ── Types ── */
@@ -36,6 +37,7 @@ declare global {
 
 export default function LoginForm() {
   const router                     = useRouter()
+  const showGoogle = useEligiAppState() !== 'ios' // @eligi:ios-no-google-flag
   const { login, loginWithGoogle } = useAuth()
 
   const [email,        setEmail]        = useState('')
@@ -128,18 +130,24 @@ export default function LoginForm() {
       </div>
 
       {/* @eligi:auth-google-first — quem entra com Google nao deveria
-          rolar ate o rodape para descobrir que da. */}
-      <div className={styles.googleWrapper}>
-        <GoogleAuthButton
-          onClick={handleGoogleClick}
-          loading={loading}
-          label="Entrar com Google"
-        />
-      </div>
+          rolar ate o rodape para descobrir que da.
+          @eligi:ios-no-google — no app de iPhone nao ha Google: a Apple exige
+          "Entrar com a Apple" junto (diretriz 4.8). Decisao do Eli, 29/10/2026. */}
+      {showGoogle && (
+        <>
+          <div className={styles.googleWrapper}>
+            <GoogleAuthButton
+              onClick={handleGoogleClick}
+              loading={loading}
+              label="Entrar com Google"
+            />
+          </div>
 
-      <div className={styles.divider}>
-        <span className={styles.dividerLabel}>ou entre com e-mail</span>
-      </div>
+          <div className={styles.divider}>
+            <span className={styles.dividerLabel}>ou entre com e-mail</span>
+          </div>
+        </>
+      )}
 
       {/* Form */}
       <form className={styles.authForm} onSubmit={handleSubmit} noValidate>
