@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, Plus, RefreshCw, SlidersHorizontal, Tag } fr
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import CalendarPicker from '@/shared/components/CalendarPicker'
+import FinanceBackLink from '../components/FinanceBackLink' // @eligi:fin-back-dsp-imp
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { useExpenses, useMonthTotal } from '@/features/expenses/hooks/useExpenses'
 import { useExpenseCategories } from '@/features/expenses/hooks/useExpenseCategories'
@@ -161,6 +162,9 @@ export default function DespesasPage() {
       <style>{CSS}</style>
 
       {/* ── cabecalho ─────────────────────────────────────────────────── */}
+      {/* @eligi:fin-back-dsp-jsx: tela so do dono, o menu sempre abre */}
+      <FinanceBackLink />
+
       <header className="dp-head">
         <div style={{ minWidth: 0 }}>
           <h1 className="dp-h1">Despesas</h1>

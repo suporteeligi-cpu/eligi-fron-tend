@@ -8,6 +8,8 @@ import { colors, typography, inkLight } from '@/shared/theme' // @eligi:club-bai
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
 import { PayoutSettings, PayoutListItem } from '@/features/payouts/types'
 import { useAuth } from '@/hooks/useAuth'
+import { canAccessRoute } from '@/app/components/navigation/routeAccess' // @eligi:fin-back-com-imp
+import FinanceBackLink from '../components/FinanceBackLink'
 import { ChevronRight } from 'lucide-react'
 import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
 import MyCommissionsView from './components/MyCommissionsView'
@@ -308,21 +310,8 @@ export default function ComissoesPage() {
       }}>
         {/* Header */}
         <div style={{ marginBottom: 16 }}>
-          <button
-            onClick={() => router.push('/dashboard/financeiro')}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: typography.color.muted,
-              fontSize: typography.scale.sm,
-              cursor: 'pointer',
-              padding: 0,
-              marginBottom: 6,
-              fontFamily: 'inherit',
-            }}
-          >
-            ← Financeiro
-          </button>
+          {/* @eligi:fin-back-com-btn: gerente ve esta tela, mas nao o menu */}
+          {canAccessRoute(user?.role, '/dashboard/financeiro') && <FinanceBackLink />}
           <h1 style={{
             fontSize: isMobile ? 24 : 28,
             fontWeight: typography.weight.bold,

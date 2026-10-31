@@ -2,8 +2,10 @@
 // src/app/dashboard/financeiro/vendas/page.tsx
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, ShoppingCart } from 'lucide-react'
+import { Loader2, ShoppingCart } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth' // @eligi:fin-back-vnd-imp
+import { canAccessRoute } from '@/app/components/navigation/routeAccess'
+import FinanceBackLink from '../components/FinanceBackLink'
 import api from '@/shared/lib/apiClient'
 import { colors, typography, radius } from '@/shared/theme'
 import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
@@ -15,7 +17,9 @@ import SaleRow       from './components/SaleRow'
 import ExportButton  from './components/ExportButton'
 
 export default function VendasPage() {
-  const router   = useRouter()
+  const { user } = useAuth() // @eligi:fin-back-vnd-user
+  // recepcao abre Vendas pelo menu lateral, mas nao pode abrir o menu do Financeiro
+  const canHub   = canAccessRoute(user?.role, '/dashboard/financeiro')
   const mode     = useDeviceMode()
   const isMobile = mode === 'mobile'
 
@@ -82,20 +86,8 @@ export default function VendasPage() {
         fontFamily: typography.fontFamily,
       }}>
         {/* Header */}
-        <button
-          onClick={() => router.push('/dashboard/financeiro')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'transparent', border: 'none',
-            color: typography.color.muted,
-            fontSize: typography.scale.sm,
-            cursor: 'pointer', padding: 0, marginBottom: 8,
-            fontFamily: 'inherit',
-          }}
-        >
-          <ArrowLeft size={13} />
-          Financeiro
-        </button>
+        {/* @eligi:fin-back-vnd-btn */}
+        {canHub && <FinanceBackLink />}
 
         <div style={{
           display: 'flex',
