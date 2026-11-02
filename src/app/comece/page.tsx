@@ -10,23 +10,17 @@
    @next/next/no-page-custom-font, que barraria o lint.
 ========================================= */
 import type { Metadata } from 'next'
-import { DM_Sans, Space_Grotesk } from 'next/font/google'
 import Analytics from './Analytics'
 import QuizFlow from './QuizFlow'
 
-const display = Space_Grotesk({
-  subsets: ['latin'],
-  weight: ['500', '700'],
-  variable: '--font-display',
-  display: 'swap',
-})
-
-const body = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-body',
-  display: 'swap',
-})
+/* @eligi:comece-fontes-v1 - a /comece usa as fontes da Identidade v1.0
+   carregadas no layout raiz (Space Grotesk + Inter). DM Sans saiu.
+   Os nomes --font-display/--font-body seguem valendo no
+   Quiz.module.css; aqui eles so apontam para as variaveis do layout. */
+const fontAlias = {
+  '--font-display': 'var(--font-eligi-display)',
+  '--font-body': 'var(--font-eligi-sans)',
+} as React.CSSProperties
 
 export const metadata: Metadata = {
   title: 'Raio-X do seu negócio',
@@ -46,7 +40,7 @@ export const metadata: Metadata = {
 
 export default function ComecePage() {
   return (
-    <div className={display.variable + ' ' + body.variable}>
+    <div style={fontAlias}>
       <Analytics />
       <QuizFlow />
     </div>
