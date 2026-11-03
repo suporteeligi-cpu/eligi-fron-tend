@@ -4,7 +4,9 @@
 // o erro para uma frase.
 
 import api from '@/shared/lib/apiClient'
-import type { RecordDetail, RecordFilter, RecordPage } from './types'
+import type {
+  Catalog, RecordDetail, RecordFilter, RecordPage, ServiceLite, Template, TemplateCreatePayload,
+} from './types'
 
 interface ApiErrorShape {
   response?: { status?: number; data?: { message?: string; error?: string; code?: string } }
@@ -49,4 +51,50 @@ export async function fetchRecord(id: string): Promise<RecordDetail> {
 
 export async function eraseRecord(id: string): Promise<void> {
   await api.delete(`/anamnesis/records/${encodeURIComponent(id)}`)
+}
+
+/* @eligi:anamnese-front-api-modelos ---------------------------------------- */
+
+export async function fetchCatalog(): Promise<Catalog> {
+  const res = await api.get<Catalog>('/anamnesis/catalog')
+  return res.data
+}
+
+export async function fetchTemplates(): Promise<Template[]> {
+  const res = await api.get<Template[]>('/anamnesis/templates')
+  return Array.isArray(res.data) ? res.data : []
+}
+
+export async function createTemplate(payload: TemplateCreatePayload): Promise<Template> {
+  const res = await api.post<Template>('/anamnesis/templates', payload)
+  return res.data
+}
+
+export async function setTemplateActive(id: string, isActive: boolean): Promise<Template> {
+  const res = await api.patch<Template>(`/anamnesis/templates/${encodeURIComponent(id)}/active`, { isActive })
+  return res.data
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  await api.delete(`/anamnesis/templates/${encodeURIComponent(id)}`)
+}
+
+interface RawService {
+  id: string
+  name: string
+  anamnesisTemplateId?: string | null
+  serviceCategory?: { name?: string | null } | null
+}
+
+/** Servicos ativos do estabelecimento (a mesma rota da tela de Servicos). */
+export async function fetchServices(): Promise<ServiceLite[]> {
+  const res = await api.get('/services')
+  const raw: unknown = res.data?.data ?? res.data
+  if (!Array.isArray(raw)) return []
+  return (raw as RawService[]).map((s) => ({
+    id: s.id,
+    name: s.name,
+    anamnesisTemplateId: s.anamnesisTemplateId ?? null,
+    categoryName: s.serviceCategory?.name ?? null,
+  }))
 }

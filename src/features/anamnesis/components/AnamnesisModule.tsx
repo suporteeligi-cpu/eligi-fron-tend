@@ -1,16 +1,68 @@
 // src/features/anamnesis/components/AnamnesisModule.tsx
 // @eligi:anamnese-front-modulo
-// Pagina central das Fichas de anamnese (Fatia 2a): lista de fichas, ver e
-// excluir a pedido do cliente, e o estado de modulo desligado.
+// Pagina central das Fichas de anamnese: lista de fichas (2a) e, para dono e
+// gerente, a aba Modelos com o "Configure sua ficha" (2b). @eligi:anamnese-front-abas
+// Recepcao so ve a aba Fichas, sem conteudo.
 // Dashboard claro; botao principal grafite, vermelho so em alerta de saude e
 // acao destrutiva. Layout por @media (o layout do dashboard ja cuida da navbar).
 'use client'
 
 import { ClipboardList, ShieldCheck, Sparkles, TriangleAlert } from 'lucide-react'
+import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useAnamnesisSettings } from '../hooks/useAnamnesisSettings'
-import { canEraseRecords, canSeeContent, canToggleModule } from '../permissions'
+import { useTemplates } from '../hooks/useTemplates'
+import { canEraseRecords, canManageTemplates, canSeeContent, canToggleModule } from '../permissions'
 import RecordsList from './RecordsList'
+import TemplatesTab from './TemplatesTab'
+
+type Tab = 'fichas' | 'modelos'
+
+/** Abas Fichas | Modelos (dono e gerente, modulo ligado). Sem ficha configurada,
+ *  abre direto em Modelos: a lista de fichas estaria vazia de qualquer jeito. */
+function ManagerTabs({ role }: { role: string | undefined }) {
+  const tpl = useTemplates()
+  const [picked, setPicked] = useState<Tab | null>(null)
+
+  if (picked === null && tpl.loading) {
+    return (
+      <div aria-busy="true">
+        <div className="an-skel" style={{ height: 46, marginBottom: 12 }} />
+        <div className="an-skel" style={{ height: 200 }} />
+      </div>
+    )
+  }
+
+  const tab: Tab = picked ?? (!tpl.error && tpl.templates.length === 0 ? 'modelos' : 'fichas')
+
+  return (
+    <>
+      <div className="an-tabs" role="tablist" aria-label="Fichas de anamnese">
+        <button type="button" role="tab" aria-selected={tab === 'fichas'} className={`an-tab${tab === 'fichas' ? ' is-on' : ''}`} onClick={() => setPicked('fichas')}>
+          Fichas
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'modelos'} className={`an-tab${tab === 'modelos' ? ' is-on' : ''}`} onClick={() => setPicked('modelos')}>
+          Modelos{!tpl.loading && tpl.templates.length > 0 ? <span className="an-tab-n">{tpl.templates.length}</span> : null}
+        </button>
+      </div>
+      {tab === 'fichas' ? (
+        <RecordsList contentAccess={canSeeContent(role)} canErase={canEraseRecords(role)} hideWhenEmpty={false} />
+      ) : (
+        <TemplatesTab
+          loading={tpl.loading}
+          error={tpl.error}
+          templates={tpl.templates}
+          catalog={tpl.catalog}
+          // Recarregar a lista nao pode trocar de aba sozinho (sem ficha a aba
+          // automatica era Modelos; com a recem-criada viraria Fichas).
+          reload={() => { setPicked('modelos'); tpl.reload() }}
+          replace={tpl.replace}
+          remove={tpl.remove}
+        />
+      )}
+    </>
+  )
+}
 
 export default function AnamnesisModule() {
   const { user, loading: authLoading } = useAuth()
@@ -71,7 +123,9 @@ export default function AnamnesisModule() {
         </section>
       )}
 
-      {ready && !settings.error && (
+      {ready && !settings.error && settings.enabled && canManageTemplates(role) && <ManagerTabs role={role} />}
+
+      {ready && !settings.error && !(settings.enabled && canManageTemplates(role)) && (
         <RecordsList
           contentAccess={contentAccess}
           canErase={canEraseRecords(role)}
@@ -86,6 +140,10 @@ const CSS = `
 .an{max-width:1080px;margin:0 auto;padding:4px 16px 96px;font-family:var(--font-sans);color:#111114}
 @media (min-width:720px){.an{padding:8px 24px 64px}}
 .an-head{margin-bottom:18px}
+.an-tabs{display:flex;gap:4px;padding:4px;border-radius:14px;background:#ececf0;width:max-content;max-width:100%;margin-bottom:16px}
+.an-tab{min-height:40px;padding:0 18px;border-radius:10px;border:0;background:none;font-family:inherit;font-size:14.5px;font-weight:600;color:#4b4b52;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.an-tab.is-on{background:#fff;color:#111114;box-shadow:0 1px 3px rgba(17,17,20,.10)}
+.an-tab-n{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#f0f0f3;color:#4b4b52;font-size:12px;display:inline-grid;place-items:center;font-variant-numeric:tabular-nums}
 .an-h1{font-family:var(--font-display);font-size:28px;font-weight:700;letter-spacing:-.04em;margin:0;color:#111114;line-height:1.1}
 .an-lead{margin:6px 0 0;font-size:14.5px;color:#4b4b52}
 @media (min-width:720px){.an-h1{font-size:34px}}

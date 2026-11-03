@@ -15,3 +15,8 @@ export function canEraseRecords(role: string | undefined): boolean {
 export function canToggleModule(role: string | undefined): boolean {
   return role === 'BUSINESS_OWNER'
 }
+
+/** @eligi:anamnese-front-perm-modelos Montar e mudar fichas: dono e gerente. */
+export function canManageTemplates(role: string | undefined): boolean {
+  return role === 'BUSINESS_OWNER' || role === 'MANAGER'
+}

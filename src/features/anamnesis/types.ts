@@ -74,3 +74,60 @@ export interface RecordDetail {
 
 /** Filtros da lista: "com alerta" so existe para quem ve conteudo. */
 export type RecordFilter = 'all' | 'alert' | 'expired'
+
+/* @eligi:anamnese-front-types-modelos -------------------------------------
+   Modelos (Fatia 2b). O banco de perguntas vem do back (GET /anamnesis/catalog):
+   o front nao guarda copia dele. */
+
+export type SectionKey = string
+export type SegmentKey = string
+
+export interface BankQuestion extends AnamnesisQuestion {
+  section: SectionKey
+}
+
+export interface CatalogSegment {
+  key: SegmentKey
+  name: string
+  description: string
+  recommended: string[]
+  consentClause: string
+}
+
+export interface Catalog {
+  sections: { key: SectionKey; name: string }[]
+  questions: BankQuestion[]
+  segments: CatalogSegment[]
+  consentOpening: string
+  consentClosing: string
+}
+
+export interface Template {
+  id: string
+  name: string
+  segments: SegmentKey[]
+  questions: AnamnesisQuestion[]
+  consentText: string
+  version: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  services: { id: string; name: string }[]
+  stats: { questions: number; alerts: number; records: number }
+}
+
+export interface TemplateCreatePayload {
+  name: string
+  segments: SegmentKey[]
+  questions: AnamnesisQuestion[]
+  consentText: string
+  serviceIds: string[]
+}
+
+/** Servico do estabelecimento como o GET /services devolve (so o que a ficha usa). */
+export interface ServiceLite {
+  id: string
+  name: string
+  anamnesisTemplateId: string | null
+  categoryName: string | null
+}
