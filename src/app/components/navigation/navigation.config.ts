@@ -13,6 +13,7 @@ import {
   ReceiptText,
   Sparkles,
   Banknote,
+  ClipboardList, // @eligi:anamnese-nav-icone
 } from 'lucide-react' // @eligi:sb-icons — Servicos e Caixa com icones proprios; sem tesoura (segmento-neutro)
 import EligiClubIcon from './EligiClubIcon'
 
@@ -41,6 +42,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Dashboard',     path: '/dashboard',               icon: LayoutDashboard, section: 'principal', short: 'Início'  },
     { label: 'Agenda',        path: '/dashboard/agenda',        icon: Calendar,        section: 'principal'  },
     { label: 'Clientes',      path: '/dashboard/clientes',      icon: Users,           section: 'principal'  },
+    { label: 'Fichas',        path: '/dashboard/anamnese',      icon: ClipboardList,   section: 'principal'  }, // @eligi:anamnese-nav-dono
     { label: 'Serviços',      path: '/dashboard/servicos',      icon: Sparkles,        section: 'principal'  },
     { label: 'Pacotes',       path: '/dashboard/pacotes',       icon: CreditCard,      section: 'principal'  },
     { label: 'EligiClub',     path: '/dashboard/eligiclub',     icon: EligiClubIcon,   section: 'principal'  },
@@ -56,6 +58,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Dashboard', path: '/dashboard',          icon: LayoutDashboard, section: 'principal', short: 'Início'  },
     { label: 'Agenda',    path: '/dashboard/agenda',   icon: Calendar,        section: 'principal'  },
     { label: 'Clientes',  path: '/dashboard/clientes', icon: Users,           section: 'principal'  },
+    { label: 'Fichas',    path: '/dashboard/anamnese', icon: ClipboardList,   section: 'principal'  }, // @eligi:anamnese-nav-gerente
     { label: 'Serviços',  path: '/dashboard/servicos', icon: Sparkles,        section: 'principal'  },
     { label: 'Pacotes',   path: '/dashboard/pacotes',  icon: CreditCard,      section: 'principal'  },
     { label: 'Equipe',    path: '/dashboard/equipe',   icon: UserCog,         section: 'principal'  },
@@ -66,6 +69,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
   RECEPTIONIST: [
     { label: 'Agenda',    path: '/dashboard/agenda',            icon: Calendar,    section: 'principal'  },
     { label: 'Clientes',  path: '/dashboard/clientes',          icon: Users,       section: 'principal'  },
+    { label: 'Fichas',    path: '/dashboard/anamnese',          icon: ClipboardList, section: 'principal'  }, // @eligi:anamnese-nav-recepcao
     { label: 'Serviços',  path: '/dashboard/servicos',          icon: Sparkles,    section: 'principal'  },
     { label: 'Pacotes',   path: '/dashboard/pacotes',           icon: CreditCard,  section: 'principal'  },
     { label: 'EligiClub', path: '/dashboard/eligiclub',         icon: EligiClubIcon, section: 'principal'  }, // @eligi:club-papeis-front

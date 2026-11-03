@@ -15,6 +15,7 @@ const FULL_ACCESS = '*' as const
 export const ROUTE_ACCESS_BY_ROLE: Record<Role, readonly string[]> = {
   BUSINESS_OWNER: [FULL_ACCESS],
   MANAGER: [
+    '/dashboard/anamnese', // @eligi:anamnese-rota-gerente ve e exclui fichas; o back decide
     '/dashboard',
     '/dashboard/agenda',
     '/dashboard/clientes',
@@ -27,6 +28,7 @@ export const ROUTE_ACCESS_BY_ROLE: Record<Role, readonly string[]> = {
     '/dashboard/configuracoes/aparencia',
   ],
   RECEPTIONIST: [
+    '/dashboard/anamnese', // @eligi:anamnese-rota-recepcao so status e validade; o back esconde as respostas
     '/dashboard/agenda',
     '/dashboard/clientes',
     '/dashboard/servicos',
