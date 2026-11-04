@@ -10,6 +10,8 @@
 // o do modal travava o confirmar (o valor recebido nao acompanhava) e o do
 // carrinho podia sumir se o confirm chegasse antes do PATCH do desconto.
 // Agora "Cobrar" espera o desconto gravar antes de abrir o pagamento.
+// No celular (direcao C, nov/2026) a lista inteira rola e so a barra
+// Total + Cobrar fica presa embaixo: o botao nunca sai da tela.
 //
 // Este componente e montado com key={sale.id} pela pagina: trocar de venda
 // remonta, entao o campo de desconto e as observacoes nunca vazam de uma venda
@@ -71,6 +73,7 @@ export default function CartPanel({
   const [discountInput, setDiscountInput] = useState(() => brlToInput(sale.discount))
   const [discountError, setDiscountError] = useState<string | null>(null)
   const [savingDiscount, setSavingDiscount] = useState(false)
+  const [discountOpen, setDiscountOpen] = useState(false) // @eligi:caixa-discount-open - celular: linha que abre
   const discountReqRef = useRef<Promise<Sale | null> | null>(null)
 
   // Cartoes do cliente (decide se mostra "Usar pacote/assinatura/clube")
@@ -307,6 +310,7 @@ export default function CartPanel({
   const discountPct = discountPercentLabel(sale.discount, sale.subtotal)
   const discountAboveSubtotal = sale.discount - sale.subtotal > 0.005
   const busy = checkingOut || savingDiscount
+  const itemCount = sale.items.reduce((n, it) => n + it.quantity, 0)
 
   return (
     <>
@@ -360,67 +364,79 @@ export default function CartPanel({
         />
       )}
 
-      <div className="cx-cart" style={{
-        display: 'flex', flexDirection: 'column',
-        height: '100%', minHeight: 0, gap: 10,
-        fontFamily: C.body,
-      }}>
-        <ClientPicker
-          value={{
-            id:     sale.clientId ?? null,
-            name:   sale.clientName ?? null,
-            phone:  sale.clientPhone ?? null,
-            masked: sale.clientPhoneMasked === true,
-          }}
-          onChange={updateClient}
-        />
+      {(() => {
+        // @eligi:caixa-cart-mobile-c - direcao C no celular: tudo rola numa lista so
+        // (cliente, itens, desconto, observacao) e so a barra Total + Cobrar fica presa
+        // embaixo. Antes o rodape (desconto + total + botoes) era fixo e alto: a lista
+        // de itens encolhia a zero e o Cobrar saia da tela.
+        const headBlock = (
+          <>
+            <ClientPicker
+              value={{
+                id:     sale.clientId ?? null,
+                name:   sale.clientName ?? null,
+                phone:  sale.clientPhone ?? null,
+                masked: sale.clientPhoneMasked === true,
+              }}
+              onChange={updateClient}
+            />
+            {canUsePackage && (
+              <BenefitButton
+                icon={<Layers size={15} color={C.onInk} strokeWidth={2} />}
+                title="Usar pacote"
+                subtitle={`${activeCards.length} ${activeCards.length === 1 ? 'cartão ativo' : 'cartões ativos'} do cliente`}
+                onClick={() => setShowUsePackage(true)}
+              />
+            )}
+            {canUseMembership && (
+              <BenefitButton
+                icon={<Ticket size={15} color={C.onInk} strokeWidth={2} />}
+                title="Usar assinatura"
+                subtitle={`${activeMemberships.length} ${activeMemberships.length === 1 ? 'assinatura ativa' : 'assinaturas ativas'}`}
+                onClick={() => setShowUseMembership(true)}
+              />
+            )}
+            {canUseClub && (
+              <BenefitButton
+                icon={<Globe size={15} color={C.onInk} strokeWidth={2} />}
+                title="Usar clube"
+                subtitle={`${activeClubSubs.length} ${activeClubSubs.length === 1 ? 'plano de clube ativo' : 'planos de clube ativos'}`}
+                onClick={() => setShowUseClub(true)}
+              />
+            )}
+            {loadingCards && sale.clientId && (
+              <div style={{ fontSize: 11, color: C.ink3, textAlign: 'center' }}>Verificando pacotes do cliente…</div>
+            )}
+          </>
+        )
 
-        {canUsePackage && (
-          <BenefitButton
-            icon={<Layers size={15} color={C.onInk} strokeWidth={2} />}
-            title="Usar pacote"
-            subtitle={`${activeCards.length} ${activeCards.length === 1 ? 'cartão ativo' : 'cartões ativos'} do cliente`}
-            onClick={() => setShowUsePackage(true)}
-          />
-        )}
-        {canUseMembership && (
-          <BenefitButton
-            icon={<Ticket size={15} color={C.onInk} strokeWidth={2} />}
-            title="Usar assinatura"
-            subtitle={`${activeMemberships.length} ${activeMemberships.length === 1 ? 'assinatura ativa' : 'assinaturas ativas'}`}
-            onClick={() => setShowUseMembership(true)}
-          />
-        )}
-        {canUseClub && (
-          <BenefitButton
-            icon={<Globe size={15} color={C.onInk} strokeWidth={2} />}
-            title="Usar clube"
-            subtitle={`${activeClubSubs.length} ${activeClubSubs.length === 1 ? 'plano de clube ativo' : 'planos de clube ativos'}`}
-            onClick={() => setShowUseClub(true)}
-          />
-        )}
-        {loadingCards && sale.clientId && (
-          <div style={{ fontSize: 11, color: C.ink3, textAlign: 'center' }}>Verificando pacotes do cliente…</div>
-        )}
-
-        {/* Itens + observacoes (rolam) */}
-        <div style={{
-          flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
-          display: 'flex', flexDirection: 'column', gap: 8,
-        }}>
-          {sale.items.length === 0 ? (
-            <div style={{
-              padding: '36px 20px', textAlign: 'center',
-              background: C.sunken, borderRadius: 14,
-              border: `1px dashed ${C.line2}`, color: C.ink3,
-            }}>
-              <ShoppingCart size={26} strokeWidth={1.8} style={{ opacity: 0.5, marginBottom: 8 }} />
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.ink2 }}>Carrinho vazio</div>
-              <div style={{ fontSize: 12, marginTop: 4 }}>Toque num serviço, produto ou pacote do catálogo.</div>
+        const itemsBlock = sale.items.length === 0 ? (
+          <div style={{
+            padding: isMobile ? '24px 16px' : '36px 20px', textAlign: 'center',
+            background: C.sunken, borderRadius: 14, border: `1px dashed ${C.line2}`, color: C.ink3, flexShrink: 0,
+          }}>
+            <ShoppingCart size={26} strokeWidth={1.8} style={{ opacity: 0.5, marginBottom: 8 }} />
+            <div style={{ fontSize: 14, fontWeight: 600, color: C.ink2 }}>Carrinho vazio</div>
+            <div style={{ fontSize: 12, marginTop: 4 }}>
+              {isMobile ? 'Toque num cartão do catálogo, aqui em cima.' : 'Toque num serviço, produto ou pacote do catálogo.'}
             </div>
-          ) : (
-            sale.items.map(item => (
+          </div>
+        ) : (
+          <>
+            {isMobile && (
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 2px 0',
+                fontSize: 11, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: C.ink3,
+              }}>
+                <span style={{ color: C.ink3 }}>Na comanda</span>
+                <span style={{ color: C.ink3, fontVariantNumeric: 'tabular-nums' }}>
+                  {itemCount} {itemCount === 1 ? 'item' : 'itens'}
+                </span>
+              </div>
+            )}
+            {sale.items.map(item => (
               <div key={item.id} style={{
+                flexShrink: 0,
                 opacity: updatingItemId === item.id ? 0.5 : 1,
                 pointerEvents: updatingItemId === item.id ? 'none' : 'auto',
                 transition: 'opacity 0.2s',
@@ -443,232 +459,368 @@ export default function CartPanel({
                   disabled={updatingItemId === item.id}
                 />
               </div>
-            ))
-          )}
+            ))}
+          </>
+        )
 
-          {sale.items.length > 0 && (
-            <textarea
-              id="cx-notes"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              onBlur={commitNotes}
-              placeholder="Observações da venda (opcional)"
-              rows={1}
-              aria-label="Observações da venda"
-              style={{
-                width: '100%', boxSizing: 'border-box', padding: '10px 12px',
-                borderRadius: 10, border: `1px solid ${C.line2}`, background: C.card,
-                fontSize: 16, color: C.ink, fontFamily: 'inherit', resize: 'none', minHeight: 42,
-                flexShrink: 0,
-              }}
-            />
-          )}
-        </div>
+        const notesBlock = sale.items.length > 0 && (
+          <textarea
+            id="cx-notes"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            onBlur={commitNotes}
+            placeholder="Observações da venda (opcional)"
+            rows={1}
+            aria-label="Observações da venda"
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '10px 12px',
+              borderRadius: 10, border: `1px solid ${C.line2}`, background: C.card,
+              fontSize: 16, color: C.ink, fontFamily: 'inherit', resize: 'none', minHeight: 44,
+              flexShrink: 0,
+            }}
+          />
+        )
 
-        {/* Rodape fixo: desconto -> total -> acoes */}
-        <div style={{
-          flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8,
-          ...(isMobile ? { borderTop: `1px solid ${C.line}`, paddingTop: 10, paddingBottom: 10 } : {}),
-        }}>
-          {sale.items.length > 0 && (
-            <div style={{
-              border: `1px solid ${discountError ? C.bad.border : C.line2}`,
-              borderRadius: 12, padding: isMobile ? '10px 12px' : 12,
-              background: C.card, display: 'flex', flexDirection: 'column', gap: 8,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <label htmlFor="cx-discount" style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: '.06em',
-                  textTransform: 'uppercase', color: C.ink2, flex: 1,
-                }}>Desconto</label>
-                <div role="group" aria-label="Tipo de desconto" style={{
-                  display: 'inline-flex', border: `1px solid ${C.line2}`, borderRadius: 8, overflow: 'hidden',
-                }}>
-                  {(['BRL', 'PCT'] as const).map(u => (
-                    <button
-                      key={u}
-                      type="button"
-                      aria-pressed={discountUnit === u}
-                      onClick={() => { setDiscountUnit(u); setDiscountInput(''); setDiscountError(null) }}
-                      style={{
-                        minWidth: 40, height: 32, border: 'none', cursor: 'pointer',
-                        background: discountUnit === u ? C.ink : 'transparent',
-                        color: discountUnit === u ? C.onInk : C.ink2,
-                        fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-                      }}
-                    >{u === 'BRL' ? 'R$' : '%'}</button>
-                  ))}
-                </div>
-                <input
-                  id="cx-discount"
-                  type="text"
-                  inputMode="decimal"
-                  value={discountInput}
-                  onChange={e => { setDiscountInput(e.target.value.replace(/[^\d,.]/g, '')); setDiscountError(null) }}
-                  onBlur={() => { void commitDiscount() }}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
-                  placeholder="0"
-                  aria-invalid={discountError ? true : undefined}
-                  style={{
-                    width: isMobile ? 92 : 104, height: 36, boxSizing: 'border-box',
-                    padding: '0 10px', borderRadius: 8, border: `1px solid ${C.line2}`,
-                    textAlign: 'right', fontSize: 16, fontWeight: 700, color: C.ink,
-                    fontFamily: C.display, fontVariantNumeric: 'tabular-nums', background: C.card,
-                  }}
-                />
+        const discountMessages = (
+          <>
+            {discountError && (
+              <div role="alert" style={{ fontSize: 12, color: C.bad.text, fontWeight: 600 }}>{discountError}</div>
+            )}
+            {!discountError && discountAboveSubtotal && (
+              <div role="status" style={{ fontSize: 12, color: C.warn.text }}>
+                Um item saiu e o desconto ficou maior que a venda. Ao cobrar, ele vira {formatBRL(sale.subtotal)}.
               </div>
+            )}
+          </>
+        )
 
-              {/* No celular o rodape e curto: atalhos so no computador. */}
-              {!isMobile && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                {PRESETS.map(p => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => applyPreset(p)}
-                    disabled={savingDiscount}
-                    style={{
-                      height: 30, padding: '0 12px', borderRadius: 999,
-                      border: `1px solid ${C.line2}`, background: C.sunken, color: C.ink2,
-                      fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                    }}
-                  >{p}%</button>
-                ))}
-                {sale.discount > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearDiscount}
-                    disabled={savingDiscount}
-                    style={{
-                      height: 30, padding: '0 10px', borderRadius: 999, border: 'none',
-                      background: 'transparent', color: C.ink3, fontSize: 12, fontWeight: 600,
-                      cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline',
-                    }}
-                  >Tirar desconto</button>
+        const presetsRow = (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {PRESETS.map(p => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => { applyPreset(p); setDiscountOpen(false) }}
+                disabled={savingDiscount}
+                style={{
+                  height: isMobile ? 36 : 30, padding: '0 12px', borderRadius: 999,
+                  border: `1px solid ${C.line2}`, background: C.sunken, color: C.ink2,
+                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >{p}%</button>
+            ))}
+            {sale.discount > 0 && (
+              <button
+                type="button"
+                onClick={() => { clearDiscount(); setDiscountOpen(false) }}
+                disabled={savingDiscount}
+                style={{
+                  height: isMobile ? 36 : 30, padding: '0 10px', borderRadius: 999, border: 'none',
+                  background: 'transparent', color: C.ink3, fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline',
+                }}
+              >Tirar desconto</button>
+            )}
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={() => { void commitDiscount().then(ok => { if (ok) setDiscountOpen(false) }) }}
+                disabled={savingDiscount}
+                style={{
+                  marginLeft: 'auto', height: 40, padding: '0 16px', borderRadius: 10, border: 'none',
+                  background: C.ink, color: C.onInk, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {savingDiscount && <Loader2 size={13} className="cx-spin" />}Aplicar
+              </button>
+            ) : (
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: C.ink3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                {savingDiscount && <Loader2 size={12} className="cx-spin" />}
+                {!savingDiscount && sale.discount > 0 && !discountError && (
+                  <>Cliente economiza <b style={{ color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.discount)}</b>{discountPct && ` (${discountPct})`}</>
                 )}
-                <span style={{ marginLeft: 'auto', fontSize: 12, color: C.ink3, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  {savingDiscount && <Loader2 size={12} className="cx-spin" />}
-                  {!savingDiscount && sale.discount > 0 && !discountError && (
-                    <>Cliente economiza <b style={{ color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.discount)}</b>{discountPct && ` (${discountPct})`}</>
-                  )}
-                </span>
-              </div>
-              )}
-
-              {discountError && (
-                <div role="alert" style={{ fontSize: 12, color: C.bad.text, fontWeight: 600 }}>{discountError}</div>
-              )}
-              {!discountError && discountAboveSubtotal && (
-                <div role="status" style={{ fontSize: 12, color: C.warn.text }}>
-                  Um item saiu e o desconto ficou maior que a venda. Ao cobrar, ele vira {formatBRL(sale.subtotal)}.
-                </div>
-              )}
-            </div>
-          )}
-
-          {sale.items.length > 0 && (
-            <div style={{
-              background: C.ink, color: C.onInk, borderRadius: 14,
-              padding: isMobile ? '12px 14px' : '14px 16px',
-              display: 'flex', flexDirection: 'column', gap: 4,
-            }}>
-              {(!isMobile || sale.discount > 0) && (
-              <div className="cx-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                <span style={{ color: C.onInkSoft }}>Subtotal</span>
-                <span style={{ color: C.onInkSoft, fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.subtotal)}</span>
-              </div>
-              )}
-              {sale.discount > 0 && (
-                <div className="cx-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span style={{ color: C.onInk, fontWeight: 600 }}>Desconto{discountPct && ` · ${discountPct}`}</span>
-                  <span style={{ color: C.onInk, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>−{formatBRL(Math.min(sale.discount, sale.subtotal))}</span>
-                </div>
-              )}
-              <div className="cx-row" style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                marginTop: 4, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.14)',
-              }}>
-                <span style={{ color: C.onInk, fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>Total</span>
-                <span style={{
-                  color: C.onInk, fontFamily: C.display, fontSize: isMobile ? 26 : 30, fontWeight: 700,
-                  letterSpacing: '-0.03em', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-                }}>{formatBRL(sale.total)}</span>
-              </div>
-            </div>
-          )}
-
-          {missingProfItems.length > 0 && (
-            <div role="status" style={{
-              padding: '8px 12px', background: C.warn.bg, border: `1px solid ${C.warn.border}`,
-              borderRadius: 10, fontSize: 12, color: C.warn.text,
-            }}>
-              {missingProfItems.length === 1
-                ? `Escolha o profissional de "${missingProfItems[0].name}" para cobrar.`
-                : `Escolha o profissional de: ${missingProfItems.map(it => it.name).join(', ')}.`}
-            </div>
-          )}
-
-          {error && (
-            <div role="alert" style={{
-              padding: '8px 12px', background: C.bad.bg, border: `1px solid ${C.bad.border}`,
-              borderRadius: 10, fontSize: 12, color: C.bad.text,
-            }}>{error}</div>
-          )}
-
-          {confirmCancel ? (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: 8,
-              border: `1px solid ${C.bad.border}`, background: C.bad.bg, borderRadius: 12,
-            }}>
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.bad.text, paddingLeft: 4 }}>
-                Cancelar esta venda?
               </span>
-              <button type="button" onClick={() => setConfirmCancel(false)} disabled={cancelling} style={secondaryBtn}>Voltar</button>
-              <button type="button" onClick={cancelSale} disabled={cancelling} style={{
-                ...secondaryBtn, background: C.danger, color: C.onInk, border: 'none',
+            )}
+          </div>
+        )
+
+        const discountEditor = sale.items.length > 0 && (
+          <div style={{
+            border: `1px solid ${discountError ? C.bad.border : C.line2}`,
+            borderRadius: 12, padding: isMobile ? '10px 12px' : 12, flexShrink: 0,
+            background: C.card, display: 'flex', flexDirection: 'column', gap: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label htmlFor="cx-discount" style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: '.06em',
+                textTransform: 'uppercase', color: C.ink2, flex: 1,
+              }}>Desconto</label>
+              <div role="group" aria-label="Tipo de desconto" style={{
+                display: 'inline-flex', border: `1px solid ${C.line2}`, borderRadius: 8, overflow: 'hidden',
               }}>
-                {cancelling ? <Loader2 size={14} className="cx-spin" /> : 'Cancelar venda'}
-              </button>
+                {(['BRL', 'PCT'] as const).map(u => (
+                  <button
+                    key={u}
+                    type="button"
+                    aria-pressed={discountUnit === u}
+                    onClick={() => { setDiscountUnit(u); setDiscountInput(''); setDiscountError(null) }}
+                    style={{
+                      minWidth: isMobile ? 44 : 40, height: isMobile ? 40 : 32, border: 'none', cursor: 'pointer',
+                      background: discountUnit === u ? C.ink : 'transparent',
+                      color: discountUnit === u ? C.onInk : C.ink2,
+                      fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
+                    }}
+                  >{u === 'BRL' ? 'R$' : '%'}</button>
+                ))}
+              </div>
+              <input
+                id="cx-discount"
+                type="text"
+                inputMode="decimal"
+                value={discountInput}
+                onChange={e => { setDiscountInput(e.target.value.replace(/[^\d,.]/g, '')); setDiscountError(null) }}
+                onBlur={isMobile ? undefined : () => { void commitDiscount() }}
+                onKeyDown={e => {
+                  if (e.key !== 'Enter') return
+                  if (isMobile) void commitDiscount().then(ok => { if (ok) setDiscountOpen(false) })
+                  else e.currentTarget.blur()
+                }}
+                placeholder="0"
+                aria-invalid={discountError ? true : undefined}
+                style={{
+                  width: isMobile ? 96 : 104, height: isMobile ? 40 : 36, boxSizing: 'border-box',
+                  padding: '0 10px', borderRadius: 8, border: `1px solid ${C.line2}`,
+                  textAlign: 'right', fontSize: 16, fontWeight: 700, color: C.ink,
+                  fontFamily: C.display, fontVariantNumeric: 'tabular-nums', background: C.card,
+                }}
+              />
             </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 8 }}>
+            {presetsRow}
+            {discountMessages}
+          </div>
+        )
+
+        // Celular: o desconto e uma linha que so abre quando a pessoa toca.
+        const discountRow = sale.items.length > 0 && (
+          discountOpen || discountError ? discountEditor : (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, minHeight: 52, flexShrink: 0,
+              border: `1px solid ${C.line2}`, borderRadius: 12, background: C.card, padding: '4px 4px 4px 12px',
+            }}>
+              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: C.ink }}>Desconto</span>
+              {sale.discount > 0 && (
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.warn.text, fontVariantNumeric: 'tabular-nums' }}>
+                  −{formatBRL(Math.min(sale.discount, sale.subtotal))}{discountPct && ` · ${discountPct}`}
+                </span>
+              )}
               <button
                 type="button"
-                onClick={() => setConfirmCancel(true)}
-                aria-label="Cancelar venda"
-                title="Cancelar venda"
+                onClick={() => setDiscountOpen(true)}
                 style={{
-                  width: 48, minHeight: 48, borderRadius: 12, border: `1px solid ${C.line2}`,
-                  background: C.card, color: C.ink2, cursor: 'pointer', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  height: 40, padding: '0 14px', borderRadius: 10, border: `1px solid ${C.line2}`,
+                  background: C.card, color: C.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
                 }}
-              >
-                <Trash2 size={16} strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                onClick={() => { void startCheckout() }}
-                disabled={!canCheckout || busy}
-                style={{
-                  flex: 1, minHeight: 48, borderRadius: 12, border: 'none',
-                  background: !canCheckout ? 'rgba(17,17,20,0.08)' : isFreeCheckout ? C.ok : C.ink,
-                  color: !canCheckout ? C.ink3 : C.onInk,
-                  fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
-                  cursor: (!canCheckout || busy) ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}
-              >
-                {busy
-                  ? <Loader2 size={16} className="cx-spin" />
-                  : isFreeCheckout ? <Check size={16} strokeWidth={2.6} /> : null}
-                {isFreeCheckout
-                  ? `Confirmar venda · ${formatBRL(0)}`
-                  : <>Cobrar <span style={{ color: 'inherit', fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.total)}</span><ChevronRight size={16} strokeWidth={2.4} /></>}
-              </button>
+              >{sale.discount > 0 ? 'Alterar' : 'Adicionar'}</button>
             </div>
-          )}
-        </div>
-      </div>
+          )
+        )
+
+        const totalCard = sale.items.length > 0 && (
+          <div style={{
+            background: C.ink, color: C.onInk, borderRadius: 14, padding: '14px 16px',
+            display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0,
+          }}>
+            <div className="cx-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+              <span style={{ color: C.onInkSoft }}>Subtotal</span>
+              <span style={{ color: C.onInkSoft, fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.subtotal)}</span>
+            </div>
+            {sale.discount > 0 && (
+              <div className="cx-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color: C.onInk, fontWeight: 600 }}>Desconto{discountPct && ` · ${discountPct}`}</span>
+                <span style={{ color: C.onInk, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>−{formatBRL(Math.min(sale.discount, sale.subtotal))}</span>
+              </div>
+            )}
+            <div className="cx-row" style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+              marginTop: 4, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.14)',
+            }}>
+              <span style={{ color: C.onInk, fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>Total</span>
+              <span style={{
+                color: C.onInk, fontFamily: C.display, fontSize: 30, fontWeight: 700,
+                letterSpacing: '-0.03em', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+              }}>{formatBRL(sale.total)}</span>
+            </div>
+          </div>
+        )
+
+        const hints = (
+          <>
+            {missingProfItems.length > 0 && (
+              <div role="status" style={{
+                padding: '8px 12px', background: C.warn.bg, border: `1px solid ${C.warn.border}`,
+                borderRadius: 10, fontSize: 12, color: C.warn.text,
+              }}>
+                {missingProfItems.length === 1
+                  ? `Escolha o profissional de "${missingProfItems[0].name}" para cobrar.`
+                  : `Escolha o profissional de: ${missingProfItems.map(it => it.name).join(', ')}.`}
+              </div>
+            )}
+            {error && (
+              <div role="alert" style={{
+                padding: '8px 12px', background: C.bad.bg, border: `1px solid ${C.bad.border}`,
+                borderRadius: 10, fontSize: 12, color: C.bad.text,
+              }}>{error}</div>
+            )}
+          </>
+        )
+
+        const cancelConfirm = (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: 8, flexShrink: 0,
+            border: `1px solid ${C.bad.border}`, background: C.bad.bg, borderRadius: 12,
+          }}>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.bad.text, paddingLeft: 4 }}>
+              Cancelar esta venda?
+            </span>
+            <button type="button" onClick={() => setConfirmCancel(false)} disabled={cancelling} style={secondaryBtn}>Voltar</button>
+            <button type="button" onClick={cancelSale} disabled={cancelling} style={{
+              ...secondaryBtn, background: C.danger, color: C.onInk, border: 'none',
+            }}>
+              {cancelling ? <Loader2 size={14} className="cx-spin" /> : 'Cancelar venda'}
+            </button>
+          </div>
+        )
+
+        const payLabel = isFreeCheckout
+          ? `Confirmar venda · ${formatBRL(0)}`
+          : null
+
+        if (isMobile) {
+          return (
+            <div className="cx-cart" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, fontFamily: C.body }}>
+              <div style={{
+                flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain',
+                display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 14px 16px',
+              }}>
+                {headBlock}
+                {itemsBlock}
+                {discountRow}
+                {notesBlock}
+                {sale.items.length > 0 && (confirmCancel ? cancelConfirm : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCancel(true)}
+                    style={{
+                      alignSelf: 'center', minHeight: 40, padding: '0 14px', border: 'none', background: 'transparent',
+                      color: C.ink3, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                    }}
+                  >
+                    <Trash2 size={14} /> Cancelar esta venda
+                  </button>
+                ))}
+              </div>
+
+              <div style={{
+                flexShrink: 0, borderTop: `1px solid ${C.line}`, background: C.card,
+                padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8,
+              }}>
+                {hints}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: C.ink3 }}>
+                      {itemCount} {itemCount === 1 ? 'item' : 'itens'} · total
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                      <span style={{
+                        fontFamily: C.display, fontSize: 24, fontWeight: 700, color: C.ink,
+                        letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                      }}>{formatBRL(sale.total)}</span>
+                      {sale.discount > 0 && (
+                        <span style={{ fontSize: 11, color: C.ink3, textDecoration: 'line-through', fontVariantNumeric: 'tabular-nums' }}>
+                          {formatBRL(sale.subtotal)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { void startCheckout() }}
+                    disabled={!canCheckout || busy}
+                    style={{
+                      marginLeft: 'auto', minHeight: 52, padding: '0 22px', borderRadius: 14, border: 'none',
+                      background: !canCheckout ? 'rgba(17,17,20,0.08)' : isFreeCheckout ? C.ok : C.ink,
+                      color: !canCheckout ? C.ink3 : C.onInk,
+                      fontSize: 16, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0,
+                      cursor: (!canCheckout || busy) ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    {busy ? <Loader2 size={16} className="cx-spin" /> : isFreeCheckout ? <Check size={16} strokeWidth={2.6} /> : null}
+                    {isFreeCheckout ? 'Confirmar' : <>Cobrar<ChevronRight size={17} strokeWidth={2.4} /></>}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        return (
+          <div className="cx-cart" style={{
+            display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 10, fontFamily: C.body,
+          }}>
+            {headBlock}
+            <div style={{
+              flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+              display: 'flex', flexDirection: 'column', gap: 8,
+            }}>
+              {itemsBlock}
+              {notesBlock}
+            </div>
+            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {discountEditor}
+              {totalCard}
+              {hints}
+              {confirmCancel ? cancelConfirm : (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCancel(true)}
+                    aria-label="Cancelar venda"
+                    title="Cancelar venda"
+                    style={{
+                      width: 48, minHeight: 48, borderRadius: 12, border: `1px solid ${C.line2}`,
+                      background: C.card, color: C.ink2, cursor: 'pointer', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Trash2 size={16} strokeWidth={2} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void startCheckout() }}
+                    disabled={!canCheckout || busy}
+                    style={{
+                      flex: 1, minHeight: 48, borderRadius: 12, border: 'none',
+                      background: !canCheckout ? 'rgba(17,17,20,0.08)' : isFreeCheckout ? C.ok : C.ink,
+                      color: !canCheckout ? C.ink3 : C.onInk,
+                      fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+                      cursor: (!canCheckout || busy) ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}
+                  >
+                    {busy
+                      ? <Loader2 size={16} className="cx-spin" />
+                      : isFreeCheckout ? <Check size={16} strokeWidth={2.6} /> : null}
+                    {payLabel ?? <>Cobrar <span style={{ color: 'inherit', fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.total)}</span><ChevronRight size={16} strokeWidth={2.4} /></>}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       <style>{`
         @keyframes cx-spin { to { transform: rotate(360deg) } }

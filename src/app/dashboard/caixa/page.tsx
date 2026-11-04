@@ -434,18 +434,28 @@ export default function CaixaPage() {
         /* @eligi:caixa-mobile-height */
         /* @eligi:caixa-fullbleed */
         padding: 0,
-        animation: 'pos-fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both',
         fontFamily: typography.fontFamily,
         display: 'flex',
         flexDirection: 'column',
+        // @eligi:caixa-mobile-fixed - no celular o caixa ocupa EXATAMENTE o espaco entre
+        // a barra de cima e a de baixo. Antes era uma altura fixa somada ao padding da
+        // pagina (32px + barra): a pagina rolava e o rodape do carrinho era cortado.
+        // Sem animacao de transform aqui: transform num ancestral prende filhos fixed.
         ...(isMobile ? {
-          height: 'calc(100dvh - var(--navbar-h, 104px) - var(--bottom-nav-h, 64px) - env(safe-area-inset-bottom))',
+          position: 'fixed',
+          top: 'var(--navbar-h, 104px)',
+          bottom: 'calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px))',
+          left: 0, right: 0,
+          zIndex: 4,
+          background: C.page,
           overflow: 'hidden',
         } : {
           minHeight: '100%',
+          animation: 'pos-fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both',
         }),
       }}>
-        <div style={{ marginBottom: isMobile ? 14 : 18, padding: isMobile ? '0 14px' : 0 }}>
+        {!isMobile && ( /* @eligi:caixa-mobile-nohead - no celular a barra de cima ja diz Caixa */
+        <div style={{ marginBottom: 18 }}>
           <h2 style={{
             fontSize: isMobile ? 22 : typography.scale['2xl'],
             fontWeight: 700,
@@ -460,6 +470,7 @@ export default function CaixaPage() {
             POS com vendas, pagamento misto, pacotes e nota de crédito.
           </p>
         </div>
+        )}
 
         <div style={{
           display: 'flex',
@@ -467,7 +478,7 @@ export default function CaixaPage() {
           padding: 4,
           background: 'rgba(0,0,0,0.05)',
           borderRadius: 12,
-          margin: isMobile ? '0 14px 14px' : '0 0 18px',
+          margin: isMobile ? '8px 12px 8px' : '0 0 18px',
           flexShrink: 0,
         }}>
           {TABS.map(t => {
@@ -483,7 +494,8 @@ export default function CaixaPage() {
                 style={{
                   flex: 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  padding: '10px 8px',
+                  padding: isMobile ? '0 6px' : '10px 8px',
+                  minHeight: isMobile ? 38 : undefined,
                   borderRadius: 9,
                   border: 'none',
                   background: isActive ? '#fff' : 'transparent',
@@ -540,10 +552,13 @@ export default function CaixaPage() {
         )}
 
         {tab === 'confirmed' && !isCheckoutOnly && (
-          <ConfirmedSalesList refreshKey={confirmedRefresh} />
+          <div style={isMobile ? { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 12px 16px' } : undefined /* @eligi:caixa-mobile-scrolltabs */}>
+            <ConfirmedSalesList refreshKey={confirmedRefresh} />
+          </div>
         )}
 
         {tab === 'summary' && !isCheckoutOnly && (
+          <div style={isMobile ? { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 12px 16px' } : undefined}>
           <SalesSummaryCards
             summary={summary}
             loading={summaryLoading}
@@ -553,6 +568,7 @@ export default function CaixaPage() {
             category={summaryCategory}
             onCategoryChange={setSummaryCategory}
           />
+          </div>
         )}
       </div>
     </>
@@ -603,7 +619,7 @@ function OpenTab(props: OpenTabProps) {
 
   if (props.openSales.length === 0 && !props.creating) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0, padding: props.isMobile ? '4px 12px' : 0 /* @eligi:caixa-mobile-empty-pad */ }}>
         <div style={{
           background: '#fff',
           borderRadius: 14,
@@ -648,11 +664,13 @@ function OpenTab(props: OpenTabProps) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative' }}>
         <div style={{
-          background: '#fff',
-          borderBottom: `1px solid ${colors.gray.border}`,
-          padding: '10px 14px 12px',
+          background: C.card, // @eligi:caixa-mobile-strip-box
+          borderTop: `1px solid ${C.line}`,
+          borderBottom: `1px solid ${C.line}`,
+          padding: '10px 12px',
           flexShrink: 0, minHeight: 0,
-          maxHeight: catalogExpanded ? '58%' : undefined,
+          maxHeight: catalogExpanded ? '62%' : undefined,
+          overflowY: catalogExpanded ? 'auto' : undefined,
           display: 'flex', flexDirection: 'column',
         }}>
           {catalogExpanded ? (
@@ -699,8 +717,8 @@ function OpenTab(props: OpenTabProps) {
           )}
         </div>
         <div style={{
-          background: '#fff',
-          padding: '10px 14px 0',
+          background: C.page, // @eligi:caixa-mobile-cart-box - o carrinho cuida do proprio espaco
+          padding: 0,
           flex: 1, minHeight: 0,
           display: 'flex', flexDirection: 'column',
         }}>

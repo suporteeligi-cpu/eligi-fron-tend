@@ -1,19 +1,22 @@
 'use client'
 // src/app/dashboard/caixa/components/CatalogStrip.tsx
+// @eligi:caixa-strip-v2
 //
-// Modo TIRA do caixa mobile (Fatia 2). Abas (ícone) + busca + botão grid +
-// scroll horizontal de mini-cards. Compacto e denso — coexiste com o carrinho
-// numa tela só. O botão grid dispara onExpand() → OpenTab troca pelo CatalogPanel
-// (grade completa). Não substitui o CatalogPanel; é o estado colapsado.
+// Catalogo em FAIXA do caixa no celular (direcao C, nov/2026).
+// Uma linha de abas (com busca e grade a direita) + uma faixa de cartoes que rola
+// para o lado. Mais baixo que a versao anterior (sem a faixa colorida de 40px e
+// sem a linha de busca fixa): a lista do carrinho fica com o resto da tela.
+// O botao de grade chama onExpand() e o OpenTab troca pelo CatalogPanel completo.
 
 import { useState, useMemo } from 'react'
-import { Search, X, Package, Tag, Layers, Ticket, LayoutGrid } from 'lucide-react'
-import { colors, typography, transitions } from '@/shared/theme'
+import type { CSSProperties } from 'react'
+import { Search, X, LayoutGrid } from 'lucide-react'
 import { formatBRL } from '@/features/sales/utils/format'
-import { C } from '../ui' // @eligi:caixa-strip-ui
 import { CatalogProduct, CatalogService, CatalogPackage, CatalogMembership } from '@/features/sales/types'
+import { C } from '../ui'
 
 type Tab = 'product' | 'service' | 'package' | 'membership'
+type AnyItem = CatalogProduct | CatalogService | CatalogPackage | CatalogMembership
 
 interface Props {
   products:    CatalogProduct[]
@@ -28,21 +31,26 @@ interface Props {
   onAddMembership: (m: CatalogMembership) => void
 }
 
-const TABS: Array<{ id: Tab; label: string; icon: typeof Package }> = [
-  { id: 'product',    label: 'Produtos',    icon: Package },
-  { id: 'service',    label: 'Serviços',    icon: Tag     },
-  { id: 'package',    label: 'Planos',      icon: Layers  },
-  { id: 'membership', label: 'Assin.',      icon: Ticket  },
+const TABS: Array<{ id: Tab; label: string }> = [
+  { id: 'product',    label: 'Produtos' },
+  { id: 'service',    label: 'Serviços' },
+  { id: 'package',    label: 'Planos'   },
+  { id: 'membership', label: 'Assin.'   }, // nomes curtos: cabem em 320px
 ]
+
+const PLACEHOLDER: Record<Tab, string> = {
+  product: 'Buscar produto', service: 'Buscar serviço', package: 'Buscar plano', membership: 'Buscar assinatura',
+}
 
 export default function CatalogStrip({
   products, services, packages, memberships, loading, onExpand,
   onAddProduct, onAddService, onAddPackage, onAddMembership,
 }: Props) {
-  const [tab,   setTab]   = useState<Tab>('product')
-  const [query, setQuery] = useState('')
+  const [tab,    setTab]    = useState<Tab>('product')
+  const [query,  setQuery]  = useState('')
+  const [search, setSearch] = useState(false)
 
-  const items = useMemo(() => {
+  const items = useMemo<AnyItem[]>(() => {
     const q = query.trim().toLowerCase()
     const match = (name: string, extra?: string | null) =>
       !q || name.toLowerCase().includes(q) || (extra ?? '').toLowerCase().includes(q)
@@ -52,178 +60,135 @@ export default function CatalogStrip({
     return memberships.filter(m => m.active !== false && match(m.name, m.description))
   }, [tab, query, products, services, packages, memberships])
 
-  function priceOf(it: CatalogProduct | CatalogService | CatalogPackage | CatalogMembership): number {
-    const p = (it as { price: number | null }).price
-    return p ?? 0
-  }
-  function colorOf(it: { color?: string | null }): string {
-    return it.color ?? C.ink3 // @eligi:caixa-strip-dot
-  }
-  function addOf(it: CatalogProduct | CatalogService | CatalogPackage | CatalogMembership) {
+  function addOf(it: AnyItem) {
     if (tab === 'product')    return onAddProduct(it as CatalogProduct)
     if (tab === 'service')    return onAddService(it as CatalogService)
     if (tab === 'package')    return onAddPackage(it as CatalogPackage)
     return onAddMembership(it as CatalogMembership)
   }
 
-  const placeholder =
-    tab === 'membership' ? 'Buscar assinatura...' :
-    tab === 'package'    ? 'Buscar plano...'      :
-    tab === 'service'    ? 'Buscar serviço...'    :
-                           'Buscar produto...'
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontFamily: typography.fontFamily, minHeight: 0 }}>
-      {/* Abas */}
-      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-        {TABS.map(t => {
-          const Icon = t.icon
-          const isActive = tab === t.id
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+    <div className="cx-strip" style={{ display: 'flex', flexDirection: 'column', gap: 8, fontFamily: C.body }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {search ? (
+          <label style={{
+            flex: 1, minWidth: 0, height: 40, display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px',
+            border: `1px solid ${C.line2}`, borderRadius: 10, background: C.card,
+          }}>
+            <Search size={15} color={C.ink3} />
+            <input
+              id="cx-strip-search"
+              autoFocus
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder={PLACEHOLDER[tab]}
+              inputMode="search"
+              aria-label={PLACEHOLDER[tab]}
               style={{
-                flex: 1,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                padding: '7px 2px',
-                borderRadius: 9,
-                border: 'none',
-                background: isActive ? 'rgba(17,17,20,0.07)' : 'transparent', // @eligi:caixa-strip-tab
-                color: isActive ? C.ink : colors.gray.dimText,
-                fontWeight: isActive ? 700 : 600,
-                fontSize: 11,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                transition: `all ${transitions.fast}`,
-                WebkitTapHighlightColor: 'transparent',
+                flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+                fontSize: 16, color: C.ink, fontFamily: 'inherit',
               }}
-            >
-              <Icon size={15} strokeWidth={2} />
-              {t.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Busca + botão grid */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <div style={{
-          flex: 1,
-          display: 'flex', alignItems: 'center', gap: 7,
-          padding: '9px 11px',
-          background: colors.background.page,
-          border: `1px solid ${colors.gray.borderMd}`,
-          borderRadius: 9,
-          minWidth: 0,
-        }}>
-          <Search size={13} color={colors.gray.dimText} strokeWidth={2} />
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder={placeholder}
-            inputMode="search"
-            style={{
-              flex: 1, border: 'none', outline: 'none',
-              fontSize: 13, background: 'transparent',
-              color: colors.gray[900], fontFamily: 'inherit', minWidth: 0,
-            }}
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              aria-label="Limpar"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}
-            >
-              <X size={13} color={colors.gray.dimText} />
-            </button>
-          )}
-        </div>
+            />
+          </label>
+        ) : (
+          <div role="tablist" aria-label="Catálogo" style={{
+            flex: 1, minWidth: 0, display: 'flex', gap: 0, padding: 3, borderRadius: 11,
+            background: C.sunken, border: `1px solid ${C.line}`,
+          }}>
+            {TABS.map(t => {
+              const on = tab === t.id
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setTab(t.id)}
+                  style={{
+                    flex: 1, minWidth: 0, height: 34, borderRadius: 8, border: 'none', cursor: 'pointer',
+                    background: on ? C.card : 'transparent', color: on ? C.ink : C.ink3,
+                    boxShadow: on ? '0 1px 3px rgba(17,17,20,0.08)' : 'none',
+                    fontSize: 12, fontWeight: 700, fontFamily: 'inherit', padding: 0, letterSpacing: '-0.01em',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >{t.label}</button>
+              )
+            })}
+          </div>
+        )}
         <button
-          onClick={onExpand}
-          aria-label="Ver em grade"
-          style={{
-            flexShrink: 0,
-            width: 36, height: 36,
-            borderRadius: 9,
-            border: `1px solid ${colors.gray.borderMd}`,
-            background: colors.background.page,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer',
-            WebkitTapHighlightColor: 'transparent',
-          }}
+          type="button"
+          onClick={() => { if (search) setQuery(''); setSearch(s => !s) }}
+          aria-label={search ? 'Fechar busca' : 'Buscar no catálogo'}
+          style={iconBtn}
         >
-          <LayoutGrid size={16} color={colors.gray[700]} strokeWidth={2} />
+          {search ? <X size={16} color={C.ink2} /> : <Search size={16} color={C.ink2} />}
+        </button>
+        <button type="button" onClick={onExpand} aria-label="Ver catálogo em grade" style={iconBtn}>
+          <LayoutGrid size={16} color={C.ink2} />
         </button>
       </div>
 
-      {/* Tira horizontal */}
       <div style={{
-        display: 'flex', gap: 8,
-        overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        paddingBottom: 2,
-        flexShrink: 0,
-        scrollbarWidth: 'none',
+        display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none', paddingBottom: 2, scrollSnapType: 'x proximity',
       }}>
         {loading ? (
-          <div style={{ padding: '18px 0', color: colors.gray.dimText, fontSize: 12 }}>Carregando...</div>
+          [0, 1, 2].map(i => (
+            <div key={i} style={{ ...cardBox, background: C.sunken, border: `1px solid ${C.line}` }} />
+          ))
         ) : items.length === 0 ? (
-          <div style={{ padding: '18px 4px', color: colors.gray.dimText, fontSize: 12 }}>
-            Nada encontrado
+          <div style={{ padding: '22px 4px', color: C.ink3, fontSize: 13 }}>
+            {query ? 'Nada encontrado' : 'Nada cadastrado nesta aba'}
           </div>
         ) : items.map(it => {
-          const dot = colorOf(it as { color?: string | null })
-          const img = (it as { imageUrl?: string | null }).imageUrl
+          const color = (it as { color?: string | null }).color ?? C.ink3
+          const price = (it as { price: number | null }).price ?? 0
+          const prod  = tab === 'product' ? (it as CatalogProduct) : null
+          const out   = !!prod?.trackStock && (prod.stock ?? 0) <= 0
+          const low   = !!prod?.trackStock && !out && (prod.stock ?? 0) <= 5
           return (
             <button
               key={it.id}
+              type="button"
               onClick={() => addOf(it)}
+              disabled={out}
+              aria-label={`Adicionar ${it.name}, ${formatBRL(price)}`}
               style={{
-                flexShrink: 0,
-                width: 92,
-                display: 'flex', flexDirection: 'column',
-                padding: 0,
-                background: '#fff',
-                border: `1px solid ${colors.gray.border}`,
-                borderRadius: 10,
-                cursor: 'pointer',
-                textAlign: 'left', fontFamily: 'inherit',
-                overflow: 'hidden',
-                WebkitTapHighlightColor: 'transparent',
+                ...cardBox, background: C.card, border: `1px solid ${C.line2}`,
+                cursor: out ? 'not-allowed' : 'pointer', opacity: out ? 0.5 : 1,
               }}
             >
-              <div style={{
-                width: '100%', height: 40,
-                background: img ? '#fff' : dot,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden',
-              }}>
-                {img ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={img} alt={it.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  tab === 'product'    ? <Package size={17} color="#fff" strokeWidth={1.8} /> :
-                  tab === 'service'    ? <Tag     size={17} color="#fff" strokeWidth={1.8} /> :
-                  tab === 'package'    ? <Layers  size={17} color="#fff" strokeWidth={1.8} /> :
-                                         <Ticket  size={17} color="#fff" strokeWidth={1.8} />
-                )}
-              </div>
-              <div style={{ padding: '7px 8px 8px' }}>
-                <div style={{
-                  fontSize: 11, fontWeight: 700, color: colors.gray[900],
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  marginBottom: 2,
-                }}>{it.name}</div>
-                <div style={{
-                  fontSize: 11, fontWeight: 700,
-                  color: C.ink, fontVariantNumeric: 'tabular-nums', // @eligi:caixa-strip-price
-                }}>{formatBRL(priceOf(it))}</div>
-              </div>
+              <span style={{ width: 24, height: 4, borderRadius: 3, background: color, flexShrink: 0 }} />
+              <span style={{
+                fontSize: 13, fontWeight: 700, color: C.ink, lineHeight: 1.25,
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}>{it.name}</span>
+              <span style={{ marginTop: 'auto', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontFamily: C.display, fontSize: 15, fontWeight: 700, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
+                  {formatBRL(price)}
+                </span>
+                {out && <span style={{ fontSize: 10.5, fontWeight: 700, color: C.bad.text }}>Esgotado</span>}
+                {low && <span style={{ fontSize: 10.5, fontWeight: 700, color: C.warn.text }}>{prod?.stock} un.</span>}
+              </span>
             </button>
           )
         })}
       </div>
+      <style>{`.cx-strip button:focus-visible, .cx-strip input:focus-visible { outline: 2px solid ${C.ink}; outline-offset: 2px }`}</style>
     </div>
   )
+}
+
+const iconBtn: CSSProperties = {
+  width: 38, height: 40, borderRadius: 10, border: `1px solid ${C.line2}`, background: C.card,
+  flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  WebkitTapHighlightColor: 'transparent',
+}
+
+const cardBox: CSSProperties = {
+  flex: '0 0 132px', minHeight: 84, borderRadius: 12, padding: '10px 10px 9px',
+  display: 'flex', flexDirection: 'column', gap: 6, textAlign: 'left', fontFamily: 'inherit',
+  scrollSnapAlign: 'start', WebkitTapHighlightColor: 'transparent',
 }

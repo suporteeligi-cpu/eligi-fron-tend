@@ -30,6 +30,10 @@ interface Props {
   disabled?:      boolean
 }
 
+const TYPE_LABEL: Record<string, string> = {
+  SERVICE: 'Serviço', PRODUCT: 'Produto', PACKAGE: 'Pacote', MEMBERSHIP: 'Assinatura',
+}
+
 export default function CartItemRow({
   item, professionals, isMobile,
   onChangeQty, onChangeProf, onChangePrice, onRemove, onRemovePackage, onRemoveMembership,
@@ -96,13 +100,14 @@ export default function CartItemRow({
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         {/* Thumb */}
         <div style={{
-          width: 36, height: 36, borderRadius: 8,
-          background: item.product?.imageUrl ? '#fff' : color,
+          width: isMobile ? 6 : 32, height: isMobile ? 'auto' : 32, alignSelf: isMobile ? 'stretch' : 'auto',
+          minHeight: isMobile ? 36 : undefined, borderRadius: isMobile ? 3 : 8,
+          background: item.product?.imageUrl && !isMobile ? '#fff' : color,
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          {item.product?.imageUrl ? (
+          {isMobile ? null : item.product?.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={item.product.imageUrl}
@@ -110,17 +115,17 @@ export default function CartItemRow({
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
-            <Icon size={16} color="#fff" strokeWidth={2} />
+            <Icon size={15} color="#fff" strokeWidth={2} />
           )}
         </div>
 
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* @eligi:caixa-item-v2-name - nome inteiro, quebra linha em vez de cortar */}
           <div style={{
-            fontSize: 13, fontWeight: 700,
-            color: colors.gray[900],
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            display: 'flex', alignItems: 'center', gap: 5,
+            fontSize: isMobile ? 15 : 13.5, fontWeight: 700, lineHeight: 1.25,
+            color: C.ink, overflowWrap: 'anywhere',
+            display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
           }}>
             {item.name}
             {item.type === 'PACKAGE' && (
@@ -147,12 +152,13 @@ export default function CartItemRow({
             )}
           </div>
           <div style={{
-            fontSize: 11,
-            color: colors.gray.dimText,
-            marginTop: 1,
+            fontSize: isMobile ? 12 : 11,
+            color: C.ink3,
+            marginTop: 2,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <span>
+            <span style={{ color: C.ink3 }}>{TYPE_LABEL[item.type] ?? 'Item'} · </span>
+            <span style={{ color: C.ink3, fontVariantNumeric: 'tabular-nums' }}>
               {isCovered
                 ? <span style={{ textDecoration: 'line-through' }}>{formatBRL(item.unitPrice || 0)}</span>
                 : formatBRL(item.unitPrice)
@@ -169,18 +175,19 @@ export default function CartItemRow({
           flexShrink: 0,
         }}>
           <div style={{
-            fontSize: 14, fontWeight: 700,
-            color: isCovered ? '#15803d' : colors.gray[900],
+            fontFamily: C.display, fontSize: isMobile ? 17 : 14.5, fontWeight: 700,
+            color: isCovered ? C.okInk : C.ink, whiteSpace: 'nowrap',
             fontVariantNumeric: 'tabular-nums',
           }}>
             {isCovered ? 'R$ 0,00' : formatBRL(item.total)}
           </div>
+          {!isMobile && (
           <button
             onClick={onRemove}
             disabled={disabled}
             aria-label="Remover"
             style={{
-              width: 24, height: 24, borderRadius: 6,
+              width: 26, height: 26, borderRadius: 7,
               border: `1px solid ${colors.gray.borderMd}`,
               background: 'transparent',
               cursor: disabled ? 'not-allowed' : 'pointer',
@@ -200,8 +207,9 @@ export default function CartItemRow({
               e.currentTarget.style.color = colors.gray.dimText
             }}
           >
-            <Trash2 size={11} strokeWidth={2} />
+            <Trash2 size={12} strokeWidth={2} />
           </button>
+          )}
         </div>
       </div>
 
@@ -412,7 +420,7 @@ export default function CartItemRow({
         alignItems: 'center',
         paddingTop: 8,
         borderTop: `1px dashed ${colors.gray.border}`,
-        flexDirection: isMobile ? 'column' : 'row',
+        flexDirection: 'row', // @eligi:caixa-item-v2-row - qty + profissional numa linha so
       }}>
         {/* Qty stepper */}
         <div style={{
@@ -424,15 +432,13 @@ export default function CartItemRow({
           borderRadius: 8,
           padding: 2,
           flexShrink: 0,
-          width: isMobile ? '100%' : 'auto',
-          justifyContent: isMobile ? 'center' : 'flex-start',
         }}>
           <button
             onClick={() => item.quantity > 1 && onChangeQty(item.quantity - 1)}
             disabled={disabled || item.quantity <= 1 || isCovered}
             aria-label="Diminuir"
             style={{
-              width: 26, height: 26, borderRadius: 6,
+              width: isMobile ? 36 : 26, height: isMobile ? 36 : 26, borderRadius: 6,
               border: 'none', background: 'transparent',
               cursor: (disabled || item.quantity <= 1 || isCovered) ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -454,7 +460,7 @@ export default function CartItemRow({
             disabled={disabled || isCovered}
             aria-label="Aumentar"
             style={{
-              width: 26, height: 26, borderRadius: 6,
+              width: isMobile ? 36 : 26, height: isMobile ? 36 : 26, borderRadius: 6,
               border: 'none', background: 'transparent',
               cursor: (disabled || isCovered) ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -468,7 +474,7 @@ export default function CartItemRow({
         </div>
 
         {/* Prof picker */}
-        <div style={{ flex: 1, minWidth: 0, width: '100%' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <ProfPicker
             professionals={professionals}
             value={item.professionalId ?? null}
@@ -480,6 +486,23 @@ export default function CartItemRow({
           />
         </div>
 
+        {isMobile && ( /* @eligi:caixa-item-v2-trash - no celular a lixeira vai na linha de baixo */
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={disabled}
+            aria-label={`Remover ${item.name}`}
+            style={{
+              width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+              border: `1px solid ${colors.gray.borderMd}`, background: '#fff',
+              cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.ink3,
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <Trash2 size={15} strokeWidth={2} />
+          </button>
+        )}
       </div>
     </div>
   )
