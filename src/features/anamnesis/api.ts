@@ -5,7 +5,7 @@
 
 import api from '@/shared/lib/apiClient'
 import type {
-  Catalog, RecordDetail, RecordFilter, RecordPage, ServiceLite, Template, TemplateCreatePayload,
+  AnamnesisQuestion, Catalog, RecordDetail, RecordFilter, RecordPage, ServiceLite, Template, TemplateCreatePayload,
 } from './types'
 
 interface ApiErrorShape {
@@ -97,4 +97,22 @@ export async function fetchServices(): Promise<ServiceLite[]> {
     anamnesisTemplateId: s.anamnesisTemplateId ?? null,
     categoryName: s.serviceCategory?.name ?? null,
   }))
+}
+
+/* @eligi:anamnese-front-api-editor ----------------------------------------- */
+
+export interface TemplateUpdatePayload {
+  name?: string
+  questions?: AnamnesisQuestion[]
+  consentText?: string
+}
+
+export async function updateTemplate(id: string, payload: TemplateUpdatePayload): Promise<Template> {
+  const res = await api.put<Template>(`/anamnesis/templates/${encodeURIComponent(id)}`, payload)
+  return res.data
+}
+
+export async function setTemplateServices(id: string, serviceIds: string[]): Promise<Template> {
+  const res = await api.put<Template>(`/anamnesis/templates/${encodeURIComponent(id)}/services`, { serviceIds })
+  return res.data
 }

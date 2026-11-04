@@ -1,30 +1,25 @@
 // src/features/anamnesis/components/TemplateWizard.tsx
 // @eligi:anamnese-front-configurar
 // "Configure sua ficha" em 3 passos (mock a+ aprovado):
-//   1. o que o estabelecimento faz (pode misturar segmentos)
-//   2. perguntas: as sugeridas ja vem marcadas, o resto do banco fica para marcar
+//   1. o que o estabelecimento faz (pode misturar segmentos, ou "Outro tipo de
+//      servico" com nome livre: @eligi:anamnese-front-outro-servico)
+//   2. perguntas: as sugeridas ja vem marcadas, o resto do banco fica para
+//      marcar, e da para criar perguntas proprias
 //   3. nome, termo de consentimento e servicos que pedem esta ficha
-// Perguntas proprias e ajustes finos ficam no editor, depois de criada.
+// Ordem e ajustes finos ficam no editor, depois de criada.
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowLeft, Check, ChevronDown } from 'lucide-react'
-import { apiMessage, createTemplate, fetchServices } from '../api'
-import { buildConsentText, buildQuestions, recommendedIds, suggestName } from '../catalog'
-import type { AnamnesisQuestionType, Catalog, SegmentKey, ServiceLite, Template } from '../types'
+import { useMemo, useState } from 'react'
+import { AlertTriangle, ArrowLeft, Check, ChevronDown, Pencil, Plus, X } from 'lucide-react'
+import { apiMessage, createTemplate } from '../api'
+import { buildConsentText, buildQuestions, generalIds, recommendedIds, suggestName } from '../catalog'
+import { MAX_QUESTIONS, TYPE_LABEL } from '../questions'
+import type { AnamnesisQuestion, Catalog, SegmentKey, Template } from '../types'
+import QuestionSheet from './QuestionSheet'
+import ServicePicker from './ServicePicker'
 
-/** Mesmo teto do back (MAX_QUESTIONS em anamnesis.schemas.ts). */
-const MAX_QUESTIONS = 60
 const CONSENT_MIN = 20
-
-const TYPE_LABEL: Record<AnamnesisQuestionType, string> = {
-  yes_no: 'Sim ou não',
-  text: 'Texto curto',
-  longtext: 'Texto longo',
-  single_choice: 'Uma opção',
-  multi_choice: 'Várias opções',
-  date: 'Data',
-}
+const CUSTOM_NAME_MAX = 60
 
 interface Props {
   catalog: Catalog
@@ -33,38 +28,38 @@ interface Props {
   onCreated: (t: Template) => void
 }
 
-type ServicesState = { ok: true; list: ServiceLite[] } | { ok: false; message: string } | null
-
 export default function TemplateWizard({ catalog, templates, onCancel, onCreated }: Props) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [segments, setSegments] = useState<SegmentKey[]>([])
+  // "Outro tipo de servico": ficha com nome livre, sem segmento do banco.
+  const [custom, setCustom] = useState(false)
+  const [customName, setCustomName] = useState('')
+  const [extra, setExtra] = useState<AnamnesisQuestion[]>([])
+  // null = fechada; index = editando a propria pergunta; -1 = nova
+  const [sheet, setSheet] = useState<number | null>(null)
   // Segmentos que geraram a marcacao atual: voltar e trocar o segmento refaz a sugestao.
   const [seededFor, setSeededFor] = useState<string>('')
+  const [namedFor, setNamedFor] = useState<string>('')
   const [picked, setPicked] = useState<Set<string>>(() => new Set())
   const [openSections, setOpenSections] = useState<Set<string>>(() => new Set())
   const [name, setName] = useState('')
   const [consent, setConsent] = useState('')
   const [serviceIds, setServiceIds] = useState<Set<string>>(() => new Set())
-  const [services, setServices] = useState<ServicesState>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let alive = true
-    fetchServices().then(
-      (list) => { if (alive) setServices({ ok: true, list }) },
-      (e) => { if (alive) setServices({ ok: false, message: apiMessage(e, 'Não foi possível carregar os serviços.') }) },
-    )
-    return () => { alive = false }
-  }, [])
-
-  const questions = useMemo(() => buildQuestions(catalog, picked), [catalog, picked])
+  const questions = useMemo(() => [...buildQuestions(catalog, picked), ...extra], [catalog, picked, extra])
   const alertCount = questions.filter((q) => q.isAlert).length
-  const segmentLabel = segments
-    .map((k) => catalog.segments.find((s) => s.key === k)?.name)
+  const full = questions.length >= MAX_QUESTIONS
+  const cleanCustom = custom ? customName.trim() : ''
+  const segmentLabel = [
+    ...segments.map((k) => catalog.segments.find((s) => s.key === k)?.name),
+    cleanCustom || null,
+  ]
     .filter(Boolean)
     .join(' + ')
-  const templateName = (id: string | null) => templates.find((t) => t.id === id)?.name ?? null
+  const step1Ok = segments.length > 0 || cleanCustom.length >= 2
+  const taken = useMemo(() => new Set([...catalog.questions.map((q) => q.id), ...extra.map((q) => q.id)]), [catalog, extra])
 
   // Troca de passo volta ao topo: o passo novo comeca pelo titulo, nao no meio da lista.
   function go(n: 1 | 2 | 3) {
@@ -77,15 +72,21 @@ export default function TemplateWizard({ catalog, templates, onCancel, onCreated
   }
 
   function goToQuestions() {
-    const key = [...segments].sort().join(',')
+    const key = [...segments].sort().join(',') + (cleanCustom ? '|outro' : '')
     if (key !== seededFor) {
-      const ids = recommendedIds(catalog, segments)
-      setPicked(new Set(ids))
+      const ids = [...new Set([...recommendedIds(catalog, segments), ...(cleanCustom ? generalIds(catalog) : [])])]
+      setPicked(new Set(ids.slice(0, MAX_QUESTIONS - extra.length)))
       const withPicked = new Set(catalog.questions.filter((q) => ids.includes(q.id)).map((q) => q.section))
       setOpenSections(withPicked)
-      setName(suggestName(catalog, segments))
       setConsent(buildConsentText(catalog, segments))
       setSeededFor(key)
+    }
+    // O nome acompanha o nome livre mesmo sem trocar as perguntas marcadas.
+    const nameKey = key + '|' + cleanCustom
+    if (nameKey !== namedFor) {
+      const base = segments.length > 0 ? suggestName(catalog, segments) : ''
+      setName(cleanCustom ? (base ? `${base} + ${cleanCustom}` : cleanCustom) : base)
+      setNamedFor(nameKey)
     }
     go(2)
   }
@@ -94,9 +95,14 @@ export default function TemplateWizard({ catalog, templates, onCancel, onCreated
     setPicked((cur) => {
       const next = new Set(cur)
       if (next.has(id)) next.delete(id)
-      else if (next.size < MAX_QUESTIONS) next.add(id)
+      else if (next.size + extra.length < MAX_QUESTIONS) next.add(id)
       return next
     })
+  }
+
+  function saveExtra(q: AnamnesisQuestion) {
+    setExtra((cur) => (sheet !== null && sheet >= 0 ? cur.map((x, i) => (i === sheet ? q : x)) : [...cur, q]))
+    setSheet(null)
   }
 
   function toggleSection(key: string) {
@@ -173,14 +179,35 @@ export default function TemplateWizard({ catalog, templates, onCancel, onCreated
                 </button>
               )
             })}
+            <button type="button" className={`aw-seg aw-seg-other${custom ? ' is-on' : ''}`} aria-pressed={custom} onClick={() => setCustom((v) => !v)}>
+              <span className="aw-seg-top">
+                <span className="aw-seg-name">Outro tipo de serviço</span>
+                <span className="aw-box" aria-hidden>{custom ? <Check size={13} /> : null}</span>
+              </span>
+              <span className="aw-seg-desc">Não está na lista? Dê o nome e monte a ficha com as perguntas gerais de saúde e as suas.</span>
+            </button>
           </div>
+          {custom && (
+            <label className="aw-field aw-other-name">
+              <span className="aw-label">NOME DO SERVIÇO</span>
+              <input
+                className="aw-input"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                maxLength={CUSTOM_NAME_MAX}
+                placeholder="Ex.: Massagem, Podologia, Tatuagem"
+                autoFocus
+              />
+              {cleanCustom.length < 2 && <span className="aw-hint">Escreva o nome do serviço para continuar.</span>}
+            </label>
+          )}
           <div className="aw-bar">
             <span className="aw-bar-info">
-              {segments.length === 0 ? 'Escolha pelo menos um.' : `${segments.length} ${segments.length === 1 ? 'escolhido' : 'escolhidos'}: ${segmentLabel}`}
+              {!step1Ok ? 'Escolha pelo menos um.' : `Escolhido: ${segmentLabel}`}
             </span>
             <div className="aw-bar-acts">
               <button type="button" className="an-btn-ghost" onClick={onCancel}>Cancelar</button>
-              <button type="button" className="an-btn-primary" disabled={segments.length === 0} onClick={goToQuestions}>Continuar</button>
+              <button type="button" className="an-btn-primary" disabled={!step1Ok} onClick={goToQuestions}>Continuar</button>
             </div>
           </div>
         </>
@@ -190,7 +217,7 @@ export default function TemplateWizard({ catalog, templates, onCancel, onCreated
         <>
           <h2 className="aw-h2">Quais perguntas entram na ficha?</h2>
           <p className="aw-lead">
-            As sugeridas para {segmentLabel} já vêm marcadas. Toque para tirar ou incluir. Perguntas próprias você cria no editor, depois de salvar.
+            As sugeridas para {segmentLabel} já vêm marcadas. Toque para tirar ou incluir, ou crie as suas no fim da lista.
           </p>
           <div className="aw-sections">
             {catalog.sections.map((sec) => {
@@ -209,10 +236,10 @@ export default function TemplateWizard({ catalog, templates, onCancel, onCreated
                     <ul className="aw-qs">
                       {list.map((q) => {
                         const on = picked.has(q.id)
-                        const full = !on && picked.size >= MAX_QUESTIONS
+                        const blocked = !on && full
                         return (
                           <li key={q.id}>
-                            <button type="button" className={`aw-q${on ? ' is-on' : ''}`} aria-pressed={on} disabled={full} onClick={() => toggleQuestion(q.id)}>
+                            <button type="button" className={`aw-q${on ? ' is-on' : ''}`} aria-pressed={on} disabled={blocked} onClick={() => toggleQuestion(q.id)}>
                               <span className="aw-box" aria-hidden>{on ? <Check size={13} /> : null}</span>
                               <span className="aw-q-body">
                                 <span className="aw-q-label">{q.label}</span>
@@ -231,11 +258,42 @@ export default function TemplateWizard({ catalog, templates, onCancel, onCreated
                 </div>
               )
             })}
+            <div className="aw-sec aw-own">
+              <div className="aw-own-h">
+                <span className="aw-sec-name">Perguntas próprias</span>
+                <span className="aw-sec-n">{extra.length}</span>
+              </div>
+              {extra.length > 0 && (
+                <ul className="aw-qs">
+                  {extra.map((q, i) => (
+                    <li key={q.id} className="aw-own-row">
+                      <button type="button" className="aw-q is-on aw-own-q" onClick={() => setSheet(i)} aria-label={`Editar: ${q.label}`}>
+                        <span className="aw-box" aria-hidden><Pencil size={12} /></span>
+                        <span className="aw-q-body">
+                          <span className="aw-q-label">{q.label}</span>
+                          <span className="aw-q-meta">
+                            <span>{TYPE_LABEL[q.type]}</span>
+                            {q.required ? <span>· obrigatória</span> : null}
+                            {q.isAlert ? <span className="aw-q-alert"><AlertTriangle size={11} aria-hidden />gera alerta</span> : null}
+                          </span>
+                        </span>
+                      </button>
+                      <button type="button" className="aw-own-x" aria-label={`Remover: ${q.label}`} onClick={() => setExtra((cur) => cur.filter((_, j) => j !== i))}>
+                        <X size={16} aria-hidden />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button type="button" className="aw-own-add" disabled={full} onClick={() => setSheet(-1)}>
+                <Plus size={16} aria-hidden /> Criar pergunta própria
+              </button>
+            </div>
           </div>
           <div className="aw-bar">
             <span className="aw-bar-info">
               {questions.length} {questions.length === 1 ? 'pergunta' : 'perguntas'} · {alertCount} {alertCount === 1 ? 'gera' : 'geram'} alerta
-              {picked.size >= MAX_QUESTIONS ? ` · limite de ${MAX_QUESTIONS}` : ''}
+              {full ? ` · limite de ${MAX_QUESTIONS}` : ''}
             </span>
             <div className="aw-bar-acts">
               <button type="button" className="an-btn-ghost" onClick={() => go(1)}>Voltar</button>
@@ -266,33 +324,7 @@ export default function TemplateWizard({ catalog, templates, onCancel, onCreated
 
           <div className="aw-field">
             <span className="aw-label">SERVIÇOS QUE PEDEM ESTA FICHA</span>
-            {services === null && <div className="an-skel" style={{ height: 88 }} />}
-            {services && !services.ok && <p className="aw-hint is-err" role="alert">{services.message}</p>}
-            {services && services.ok && services.list.length === 0 && (
-              <p className="aw-hint">Nenhum serviço cadastrado ainda. Você liga os serviços depois, no editor.</p>
-            )}
-            {services && services.ok && services.list.length > 0 && (
-              <div className="aw-svcs">
-                {services.list.map((s) => {
-                  const on = serviceIds.has(s.id)
-                  const other = s.anamnesisTemplateId ? templateName(s.anamnesisTemplateId) : null
-                  return (
-                    <button key={s.id} type="button" className={`aw-svc${on ? ' is-on' : ''}`} aria-pressed={on} onClick={() => toggleService(s.id)}>
-                      <span className="aw-box" aria-hidden>{on ? <Check size={13} /> : null}</span>
-                      <span className="aw-svc-body">
-                        <span className="aw-svc-name">{s.name}</span>
-                        {other ? (
-                          <span className={`aw-svc-note${on ? ' is-warn' : ''}`}>
-                            {on ? `Sai da ficha ${other} e passa para esta` : `Hoje na ficha ${other}`}
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-            <span className="aw-hint">Um serviço pede uma ficha só. Pode deixar sem nenhum e ligar depois.</span>
+            <ServicePicker selected={serviceIds} onToggle={toggleService} templates={templates} />
           </div>
 
           {error && <p className="aw-err" role="alert">{error}</p>}
@@ -311,6 +343,14 @@ export default function TemplateWizard({ catalog, templates, onCancel, onCreated
             </div>
           </div>
         </>
+      )}
+      {sheet !== null && (
+        <QuestionSheet
+          initial={sheet >= 0 ? extra[sheet] ?? null : null}
+          taken={taken}
+          onSave={saveExtra}
+          onClose={() => setSheet(null)}
+        />
       )}
     </section>
   )
@@ -364,14 +404,18 @@ const CSS = `
 .aw-hint{font-size:12.5px;color:#8a8a93;line-height:1.4}
 .aw-hint.is-ok{color:#0f6e56}
 .aw-hint.is-err{color:#a32d2d;margin:0}
-.aw-svcs{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
-@media (min-width:640px){.aw-svcs{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.aw-svc{display:flex;gap:10px;align-items:flex-start;text-align:left;min-height:48px;padding:12px;border-radius:12px;border:1.5px solid rgba(17,17,20,.09);background:#fff;font-family:inherit;cursor:pointer}
-.aw-svc.is-on{border-color:#111114}
-.aw-svc-body{display:flex;flex-direction:column;gap:2px;min-width:0}
-.aw-svc-name{font-size:14.5px;font-weight:600;color:#111114;overflow-wrap:anywhere}
-.aw-svc-note{font-size:12px;color:#8a8a93}
-.aw-svc-note.is-warn{color:#b45309}
+.aw-seg-other{border-style:dashed}
+.aw-seg-other.is-on{border-style:solid}
+.aw-other-name{margin-top:14px;max-width:520px}
+.aw-own{padding:6px 8px 10px}
+.aw-own-h{min-height:44px;display:flex;align-items:center;gap:10px;padding:0 6px 0 8px}
+.aw-own-row{display:flex;align-items:center;gap:4px}
+.aw-own-q{flex:1}
+.aw-own-x{width:44px;height:44px;flex-shrink:0;border-radius:12px;border:0;background:none;color:#4b4b52;display:grid;place-items:center;cursor:pointer}
+.aw-own-x:hover{background:#f0f0f3}
+.aw-own-add{min-height:44px;margin:4px 0 0 2px;padding:0 12px;border:0;background:none;font-family:inherit;font-size:14.5px;font-weight:600;color:#111114;display:inline-flex;align-items:center;gap:6px;cursor:pointer;border-radius:10px}
+.aw-own-add:hover{background:#f5f5f7}
+.aw-own-add:disabled{opacity:.45;cursor:not-allowed}
 .aw-err{margin:0 0 12px;font-size:13.5px;color:#a32d2d}
 .aw-bar{position:sticky;bottom:var(--bottom-nav-h,0px);z-index:5;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:18px;padding:12px 0 calc(12px + env(safe-area-inset-bottom));background:linear-gradient(to top,#f5f5f7 75%,rgba(245,245,247,0));border-top:1px solid rgba(17,17,20,.07)}
 .aw-bar-info{font-size:13.5px;color:#4b4b52;font-variant-numeric:tabular-nums}

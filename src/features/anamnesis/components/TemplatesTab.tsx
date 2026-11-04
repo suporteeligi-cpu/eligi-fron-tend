@@ -1,7 +1,8 @@
 // src/features/anamnesis/components/TemplatesTab.tsx
 // @eligi:anamnese-front-modelos-aba
 // Aba "Modelos": as fichas configuradas do estabelecimento (dono e gerente).
-// Criar abre o "Configure sua ficha"; ativar, desativar e excluir ficam no cartao.
+// Criar abre o "Configure sua ficha"; Editar abre o editor (@eligi:anamnese-front-modelos-editar);
+// ativar, desativar e excluir ficam no cartao.
 // Excluir so aparece para ficha nunca usada: o back recusa as outras (409) e
 // a ficha preenchida guarda copia das perguntas, entao desativar basta.
 'use client'
@@ -11,6 +12,7 @@ import { AlertTriangle, ClipboardList, Plus } from 'lucide-react'
 import { apiMessage, apiStatus, deleteTemplate, setTemplateActive } from '../api'
 import { segmentNames } from '../catalog'
 import type { Catalog, Template } from '../types'
+import TemplateEditor from './TemplateEditor'
 import TemplateWizard from './TemplateWizard'
 
 interface Props {
@@ -29,10 +31,12 @@ function plural(n: number, one: string, many: string) {
 
 export default function TemplatesTab({ loading, error, templates, catalog, reload, replace, remove }: Props) {
   const [creating, setCreating] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [cardError, setCardError] = useState<{ id: string; message: string } | null>(null)
   const [created, setCreated] = useState<string | null>(null)
+  const [saved, setSaved] = useState<string | null>(null)
 
   if (creating && catalog) {
     return (
@@ -43,6 +47,27 @@ export default function TemplatesTab({ loading, error, templates, catalog, reloa
         onCreated={(t) => {
           setCreating(false)
           setCreated(t.name)
+          setSaved(null)
+          reload()
+          window.scrollTo({ top: 0 })
+        }}
+      />
+    )
+  }
+
+  const editing = editingId ? templates.find((t) => t.id === editingId) ?? null : null
+  if (editing && catalog) {
+    return (
+      <TemplateEditor
+        key={editing.id}
+        template={editing}
+        catalog={catalog}
+        templates={templates}
+        onClose={() => { setEditingId(null); window.scrollTo({ top: 0 }) }}
+        onSaved={(savedName) => {
+          setEditingId(null)
+          setCreated(null)
+          setSaved(savedName)
           reload()
           window.scrollTo({ top: 0 })
         }}
@@ -120,6 +145,7 @@ export default function TemplatesTab({ loading, error, templates, catalog, reloa
       {created && (
         <p className="tt-ok" role="status">Ficha {created} criada. Ela já aparece para os serviços que você escolheu.</p>
       )}
+      {saved && <p className="tt-ok" role="status">Ficha {saved} salva.</p>}
       <div className="tt-top">
         <p className="tt-count">{plural(templates.length, 'ficha configurada', 'fichas configuradas')}</p>
         <button type="button" className="an-btn-primary tt-new" onClick={() => { setCreated(null); setCreating(true) }}>
@@ -165,6 +191,9 @@ export default function TemplatesTab({ loading, error, templates, catalog, reloa
                 </div>
               ) : (
                 <div className="tt-acts">
+                  <button type="button" className="an-btn-ghost" onClick={() => { setCreated(null); setSaved(null); setEditingId(t.id); window.scrollTo({ top: 0 }) }} disabled={busy}>
+                    Editar
+                  </button>
                   <button type="button" className="an-btn-ghost" onClick={() => toggleActive(t)} disabled={busy}>
                     {busy ? 'Salvando…' : t.isActive ? 'Desativar' : 'Ativar'}
                   </button>

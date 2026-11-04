@@ -57,3 +57,14 @@ export function segmentNames(catalog: Catalog | null, keys: readonly SegmentKey[
   if (!catalog) return []
   return keys.map((k) => catalog.segments.find((s) => s.key === k)?.name).filter((n): n is string => Boolean(n))
 }
+
+/* @eligi:anamnese-front-ficha-propria ---------------------------------------
+   Ficha de "Outro tipo de servico" (nome livre, nenhum segmento do banco):
+   nasce com as perguntas gerais de saude e alergia marcadas. Id que o back
+   deixar de servir e ignorado, entao tirar uma pergunta do banco nao quebra. */
+const GENERAL_IDS = ['gestante', 'lactante', 'medicamentos', 'alergia_geral', 'alergia_cosmeticos', 'observacoes']
+
+export function generalIds(catalog: Catalog): string[] {
+  const known = new Set(catalog.questions.map((q) => q.id))
+  return GENERAL_IDS.filter((id) => known.has(id))
+}
