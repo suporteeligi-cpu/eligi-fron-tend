@@ -10,6 +10,7 @@ import { useState, useMemo } from 'react'
 import { Search, X, Package, Tag, Layers, Ticket, LayoutGrid } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { formatBRL } from '@/features/sales/utils/format'
+import { C } from '../ui' // @eligi:caixa-strip-ui
 import { CatalogProduct, CatalogService, CatalogPackage, CatalogMembership } from '@/features/sales/types'
 
 type Tab = 'product' | 'service' | 'package' | 'membership'
@@ -56,7 +57,7 @@ export default function CatalogStrip({
     return p ?? 0
   }
   function colorOf(it: { color?: string | null }): string {
-    return it.color ?? colors.red.DEFAULT
+    return it.color ?? C.ink3 // @eligi:caixa-strip-dot
   }
   function addOf(it: CatalogProduct | CatalogService | CatalogPackage | CatalogMembership) {
     if (tab === 'product')    return onAddProduct(it as CatalogProduct)
@@ -88,8 +89,8 @@ export default function CatalogStrip({
                 padding: '7px 2px',
                 borderRadius: 9,
                 border: 'none',
-                background: isActive ? colors.red.subtle : 'transparent',
-                color: isActive ? colors.red.DEFAULT : colors.gray.dimText,
+                background: isActive ? 'rgba(17,17,20,0.07)' : 'transparent', // @eligi:caixa-strip-tab
+                color: isActive ? C.ink : colors.gray.dimText,
                 fontWeight: isActive ? 700 : 600,
                 fontSize: 11,
                 cursor: 'pointer',
@@ -216,7 +217,7 @@ export default function CatalogStrip({
                 }}>{it.name}</div>
                 <div style={{
                   fontSize: 11, fontWeight: 700,
-                  color: colors.red.DEFAULT, fontVariantNumeric: 'tabular-nums',
+                  color: C.ink, fontVariantNumeric: 'tabular-nums', // @eligi:caixa-strip-price
                 }}>{formatBRL(priceOf(it))}</div>
               </div>
             </button>

@@ -98,7 +98,7 @@ export default function ProfPicker({
             padding: '9px 12px',
             border: 'none',
             borderBottom: `1px solid ${colors.gray.border}`,
-            background: value === null ? colors.red.subtle : 'transparent',
+            background: value === null ? 'rgba(17,17,20,0.06)' : 'transparent', // @eligi:caixa-prof-sel-none
             cursor: 'pointer', textAlign: 'left',
             fontFamily: 'inherit',
             transition: `background ${transitions.fast}`,
@@ -128,7 +128,7 @@ export default function ProfPicker({
             padding: '9px 12px',
             border: 'none',
             borderBottom: `1px solid ${colors.gray.border}`,
-            background: value === p.id ? colors.red.subtle : 'transparent',
+            background: value === p.id ? 'rgba(17,17,20,0.06)' : 'transparent', // @eligi:caixa-prof-sel-item
             cursor: 'pointer', textAlign: 'left',
             fontFamily: 'inherit',
             transition: `background ${transitions.fast}`,

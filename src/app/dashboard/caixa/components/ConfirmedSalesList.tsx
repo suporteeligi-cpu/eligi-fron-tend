@@ -9,6 +9,8 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { Sale, SaleItemType } from '@/features/sales/types'
 import { formatBRL, formatTimeOnly, shortId } from '@/features/sales/utils/format'
+import { discountPercentLabel } from '@/features/sales/utils/discount' // @eligi:caixa-confirmed-import
+import { C } from '../ui'
 import Avatar from './Avatar'
 
 interface Props {
@@ -72,9 +74,9 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
               padding: '6px 14px', borderRadius: 18, cursor: 'pointer',
               fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
               border: active ? '1px solid transparent' : `1px solid ${colors.gray.borderMd}`,
-              background: active ? colors.red.gradient : colors.background.surface,
-              color: active ? '#fff' : colors.gray[700],
-              boxShadow: active ? `0 3px 10px ${colors.red.glow}` : 'none',
+              background: active ? C.ink : colors.background.surface, // @eligi:caixa-confirmed-chip
+              color: active ? C.onInk : colors.gray[700],
+              boxShadow: 'none',
               transition: `all ${transitions.fast}`,
               WebkitTapHighlightColor: 'transparent',
             }}
@@ -160,7 +162,7 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
               WebkitTapHighlightColor: 'transparent',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.borderColor = colors.red.border
+              e.currentTarget.style.borderColor = C.line2 // @eligi:caixa-confirmed-hover
               e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.06)'
             }}
             onMouseLeave={e => {
@@ -207,6 +209,18 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
                     <span>{sale.payments.length} pagamentos</span>
                   </>
                 )}
+                {sale.discount > 0 && (
+                  // @eligi:caixa-confirmed-discount - desconto bem visivel na lista
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    padding: '1px 7px', borderRadius: 6, fontWeight: 700,
+                    background: C.warn.bg, border: `1px solid ${C.warn.border}`, color: C.warn.text,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    Desconto −{formatBRL(Math.min(sale.discount, sale.subtotal))}
+                    {discountPercentLabel(sale.discount, sale.subtotal) && ` · ${discountPercentLabel(sale.discount, sale.subtotal)}`}
+                  </span>
+                )}
                 {hasCreditNote && (
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -232,6 +246,11 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
               }}>
                 {formatBRL(sale.total)}
               </div>
+              {sale.discount > 0 && (
+                <div style={{ fontSize: 10.5, color: colors.gray.dimText, textDecoration: 'line-through', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatBRL(sale.subtotal) /* @eligi:caixa-confirmed-strike */}
+                </div>
+              )}
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 3,
                 padding: '1px 6px', marginTop: 3,

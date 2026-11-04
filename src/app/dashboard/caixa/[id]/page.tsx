@@ -12,6 +12,7 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { Sale } from '@/features/sales/types'
+import { discountPercentLabel } from '@/features/sales/utils/discount' // @eligi:caixa-detail-import
 import {
   formatBRL, formatDateTime, shortId,
   PAYMENT_METHOD_LABEL, PAYMENT_METHOD_ICON,
@@ -298,9 +299,14 @@ export default function SaleDetailPage() {
               <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.subtotal)}</span>
             </div>
             {sale.discount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: colors.gray.dimText, marginBottom: 3 }}>
-                <span>Desconto</span>
-                <span style={{ fontVariantNumeric: 'tabular-nums' }}>−{formatBRL(sale.discount)}</span>
+              // @eligi:caixa-detail-discount - desconto em destaque (decisao do Eli, nov/2026)
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                fontSize: 13, fontWeight: 700, margin: '4px 0', padding: '6px 10px', borderRadius: 8,
+                background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.30)', color: '#b45309',
+              }}>
+                <span style={{ color: '#b45309' }}>Desconto aplicado{discountPercentLabel(sale.discount, sale.subtotal) && ` · ${discountPercentLabel(sale.discount, sale.subtotal)}`}</span>
+                <span style={{ color: '#b45309', fontVariantNumeric: 'tabular-nums' }}>−{formatBRL(sale.discount)}</span>
               </div>
             )}
             <div style={{

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { colors, typography, transitions } from '@/shared/theme'
 import { formatBRL } from '@/features/sales/utils/format'
+import { C } from '../ui' // @eligi:caixa-catalog-ui
 import { CatalogProduct, CatalogService, CatalogPackage, CatalogMembership } from '@/features/sales/types'
 
 type Tab = 'product' | 'service' | 'package' | 'membership'
@@ -121,8 +122,8 @@ export default function CatalogPanel({
                 fontSize: 10, fontWeight: 700,
                 padding: '1px 5px',
                 borderRadius: 4,
-                background: isActive ? colors.red.subtle : colors.gray.hover,
-                color: isActive ? colors.red.DEFAULT : colors.gray.dimText,
+                background: isActive ? C.ink : colors.gray.hover, // @eligi:caixa-catalog-count
+                color: isActive ? C.onInk : colors.gray.dimText,
                 fontVariantNumeric: 'tabular-nums',
               }}>{t.count}</span>
             </button>
@@ -253,7 +254,7 @@ export default function CatalogPanel({
 
 function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; isMobile: boolean; onClick: () => void }) {
   const hasImage = !!product.imageUrl
-  const dot = product.color ?? colors.red.DEFAULT
+  const dot = product.color ?? C.ink3 // @eligi:caixa-catalog-dot
   const tracking = product.trackStock ?? false
   const stock    = product.stock ?? 0
   const lowStock = tracking && stock <= 5 && stock > 0
@@ -336,7 +337,7 @@ function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; 
         )}
         <div style={{
           fontSize: isMobile ? 14 : 13, fontWeight: 700,
-          color: colors.red.DEFAULT, fontVariantNumeric: 'tabular-nums',
+          color: C.ink, fontVariantNumeric: 'tabular-nums', // @eligi:caixa-catalog-price
         }}>{formatBRL(product.price)}</div>
       </div>
     </button>
@@ -344,7 +345,7 @@ function ProductCard({ product, isMobile, onClick }: { product: CatalogProduct; 
 }
 
 function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; isMobile: boolean; onClick: () => void }) {
-  const dot = service.color ?? colors.red.DEFAULT
+  const dot = service.color ?? C.ink3 // @eligi:caixa-catalog-dot
   return (
     <button
       onClick={onClick}
@@ -410,7 +411,7 @@ function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; 
         </div>
         <div style={{
           fontSize: isMobile ? 14 : 13, fontWeight: 700,
-          color: dot, fontVariantNumeric: 'tabular-nums',
+          color: C.ink, fontVariantNumeric: 'tabular-nums', // @eligi:caixa-cat-itemprice
         }}>
           {formatBRL(service.price ?? 0)}
         </div>
@@ -420,7 +421,7 @@ function ServiceCard({ service, isMobile, onClick }: { service: CatalogService; 
 }
 
 function PackageCardCatalog({ pkg, isMobile, onClick }: { pkg: CatalogPackage; isMobile: boolean; onClick: () => void }) {
-  const dot = pkg.color ?? colors.red.DEFAULT
+  const dot = pkg.color ?? C.ink3 // @eligi:caixa-catalog-dot
   const totalQty = pkg.items.reduce((s, it) => s + it.quantity, 0)
   return (
     <button
@@ -493,7 +494,7 @@ function PackageCardCatalog({ pkg, isMobile, onClick }: { pkg: CatalogPackage; i
         </div>
         <div style={{
           fontSize: isMobile ? 14 : 13, fontWeight: 700,
-          color: dot, fontVariantNumeric: 'tabular-nums',
+          color: C.ink, fontVariantNumeric: 'tabular-nums', // @eligi:caixa-cat-itemprice
         }}>
           {formatBRL(pkg.price)}
         </div>
@@ -503,7 +504,7 @@ function PackageCardCatalog({ pkg, isMobile, onClick }: { pkg: CatalogPackage; i
 }
 
 function MembershipCardCatalog({ mem, isMobile, onClick }: { mem: CatalogMembership; isMobile: boolean; onClick: () => void }) {
-  const dot = mem.color ?? colors.red.DEFAULT
+  const dot = mem.color ?? C.ink3 // @eligi:caixa-catalog-dot
   const coverage = mem.allServices
     ? 'Todos os serviços'
     : `${mem.services.length} serviço${mem.services.length !== 1 ? 's' : ''}`
@@ -579,7 +580,7 @@ function MembershipCardCatalog({ mem, isMobile, onClick }: { mem: CatalogMembers
         </div>
         <div style={{
           fontSize: isMobile ? 14 : 13, fontWeight: 700,
-          color: dot, fontVariantNumeric: 'tabular-nums',
+          color: C.ink, fontVariantNumeric: 'tabular-nums', // @eligi:caixa-cat-itemprice
         }}>
           {formatBRL(mem.price)}
         </div>

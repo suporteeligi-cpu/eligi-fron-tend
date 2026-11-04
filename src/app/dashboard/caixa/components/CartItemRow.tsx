@@ -10,6 +10,7 @@ import { Minus, Plus, Trash2, Tag, Package, Layers, Ticket, XCircle, Pencil } fr
 import { colors, typography, transitions } from '@/shared/theme'
 import { SaleItem, ProfLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
+import { C } from '../ui' // @eligi:caixa-item-ui
 import ProfPicker from './ProfPicker'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -46,7 +47,7 @@ export default function CartItemRow({
   const color = item.product?.color
              ?? item.service?.color
              ?? item.package?.color
-             ?? colors.red.DEFAULT
+             ?? C.ink3 // @eligi:caixa-item-dot
 
   // Coberturas (R$0)
   const hasPackageApplied    = item.appliedPackageCardId != null
@@ -126,7 +127,7 @@ export default function CartItemRow({
               <span style={{
                 fontSize: 8, fontWeight: 800,
                 color: '#fff',
-                background: colors.red.DEFAULT,
+                background: C.ink, // @eligi:caixa-item-pkg-badge
                 padding: '1px 5px',
                 borderRadius: 4,
                 letterSpacing: '.04em',
@@ -306,8 +307,8 @@ export default function CartItemRow({
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '7px 10px',
-            background: 'rgba(220,38,38,0.05)',
-            border: '1px dashed rgba(220,38,38,0.35)',
+            background: C.sunken, // @eligi:caixa-item-sg-bg
+            border: `1px dashed ${C.line2}`,
             borderRadius: 8,
             cursor: disabled ? 'not-allowed' : 'pointer',
             textAlign: 'left',
@@ -317,14 +318,14 @@ export default function CartItemRow({
             transition: `all ${transitions.fast}`,
             WebkitTapHighlightColor: 'transparent',
           }}
-          onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'rgba(220,38,38,0.10)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.05)' }}
+          onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'rgba(17,17,20,0.06)' /* @eligi:caixa-item-sg-hover */ }}
+          onMouseLeave={e => { e.currentTarget.style.background = C.sunken }}
         >
-          <Layers size={12} color={colors.red.DEFAULT} strokeWidth={2.4} />
+          <Layers size={12} color={C.ink} strokeWidth={2.4} /* @eligi:caixa-item-sg-ink */ />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
               fontSize: 10, fontWeight: 800,
-              color: colors.red.DEFAULT,
+              color: C.ink,
               letterSpacing: '.04em', textTransform: 'uppercase',
             }}>
               Pacote disponível

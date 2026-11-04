@@ -13,6 +13,7 @@ import {
   Sale, CatalogProduct, CatalogService, CatalogPackage, CatalogMembership, ProfLite, SaleItemType,
 } from '@/features/sales/types'
 import { useSalesSummary } from '@/features/sales/hooks/useSalesSummary'
+import { C } from './ui' // @eligi:caixa-page-ui
 
 import CatalogPanel       from './components/CatalogPanel'
 import CatalogStrip       from './components/CatalogStrip'
@@ -498,15 +499,15 @@ export default function CaixaPage() {
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
-                <Icon size={13} strokeWidth={2} color={isActive ? colors.red.DEFAULT : colors.gray.dimText} />
+                <Icon size={13} strokeWidth={2} color={isActive ? C.ink : colors.gray.dimText} /* @eligi:caixa-tab-ink */ />
                 {t.label}
                 {t.id === 'open' && openSales.length > 0 && (
                   <span style={{
                     fontSize: 10, fontWeight: 700,
                     padding: '1px 5px',
                     borderRadius: 4,
-                    background: colors.red.subtle,
-                    color: colors.red.DEFAULT,
+                    background: C.ink, // @eligi:caixa-tab-badge
+                    color: C.onInk,
                     fontVariantNumeric: 'tabular-nums',
                   }}>{openSales.length}</span>
                 )}
@@ -593,7 +594,7 @@ function OpenTab(props: OpenTabProps) {
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 60 }}>
         <Loader2
           size={26}
-          color={colors.red.DEFAULT}
+          color={C.ink} /* @eligi:caixa-loader-ink */
           style={{ animation: 'pos-spin 0.8s linear infinite' }}
         />
       </div>
@@ -625,18 +626,16 @@ function OpenTab(props: OpenTabProps) {
               padding: '11px 22px',
               borderRadius: 10,
               border: 'none',
-              background: colors.red.gradient,
-              color: '#fff',
-              fontSize: 13,
+              background: C.ink, // @eligi:caixa-new-ink
+              color: C.onInk,
+              fontSize: 14,
               fontWeight: 700,
               cursor: props.creating ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit',
-              letterSpacing: '.04em',
-              textTransform: 'uppercase',
-              boxShadow: `0 4px 14px ${colors.red.glow}`,
+              minHeight: 48,
             }}
           >
-            + Nova venda
+            Nova venda
           </button>
         </div>
       </div>
@@ -707,6 +706,7 @@ function OpenTab(props: OpenTabProps) {
         }}>
           {props.activeSale ? (
             <CartPanel
+              key={props.activeSale.id} /* @eligi:caixa-cart-key */
               sale={props.activeSale}
               professionals={props.professionals}
               isMobile={props.isMobile}
@@ -771,6 +771,7 @@ function OpenTab(props: OpenTabProps) {
         }}>
           {props.activeSale ? (
             <CartPanel
+              key={props.activeSale.id} /* @eligi:caixa-cart-key */
               sale={props.activeSale}
               professionals={props.professionals}
               isMobile={props.isMobile}

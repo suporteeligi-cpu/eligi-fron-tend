@@ -1,61 +1,31 @@
 'use client'
 // src/app/dashboard/caixa/components/PaymentModal.tsx
+// @eligi:caixa-payment-v2
 //
-// Modal full-screen pra confirmar venda com pagamento misto (split).
-// Forma em CARDS (desktop: lista vertical · mobile: roleta) editando a LINHA ATIVA.
-// 1 pagamento = visual simples. "Dividir" adiciona linhas (split). Numpad edita a linha ativa.
-// Valida soma == total da venda e dispara POST /sales/:id/confirm.
+// Pagamento da venda - direcao A "Balcao limpo" (nov/2026).
 //
-// Redesign white glass: cor 100% via bloco T (fonte única).
-// DARK: quando o tema dark entrar, basta trocar/derivar este bloco — o resto lê de T.
+// SEM campo de desconto: o desconto e dado no carrinho e ja esta gravado na venda
+// quando este modal abre. Antes havia um segundo desconto aqui; mexer nele nao
+// ajustava o valor recebido (nascia com o total antigo) e o confirmar travava em
+// "Sobra". O confirm agora manda so os pagamentos; o back usa o desconto da venda.
+//
+// Forma em cartoes editando a LINHA ATIVA. "Dividir" cria linhas (pagamento
+// misto). Dinheiro com valor acima do total mostra o TROCO e grava o total.
+// NFS-e: aviso no rodape quando o modulo esta ligado (decisao do DONO); a emissao
+// roda depois do confirm, isolada, e nunca trava o caixa.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Plus, Check, Loader2, AlertCircle } from 'lucide-react'
+import { X, Plus, Check, Loader2, Receipt } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
 import { useNfseEnabled } from '@/features/fiscal/hooks/useNfseEnabled' // @eligi:nfse-switch
-import { typography, transitions, radius } from '@/shared/theme'
 import { Sale, PaymentMethod, PaymentLineInput } from '@/features/sales/types'
 import {
   formatBRL, PAYMENT_METHOD_LABEL, PAYMENT_METHOD_ICON, PAYMENT_METHOD_ORDER,
 } from '@/features/sales/utils/format'
-
-// ===== TOKENS DO MODAL — fonte única de cor (DARK: trocar este bloco) =====
-const T = {
-  surface:   'rgba(255,255,255,0.74)',
-  blur:      'saturate(180%) blur(30px)',
-  header:    'linear-gradient(135deg, #1e293b, #0f172a)',
-  card:      '#ffffff',
-  field:     'rgba(17,17,22,0.02)',
-  stroke:    'rgba(0,0,0,0.11)',
-  stroke2:   'rgba(0,0,0,0.14)',
-  text:      '#111827',
-  muted:     'rgba(17,24,39,0.55)',
-  faint:     'rgba(17,24,39,0.38)',
-  pay:       '#10b981',
-  pay2:      '#059669',
-  payGlow:   'rgba(16,185,129,0.40)',
-  okText:    '#15803d', okBg: 'rgba(22,163,74,0.08)',  okStroke: 'rgba(22,163,74,0.25)',
-  warnText:  '#b45309', warnBg: 'rgba(245,158,11,0.10)', warnStroke: 'rgba(245,158,11,0.30)',
-  badText:   '#dc2626', badBg: 'rgba(220,38,38,0.08)',  badStroke: 'rgba(220,38,38,0.18)',
-  brand:     '#dc2626',
-  brandRing: 'rgba(220,38,38,0.28)',
-  shadow:    '0 32px 80px rgba(24,24,48,0.20)',
-} as const
-
-// cor de destaque por método
-const METHOD_COLOR: Record<PaymentMethod, string> = {
-  CASH:     '#10b981',
-  PIX:      '#16b8a8',
-  CREDIT:   '#6366f1',
-  DEBIT:    '#3b82f6',
-  TRANSFER: '#f59e0b',
-  OTHER:    '#64748b',
-}
-
-// fundo translúcido a partir da cor sólida (#rrggbb -> #rrggbb22)
-const tint = (hex: string) => hex + '22'
+import { parseMoneyInput, round2, discountPercentLabel } from '@/features/sales/utils/discount'
+import { C } from '../ui'
 
 const NUM_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'] as const
 
@@ -68,48 +38,53 @@ interface Props {
 
 interface PaymentRow {
   method:    PaymentMethod
-  amount:    string  // string pra digitação
+  amount:    string   // texto digitado ("60,00")
   reference: string
+  touched:   boolean  // 1a tecla do numpad substitui o valor sugerido
+}
+
+function toInput(v: number): string {
+  return v > 0 ? v.toFixed(2).replace('.', ',') : ''
 }
 
 export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props) {
-  const [payments,  setPayments]  = useState<PaymentRow[]>([
-    { method: 'CASH', amount: sale.total.toFixed(2), reference: '' },
+  const total = round2(sale.total)
+  const [payments,   setPayments]   = useState<PaymentRow[]>(() => [
+    { method: 'CASH', amount: toInput(total), reference: '', touched: false },
   ])
-  const [active,     setActive]     = useState(0)  // linha que cards + numpad editam
-  const [discount,   setDiscount]   = useState(sale.discount.toString())
+  const [active,     setActive]     = useState(0)
   const [confirming, setConfirming] = useState(false)
   const [error,      setError]      = useState<string | null>(null)
   const [success,    setSuccess]    = useState(false)
-  // @eligi:nfse-switch — quem decide emitir é o DONO (master switch no
-  // módulo de Notas Fiscais). O caixa não escolhe venda a venda: a nota
-  // é obrigatória e a decisão não pertence ao operador.
+
+  // @eligi:nfse-switch - quem decide emitir e o DONO (master switch).
   const nfseState  = useNfseEnabled()
-  // @eligi:nfse-tributaveis — espelha o back: serviço, pacote e assinatura
-  // geram nota; produto é NF-e. Item com valor 0 é consumo de pacote — a
-  // nota daquela receita saiu quando o plano foi vendido.
+  // @eligi:nfse-tributaveis - servico, pacote e assinatura geram nota; item R$ 0 e consumo.
   const hasService = sale.items.some(
-    i => (i.type === 'SERVICE' || i.type === 'PACKAGE' || i.type === 'MEMBERSHIP') && i.total > 0
+    i => (i.type === 'SERVICE' || i.type === 'PACKAGE' || i.type === 'MEMBERSHIP') && i.total > 0,
   )
-  const emitNfse   = (nfseState?.ativa ?? false) && hasService
+  const emitNfse = (nfseState?.ativa ?? false) && hasService
 
-  const parsedDiscount = parseFloat(discount.replace(',', '.')) || 0
-  const subtotal = sale.subtotal
-  const effectiveDiscount = Math.max(0, Math.min(subtotal, parsedDiscount))
-  const effectiveTotal = subtotal - effectiveDiscount
+  const amounts   = payments.map(p => parseMoneyInput(p.amount))
+  const paidSum   = round2(amounts.reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0))
+  const remaining = round2(total - paidSum)
+  const isSplit   = payments.length > 1
+  const change    = !isSplit && payments[0]?.method === 'CASH' && paidSum > total ? round2(paidSum - total) : 0
+  const settled   = Math.abs(remaining) < 0.01 || change > 0
+  const current   = payments[active] ?? payments[0]
+  const discountPct = discountPercentLabel(sale.discount, sale.subtotal)
 
-  const paidSum = payments.reduce((s, p) => {
-    const v = parseFloat(p.amount.replace(',', '.')) || 0
-    return s + v
-  }, 0)
-  const remaining = effectiveTotal - paidSum
-  const settled = Math.abs(remaining) < 0.01
-
-  const current = payments[active] ?? payments[0]
-  const isSplit = payments.length > 1
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !confirming && !success) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [confirming, success, onClose])
 
   function updatePayment(i: number, patch: Partial<PaymentRow>) {
     setPayments(prev => prev.map((p, idx) => idx === i ? { ...p, ...patch } : p))
+    setError(null)
   }
 
   function removePayment(i: number) {
@@ -117,546 +92,419 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
     setActive(a => (i <= a && a > 0) ? a - 1 : a)
   }
 
-  function addPayment(method: PaymentMethod = 'CASH') {
-    const fill = remaining > 0 ? remaining.toFixed(2) : '0.00'
-    setPayments(prev => [...prev, { method, amount: fill, reference: '' }])
-    setActive(payments.length) // ativa a nova linha
+  function addPayment() {
+    const fill = remaining > 0 ? toInput(remaining) : ''
+    setPayments(prev => [...prev, { method: 'PIX', amount: fill, reference: '', touched: false }])
+    setActive(payments.length)
   }
 
-  function fillRemainingOnLast() {
-    if (payments.length === 0 || remaining <= 0) return
-    const lastIdx = payments.length - 1
-    const last = payments[lastIdx]
-    const currentLast = parseFloat(last.amount.replace(',', '.')) || 0
-    updatePayment(lastIdx, { amount: (currentLast + remaining).toFixed(2) })
+  function fillRemaining() {
+    if (remaining <= 0) return
+    const i = active
+    const cur = parseMoneyInput(payments[i]?.amount ?? '')
+    updatePayment(i, { amount: toInput(round2((Number.isFinite(cur) ? cur : 0) + remaining)), touched: true })
   }
 
-  // Numpad → edita o amount da linha ativa
   function pressKey(k: string) {
+    setError(null)
     setPayments(prev => prev.map((p, idx) => {
       if (idx !== active) return p
-      let cur = p.amount
-      if (k === '⌫') cur = cur.slice(0, -1)
+      let cur = p.touched ? p.amount : ''
+      if (k === '⌫') cur = (p.touched ? p.amount : '').slice(0, -1)
       else if (k === ',') { if (!cur.includes(',')) cur = (cur || '0') + ',' }
-      else cur = cur + k
-      return { ...p, amount: cur }
+      else {
+        const dec = cur.split(',')[1]
+        if (dec !== undefined && dec.length >= 2) return { ...p, touched: true }
+        cur = cur + k
+      }
+      return { ...p, amount: cur, touched: true }
     }))
   }
 
   async function handleConfirm() {
     setError(null)
-    if (payments.length === 0) { setError('Adicione ao menos um pagamento'); return }
-    if (Math.abs(remaining) > 0.01) {
+    if (!settled) {
       setError(remaining > 0
-        ? `Falta ${formatBRL(remaining)} — adicione mais pagamento`
-        : `Excedeu em ${formatBRL(-remaining)} — ajuste valores`)
+        ? `Falta ${formatBRL(remaining)}. Ajuste o valor ou divida o pagamento.`
+        : `Passou ${formatBRL(-remaining)} do total. Ajuste os valores.`)
       return
     }
-    const validPayments: PaymentLineInput[] = []
-    for (const p of payments) {
-      const amount = parseFloat(p.amount.replace(',', '.'))
-      if (isNaN(amount) || amount <= 0) {
-        setError(`Valor inválido em ${PAYMENT_METHOD_LABEL[p.method]}`)
-        return
+    const lines: PaymentLineInput[] = []
+    if (change > 0) {
+      lines.push({ method: 'CASH', amount: total, reference: payments[0].reference.trim() || undefined })
+    } else {
+      for (const [i, p] of payments.entries()) {
+        const amount = round2(amounts[i])
+        if (!Number.isFinite(amount) || amount <= 0) {
+          setError(`Valor inválido em ${PAYMENT_METHOD_LABEL[p.method]}`)
+          return
+        }
+        lines.push({ method: p.method, amount, reference: p.reference.trim() || undefined })
       }
-      validPayments.push({ method: p.method, amount, reference: p.reference.trim() || undefined })
     }
     try {
       setConfirming(true)
-      const res = await api.post(`/sales/${sale.id}/confirm`, {
-        discount: effectiveDiscount,
-        payments: validPayments,
-      })
-      const confirmed = res.data?.data ?? res.data
-      // @eligi:nfse-switch — enfileira a NFS-e DEPOIS do confirm, isolado.
-      // A nota é consequência da venda, nunca pré-requisito: falha aqui
-      // não trava o caixa (a central permite reemitir).
+      const res = await api.post(`/sales/${sale.id}/confirm`, { payments: lines })
+      const confirmed: Sale = res.data?.data ?? res.data
+      // @eligi:nfse-switch - nota depois do confirm, isolada: falha nao trava o caixa.
       if (emitNfse) {
-        // ?auto=1 → disparo automático: a decisão de emitir é do DONO
-        // (master switch). Qualquer cargo do caixa dispara.
         void api.post(`/fiscal/sales/${sale.id}/emit?auto=1`).catch(() => {
-          /* silencioso: venda já fechada; a nota fica pendente na central */
+          /* venda ja fechada; a nota fica pendente na central para reemitir */
         })
       }
       setSuccess(true)
       setTimeout(() => { onPaid(confirmed) }, 900)
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao confirmar venda')
+      const e = err as { response?: { data?: { error?: string; message?: string } } }
+      setError(e.response?.data?.error ?? e.response?.data?.message ?? 'Erro ao confirmar venda')
       setConfirming(false)
     }
   }
 
   if (typeof document === 'undefined') return null
 
-  // ---- blocos ----
-
-  // Cards de forma — editam a forma da linha ativa
-  const formCards = isMobile ? (
-    <div style={{
-      display: 'flex', gap: 9, overflowX: 'auto', paddingBottom: 4,
-      scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
+  // ── blocos ──────────────────────────────────────────────────────────────
+  const methodGrid = (
+    <div role="radiogroup" aria-label="Forma de pagamento" style={{
+      display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: 8,
     }}>
       {PAYMENT_METHOD_ORDER.map(m => {
         const Icon = PAYMENT_METHOD_ICON[m]
-        const mc = METHOD_COLOR[m]
         const sel = m === current.method
         return (
           <button
             key={m}
+            type="button"
+            role="radio"
+            aria-checked={sel}
             onClick={() => updatePayment(active, { method: m })}
             disabled={confirming}
             style={{
-              flex: '0 0 auto', minWidth: 74,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-              background: T.card,
-              border: `1.5px solid ${sel ? mc : T.stroke}`,
-              boxShadow: sel ? `0 0 0 1px ${mc} inset` : 'none',
-              borderRadius: 16, padding: '11px 11px',
-              color: T.text, fontWeight: 600, fontSize: 11.5,
-              fontFamily: 'inherit', cursor: confirming ? 'not-allowed' : 'pointer',
+              display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center',
+              gap: isMobile ? 6 : 10, padding: isMobile ? '10px 6px' : '12px', minHeight: 48,
+              borderRadius: 12, background: C.card, cursor: confirming ? 'not-allowed' : 'pointer',
+              border: sel ? `1.5px solid ${C.ink}` : `1px solid ${C.line2}`,
+              boxShadow: sel ? `inset 0 0 0 0.5px ${C.ink}` : 'none',
+              color: C.ink, fontSize: isMobile ? 12 : 14, fontWeight: 600, fontFamily: 'inherit',
+              textAlign: 'left',
             }}
           >
             <span style={{
-              width: 38, height: 38, borderRadius: 11,
+              width: 30, height: 30, borderRadius: 8, flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: mc, background: tint(mc),
+              background: sel ? C.ink : C.sunken, border: `1px solid ${sel ? C.ink : C.line}`,
             }}>
-              <Icon size={19} strokeWidth={2} />
+              <Icon size={16} strokeWidth={2} color={sel ? C.onInk : C.ink2} />
             </span>
             {PAYMENT_METHOD_LABEL[m]}
-          </button>
-        )
-      })}
-    </div>
-  ) : (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {PAYMENT_METHOD_ORDER.map((m, idx) => {
-        const Icon = PAYMENT_METHOD_ICON[m]
-        const mc = METHOD_COLOR[m]
-        const sel = m === current.method
-        return (
-          <button
-            key={m}
-            onClick={() => updatePayment(active, { method: m })}
-            disabled={confirming}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              background: T.card,
-              border: `1.5px solid ${sel ? mc : T.stroke}`,
-              boxShadow: sel ? `0 0 0 1px ${mc} inset` : 'none',
-              borderRadius: 13, padding: '11px 13px',
-              color: T.text, fontWeight: 600, fontSize: 14,
-              fontFamily: 'inherit', textAlign: 'left',
-              cursor: confirming ? 'not-allowed' : 'pointer',
-            }}
-          >
-            <span style={{
-              width: 38, height: 38, borderRadius: 11,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: mc, background: tint(mc),
-            }}>
-              <Icon size={20} strokeWidth={2} />
-            </span>
-            {PAYMENT_METHOD_LABEL[m]}
-            <span style={{
-              marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: T.muted,
-              background: T.field, border: `1px solid ${T.stroke2}`,
-              borderRadius: 7, padding: '3px 8px',
-            }}>{idx + 1}</span>
           </button>
         )
       })}
     </div>
   )
 
-  // Faixa de split (só com 2+ pagamentos)
   const splitBar = isSplit ? (
-    <>
-      <div style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: '.07em',
-        textTransform: 'uppercase', color: T.faint, margin: '0 0 8px',
-      }}>
-        Pagamentos ({payments.length})
-      </div>
-      <div style={{
-        display: 'flex', gap: 7, overflowX: 'auto', marginBottom: 12, scrollbarWidth: 'none',
-      }}>
-        {payments.map((p, i) => {
-          const Icon = PAYMENT_METHOD_ICON[p.method]
-          const mc = METHOD_COLOR[p.method]
-          const sel = i === active
-          return (
-            <div
-              key={i}
-              onClick={() => setActive(i)}
-              style={{
-                flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 7,
-                background: T.field,
-                border: `1.5px solid ${sel ? T.brand : T.stroke}`,
-                boxShadow: sel ? `0 0 0 2px ${T.brandRing}` : 'none',
-                borderRadius: 11, padding: '7px 9px',
-                fontSize: 12, fontWeight: 600, color: T.text, cursor: 'pointer',
-              }}
-            >
-              <span style={{
-                width: 22, height: 22, borderRadius: 6,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: mc, background: tint(mc),
-              }}>
-                <Icon size={13} strokeWidth={2} />
-              </span>
-              R$ {p.amount}
-              <span
-                onClick={e => { e.stopPropagation(); removePayment(i) }}
-                style={{ marginLeft: 2, color: T.muted, display: 'flex', cursor: 'pointer' }}
-              >
-                <X size={12} strokeWidth={2.5} />
-              </span>
-            </div>
-          )
-        })}
-      </div>
-    </>
+    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+      {payments.map((p, i) => {
+        const Icon = PAYMENT_METHOD_ICON[p.method]
+        const sel = i === active
+        return (
+          <span key={i} style={{
+            flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 6,
+            borderRadius: 10, padding: '0 4px 0 10px', minHeight: 36,
+            border: sel ? `1.5px solid ${C.ink}` : `1px solid ${C.line2}`, background: C.card,
+          }}>
+            <button type="button" onClick={() => setActive(i)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent',
+              cursor: 'pointer', fontSize: 12, fontWeight: 700, color: C.ink, fontFamily: 'inherit', padding: 0,
+            }}>
+              <Icon size={13} color={C.ink2} />
+              <span style={{ color: C.ink, fontVariantNumeric: 'tabular-nums' }}>R$ {p.amount || '0'}</span>
+            </button>
+            <button type="button" onClick={() => removePayment(i)} aria-label={`Remover pagamento ${i + 1}`} style={{
+              width: 28, height: 28, border: 'none', background: 'transparent', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <X size={12} color={C.ink3} />
+            </button>
+          </span>
+        )
+      })}
+    </div>
   ) : null
 
-  // Desconto + Valor (linha ativa)
-  const valueRow = (
-    <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-      <div style={{ flex: 1, minWidth: 0, background: T.card, border: `1px solid ${T.stroke}`, borderRadius: 13, padding: '10px 14px' }}>
-        <small style={{ display: 'block', fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: T.faint, fontWeight: 700 }}>
-          Desconto
-        </small>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-          <span style={{ fontSize: 12, color: T.muted, fontWeight: 600 }}>R$</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={discount}
-            onChange={e => setDiscount(e.target.value.replace(/[^\d,.]/g, ''))}
-            placeholder="0,00"
-            disabled={confirming}
-            style={{
-              flex: 1, border: 'none', outline: 'none', background: 'transparent',
-              fontSize: 18, fontWeight: 800, color: T.text,
-              fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums',
-            }}
-          />
-        </div>
-      </div>
-      <div style={{ flex: 1, minWidth: 0, background: T.card, border: `1px solid ${T.brandRing}`, borderRadius: 13, padding: '10px 14px' }}>
-        <small style={{ display: 'block', fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: T.faint, fontWeight: 700 }}>
-          {isSplit ? 'Valor (pagamento ativo)' : 'Valor recebido'}
-        </small>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-          <span style={{ fontSize: 12, color: T.muted, fontWeight: 600 }}>R$</span>
-          {isMobile ? (
-            <div style={{ flex: 1, fontSize: 18, fontWeight: 800, color: T.text, fontVariantNumeric: 'tabular-nums' }}>
-              {current.amount || '0,00'}
-            </div>
-          ) : (
-            <input
-              type="text"
-              inputMode="decimal"
-              value={current.amount}
-              onChange={e => updatePayment(active, { amount: e.target.value.replace(/[^\d,.]/g, '') })}
-              placeholder="0,00"
-              disabled={confirming}
-              style={{
-                flex: 1, border: 'none', outline: 'none', background: 'transparent',
-                fontSize: 18, fontWeight: 800, color: T.text,
-                fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums',
-              }}
-            />
-          )}
-        </div>
+  const valueField = (
+    <div style={{ border: `1px solid ${C.line2}`, borderRadius: 12, padding: '8px 12px', background: C.card }}>
+      <label htmlFor="cx-pay-amount" style={{
+        display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em',
+        textTransform: 'uppercase', color: C.ink3,
+      }}>
+        {isSplit ? `Valor em ${PAYMENT_METHOD_LABEL[current.method]}` : current.method === 'CASH' ? 'Valor recebido' : 'Valor'}
+      </label>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <span style={{ fontSize: 13, color: C.ink3, fontWeight: 600 }}>R$</span>
+        <input
+          id="cx-pay-amount"
+          type="text"
+          inputMode="decimal"
+          value={current.amount}
+          onChange={e => updatePayment(active, { amount: e.target.value.replace(/[^\d,.]/g, ''), touched: true })}
+          placeholder="0,00"
+          disabled={confirming}
+          readOnly={isMobile}
+          style={{
+            flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+            fontFamily: C.display, fontSize: 26, fontWeight: 700, color: C.ink,
+            fontVariantNumeric: 'tabular-nums', padding: '2px 0',
+          }}
+        />
       </div>
     </div>
   )
 
   const refInput = (
     <input
+      id="cx-pay-ref"
       value={current.reference}
       onChange={e => updatePayment(active, { reference: e.target.value })}
       placeholder="Ref / NSU (opcional)"
+      aria-label="Referência ou NSU"
       disabled={confirming}
       style={{
-        width: '100%', marginBottom: 12, padding: '10px 13px', borderRadius: 11,
-        border: `1px solid ${T.stroke2}`, background: T.field,
-        fontSize: 12, color: T.text, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+        width: '100%', boxSizing: 'border-box', padding: '0 12px', minHeight: 42,
+        borderRadius: 10, border: `1px solid ${C.line2}`, background: C.sunken,
+        fontSize: 16, color: C.ink, fontFamily: 'inherit',
       }}
     />
   )
 
-  const numpad = (caption: string | null) => (
-    <div>
-      {caption && (
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: T.faint, margin: '0 0 7px', textAlign: 'center' }}>
-          {caption}
-        </div>
+  const numpad = (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+      {NUM_KEYS.map(k => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => pressKey(k)}
+          disabled={confirming}
+          aria-label={k === '⌫' ? 'Apagar' : k}
+          style={{
+            minHeight: 46, borderRadius: 10, border: `1px solid ${C.line}`, background: C.sunken,
+            color: C.ink, fontSize: 18, fontWeight: 600, fontFamily: C.display,
+            cursor: confirming ? 'not-allowed' : 'pointer', fontVariantNumeric: 'tabular-nums',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >{k}</button>
+      ))}
+    </div>
+  )
+
+  const statusBlock = (
+    <div role="status" style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
+      padding: '10px 12px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+      background: settled ? C.okBg : C.warn.bg,
+      border: `1px solid ${settled ? 'rgba(22,163,74,0.25)' : C.warn.border}`,
+      color: settled ? C.okInk : C.warn.text,
+    }}>
+      <span style={{ color: 'inherit' }}>
+        {change > 0 ? 'Troco' : settled ? '✓ Total batido' : remaining > 0 ? 'Falta' : 'Passou do total'}
+      </span>
+      {change > 0 && <span style={{ color: 'inherit', fontFamily: C.display, fontSize: 18, fontVariantNumeric: 'tabular-nums' }}>{formatBRL(change)}</span>}
+      {!settled && (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'inherit' }}>
+          <span style={{ color: 'inherit', fontVariantNumeric: 'tabular-nums' }}>{formatBRL(Math.abs(remaining))}</span>
+          {remaining > 0 && (
+            <button type="button" onClick={fillRemaining} disabled={confirming} style={{
+              minHeight: 30, padding: '0 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              background: C.warn.text, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
+            }}>Completar</button>
+          )}
+        </span>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 7 }}>
-        {NUM_KEYS.map(k => (
-          <button
-            key={k}
-            onClick={() => pressKey(k)}
-            disabled={confirming}
-            style={{
-              border: `1px solid ${T.stroke}`, background: T.field, color: T.text,
-              fontFamily: 'inherit', fontSize: 18, fontWeight: 600, borderRadius: 11,
-              padding: '11px 0', cursor: confirming ? 'not-allowed' : 'pointer',
-              fontVariantNumeric: 'tabular-nums', WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
     </div>
   )
 
   const divideBtn = (
-    <button
-      onClick={() => addPayment()}
-      disabled={confirming}
-      style={{
-        width: '100%', marginTop: 11, padding: '11px', borderRadius: 11,
-        border: `1.5px dashed ${T.stroke2}`, background: 'transparent',
-        color: T.muted, fontFamily: 'inherit', fontSize: 11, fontWeight: 700,
-        letterSpacing: '.04em', textTransform: 'uppercase', cursor: confirming ? 'not-allowed' : 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        WebkitTapHighlightColor: 'transparent',
-      }}
-    >
-      <Plus size={12} strokeWidth={2.5} />
-      Dividir pagamento
+    <button type="button" onClick={addPayment} disabled={confirming} style={{
+      width: '100%', minHeight: 42, borderRadius: 10, border: `1.5px dashed ${C.line2}`,
+      background: 'transparent', color: C.ink2, fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+      cursor: confirming ? 'not-allowed' : 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+    }}>
+      <Plus size={14} strokeWidth={2.4} /> Dividir pagamento
     </button>
   )
 
-  const statusBlock = (
-    <div style={{
-      marginTop: 12, padding: '11px 14px', borderRadius: 12,
-      background: settled ? T.okBg : remaining > 0 ? T.warnBg : T.badBg,
-      border: `1px solid ${settled ? T.okStroke : remaining > 0 ? T.warnStroke : T.badStroke}`,
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13,
-    }}>
-      <span style={{ fontWeight: 700, color: settled ? T.okText : remaining > 0 ? T.warnText : T.badText }}>
-        {settled ? '✓ Total batido' : remaining > 0 ? `Falta ${formatBRL(remaining)}` : `Sobra ${formatBRL(-remaining)}`}
-      </span>
-      {remaining > 0.01 && payments.length > 0 && (
-        <button
-          onClick={fillRemainingOnLast}
-          disabled={confirming}
-          style={{
-            padding: '5px 11px', borderRadius: 7, border: 'none', background: T.warnText,
-            color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          Preencher
-        </button>
-      )}
-    </div>
-  )
-
   const errorBlock = error ? (
-    <div style={{
-      marginTop: 12, padding: '10px 12px', background: T.badBg, border: `1px solid ${T.badStroke}`,
-      borderRadius: 9, fontSize: 12, color: T.badText, display: 'flex', alignItems: 'center', gap: 7,
-    }}>
-      <AlertCircle size={13} strokeWidth={2.5} />
-      {error}
-    </div>
+    <div role="alert" style={{
+      padding: '9px 12px', borderRadius: 10, fontSize: 12.5, fontWeight: 600,
+      background: C.bad.bg, border: `1px solid ${C.bad.border}`, color: C.bad.text,
+    }}>{error}</div>
   ) : null
 
   return createPortal(
-    <>
+    <div className="cx-pay">
       <div
         onClick={confirming ? undefined : onClose}
         style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
-          backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-          zIndex: 11998, animation: 'pay-fade 0.20s ease',
+          position: 'fixed', inset: 0, background: 'rgba(17,17,20,0.45)',
+          backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+          zIndex: 11998, animation: 'cx-fade .18s ease',
         }}
       />
-
-      <div style={{
-        position: 'fixed', inset: 0,
-        top: isMobile ? 'var(--navbar-h, 60px)' : 0,
-        bottom: isMobile ? 'var(--bottom-nav-h, 0px)' : 0,
-        margin: isMobile ? 0 : 'auto',
-        width: isMobile ? '100%' : 780,
-        maxWidth: isMobile ? '100%' : '94vw',
-        maxHeight: isMobile ? 'auto' : '92vh',
-        background: T.surface, backdropFilter: T.blur, WebkitBackdropFilter: T.blur,
-        border: `1px solid ${T.stroke}`,
-        borderRadius: isMobile ? '24px 24px 0 0' : radius['2xl'],
-        boxShadow: T.shadow, zIndex: 11999,
-        display: 'flex', flexDirection: 'column', fontFamily: typography.fontFamily,
-        animation: isMobile ? 'pay-up 0.32s cubic-bezier(0.34, 1.2, 0.64, 1)' : 'pay-in 0.24s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        overflow: 'hidden',
+      <div role="dialog" aria-modal="true" aria-labelledby="cx-pay-title" style={{
+        position: 'fixed', zIndex: 11999, background: C.card, color: C.ink, fontFamily: C.body,
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 24px 60px rgba(17,17,20,0.22)',
+        ...(isMobile ? {
+          left: 0, right: 0,
+          top: 'var(--navbar-h, 104px)',
+          bottom: 'calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom))',
+          borderRadius: '22px 22px 0 0',
+          animation: 'cx-up .28s cubic-bezier(.22,1,.36,1)',
+        } : {
+          inset: 0, margin: 'auto', width: 780, maxWidth: '94vw', height: 'fit-content', maxHeight: '92vh',
+          borderRadius: 20, animation: 'cx-in .2s cubic-bezier(.22,1,.36,1)',
+        }),
       }}>
-        <style>{`
-          @keyframes pay-fade { from { opacity:0 } to { opacity:1 } }
-          @keyframes pay-up   { from { transform: translateY(100%) } to { transform: translateY(0) } }
-          @keyframes pay-in   { from { opacity:0; transform: scale(0.93) } to { opacity:1; transform: scale(1) } }
-          @keyframes pay-pop  { from { transform: scale(0.6); opacity: 0 } to { transform: scale(1); opacity: 1 } }
-          @keyframes pay-spin { to { transform: rotate(360deg) } }
-        `}</style>
-
-        {/* Header escuro */}
-        <div style={{ background: T.header, padding: isMobile ? '18px 20px' : '22px 26px', color: '#fff', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-              Confirmar pagamento
-            </span>
-            <button
-              onClick={onClose}
-              disabled={confirming}
-              aria-label="Fechar"
-              style={{
-                width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)',
-                background: 'rgba(255,255,255,0.08)', cursor: confirming ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: confirming ? 0.5 : 1,
-              }}
-            >
-              <X size={14} color="#fff" strokeWidth={2.5} />
-            </button>
-          </div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 3 }}>Total da venda</div>
-          <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-            {formatBRL(effectiveTotal)}
-          </div>
-          {effectiveDiscount > 0 && (
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
-              Subtotal {formatBRL(subtotal)} − desconto {formatBRL(effectiveDiscount)}
+        {/* Cabecalho: quanto cobrar */}
+        <div style={{
+          padding: isMobile ? '16px 18px 12px' : '20px 24px 16px', borderBottom: `1px solid ${C.line}`,
+          display: 'flex', alignItems: 'flex-start', gap: 12, flexShrink: 0,
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div id="cx-pay-title" style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink3,
+            }}>
+              Cobrar{sale.clientName ? ` · ${sale.clientName}` : ''}
             </div>
-          )}
+            <div style={{
+              fontFamily: C.display, fontSize: isMobile ? 34 : 40, fontWeight: 700, letterSpacing: '-0.035em',
+              lineHeight: 1.05, marginTop: 4, fontVariantNumeric: 'tabular-nums', color: C.ink,
+            }}>{formatBRL(total)}</div>
+            {sale.discount > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: C.ink3, textDecoration: 'line-through', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatBRL(sale.subtotal)}
+                </span>
+                <span style={{
+                  fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+                  background: C.warn.bg, border: `1px solid ${C.warn.border}`, color: C.warn.text,
+                }}>
+                  Desconto −{formatBRL(Math.min(sale.discount, sale.subtotal))}{discountPct && ` · ${discountPct}`}
+                </span>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={confirming}
+            aria-label="Fechar"
+            style={{
+              width: 40, height: 40, borderRadius: '50%', border: `1px solid ${C.line2}`, background: C.card,
+              cursor: confirming ? 'not-allowed' : 'pointer', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <X size={16} color={C.ink2} />
+          </button>
         </div>
 
-        {/* Body */}
         {success ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', gap: 14 }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: '50%',
-              background: `linear-gradient(135deg, ${T.pay}, ${T.pay2})`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: `0 12px 32px ${T.payGlow}`, animation: 'pay-pop 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '44px 20px', gap: 12 }}>
+            <span style={{
+              width: 68, height: 68, borderRadius: '50%', background: C.ok,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'cx-pop .35s cubic-bezier(.34,1.56,.64,1)',
             }}>
-              <Check size={36} color="#fff" strokeWidth={3} />
-            </div>
-            <div style={{ fontSize: 19, fontWeight: 800, color: T.text }}>Venda confirmada!</div>
-            <div style={{ fontSize: 14, color: T.muted }}>{formatBRL(effectiveTotal)} registrado</div>
-          </div>
-        ) : isMobile ? (
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', WebkitOverflowScrolling: 'touch' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: T.faint, margin: '0 0 8px' }}>
-              Forma de pagamento
-            </div>
-            {formCards}
-            <div style={{ height: 12 }} />
-            {splitBar}
-            {valueRow}
-            {refInput}
-            {numpad(null)}
-            {divideBtn}
-            {statusBlock}
-            {errorBlock}
+              <Check size={34} color="#fff" strokeWidth={3} />
+            </span>
+            <div style={{ fontSize: 19, fontWeight: 700, color: C.ink }}>Venda confirmada</div>
+            <div style={{ fontSize: 14, color: C.ink3, fontVariantNumeric: 'tabular-nums' }}>{formatBRL(total)} registrado</div>
           </div>
         ) : (
-          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16, padding: '16px 22px', overflowY: 'auto', overflowX: 'hidden' }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: T.faint, margin: '0 0 8px' }}>
+          <div style={{
+            flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+            padding: isMobile ? '14px 16px' : '18px 24px',
+            display: 'grid', gap: 16,
+            gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)',
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: C.ink3 }}>
                 Forma de pagamento
               </div>
-              {formCards}
-              {divideBtn}
+              {methodGrid}
+              {!isMobile && divideBtn}
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
               {splitBar}
-              {valueRow}
+              {valueField}
               {refInput}
-              {numpad('Linha ativa')}
+              {numpad}
               {statusBlock}
+              {isMobile && divideBtn}
               {errorBlock}
             </div>
           </div>
         )}
 
-        {/* Footer */}
         {!success && (
           <div style={{
-            padding: isMobile ? '12px 18px max(16px, env(safe-area-inset-bottom))' : '14px 26px',
-            background: T.surface, borderTop: `1px solid ${T.stroke}`,
-            display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0,
+            padding: isMobile ? '12px 16px' : '14px 24px', borderTop: `1px solid ${C.line}`,
+            background: C.card, display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0,
           }}>
-            {/* @eligi:nfse-switch — decisão fiscal no último momento antes de confirmar */}
+            {/* @eligi:nfse-switch - aviso fiscal no ultimo momento antes de confirmar */}
             {emitNfse && (
-              <div
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  background: T.okBg, border: `1px solid ${T.okStroke}`,
-                  borderRadius: 11, padding: '10px 14px',
-                }}
-              >
-                <span style={{ fontSize: 15, lineHeight: 1 }}>🧾</span>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10,
+                background: C.sunken, border: `1px solid ${C.line}`,
+              }}>
+                <Receipt size={16} color={C.ink2} />
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: T.okText }}>
-                    Nota fiscal será emitida
-                  </span>
-                  <span style={{ display: 'block', fontSize: 11, color: T.muted, marginTop: 1 }}>
+                  <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: C.ink }}>Nota fiscal será emitida</span>
+                  <span style={{ display: 'block', fontSize: 11.5, color: C.ink3, marginTop: 1 }}>
                     {nfseState?.ambienteProducao
                       ? 'A NFS-e dos serviços sai automaticamente após o pagamento'
-                      : 'Modo de teste — a nota gerada não tem validade fiscal'}
+                      : 'Modo de teste: a nota gerada não tem validade fiscal'}
                   </span>
                 </span>
               </div>
             )}
-
-            <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              onClick={onClose}
-              disabled={confirming}
-              style={{
-                flex: 1, padding: '13px', borderRadius: 11, border: `1px solid ${T.stroke2}`,
-                background: 'transparent', fontSize: 13, fontWeight: 700,
-                cursor: confirming ? 'not-allowed' : 'pointer', color: T.text, fontFamily: 'inherit',
-                letterSpacing: '.04em', textTransform: 'uppercase', WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={confirming || !settled}
-              style={{
-                flex: 2, padding: '13px', borderRadius: 11, border: 'none',
-                background: (confirming || !settled) ? 'rgba(0,0,0,0.07)' : `linear-gradient(135deg, ${T.pay}, ${T.pay2})`,
-                color: (confirming || !settled) ? T.faint : '#fff',
-                fontSize: 13, fontWeight: 800, cursor: (confirming || !settled) ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                fontFamily: 'inherit', letterSpacing: '.05em', textTransform: 'uppercase',
-                boxShadow: (confirming || !settled) ? 'none' : `0 6px 20px ${T.payGlow}`,
-                transition: `all ${transitions.spring}`, WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              {confirming ? (
-                <>
-                  <Loader2 size={14} style={{ animation: 'pay-spin 0.8s linear infinite' }} />
-                  Processando...
-                </>
-              ) : (
-                <>
-                  <Check size={14} strokeWidth={2.5} />
-                  Confirmar · {formatBRL(effectiveTotal)}
-                </>
-              )}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={onClose} disabled={confirming} style={{
+                flex: 1, minHeight: 50, borderRadius: 12, border: `1px solid ${C.line2}`, background: C.card,
+                color: C.ink, fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+                cursor: confirming ? 'not-allowed' : 'pointer',
+              }}>Voltar</button>
+              <button type="button" onClick={handleConfirm} disabled={confirming || !settled} style={{
+                flex: 2, minHeight: 50, borderRadius: 12, border: 'none',
+                background: (confirming || !settled) ? 'rgba(17,17,20,0.08)' : C.ok,
+                color: (confirming || !settled) ? C.ink3 : '#fff',
+                fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+                cursor: (confirming || !settled) ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                {confirming
+                  ? <><Loader2 size={16} className="cx-pay-spin" /> Confirmando…</>
+                  : <><Check size={16} strokeWidth={2.6} /> Confirmar {formatBRL(total)}</>}
+              </button>
             </div>
-            {/* @eligi:nfse-footer-end */}
           </div>
         )}
       </div>
-    </>,
+      <style>{`
+        @keyframes cx-fade { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes cx-up   { from { transform: translateY(100%) } to { transform: translateY(0) } }
+        @keyframes cx-in   { from { opacity: 0; transform: scale(.96) } to { opacity: 1; transform: scale(1) } }
+        @keyframes cx-pop  { from { transform: scale(.6); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+        @keyframes cx-pay-spin-k { to { transform: rotate(360deg) } }
+        .cx-pay-spin { animation: cx-pay-spin-k .8s linear infinite }
+        .cx-pay button:focus-visible, .cx-pay input:focus-visible { outline: 2px solid ${C.ink}; outline-offset: 2px }
+        @media (prefers-reduced-motion: reduce) {
+          .cx-pay * { animation: none !important }
+        }
+      `}</style>
+    </div>,
     document.body,
   )
 }

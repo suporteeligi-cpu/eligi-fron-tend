@@ -116,6 +116,7 @@ export interface Sale {
   clientId?:    string | null
   clientName?:  string | null
   clientPhone?: string | null
+  clientPhoneMasked?: boolean // @eligi:caixa-phone-masked - back cortou o telefone (STAFF/BASIC_STAFF)
   status:       SaleStatus
   subtotal:     number
   discount:     number

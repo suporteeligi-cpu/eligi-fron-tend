@@ -20,6 +20,7 @@ import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 
 import api from '@/shared/lib/apiClient'
+import { discountPercentLabel } from '@/features/sales/utils/discount' // @eligi:receipt-modal-import
 import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
 import { typography } from '@/shared/theme'
 import { Sale } from '@/features/sales/types'
@@ -298,7 +299,7 @@ export default function SaleReceiptModal({
             )}
             {sale.discount > 0 && (
               <div style={{ display:'flex', justifyContent:'space-between', fontSize:13.5, padding:'5px 0', color:R.muted }}>
-                <span>Desconto</span><span style={{ fontVariantNumeric:'tabular-nums' }}>−{formatBRL(sale.discount)}</span>
+                <span style={{ color:R.ink, fontWeight:700 }}>Desconto aplicado{discountPercentLabel(sale.discount, sale.subtotal) && ` (${discountPercentLabel(sale.discount, sale.subtotal)})`}</span><span style={{ color:R.ink, fontWeight:700, fontVariantNumeric:'tabular-nums' }}>−{formatBRL(sale.discount) /* @eligi:receipt-modal-discount */}</span>
               </div>
             )}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', fontWeight:700, fontSize:21, paddingTop:12 }}>

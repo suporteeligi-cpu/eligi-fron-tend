@@ -1,23 +1,37 @@
 'use client'
 // src/app/dashboard/caixa/components/CartPanel.tsx
+// @eligi:caixa-cart-v2
 //
-// ⭐ NOVO: botão "Usar pacote" aparece quando:
-//   - tem cliente vinculado
-//   - cliente tem cartões ativos
+// Carrinho do caixa - direcao A "Balcao limpo" (nov/2026).
+//
+// O desconto mora SO aqui, logo acima do total, em R$ ou %. O modal de pagamento
+// nao tem mais desconto: ele cobra o total da venda como esta no banco.
+// Antes havia dois campos de desconto (carrinho e modal) que se sobrescreviam:
+// o do modal travava o confirmar (o valor recebido nao acompanhava) e o do
+// carrinho podia sumir se o confirm chegasse antes do PATCH do desconto.
+// Agora "Cobrar" espera o desconto gravar antes de abrir o pagamento.
+//
+// Este componente e montado com key={sale.id} pela pagina: trocar de venda
+// remonta, entao o campo de desconto e as observacoes nunca vazam de uma venda
+// para outra.
 
-import { useState, useEffect, useCallback } from 'react'
-import { ShoppingCart, CreditCard, Loader2, XCircle, Layers, Ticket, Globe } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
+import { ShoppingCart, Loader2, Trash2, Layers, Ticket, Globe, Check, ChevronRight } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
-import { colors, typography, transitions, radius, inkLight } from '@/shared/theme' // @eligi:svc-prof-ink
 import { Sale, ProfLite, PackageCardLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
+import {
+  DiscountUnit, parseMoneyInput, checkDiscount, discountToBRL, discountPercentLabel, brlToInput,
+} from '@/features/sales/utils/discount'
+import { C } from '../ui'
 import ClientPicker from './ClientPicker'
 import CartItemRow from './CartItemRow'
 import PaymentModal from './PaymentModal'
 import UsePackageModal from './UsePackageModal'
 import UseMembershipModal, { MembershipCardLite } from './UseMembershipModal'
 import UseClubModal, { ClubSubLite } from './UseClubModal'
-import { useRouter } from 'next/navigation'
 import SaleReceiptModal from '@/features/sales/components/SaleReceiptModal'
 
 interface Props {
@@ -28,27 +42,41 @@ interface Props {
   onSaleClosed:   () => void
 }
 
+const PRESETS = [5, 10, 15] as const
+
+function apiError(err: unknown, fallback: string): string {
+  const e = err as { response?: { data?: { error?: string; message?: string } } }
+  return e.response?.data?.error ?? e.response?.data?.message ?? fallback
+}
+
 export default function CartPanel({
   sale, professionals, isMobile,
   onSaleUpdated, onSaleClosed,
 }: Props) {
+  const router = useRouter()
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
-  const [discount, setDiscount] = useState(sale.discount.toString())
   const [notes, setNotes] = useState(sale.notes ?? '')
   const [showPayment, setShowPayment] = useState(false)
   const [showUsePackage, setShowUsePackage] = useState(false)
   const [showUseMembership, setShowUseMembership] = useState(false)
-  const [cancelling,  setCancelling]  = useState(false)
-  const [confirmingFree, setConfirmingFree] = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
-  const router = useRouter()
+  const [showUseClub, setShowUseClub] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [checkingOut, setCheckingOut] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null)
 
-  // ⭐ Cartões ativos do cliente atual (pra decidir se mostra botão "Usar pacote")
+  // Desconto: texto digitado + unidade. Gravado sempre em reais.
+  const [discountUnit, setDiscountUnit] = useState<DiscountUnit>('BRL')
+  const [discountInput, setDiscountInput] = useState(() => brlToInput(sale.discount))
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [savingDiscount, setSavingDiscount] = useState(false)
+  const discountReqRef = useRef<Promise<Sale | null> | null>(null)
+
+  // Cartoes do cliente (decide se mostra "Usar pacote/assinatura/clube")
   const [activeCards, setActiveCards] = useState<PackageCardLite[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
   const [activeMemberships, setActiveMemberships] = useState<MembershipCardLite[]>([])
-  const [showUseClub, setShowUseClub] = useState(false)
   const [activeClubSubs, setActiveClubSubs] = useState<ClubSubLite[]>([])
 
   const refreshActiveCards = useCallback(() => {
@@ -95,24 +123,16 @@ export default function CartPanel({
       .catch(() => setActiveClubSubs([]))
   }, [sale.clientId])
 
-  useEffect(() => {
-    refreshActiveCards()
-  }, [refreshActiveCards])
-
-  useEffect(() => {
-    refreshActiveMemberships()
-  }, [refreshActiveMemberships])
-
-  useEffect(() => {
-    refreshActiveClubSubs()
-  }, [refreshActiveClubSubs])
+  useEffect(() => { refreshActiveCards() }, [refreshActiveCards])
+  useEffect(() => { refreshActiveMemberships() }, [refreshActiveMemberships])
+  useEffect(() => { refreshActiveClubSubs() }, [refreshActiveClubSubs])
 
   async function refetchSale() {
     try {
       const res = await api.get(`/sales/${sale.id}`)
       const data = res.data?.data ?? res.data
       onSaleUpdated(data)
-    } catch { /* silencioso */ }
+    } catch { /* silencioso: a proxima acao recarrega */ }
   }
 
   async function updateClient(client: { id: string | null; name: string | null; phone: string | null }) {
@@ -125,160 +145,149 @@ export default function CartPanel({
       const data = res.data?.data ?? res.data
       onSaleUpdated(data)
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao atualizar cliente')
+      setError(apiError(err, 'Erro ao atualizar cliente'))
     }
   }
 
-  async function commitDiscount() {
-    const parsed = parseFloat(discount.replace(',', '.'))
-    const newDiscount = isNaN(parsed) ? 0 : Math.max(0, parsed)
-    if (Math.abs(newDiscount - sale.discount) < 0.01) return
-    try {
-      const res = await api.patch(`/sales/${sale.id}`, { discount: newDiscount })
-      const data = res.data?.data ?? res.data
-      onSaleUpdated(data)
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao atualizar desconto')
+  // ── Desconto ────────────────────────────────────────────────────────────
+  // Uma gravacao por vez: o "Cobrar" espera a que estiver em andamento.
+  function saveDiscountValue(value: number): Promise<Sale | null> {
+    const run = async (): Promise<Sale | null> => {
+      if (Math.abs(value - sale.discount) < 0.005) {
+        setDiscountUnit('BRL')
+        setDiscountInput(brlToInput(sale.discount))
+        return sale
+      }
+      setSavingDiscount(true)
+      try {
+        const res = await api.patch(`/sales/${sale.id}`, { discount: value })
+        const data: Sale = res.data?.data ?? res.data
+        onSaleUpdated(data)
+        setDiscountUnit('BRL')
+        setDiscountInput(brlToInput(data.discount))
+        setDiscountError(null)
+        return data
+      } catch (err: unknown) {
+        setDiscountError(apiError(err, 'Não foi possível aplicar o desconto'))
+        return null
+      } finally {
+        setSavingDiscount(false)
+      }
     }
+    const pending = discountReqRef.current
+    const next = (pending ? pending.then(run, run) : run())
+    discountReqRef.current = next
+    void next.finally(() => {
+      if (discountReqRef.current === next) discountReqRef.current = null
+    })
+    return next
+  }
+
+  function commitDiscount(): Promise<Sale | null> {
+    const chk = checkDiscount(parseMoneyInput(discountInput), discountUnit, sale.subtotal)
+    if (chk.error) {
+      setDiscountError(chk.error)
+      return Promise.resolve(null)
+    }
+    setDiscountError(null)
+    return saveDiscountValue(chk.value)
+  }
+
+  function applyPreset(pct: number) {
+    setDiscountError(null)
+    void saveDiscountValue(discountToBRL(pct, 'PCT', sale.subtotal))
+  }
+
+  function clearDiscount() {
+    setDiscountInput('')
+    setDiscountError(null)
+    void saveDiscountValue(0)
   }
 
   async function commitNotes() {
     if (notes === (sale.notes ?? '')) return
     try {
       await api.patch(`/sales/${sale.id}`, { notes })
-    } catch { /* silencioso */ }
+    } catch { /* observacao nao bloqueia a venda */ }
   }
 
-  async function changeItemQty(itemId: string, newQty: number) {
+  // ── Itens ───────────────────────────────────────────────────────────────
+  async function runItemAction(itemId: string, fallback: string, fn: () => Promise<unknown>, after?: () => void) {
     setUpdatingItemId(itemId)
     setError(null)
     try {
-      await api.patch(`/sales/${sale.id}/items/${itemId}`, { quantity: newQty })
+      await fn()
       await refetchSale()
+      after?.()
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao atualizar item')
+      setError(apiError(err, fallback))
     } finally {
       setUpdatingItemId(null)
     }
   }
 
-  // @eligi:pricemode-cart-handler
-  // Mesmo formato do changeItemQty. O back rejeita com 403 quando o role nao
-  // pode alterar valor — a mensagem dele cai direto no setError.
-  async function changeItemPrice(itemId: string, unitPriceOverride: number) {
-    setUpdatingItemId(itemId)
-    setError(null)
-    try {
-      await api.patch(`/sales/${sale.id}/items/${itemId}`, { unitPriceOverride })
-      await refetchSale()
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao atualizar valor do item')
-    } finally {
-      setUpdatingItemId(null)
-    }
-  }
-  async function changeItemProf(itemId: string, profId: string | null) {
-    setUpdatingItemId(itemId)
-    setError(null)
-    try {
-      await api.patch(`/sales/${sale.id}/items/${itemId}`, { professionalId: profId })
-      await refetchSale()
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao atualizar profissional')
-    } finally {
-      setUpdatingItemId(null)
-    }
-  }
+  const changeItemQty = (itemId: string, quantity: number) =>
+    runItemAction(itemId, 'Erro ao atualizar item', () => api.patch(`/sales/${sale.id}/items/${itemId}`, { quantity }))
 
-  async function removeItem(itemId: string) {
-    setUpdatingItemId(itemId)
-    setError(null)
-    try {
-      await api.delete(`/sales/${sale.id}/items/${itemId}`)
-      await refetchSale()
-      refreshActiveCards()  // estorno pode ter restaurado saldos
+  // @eligi:pricemode-cart-handler - o back recusa (403) quando o cargo nao pode alterar valor.
+  const changeItemPrice = (itemId: string, unitPriceOverride: number) =>
+    runItemAction(itemId, 'Erro ao atualizar valor do item', () => api.patch(`/sales/${sale.id}/items/${itemId}`, { unitPriceOverride }))
+
+  const changeItemProf = (itemId: string, profId: string | null) =>
+    runItemAction(itemId, 'Erro ao atualizar profissional', () => api.patch(`/sales/${sale.id}/items/${itemId}`, { professionalId: profId }))
+
+  const removeItem = (itemId: string) =>
+    runItemAction(itemId, 'Erro ao remover item', () => api.delete(`/sales/${sale.id}/items/${itemId}`), () => {
+      refreshActiveCards()        // estorno pode ter restaurado saldo
       refreshActiveMemberships()
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao remover item')
-    } finally {
-      setUpdatingItemId(null)
-    }
-  }
+    })
 
-  // ⭐ Remove pacote aplicado a um item específico
-  async function removePackageFromItem(itemId: string) {
-    setUpdatingItemId(itemId)
-    setError(null)
-    try {
-      await api.delete(`/sales/${sale.id}/items/${itemId}/apply-package`)
-      await refetchSale()
-      refreshActiveCards()
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao remover pacote do item')
-    } finally {
-      setUpdatingItemId(null)
-    }
-  }
+  const removePackageFromItem = (itemId: string) =>
+    runItemAction(itemId, 'Erro ao remover pacote do item', () => api.delete(`/sales/${sale.id}/items/${itemId}/apply-package`), refreshActiveCards)
 
-  // ⭐ Remove assinatura aplicada a um item específico
-  async function removeMembershipFromItem(itemId: string) {
-    setUpdatingItemId(itemId)
-    setError(null)
-    try {
-      await api.delete(`/sales/${sale.id}/items/${itemId}/apply-membership`)
-      await refetchSale()
-      refreshActiveMemberships()
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao remover assinatura do item')
-    } finally {
-      setUpdatingItemId(null)
-    }
-  }
+  const removeMembershipFromItem = (itemId: string) =>
+    runItemAction(itemId, 'Erro ao remover assinatura do item', () => api.delete(`/sales/${sale.id}/items/${itemId}/apply-membership`), refreshActiveMemberships)
 
+  // ── Venda ───────────────────────────────────────────────────────────────
   async function cancelSale() {
-    if (!window.confirm('Cancelar esta venda? Esta ação não pode ser desfeita.')) return
     setCancelling(true)
     setError(null)
     try {
       await api.post(`/sales/${sale.id}/cancel`)
       onSaleClosed()
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao cancelar venda')
+      setError(apiError(err, 'Erro ao cancelar venda'))
       setCancelling(false)
+      setConfirmCancel(false)
     }
   }
 
-  // ⭐ Confirma direto sem modal quando total = R$ 0 (ex: tudo pago via pacote)
-  async function confirmFree() {
-    setConfirmingFree(true)
-    setError(null)
+  // Venda R$ 0 (tudo coberto por pacote/assinatura/desconto): fecha sem modal.
+  async function confirmFree(target: Sale) {
     try {
-      const res = await api.post(`/sales/${sale.id}/confirm`, {})
-      const confirmed = res.data?.data ?? res.data
+      const res = await api.post(`/sales/${target.id}/confirm`, {})
+      const confirmed: Sale = res.data?.data ?? res.data
       onSaleUpdated(confirmed)
       setReceiptSale(confirmed)
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Erro ao confirmar venda')
-      setConfirmingFree(false)
+      setError(apiError(err, 'Erro ao confirmar venda'))
     }
   }
 
-  // @eligi:pricemode-checkout-gate
-  // Servico "a partir de" so libera o fechamento depois que alguem definiu o
-  // valor cobrado. Sem isso a venda fecha no piso por esquecimento — que e
-  // exatamente o problema que o modo FROM existe para resolver.
-  // Cobertura por pacote/assinatura usa o MESMO criterio do `isCovered` do
-  // CartItemRow: item coberto vale R$0 e nao precisa de valor final.
+  async function startCheckout() {
+    setError(null)
+    setCheckingOut(true)
+    try {
+      const fresh = await commitDiscount()   // desconto gravado ANTES de cobrar
+      if (!fresh) return
+      if (fresh.total <= 0.005) await confirmFree(fresh)
+      else setShowPayment(true)
+    } finally {
+      setCheckingOut(false)
+    }
+  }
+
+  // @eligi:pricemode-checkout-gate - servico "a partir de" precisa do valor cobrado.
   const pendingPriceItems = sale.items.filter(
     it => it.type === 'SERVICE'
       && it.service?.priceMode === 'FROM'
@@ -286,19 +295,18 @@ export default function CartPanel({
       && it.appliedPackageCardId == null
       && it.appliedMembershipCardId == null,
   )
-  // @eligi:svc-prof-gate
-  // Servico sem profissional nao gera comissao, e o back recusa fechar a venda
-  // (SERVICE_WITHOUT_PROFESSIONAL). Trava aqui antes, dizendo o que falta.
+  // @eligi:svc-prof-gate - servico sem profissional nao gera comissao; o back recusa.
   const missingProfItems = sale.items.filter(it => it.type === 'SERVICE' && !it.professionalId)
   const canCheckout = sale.items.length > 0 && pendingPriceItems.length === 0 && missingProfItems.length === 0
+  const isFreeCheckout = sale.total <= 0.005 && sale.items.length > 0
 
-  // ⭐ Venda 100% paga via pacote (ou desconto) — sem modal de pagamento
-  const isFreeCheckout = canCheckout && sale.total === 0
-
-  // ⭐ Mostra botão "Usar pacote" só se cliente vinculado E tem cards ativos
   const canUsePackage = sale.clientId != null && activeCards.length > 0
   const canUseMembership = sale.clientId != null && activeMemberships.length > 0
   const canUseClub = sale.clientId != null && activeClubSubs.length > 0
+
+  const discountPct = discountPercentLabel(sale.discount, sale.subtotal)
+  const discountAboveSubtotal = sale.discount - sale.subtotal > 0.005
+  const busy = checkingOut || savingDiscount
 
   return (
     <>
@@ -319,10 +327,7 @@ export default function CartPanel({
         <UsePackageModal
           sale={sale}
           isMobile={isMobile}
-          onApplied={(updated) => {
-            onSaleUpdated(updated)
-            refreshActiveCards()
-          }}
+          onApplied={(updated) => { onSaleUpdated(updated); refreshActiveCards() }}
           onClose={() => setShowUsePackage(false)}
         />
       )}
@@ -331,10 +336,7 @@ export default function CartPanel({
         <UseMembershipModal
           sale={sale}
           isMobile={isMobile}
-          onApplied={(updated) => {
-            onSaleUpdated(updated)
-            refreshActiveMemberships()
-          }}
+          onApplied={(updated) => { onSaleUpdated(updated); refreshActiveMemberships() }}
           onClose={() => setShowUseMembership(false)}
         />
       )}
@@ -343,10 +345,7 @@ export default function CartPanel({
         <UseClubModal
           sale={sale}
           isMobile={isMobile}
-          onApplied={(updated) => {
-            onSaleUpdated(updated)
-            refreshActiveClubSubs()
-          }}
+          onApplied={(updated) => { onSaleUpdated(updated); refreshActiveClubSubs() }}
           onClose={() => setShowUseClub(false)}
         />
       )}
@@ -361,424 +360,357 @@ export default function CartPanel({
         />
       )}
 
-      <div style={{
+      <div className="cx-cart" style={{
         display: 'flex', flexDirection: 'column',
-        height: '100%',
-        minHeight: 0,
-        gap: 12,
-        fontFamily: typography.fontFamily,
+        height: '100%', minHeight: 0, gap: 10,
+        fontFamily: C.body,
       }}>
-        {/* Cliente */}
         <ClientPicker
           value={{
-            id:    sale.clientId ?? null,
-            name:  sale.clientName ?? null,
-            phone: sale.clientPhone ?? null,
+            id:     sale.clientId ?? null,
+            name:   sale.clientName ?? null,
+            phone:  sale.clientPhone ?? null,
+            masked: sale.clientPhoneMasked === true,
           }}
           onChange={updateClient}
         />
 
-        {/* ⭐ Botão Usar Pacote */}
         {canUsePackage && (
-          <button
+          <BenefitButton
+            icon={<Layers size={15} color={C.onInk} strokeWidth={2} />}
+            title="Usar pacote"
+            subtitle={`${activeCards.length} ${activeCards.length === 1 ? 'cartão ativo' : 'cartões ativos'} do cliente`}
             onClick={() => setShowUsePackage(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 9,
-              padding: '11px 14px',
-              borderRadius: 11,
-              border: `1px solid ${colors.red.border}`,
-              background: 'linear-gradient(135deg, rgba(220,38,38,0.05), rgba(220,38,38,0.10))',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              textAlign: 'left',
-              WebkitTapHighlightColor: 'transparent',
-              transition: `all ${transitions.fast}`,
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(220,38,38,0.08), rgba(220,38,38,0.15))'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(220,38,38,0.05), rgba(220,38,38,0.10))'
-            }}
-          >
-            <div style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: colors.red.gradient,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <Layers size={16} color="#fff" strokeWidth={2} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: 12, fontWeight: 800,
-                color: colors.red.DEFAULT,
-                letterSpacing: '.04em', textTransform: 'uppercase',
-              }}>
-                Usar pacote
-              </div>
-              <div style={{
-                fontSize: 10, color: colors.gray[700],
-                marginTop: 1,
-              }}>
-                {activeCards.length} cartão(ões) ativo(s) do cliente
-              </div>
-            </div>
-          </button>
+          />
         )}
-
-        {/* ⭐ Botão Usar Assinatura */}
         {canUseMembership && (
-          <button
+          <BenefitButton
+            icon={<Ticket size={15} color={C.onInk} strokeWidth={2} />}
+            title="Usar assinatura"
+            subtitle={`${activeMemberships.length} ${activeMemberships.length === 1 ? 'assinatura ativa' : 'assinaturas ativas'}`}
             onClick={() => setShowUseMembership(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 9,
-              padding: '11px 14px',
-              borderRadius: 11,
-              border: '1px solid rgba(99,102,241,0.30)',
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(99,102,241,0.12))',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              textAlign: 'left',
-              WebkitTapHighlightColor: 'transparent',
-              transition: `all ${transitions.fast}`,
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99,102,241,0.10), rgba(99,102,241,0.18))'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(99,102,241,0.12))'
-            }}
-          >
-            <div style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <Ticket size={16} color="#fff" strokeWidth={2} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: 12, fontWeight: 800,
-                color: '#4f46e5',
-                letterSpacing: '.04em', textTransform: 'uppercase',
-              }}>
-                Usar assinatura
-              </div>
-              <div style={{
-                fontSize: 10, color: colors.gray[700],
-                marginTop: 1,
-              }}>
-                {activeMemberships.length} assinatura(s) ativa(s) do cliente
-              </div>
-            </div>
-          </button>
+          />
         )}
-
         {canUseClub && (
-          <button onClick={() => setShowUseClub(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: `1px solid ${colors.red.border}`, background: 'linear-gradient(135deg, rgba(220,38,38,0.05), rgba(220,38,38,0.12))', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', WebkitTapHighlightColor: 'transparent', transition: `all ${transitions.fast}` }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: colors.red.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Globe size={16} color="#fff" strokeWidth={2} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: colors.red.DEFAULT, letterSpacing: '.04em', textTransform: 'uppercase' }}>Usar clube</div>
-              <div style={{ fontSize: 10, color: colors.gray[700], marginTop: 1 }}>{activeClubSubs.length} assinatura(s) de clube ativa(s)</div>
-            </div>
-          </button>
+          <BenefitButton
+            icon={<Globe size={15} color={C.onInk} strokeWidth={2} />}
+            title="Usar clube"
+            subtitle={`${activeClubSubs.length} ${activeClubSubs.length === 1 ? 'plano de clube ativo' : 'planos de clube ativos'}`}
+            onClick={() => setShowUseClub(true)}
+          />
         )}
-
         {loadingCards && sale.clientId && (
-          <div style={{
-            fontSize: 10, color: colors.gray.dimText,
-            textAlign: 'center', padding: '2px 0',
-          }}>
-            Verificando pacotes do cliente...
-          </div>
+          <div style={{ fontSize: 11, color: C.ink3, textAlign: 'center' }}>Verificando pacotes do cliente…</div>
         )}
 
-        {/* Itens */}
-        {/* @eligi:cart-items-pad — folga p/ rodapé fixo mobile */}
+        {/* Itens + observacoes (rolam) */}
         <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          minHeight: 0,
-          paddingBottom: 0,
+          flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+          display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           {sale.items.length === 0 ? (
             <div style={{
-              padding: '40px 20px',
-              textAlign: 'center',
-              background: colors.background.page,
-              borderRadius: 12,
-              border: `1px dashed ${colors.gray.borderMd}`,
-              color: colors.gray.dimText,
-              fontSize: 13,
+              padding: '36px 20px', textAlign: 'center',
+              background: C.sunken, borderRadius: 14,
+              border: `1px dashed ${C.line2}`, color: C.ink3,
             }}>
-              <ShoppingCart size={28} style={{ opacity: 0.3, marginBottom: 8 }} />
-              <div style={{ fontWeight: 600 }}>Carrinho vazio</div>
-              <div style={{ fontSize: 11, marginTop: 4 }}>
-                Adicione serviços, produtos ou pacotes do catálogo
-              </div>
+              <ShoppingCart size={26} strokeWidth={1.8} style={{ opacity: 0.5, marginBottom: 8 }} />
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.ink2 }}>Carrinho vazio</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>Toque num serviço, produto ou pacote do catálogo.</div>
             </div>
           ) : (
-            <div style={{
-              display: 'flex', flexDirection: 'column', gap: 8,
-              position: 'relative',
-            }}>
-              {sale.items.map(item => (
-                <div key={item.id} style={{
-                  position: 'relative',
-                  opacity: updatingItemId === item.id ? 0.5 : 1,
-                  pointerEvents: updatingItemId === item.id ? 'none' : 'auto',
-                  transition: 'opacity 0.2s',
-                }}>
-                  <CartItemRow
-                    item={item}
-                    professionals={professionals}
-                    isMobile={isMobile}
-                    onChangeQty={qty => changeItemQty(item.id, qty)}
-                    onChangeProf={pid => changeItemProf(item.id, pid)}
-                    onChangePrice={v => changeItemPrice(item.id, v)}
-                    onRemove={() => removeItem(item.id)}
-                    onRemovePackage={() => removePackageFromItem(item.id)}
-                    onRemoveMembership={() => removeMembershipFromItem(item.id)}
-                    suggestion={(() => {
-                      const s = sale.packageSuggestions?.find(ps => ps.saleItemId === item.id)
-                      return s ? { cardNumber: s.cardNumber, packageName: s.packageName, remaining: s.remaining } : null
-                    })()}
-                    onUsePackage={() => setShowUsePackage(true)}
-                    disabled={updatingItemId === item.id}
-                  />
-                </div>
-              ))}
-
-            </div>
-          )}
-        {/* @eligi:desconto-no-scroll */}
-        {/* Desconto + notas */}
-        {sale.items.length > 0 && (
-          <div style={{
-            background: '#fff',
-            border: `1px solid ${colors.gray.border}`,
-            borderRadius: 11,
-            padding: '10px 12px',
-            display: 'flex', flexDirection: 'column', gap: 8,
-            flexShrink: 0,
-          }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 8,
-            }}>
-              <span style={{
-                fontSize: 11, fontWeight: 700,
-                color: colors.gray.dimText,
-                textTransform: 'uppercase',
-                letterSpacing: '.06em',
-              }}>Desconto</span>
-              <div style={{ position: 'relative', width: 110 }}>
-                <span style={{
-                  position: 'absolute', left: 8, top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontSize: 11, color: colors.gray.dimText, fontWeight: 600,
-                }}>R$</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={discount}
-                  onChange={e => setDiscount(e.target.value.replace(/[^\d,.]/g, ''))}
-                  onBlur={commitDiscount}
-                  placeholder="0,00"
-                  style={{
-                    width: '100%', boxSizing: 'border-box',
-                    padding: '6px 8px 6px 26px',
-                    borderRadius: 7,
-                    border: `1px solid ${colors.gray.borderMd}`,
-                    fontSize: 12, fontWeight: 600,
-                    textAlign: 'right',
-                    outline: 'none',
-                    fontVariantNumeric: 'tabular-nums',
-                    fontFamily: 'inherit',
-                  }}
+            sale.items.map(item => (
+              <div key={item.id} style={{
+                opacity: updatingItemId === item.id ? 0.5 : 1,
+                pointerEvents: updatingItemId === item.id ? 'none' : 'auto',
+                transition: 'opacity 0.2s',
+              }}>
+                <CartItemRow
+                  item={item}
+                  professionals={professionals}
+                  isMobile={isMobile}
+                  onChangeQty={qty => changeItemQty(item.id, qty)}
+                  onChangeProf={pid => changeItemProf(item.id, pid)}
+                  onChangePrice={v => changeItemPrice(item.id, v)}
+                  onRemove={() => removeItem(item.id)}
+                  onRemovePackage={() => removePackageFromItem(item.id)}
+                  onRemoveMembership={() => removeMembershipFromItem(item.id)}
+                  suggestion={(() => {
+                    const s = sale.packageSuggestions?.find(ps => ps.saleItemId === item.id)
+                    return s ? { cardNumber: s.cardNumber, packageName: s.packageName, remaining: s.remaining } : null
+                  })()}
+                  onUsePackage={() => setShowUsePackage(true)}
+                  disabled={updatingItemId === item.id}
                 />
               </div>
-            </div>
+            ))
+          )}
+
+          {sale.items.length > 0 && (
             <textarea
+              id="cx-notes"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               onBlur={commitNotes}
-              placeholder="Observações da venda (opcional)..."
+              placeholder="Observações da venda (opcional)"
               rows={1}
+              aria-label="Observações da venda"
               style={{
-                width: '100%', boxSizing: 'border-box',
-                padding: '7px 10px',
-                borderRadius: 7,
-                border: `1px solid ${colors.gray.borderMd}`,
-                fontSize: 12,
-                outline: 'none',
-                resize: 'none',
-                fontFamily: 'inherit',
-                color: colors.gray[700],
-                minHeight: 28,
-                background: colors.background.page,
+                width: '100%', boxSizing: 'border-box', padding: '10px 12px',
+                borderRadius: 10, border: `1px solid ${C.line2}`, background: C.card,
+                fontSize: 16, color: C.ink, fontFamily: 'inherit', resize: 'none', minHeight: 42,
+                flexShrink: 0,
               }}
             />
-          </div>
-        )}
-        </div>{/* @eligi:desconto-no-scroll:end */}
+          )}
+        </div>
 
-        {/* @eligi:cart-footer-flex — rodapé no fluxo (flexbox); cola no fim da zona do carrinho */}
-        <div style={isMobile ? {
-          flexShrink: 0,
-          borderTop: `1px solid ${colors.gray.border}`,
-          paddingTop: 10,
-          display: 'flex', flexDirection: 'column', gap: 8,
-        } : { display: 'contents' }}>
-        {/* Total */}
-        {sale.items.length > 0 && (
-          <div style={{
-            background: 'linear-gradient(135deg, #1e293b, #0f172a)',
-            color: '#fff',
-            borderRadius: radius.md,
-            padding: '14px 16px',
-            flexShrink: 0,
-          }}>
+        {/* Rodape fixo: desconto -> total -> acoes */}
+        <div style={{
+          flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8,
+          ...(isMobile ? { borderTop: `1px solid ${C.line}`, paddingTop: 10, paddingBottom: 10 } : {}),
+        }}>
+          {sale.items.length > 0 && (
             <div style={{
-              display: 'flex', justifyContent: 'space-between',
-              fontSize: 11, marginBottom: 4,
+              border: `1px solid ${discountError ? C.bad.border : C.line2}`,
+              borderRadius: 12, padding: isMobile ? '10px 12px' : 12,
+              background: C.card, display: 'flex', flexDirection: 'column', gap: 8,
             }}>
-              <span style={{ color: 'rgba(255,255,255,0.55)' }}>Subtotal</span>
-              <span style={{
-                color: 'rgba(255,255,255,0.55)',
-                fontVariantNumeric: 'tabular-nums',
-              }}>{formatBRL(sale.subtotal)}</span>
-            </div>
-            {sale.discount > 0 && (
-              <div style={{
-                display: 'flex', justifyContent: 'space-between',
-                fontSize: 11, marginBottom: 4,
-              }}>
-                <span style={{ color: 'rgba(255,255,255,0.55)' }}>Desconto</span>
-                <span style={{
-                  color: 'rgba(255,255,255,0.55)',
-                  fontVariantNumeric: 'tabular-nums',
-                }}>−{formatBRL(sale.discount)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label htmlFor="cx-discount" style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: '.06em',
+                  textTransform: 'uppercase', color: C.ink2, flex: 1,
+                }}>Desconto</label>
+                <div role="group" aria-label="Tipo de desconto" style={{
+                  display: 'inline-flex', border: `1px solid ${C.line2}`, borderRadius: 8, overflow: 'hidden',
+                }}>
+                  {(['BRL', 'PCT'] as const).map(u => (
+                    <button
+                      key={u}
+                      type="button"
+                      aria-pressed={discountUnit === u}
+                      onClick={() => { setDiscountUnit(u); setDiscountInput(''); setDiscountError(null) }}
+                      style={{
+                        minWidth: 40, height: 32, border: 'none', cursor: 'pointer',
+                        background: discountUnit === u ? C.ink : 'transparent',
+                        color: discountUnit === u ? C.onInk : C.ink2,
+                        fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+                      }}
+                    >{u === 'BRL' ? 'R$' : '%'}</button>
+                  ))}
+                </div>
+                <input
+                  id="cx-discount"
+                  type="text"
+                  inputMode="decimal"
+                  value={discountInput}
+                  onChange={e => { setDiscountInput(e.target.value.replace(/[^\d,.]/g, '')); setDiscountError(null) }}
+                  onBlur={() => { void commitDiscount() }}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+                  placeholder="0"
+                  aria-invalid={discountError ? true : undefined}
+                  style={{
+                    width: isMobile ? 92 : 104, height: 36, boxSizing: 'border-box',
+                    padding: '0 10px', borderRadius: 8, border: `1px solid ${C.line2}`,
+                    textAlign: 'right', fontSize: 16, fontWeight: 700, color: C.ink,
+                    fontFamily: C.display, fontVariantNumeric: 'tabular-nums', background: C.card,
+                  }}
+                />
               </div>
-            )}
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
-              marginTop: 6, paddingTop: 8,
-              borderTop: '1px solid rgba(255,255,255,0.15)',
-            }}>
-              <span style={{
-                color: '#fff',
-                fontSize: 12, fontWeight: 700,
-                letterSpacing: '.04em', textTransform: 'uppercase',
-              }}>Total</span>
-              <span style={{
-                color: '#fff',
-                fontSize: 22, fontWeight: 800,
-                fontVariantNumeric: 'tabular-nums',
-                letterSpacing: '-0.02em', lineHeight: 1,
-              }}>{formatBRL(sale.total)}</span>
+
+              {/* No celular o rodape e curto: atalhos so no computador. */}
+              {!isMobile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {PRESETS.map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => applyPreset(p)}
+                    disabled={savingDiscount}
+                    style={{
+                      height: 30, padding: '0 12px', borderRadius: 999,
+                      border: `1px solid ${C.line2}`, background: C.sunken, color: C.ink2,
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >{p}%</button>
+                ))}
+                {sale.discount > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearDiscount}
+                    disabled={savingDiscount}
+                    style={{
+                      height: 30, padding: '0 10px', borderRadius: 999, border: 'none',
+                      background: 'transparent', color: C.ink3, fontSize: 12, fontWeight: 600,
+                      cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline',
+                    }}
+                  >Tirar desconto</button>
+                )}
+                <span style={{ marginLeft: 'auto', fontSize: 12, color: C.ink3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {savingDiscount && <Loader2 size={12} className="cx-spin" />}
+                  {!savingDiscount && sale.discount > 0 && !discountError && (
+                    <>Cliente economiza <b style={{ color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.discount)}</b>{discountPct && ` (${discountPct})`}</>
+                  )}
+                </span>
+              </div>
+              )}
+
+              {discountError && (
+                <div role="alert" style={{ fontSize: 12, color: C.bad.text, fontWeight: 600 }}>{discountError}</div>
+              )}
+              {!discountError && discountAboveSubtotal && (
+                <div role="status" style={{ fontSize: 12, color: C.warn.text }}>
+                  Um item saiu e o desconto ficou maior que a venda. Ao cobrar, ele vira {formatBRL(sale.subtotal)}.
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* @eligi:svc-prof-hint */}
-        {missingProfItems.length > 0 && (
-          <div role="status" style={{
-            padding: '8px 12px',
-            background: inkLight.warn.bg,
-            border: `1px solid ${inkLight.warn.border}`,
-            borderRadius: 8,
-            fontSize: 12,
-            color: inkLight.warn.text,
-            flexShrink: 0,
-          }}>
-            {missingProfItems.length === 1
-              ? `Escolha o profissional de "${missingProfItems[0].name}" para confirmar.`
-              : `Escolha o profissional de: ${missingProfItems.map(it => it.name).join(', ')}.`}
-          </div>
-        )}
+          {sale.items.length > 0 && (
+            <div style={{
+              background: C.ink, color: C.onInk, borderRadius: 14,
+              padding: isMobile ? '12px 14px' : '14px 16px',
+              display: 'flex', flexDirection: 'column', gap: 4,
+            }}>
+              {(!isMobile || sale.discount > 0) && (
+              <div className="cx-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color: C.onInkSoft }}>Subtotal</span>
+                <span style={{ color: C.onInkSoft, fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.subtotal)}</span>
+              </div>
+              )}
+              {sale.discount > 0 && (
+                <div className="cx-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: C.onInk, fontWeight: 600 }}>Desconto{discountPct && ` · ${discountPct}`}</span>
+                  <span style={{ color: C.onInk, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>−{formatBRL(Math.min(sale.discount, sale.subtotal))}</span>
+                </div>
+              )}
+              <div className="cx-row" style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                marginTop: 4, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.14)',
+              }}>
+                <span style={{ color: C.onInk, fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>Total</span>
+                <span style={{
+                  color: C.onInk, fontFamily: C.display, fontSize: isMobile ? 26 : 30, fontWeight: 700,
+                  letterSpacing: '-0.03em', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                }}>{formatBRL(sale.total)}</span>
+              </div>
+            </div>
+          )}
 
-        {error && (
-          <div style={{
-            padding: '8px 12px',
-            background: 'rgba(220,38,38,0.08)',
-            border: `1px solid ${colors.red.border}`,
-            borderRadius: 8,
-            fontSize: 12,
-            color: colors.red.DEFAULT,
-            flexShrink: 0,
-          }}>
-            {error}
-          </div>
-        )}
+          {missingProfItems.length > 0 && (
+            <div role="status" style={{
+              padding: '8px 12px', background: C.warn.bg, border: `1px solid ${C.warn.border}`,
+              borderRadius: 10, fontSize: 12, color: C.warn.text,
+            }}>
+              {missingProfItems.length === 1
+                ? `Escolha o profissional de "${missingProfItems[0].name}" para cobrar.`
+                : `Escolha o profissional de: ${missingProfItems.map(it => it.name).join(', ')}.`}
+            </div>
+          )}
 
-        {/* Ações */}
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button
-            onClick={cancelSale}
-            disabled={cancelling}
-            aria-label="Cancelar venda"
-            style={{
-              padding: '12px',
-              borderRadius: 10,
-              border: `1px solid ${colors.gray.borderMd}`,
-              background: 'transparent',
-              cursor: cancelling ? 'not-allowed' : 'pointer',
-              color: colors.gray[700],
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-              fontFamily: 'inherit',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            {cancelling
-              ? <Loader2 size={14} style={{ animation: 'pos-spin 0.8s linear infinite' }} />
-              : <XCircle size={14} strokeWidth={2} />}
-          </button>
-          <button
-            onClick={isFreeCheckout ? confirmFree : () => setShowPayment(true)}
-            disabled={!canCheckout || confirmingFree}
-            style={{
-              flex: 1,
-              padding: '12px',
-              borderRadius: 10,
-              border: 'none',
-              background: !canCheckout
-                ? 'rgba(0,0,0,0.07)'
-                : isFreeCheckout
-                  ? 'linear-gradient(135deg, #15803d, #166534)'
-                  : 'linear-gradient(135deg, #1e293b, #0f172a)',
-              color: !canCheckout ? colors.gray.dimText : '#fff',
-              fontSize: 13, fontWeight: 800,
-              cursor: (!canCheckout || confirmingFree) ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-              fontFamily: 'inherit',
-              letterSpacing: '.05em', textTransform: 'uppercase',
-              boxShadow: !canCheckout
-                ? 'none'
-                : isFreeCheckout
-                  ? '0 6px 20px rgba(22,101,52,0.30)'
-                  : '0 6px 20px rgba(15,23,42,0.28)',
-              transition: `all ${transitions.spring}`,
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            {confirmingFree
-              ? <Loader2 size={14} style={{ animation: 'pos-spin 0.8s linear infinite' }} />
-              : <CreditCard size={14} strokeWidth={2.5} />}
-            {isFreeCheckout
-              ? `Confirmar venda · ${formatBRL(sale.total)}`
-              : `Confirmar · ${formatBRL(sale.total)}`}
-          </button>
+          {error && (
+            <div role="alert" style={{
+              padding: '8px 12px', background: C.bad.bg, border: `1px solid ${C.bad.border}`,
+              borderRadius: 10, fontSize: 12, color: C.bad.text,
+            }}>{error}</div>
+          )}
+
+          {confirmCancel ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: 8,
+              border: `1px solid ${C.bad.border}`, background: C.bad.bg, borderRadius: 12,
+            }}>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.bad.text, paddingLeft: 4 }}>
+                Cancelar esta venda?
+              </span>
+              <button type="button" onClick={() => setConfirmCancel(false)} disabled={cancelling} style={secondaryBtn}>Voltar</button>
+              <button type="button" onClick={cancelSale} disabled={cancelling} style={{
+                ...secondaryBtn, background: C.danger, color: C.onInk, border: 'none',
+              }}>
+                {cancelling ? <Loader2 size={14} className="cx-spin" /> : 'Cancelar venda'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setConfirmCancel(true)}
+                aria-label="Cancelar venda"
+                title="Cancelar venda"
+                style={{
+                  width: 48, minHeight: 48, borderRadius: 12, border: `1px solid ${C.line2}`,
+                  background: C.card, color: C.ink2, cursor: 'pointer', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Trash2 size={16} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                onClick={() => { void startCheckout() }}
+                disabled={!canCheckout || busy}
+                style={{
+                  flex: 1, minHeight: 48, borderRadius: 12, border: 'none',
+                  background: !canCheckout ? 'rgba(17,17,20,0.08)' : isFreeCheckout ? C.ok : C.ink,
+                  color: !canCheckout ? C.ink3 : C.onInk,
+                  fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+                  cursor: (!canCheckout || busy) ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {busy
+                  ? <Loader2 size={16} className="cx-spin" />
+                  : isFreeCheckout ? <Check size={16} strokeWidth={2.6} /> : null}
+                {isFreeCheckout
+                  ? `Confirmar venda · ${formatBRL(0)}`
+                  : <>Cobrar <span style={{ color: 'inherit', fontVariantNumeric: 'tabular-nums' }}>{formatBRL(sale.total)}</span><ChevronRight size={16} strokeWidth={2.4} /></>}
+              </button>
+            </div>
+          )}
         </div>
-        </div>
-        <style>{`@keyframes pos-spin { to { transform: rotate(360deg) } }`}</style>
       </div>
+
+      <style>{`
+        @keyframes cx-spin { to { transform: rotate(360deg) } }
+        .cx-spin { animation: cx-spin .8s linear infinite }
+        .cx-cart .cx-row span { color: inherit }
+        .cx-cart button:focus-visible, .cx-cart input:focus-visible, .cx-cart textarea:focus-visible {
+          outline: 2px solid ${C.ink}; outline-offset: 2px;
+        }
+        @media (prefers-reduced-motion: reduce) { .cx-spin { animation: none } }
+      `}</style>
     </>
+  )
+}
+
+const secondaryBtn: CSSProperties = {
+  minHeight: 40, padding: '0 14px', borderRadius: 10, border: `1px solid ${C.line2}`,
+  background: C.card, color: C.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+  fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center',
+}
+
+function BenefitButton({ icon, title, subtitle, onClick }: {
+  icon: ReactNode; title: string; subtitle: string; onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', minHeight: 48,
+        borderRadius: 12, border: `1px solid ${C.line2}`, background: C.card,
+        cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', flexShrink: 0,
+      }}
+    >
+      <span style={{
+        width: 30, height: 30, borderRadius: 8, background: C.ink, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>{icon}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: C.ink }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 11, color: C.ink3, marginTop: 1 }}>{subtitle}</span>
+      </span>
+      <ChevronRight size={16} color={C.ink3} />
+    </button>
   )
 }
