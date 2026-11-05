@@ -12,7 +12,7 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { Sale } from '@/features/sales/types'
-import { discountPercentLabel } from '@/features/sales/utils/discount' // @eligi:caixa-detail-import
+import { discountPercentLabel, discountPayerLabel } from '@/features/sales/utils/discount' // @eligi:caixa-detail-import @eligi:dcm-detail-import
 import {
   formatBRL, formatDateTime, shortId,
   PAYMENT_METHOD_LABEL, PAYMENT_METHOD_ICON,
@@ -307,6 +307,12 @@ export default function SaleDetailPage() {
               }}>
                 <span style={{ color: '#b45309' }}>Desconto aplicado{discountPercentLabel(sale.discount, sale.subtotal) && ` · ${discountPercentLabel(sale.discount, sale.subtotal)}`}</span>
                 <span style={{ color: '#b45309', fontVariantNumeric: 'tabular-nums' }}>−{formatBRL(sale.discount)}</span>
+              </div>
+            )}
+            {sale.discount > 0 && sale.discountCommissionMode && (
+              // @eligi:dcm-detail-line - quem pagou o desconto (comissao)
+              <div style={{ fontSize: 12, color: colors.gray.dimText, margin: '0 0 4px 10px' }}>
+                {discountPayerLabel(sale.discountCommissionMode)}
               </div>
             )}
             <div style={{

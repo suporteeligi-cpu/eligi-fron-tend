@@ -32,6 +32,7 @@ export interface SaleItem {
   commissionType?:   CommissionType | null
   commissionValue?:  number | null
   commissionAmount?: number | null
+  commissionDiscount?: number | null // @eligi:dcm-type-item - parte do desconto tirada da base
 
   // ⭐ Item está sendo pago via cartão de pacote
   appliedPackageCardId?: string | null
@@ -120,6 +121,7 @@ export interface Sale {
   status:       SaleStatus
   subtotal:     number
   discount:     number
+  discountCommissionMode?: 'ESTABLISHMENT' | 'SPLIT' | null // @eligi:dcm-type-sale
   total:        number
   notes?:       string | null
   bookingId?:   string | null

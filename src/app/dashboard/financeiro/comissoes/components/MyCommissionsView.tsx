@@ -22,6 +22,7 @@ interface CommissionItem {
   amount:     number
   baseAmount: number
   pct:        number
+  discountShare?: number | null // @eligi:dcm-mc-type
 }
 
 interface CommissionDay {
@@ -470,6 +471,7 @@ export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
                           <div style={{ fontSize:11, color:typography.color.muted, marginTop:1 }}>
                             {item.clientName} · {item.time}
                             {item.pct > 0 && ` · ${item.pct}% de ${fmtBRL(item.baseAmount)}`}
+                            {item.discountShare ? ` · desconto dividido (−${fmtBRL(item.discountShare)})` : '' /* @eligi:dcm-mc-line */}
                           </div>
                         </div>
                         <div style={{ fontSize:14, fontWeight:700, color:typography.color.primary, flexShrink:0 }}>

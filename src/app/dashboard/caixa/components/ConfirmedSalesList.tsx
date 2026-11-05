@@ -9,7 +9,7 @@ import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions } from '@/shared/theme'
 import { Sale, SaleItemType } from '@/features/sales/types'
 import { formatBRL, formatTimeOnly, shortId } from '@/features/sales/utils/format'
-import { discountPercentLabel } from '@/features/sales/utils/discount' // @eligi:caixa-confirmed-import
+import { discountPercentLabel, discountPayerShort } from '@/features/sales/utils/discount' // @eligi:caixa-confirmed-import @eligi:dcm-list-import
 import { C } from '../ui'
 import Avatar from './Avatar'
 
@@ -219,6 +219,7 @@ export default function ConfirmedSalesList({ refreshKey }: Props) {
                   }}>
                     Desconto −{formatBRL(Math.min(sale.discount, sale.subtotal))}
                     {discountPercentLabel(sale.discount, sale.subtotal) && ` · ${discountPercentLabel(sale.discount, sale.subtotal)}`}
+                    {sale.discountCommissionMode && ` · ${discountPayerShort(sale.discountCommissionMode)}` /* @eligi:dcm-list-badge */}
                   </span>
                 )}
                 {hasCreditNote && (

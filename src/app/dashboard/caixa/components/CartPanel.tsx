@@ -26,7 +26,9 @@ import { Sale, ProfLite, PackageCardLite } from '@/features/sales/types'
 import { formatBRL } from '@/features/sales/utils/format'
 import {
   DiscountUnit, parseMoneyInput, checkDiscount, discountToBRL, discountPercentLabel, brlToInput,
+  commissionedItems, discountPayerLabel, type DiscountPayer, // @eligi:dcm-cart-import
 } from '@/features/sales/utils/discount'
+import DiscountPayerSheet from './DiscountPayerSheet'
 import { C } from '../ui'
 import ClientPicker from './ClientPicker'
 import CartItemRow from './CartItemRow'
@@ -75,6 +77,11 @@ export default function CartPanel({
   const [savingDiscount, setSavingDiscount] = useState(false)
   const [discountOpen, setDiscountOpen] = useState(false) // @eligi:caixa-discount-open - celular: linha que abre
   const discountReqRef = useRef<Promise<Sale | null> | null>(null)
+  // @eligi:dcm-cart-state - pergunta de quem paga o desconto
+  const [askPayer, setAskPayer] = useState<{ value: number; current: DiscountPayer | null } | null>(null)
+  const payerResolveRef = useRef<((m: DiscountPayer | null) => void) | null>(null)
+  const latestSaleRef = useRef<Sale>(sale)
+  useEffect(() => { latestSaleRef.current = sale }, [sale])
 
   // Cartoes do cliente (decide se mostra "Usar pacote/assinatura/clube")
   const [activeCards, setActiveCards] = useState<PackageCardLite[]>([])
@@ -154,17 +161,52 @@ export default function CartPanel({
 
   // ── Desconto ────────────────────────────────────────────────────────────
   // Uma gravacao por vez: o "Cobrar" espera a que estiver em andamento.
-  function saveDiscountValue(value: number): Promise<Sale | null> {
+  // @eligi:dcm-cart-save - todo desconto pergunta quem paga (loja ou dividido com
+  // a comissao) ANTES de gravar. "Voltar" na pergunta nao grava nada.
+  // latestSaleRef guarda a venda mais nova: duas gravacoes em fila (sair do campo
+  // e tocar em Cobrar) comparam com o que ja foi gravado, e nao perguntam duas vezes.
+  function askDiscountPayer(value: number, current: DiscountPayer | null): Promise<DiscountPayer | null> {
+    payerResolveRef.current?.(null)
+    return new Promise(resolve => {
+      payerResolveRef.current = resolve
+      setAskPayer({ value, current })
+    })
+  }
+
+  function answerDiscountPayer(mode: DiscountPayer | null) {
+    const resolve = payerResolveRef.current
+    payerResolveRef.current = null
+    setAskPayer(null)
+    resolve?.(mode)
+  }
+
+  function saveDiscountValue(value: number, opts?: { reask?: boolean }): Promise<Sale | null> {
     const run = async (): Promise<Sale | null> => {
-      if (Math.abs(value - sale.discount) < 0.005) {
+      const latest = latestSaleRef.current
+      const savedMode = latest.discountCommissionMode ?? null
+      const sameValue = Math.abs(value - latest.discount) < 0.005
+      const asks = value > 0.005 && commissionedItems(latest.items).length > 0
+      const needsAnswer = asks && (!sameValue || savedMode == null || opts?.reask === true)
+      if (sameValue && !needsAnswer) {
         setDiscountUnit('BRL')
-        setDiscountInput(brlToInput(sale.discount))
-        return sale
+        setDiscountInput(brlToInput(latest.discount))
+        return latest
+      }
+      let mode: DiscountPayer | null = null
+      if (needsAnswer) {
+        mode = await askDiscountPayer(value, opts?.reask ? savedMode : null)
+        if (!mode) {
+          setDiscountUnit('BRL')
+          setDiscountInput(brlToInput(latest.discount))
+          return null
+        }
       }
       setSavingDiscount(true)
       try {
-        const res = await api.patch(`/sales/${sale.id}`, { discount: value })
+        const body = mode ? { discount: value, discountCommissionMode: mode } : { discount: value }
+        const res = await api.patch(`/sales/${sale.id}`, body)
         const data: Sale = res.data?.data ?? res.data
+        latestSaleRef.current = data
         onSaleUpdated(data)
         setDiscountUnit('BRL')
         setDiscountInput(brlToInput(data.discount))
@@ -361,6 +403,17 @@ export default function CartPanel({
           isMobile={isMobile}
           onClose={() => { setReceiptSale(null); onSaleClosed() }}
           onGoToAgenda={() => { setReceiptSale(null); onSaleClosed(); router.push('/dashboard/agenda') }}
+        />
+      )}
+
+      {askPayer && (
+        // @eligi:dcm-cart-sheet
+        <DiscountPayerSheet
+          value={askPayer.value}
+          items={sale.items}
+          professionals={professionals}
+          current={askPayer.current}
+          onAnswer={answerDiscountPayer}
         />
       )}
 
@@ -626,6 +679,31 @@ export default function CartPanel({
           )
         )
 
+        // @eligi:dcm-cart-payer - mostra quem paga o desconto e deixa trocar.
+        const hasCommissioned = commissionedItems(sale.items).length > 0
+        const payerMode = sale.discountCommissionMode ?? null
+        const payerLine = sale.discount > 0 && hasCommissioned && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, minHeight: 40,
+            padding: '4px 4px 4px 12px', borderRadius: 10,
+            background: payerMode ? C.sunken : C.warn.bg,
+            border: `1px solid ${payerMode ? C.line : C.warn.border}`,
+          }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, color: payerMode ? C.ink2 : C.warn.text }}>
+              {payerMode ? discountPayerLabel(payerMode) : 'Falta dizer quem paga o desconto'}
+            </span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => { void saveDiscountValue(sale.discount, { reask: true }) }}
+              style={{
+                minHeight: 36, padding: '0 12px', borderRadius: 8, border: `1px solid ${C.line2}`,
+                background: C.card, color: C.ink, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >{payerMode ? 'Trocar' : 'Escolher'}</button>
+          </div>
+        )
+
         const totalCard = sale.items.length > 0 && (
           <div style={{
             background: C.ink, color: C.onInk, borderRadius: 14, padding: '14px 16px',
@@ -706,6 +784,7 @@ export default function CartPanel({
                 {headBlock}
                 {itemsBlock}
                 {discountRow}
+                {payerLine /* @eligi:dcm-cart-linemob */}
                 {notesBlock}
                 {sale.items.length > 0 && (confirmCancel ? cancelConfirm : (
                   <button
@@ -780,6 +859,7 @@ export default function CartPanel({
             </div>
             <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {discountEditor}
+              {payerLine /* @eligi:dcm-cart-linedesk */}
               {totalCard}
               {hints}
               {confirmCancel ? cancelConfirm : (
