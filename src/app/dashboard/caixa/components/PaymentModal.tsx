@@ -363,8 +363,12 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
           borderRadius: '22px 22px 0 0',
           animation: 'cx-up .28s cubic-bezier(.22,1,.36,1)',
         } : {
-          inset: 0, margin: 'auto', width: 780, maxWidth: '94vw', height: 'fit-content', maxHeight: '92vh',
-          borderRadius: 20, animation: 'cx-in .2s cubic-bezier(.22,1,.36,1)',
+          // @eligi:pay-safari-center - centro por translate, sem height: fit-content.
+          // No Safari, fit-content numa coluna flex com filho flex: 1 (base 0) mede o
+          // miolo como 0: o modal abria so com cabecalho e rodape (MacBook, nov/2026).
+          top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          width: 'min(780px, 94vw)', maxHeight: '92vh',
+          borderRadius: 20, animation: 'cx-in-c .2s cubic-bezier(.22,1,.36,1)',
         }),
       }}>
         {/* Cabecalho: quanto cobrar */}
@@ -412,7 +416,7 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
         </div>
 
         {success ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '44px 20px', gap: 12 }}>
+          <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '44px 20px', gap: 12 /* @eligi:pay-safari-ok */ }}>
             <span style={{
               width: 68, height: 68, borderRadius: '50%', background: C.ok,
               display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'cx-pop .35s cubic-bezier(.34,1.56,.64,1)',
@@ -424,7 +428,8 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
           </div>
         ) : (
           <div style={{
-            flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+            // @eligi:pay-safari-body - base auto: o miolo conta a propria altura e so encolhe (com rolagem) acima de 92vh.
+            flex: '1 1 auto', minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
             padding: isMobile ? '14px 16px' : '18px 24px',
             display: 'grid', gap: 16,
             gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)',
@@ -496,6 +501,7 @@ export default function PaymentModal({ sale, isMobile, onClose, onPaid }: Props)
         @keyframes cx-fade { from { opacity: 0 } to { opacity: 1 } }
         @keyframes cx-up   { from { transform: translateY(100%) } to { transform: translateY(0) } }
         @keyframes cx-in   { from { opacity: 0; transform: scale(.96) } to { opacity: 1; transform: scale(1) } }
+        @keyframes cx-in-c { from { opacity: 0; transform: translate(-50%, -50%) scale(.96) } to { opacity: 1; transform: translate(-50%, -50%) scale(1) } } /* @eligi:pay-safari-kf */
         @keyframes cx-pop  { from { transform: scale(.6); opacity: 0 } to { transform: scale(1); opacity: 1 } }
         @keyframes cx-pay-spin-k { to { transform: rotate(360deg) } }
         .cx-pay-spin { animation: cx-pay-spin-k .8s linear infinite }
