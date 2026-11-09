@@ -18,6 +18,8 @@ export interface AppleCredential {
   identityToken: string
   nonce:         string
   fullName:      string | null
+  /** Uso unico, 5 min. O back troca pelo token que cancela o acesso na exclusao. @eligi:app-apple-code */
+  authorizationCode?: string
 }
 
 interface AppleBridge {
@@ -49,7 +51,12 @@ export function nativeAppleCredential(mode: AppleMode): Promise<AppleCredential 
       clearTimeout(timer)
       w.__eligiAppleResult = undefined
       if (typeof r.identityToken === 'string' && typeof r.nonce === 'string') {
-        resolve({ identityToken: r.identityToken, nonce: r.nonce, fullName: r.fullName ?? null })
+        resolve({
+          identityToken: r.identityToken,
+          nonce: r.nonce,
+          fullName: r.fullName ?? null,
+          ...(typeof r.authorizationCode === 'string' && r.authorizationCode ? { authorizationCode: r.authorizationCode } : {}),
+        })
       } else if (r.error === 'cancelled') {
         resolve(null)
       } else {

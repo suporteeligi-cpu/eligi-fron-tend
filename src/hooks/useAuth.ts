@@ -163,7 +163,7 @@ export function useAuth() {
 
   // @eligi:auth-login-apple — so no app de iPhone (src/shared/utils/appApple.ts).
   async function loginWithApple(
-    cred: { identityToken: string; nonce: string; fullName: string | null },
+    cred: { identityToken: string; nonce: string; fullName: string | null; authorizationCode?: string }, // @eligi:auth-apple-code
     mode: 'login' | 'register',
   ) {
     await appleLoginRequest({ ...cred, mode })

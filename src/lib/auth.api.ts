@@ -103,6 +103,7 @@ export async function appleLoginRequest(input: {
   nonce:         string
   fullName:      string | null
   mode:          'login' | 'register'
+  authorizationCode?: string // @eligi:auth-api-apple-code
 }): Promise<void> {
   try {
     await api.post<void>('/auth/apple', input)
