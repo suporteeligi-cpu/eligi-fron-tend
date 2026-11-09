@@ -6,6 +6,7 @@ import {
   registerRequest,
   getMe,
   googleLoginRequest,
+  appleLoginRequest, // @eligi:auth-import-apple
   logoutRequest,
   refreshRequest, // @eligi:auth-import-refresh
 } from '@/lib/auth.api'
@@ -160,11 +161,21 @@ export function useAuth() {
     redirectByRole(me)
   }
 
+  // @eligi:auth-login-apple — so no app de iPhone (src/shared/utils/appApple.ts).
+  async function loginWithApple(
+    cred: { identityToken: string; nonce: string; fullName: string | null },
+    mode: 'login' | 'register',
+  ) {
+    await appleLoginRequest({ ...cred, mode })
+    const me = await refetchUser()
+    redirectByRole(me)
+  }
+
   async function logout() {
     try { await logoutRequest() } catch { /* best-effort */ }
     setUser(null)
     router.replace('/login')
   }
 
-  return { user, loading, authError, login, register, loginWithGoogle, logout, refetchUser }
+  return { user, loading, authError, login, register, loginWithGoogle, loginWithApple, logout, refetchUser }
 }

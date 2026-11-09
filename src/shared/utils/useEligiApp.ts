@@ -12,6 +12,8 @@
 // navegador a compra aparece logo depois da hidratacao, sem pisca no app.
 
 import { useSyncExternalStore } from 'react'
+import { appSupportsApple } from './appApple'
+import { appSupportsGoogle } from './appGoogle'
 import { eligiApp } from './eligiApp'
 
 export type EligiAppState = 'unknown' | 'web' | 'ios' | 'android'
@@ -27,6 +29,25 @@ export function useEligiAppState(): EligiAppState {
 /** Pode mostrar contratar/pagar/ativar coisa paga do Eligi? So no navegador. */
 export function useCanBuyPlan(): boolean {
   return useEligiAppState() === 'web'
+}
+
+// @eligi:app-login-options
+// Quais logins sociais a tela de entrar/criar conta mostra.
+// - navegador e Android: Google (Apple nao existe fora do iPhone);
+// - app de iPhone: Apple quando o app sabe fazer (1.0.3+). O Google so aparece
+//   JUNTO com a Apple: diretriz 4.8 (app com Google precisa oferecer Apple).
+// No servidor: so Google, igual ao navegador (o iPhone corrige na hidratacao).
+type LoginKey = 'g' | 'ga' | 'a' | 'none'
+const readLoginClient = (): LoginKey => {
+  if (eligiApp()?.platform !== 'ios') return 'g'
+  if (!appSupportsApple()) return 'none'
+  return appSupportsGoogle() ? 'ga' : 'a'
+}
+const readLoginServer = (): LoginKey => 'g'
+
+export function useAppLoginOptions(): { google: boolean; apple: boolean } {
+  const k = useSyncExternalStore(noSubscribe, readLoginClient, readLoginServer)
+  return { google: k === 'g' || k === 'ga', apple: k === 'ga' || k === 'a' }
 }
 
 /** Esta dentro do app (Android ou iPhone). */

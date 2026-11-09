@@ -1,0 +1,53 @@
+/* ============================================================
+   APPLE AUTH BUTTON — @eligi:apple-btn-css
+   Mesma medida do botao do Google (52px, raio 14). Preto com texto branco:
+   e o estilo que a Apple aceita para "Sign in with Apple" sobre fundo claro.
+   ============================================================ */
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  background: #000000;
+  color: #ffffff;
+  border: 1.5px solid #000000;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+.btn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.icon {
+  width: 17px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: -2px;
+}
+
+/* Fundo escuro: a Apple pede o botao branco. */
+:global(html.dark) .btn {
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+}

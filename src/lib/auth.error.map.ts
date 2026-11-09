@@ -40,6 +40,20 @@ export function mapAuthError(
     case 'SESSION_EXPIRED':
       return { message: 'Sessão expirada. Entra de novo.' }
 
+    // @eligi:auth-err-apple-map — a mensagem do back ja diz o que fazer.
+    case 'APPLE_USER_NOT_FOUND':
+      return { message: serverMessage || 'Não encontramos sua conta. Entre com e-mail e senha ou com o Google.' }
+
+    case 'APPLE_EMAIL_REQUIRED':
+      return { message: serverMessage || 'A Apple não enviou seu e-mail. Tente de novo.' }
+
+    case 'APPLE_ACCOUNT_CONFLICT':
+      return { message: serverMessage || 'Esta conta já está ligada a outro ID Apple.' }
+
+    case 'INVALID_APPLE_TOKEN':
+    case 'APPLE_UNAVAILABLE':
+      return { message: 'Não foi possível entrar com a Apple. Tente de novo.' }
+
     case 'USER_INACTIVE':
       return { message: 'Conta inativa.' }
 

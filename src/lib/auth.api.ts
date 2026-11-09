@@ -95,6 +95,23 @@ export async function googleLoginRequest(
 }
 
 /* =========================================
+   APPLE (so no app de iPhone) @eligi:auth-api-apple
+========================================= */
+
+export async function appleLoginRequest(input: {
+  identityToken: string
+  nonce:         string
+  fullName:      string | null
+  mode:          'login' | 'register'
+}): Promise<void> {
+  try {
+    await api.post<void>('/auth/apple', input)
+  } catch (err) {
+    throw toAuthError(err)
+  }
+}
+
+/* =========================================
    GET ME
 ========================================= */
 

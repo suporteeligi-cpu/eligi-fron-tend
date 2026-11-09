@@ -7,9 +7,11 @@ import { AuthCard }         from '../components/auth/AuthCard'
 import { AuthInput }        from '../components/auth/AuthInput'
 import { AuthButton }       from '../components/auth/AuthButton'
 import { GoogleAuthButton } from '../components/auth/GoogleAuthButton'
+import { AppleAuthButton }  from '../components/auth/AppleAuthButton'
 import { mapAuthError }     from '@/lib/auth.error.map'
 import { appSupportsGoogle, nativeGoogleIdToken } from '@/shared/utils/appGoogle'
-import { useEligiAppState } from '@/shared/utils/useEligiApp' // @eligi:ios-no-google-import
+import { nativeAppleCredential } from '@/shared/utils/appApple'
+import { useAppLoginOptions } from '@/shared/utils/useEligiApp' // @eligi:ios-apple-import
 import styles from '../components/auth/auth.module.css'
 
 /* ── Types ── */
@@ -37,8 +39,8 @@ declare global {
 
 export default function LoginForm() {
   const router                     = useRouter()
-  const showGoogle = useEligiAppState() !== 'ios' // @eligi:ios-no-google-flag
-  const { login, loginWithGoogle } = useAuth()
+  const social = useAppLoginOptions() // @eligi:ios-apple-flag
+  const { login, loginWithGoogle, loginWithApple } = useAuth()
 
   const [email,        setEmail]        = useState('')
   const [password,     setPassword]     = useState('')
@@ -51,6 +53,7 @@ export default function LoginForm() {
   /* ── Google ── */
   async function handleGoogleClick() {
     try {
+      setHasSubmitted(true) // @eligi:login-social-erro-visivel (sem isso o erro nao aparecia)
       setLoading(true)
       setErrors({})
 
@@ -83,6 +86,26 @@ export default function LoginForm() {
       })
     } catch {
       setErrors({ general: 'Erro ao autenticar com Google.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /* ── Apple (so no app de iPhone) ── */
+  async function handleAppleClick() {
+    setHasSubmitted(true)
+    setLoading(true)
+    setErrors({})
+    try {
+      const cred = await nativeAppleCredential('login')
+      if (cred) await loginWithApple(cred, 'login')
+    } catch (error: unknown) {
+      const e = (error && typeof error === 'object') ? (error as ApiError) : ({} as ApiError)
+      setErrors({
+        general: e.code && e.code !== 'UNKNOWN'
+          ? mapAuthError(e.code, e.message).message
+          : 'Erro ao entrar com a Apple.',
+      })
     } finally {
       setLoading(false)
     }
@@ -131,16 +154,21 @@ export default function LoginForm() {
 
       {/* @eligi:auth-google-first — quem entra com Google nao deveria
           rolar ate o rodape para descobrir que da.
-          @eligi:ios-no-google — no app de iPhone nao ha Google: a Apple exige
-          "Entrar com a Apple" junto (diretriz 4.8). Decisao do Eli, 29/10/2026. */}
-      {showGoogle && (
+          @eligi:ios-apple — no app de iPhone, Apple primeiro e o Google so junto
+          com ela (diretriz 4.8). Decisao do Eli, 09/11/2026. */}
+      {(social.apple || social.google) && (
         <>
-          <div className={styles.googleWrapper}>
-            <GoogleAuthButton
-              onClick={handleGoogleClick}
-              loading={loading}
-              label="Entrar com Google"
-            />
+          <div className={styles.googleWrapper} style={{ flexDirection: 'column', gap: 10 }}>
+            {social.apple && (
+              <AppleAuthButton onClick={handleAppleClick} loading={loading} label="Continuar com a Apple" />
+            )}
+            {social.google && (
+              <GoogleAuthButton
+                onClick={handleGoogleClick}
+                loading={loading}
+                label="Entrar com Google"
+              />
+            )}
           </div>
 
           <div className={styles.divider}>
