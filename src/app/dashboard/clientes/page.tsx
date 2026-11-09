@@ -1,98 +1,139 @@
 'use client'
 // src/app/dashboard/clientes/page.tsx
+// @eligi:clients-page-v2 — direcao B "Ficha" (nov/2026).
+//
+// Celular: lista; tocar abre /dashboard/clientes/[id].
+// Computador (>= 1024px): lista a esquerda e a ficha a direita, na mesma tela.
+// A decisao "abre aqui ou navega" acontece no CLIQUE (matchMedia), nunca no
+// render: o layout e todo por @media.
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { Plus, Upload, Search, X, ListChecks } from 'lucide-react'
 
 import api from '@/shared/lib/apiClient'
-import { colors, typography, radius, shadows, glass } from '@/shared/theme'
-import { useDeviceMode } from '@/features/agenda/hooks/useDeviceMode'
-import { ClientListItem } from '@/features/clients/types'
-
-import ClientsHeader        from './components/ClientsHeader'
-import ClientsStatsBar      from './components/ClientsStatsBar'
-import ClientsSearchBar     from './components/ClientsSearchBar'
-import ClientsTableDesktop  from './components/ClientsTableDesktop'
-import ClientsListMobile    from './components/ClientsListMobile'
-import ImportClientsModal   from './components/ImportClientsModal'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
+import type { ClientListItem, ClientListResponse, ClientsTab } from '@/features/clients/types'
+import { CLIENTS_CSS } from '@/features/clients/styles'
+
+import ClientsList        from './components/ClientsList'
+import ImportClientsModal from './components/ImportClientsModal'
+import ClientProfileView  from './[id]/components/ClientProfileView'
+
+const PAGE_SIZE = 30
+const SPLIT_QUERY = '(min-width: 1024px)'
+
+const TABS: { id: ClientsTab; label: string }[] = [
+  { id: 'az',     label: 'A–Z' },
+  { id: 'spent',  label: 'Mais gasto' },
+  { id: 'recent', label: 'Recentes' },
+  { id: 'lapsed', label: 'Sumidos' },
+]
+
+function paramsOf(tab: ClientsTab): { orderBy: string; order: 'asc' | 'desc'; segment?: 'lapsed' } {
+  if (tab === 'spent')  return { orderBy: 'spent', order: 'desc' }
+  if (tab === 'recent') return { orderBy: 'lastVisit', order: 'desc' }
+  // Sumidos: quem mais gastou primeiro — e quem vale a ligacao.
+  if (tab === 'lapsed') return { orderBy: 'spent', order: 'desc', segment: 'lapsed' }
+  return { orderBy: 'name', order: 'asc' }
+}
+
+const EMPTY_TEXT: Record<ClientsTab, string> = {
+  az:     'Comece adicionando seu primeiro cliente.',
+  spent:  'Quando os clientes pagarem no caixa, o gasto aparece aqui.',
+  recent: 'As visitas concluídas aparecem aqui.',
+  lapsed: 'Ninguém sumido: todos os clientes voltaram nos últimos 45 dias.',
+}
+
+async function fetchPage(q: string, tab: ClientsTab, page: number, signal?: AbortSignal): Promise<ClientListResponse> {
+  const res = await api.get('/clients', {
+    params: { search: q || undefined, page, limit: PAGE_SIZE, ...paramsOf(tab) },
+    signal,
+  })
+  return (res.data?.data ?? res.data) as ClientListResponse
+}
 
 export default function ClientesPage() {
   const router = useRouter()
-  const mode   = useDeviceMode()
-  const isMobile = mode === 'mobile'
+  const narrow = useIsMobile(1024)
 
-  const [clients,  setClients]  = useState<ClientListItem[]>([])
-  const [total,    setTotal]    = useState(0)
-  const [totalAll, setTotalAll] = useState(0)
-  const [page,     setPage]     = useState(1)
-  const [pages,    setPages]    = useState(1)
-  const [search,   setSearch]   = useState('')
-  const [sort,     setSort]     = useState('createdAt:desc')
-  const [loading,  setLoading]  = useState(true)
+  const [clients,   setClients]   = useState<ClientListItem[]>([])
+  const [total,     setTotal]     = useState(0)
+  const [totalAll,  setTotalAll]  = useState<number | null>(null)
+  const [page,      setPage]      = useState(1)
+  const [pages,     setPages]     = useState(1)
+  const [search,    setSearch]    = useState('')
+  const [tab,       setTab]       = useState<ClientsTab>('az')
+  const [loading,   setLoading]   = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [failed,    setFailed]    = useState(false)
+  const [activeId,  setActiveId]  = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
-  const [selected, setSelected] = useState<Set<string>>(() => new Set<string>())
+  const [selecting, setSelecting] = useState(false)
+  const [selected,  setSelected]  = useState<Set<string>>(() => new Set<string>())
+  const [reloadKey, setReloadKey] = useState(0)
 
-  const fetchClients = useCallback(async (q: string, p: number, s: string, signal?: AbortSignal) => {
-    try {
-      setLoading(true)
-      const [orderBy, order] = s.split(':')
-      const res = await api.get('/clients', {
-        params: { search: q || undefined, page: p, limit: 30, orderBy, order },
-        signal,
-      })
-      if (signal?.aborted) return
-      const data = res.data?.data ?? res.data
-      setClients(data.clients ?? [])
-      setSelected(new Set<string>())
-      setTotal(data.total ?? 0)
-      setTotalAll(data.stats?.totalClients ?? data.total ?? 0)
-      setPage(data.page ?? 1)
-      setPages(data.pages ?? 1)
-    } catch {
-      if (!signal?.aborted) setClients([])
-    } finally {
-      if (!signal?.aborted) setLoading(false)
-    }
-  }, [])
-
-  // Debounce de search/sort
+  // Busca da 1a pagina: debounce de 350ms na digitacao; troca de aba e
+  // recarga chegam pelo mesmo caminho. setState so depois do await.
   useEffect(() => {
     const ctrl = new AbortController()
     const t = setTimeout(() => {
-      setPage(1)
-      fetchClients(search, 1, sort, ctrl.signal)
-    }, 350)
-    return () => {
-      clearTimeout(t)
-      ctrl.abort()
+      setLoading(true)
+      fetchPage(search, tab, 1, ctrl.signal)
+        .then(data => {
+          if (ctrl.signal.aborted) return
+          setClients(data.clients ?? [])
+          setTotal(data.total ?? 0)
+          setTotalAll(data.stats?.totalClients ?? data.total ?? 0)
+          setPage(1)
+          setPages(data.pages ?? 1)
+          setFailed(false)
+        })
+        .catch(() => { if (!ctrl.signal.aborted) { setClients([]); setFailed(true) } })
+        .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
+    }, search ? 350 : 0)
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [search, tab, reloadKey])
+
+  // "Carregar mais" le a busca e a aba atuais pelo ref, sem refazer o efeito.
+  const queryRef = useRef({ search, tab })
+  useEffect(() => { queryRef.current = { search, tab } }, [search, tab])
+
+  const loadMore = useCallback(() => {
+    const next = page + 1
+    setLoadingMore(true)
+    fetchPage(queryRef.current.search, queryRef.current.tab, next)
+      .then(data => {
+        setClients(prev => {
+          const seen = new Set(prev.map(c => c.id))
+          return [...prev, ...(data.clients ?? []).filter(c => !seen.has(c.id))]
+        })
+        setPage(next)
+        setPages(data.pages ?? next)
+      })
+      .catch(() => { /* o botao continua la para tentar de novo */ })
+      .finally(() => setLoadingMore(false))
+  }, [page])
+
+  const changeTab = (t: ClientsTab) => {
+    if (t === tab) return
+    setTab(t)
+    setSelected(new Set<string>())
+  }
+
+  const openClient = useCallback((id: string) => {
+    if (typeof window !== 'undefined' && window.matchMedia(SPLIT_QUERY).matches) {
+      setActiveId(id)
+      return
     }
-  }, [search, sort, fetchClients])
+    router.push(`/dashboard/clientes/${id}`)
+  }, [router])
 
-  // Refs pra search/sort serem lidas dentro do useEffect de paginação
-  // sem causar refetch quando elas mudam (debounce já cuida disso)
-  const searchRef = useRef(search)
-  const sortRef   = useRef(sort)
-  useEffect(() => { searchRef.current = search }, [search])
-  useEffect(() => { sortRef.current   = sort   }, [sort])
+  // Abre o primeiro da lista na ficha quando nada foi escolhido (so computador).
+  const shownId = activeId ?? (!narrow && clients.length > 0 ? clients[0].id : null)
 
-  // Refetch ao mudar página (sem debounce, lê search/sort dos refs)
-  useEffect(() => {
-    if (page === 1) return  // já carregou pelo debounce acima
-    const ctrl = new AbortController()
-    fetchClients(searchRef.current, page, sortRef.current, ctrl.signal)
-    return () => ctrl.abort()
-  }, [page, fetchClients])
-
-  // Métricas agregadas da página atual
-  const { revenuePage, completedPage, canceledPage } = useMemo(() => ({
-    revenuePage:   clients.reduce((s, c) => s + c.totalRevenue, 0),
-    completedPage: clients.reduce((s, c) => s + c.completed,    0),
-    canceledPage:  clients.reduce((s, c) => s + c.canceled,     0),
-  }), [clients])
-
-  const selectionActive = selected.size > 0
-  const allSelected     = clients.length > 0 && selected.size === clients.length
+  const selectionActive = selecting || selected.size > 0
 
   const toggleSelect = useCallback((id: string) => {
     setSelected(prev => {
@@ -103,17 +144,15 @@ export default function ClientesPage() {
     })
   }, [])
 
-  const toggleSelectAll = useCallback(() => {
-    setSelected(prev => prev.size === clients.length ? new Set<string>() : new Set(clients.map(c => c.id)))
-  }, [clients])
+  const closeSelection = () => { setSelecting(false); setSelected(new Set<string>()) }
+  const allSelected = clients.length > 0 && selected.size === clients.length
+  const toggleAll = () => setSelected(allSelected ? new Set<string>() : new Set(clients.map(c => c.id)))
 
-  const clearSelection = useCallback(() => setSelected(new Set<string>()), [])
-
-  const exportCsv = useCallback(() => {
+  const exportCsv = () => {
     const rows = clients.filter(c => selected.has(c.id))
     if (rows.length === 0) return
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
-    const csv = '\uFEFF' + ['Nome,Telefone', ...rows.map(c => `${esc(c.name)},${esc(c.phone ?? '')}`)].join('\r\n')
+    const csv = '﻿' + ['Nome,Telefone', ...rows.map(c => `${esc(c.name)},${esc(c.phone ?? '')}`)].join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const nome = `clientes-${new Date().toISOString().slice(0, 10)}.csv`
     // @eligi:app-files-clientes — no app vai para o menu de salvar/compartilhar.
@@ -121,204 +160,172 @@ export default function ClientesPage() {
       void sendFileToApp(blob, nome, 'share')
       return
     }
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    const a   = document.createElement('a')
     a.href     = url
     a.download = nome
     document.body.appendChild(a)
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
-  }, [clients, selected])
+  }
+
+  // Ficha mudou nome ou foi apagada: a linha da lista acompanha.
+  const onProfileChanged = useCallback((id: string, patch: Partial<ClientListItem>) => {
+    setClients(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c))
+  }, [])
+  const onProfileDeleted = useCallback((id: string) => {
+    setClients(prev => prev.filter(c => c.id !== id))
+    setTotal(t => Math.max(0, t - 1))
+    setTotalAll(t => (t === null ? t : Math.max(0, t - 1)))
+    setActiveId(null)
+  }, [])
 
   return (
-    <>
-      <style>{`
-        @keyframes fadeUp{from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes selBarUp{from{opacity:0;transform:translateY(120%)} to{opacity:1;transform:translateY(0)}}
-        .pg-btn{
-          padding:7px 14px;
-          border-radius:${radius.sm}px;
-          border:1px solid ${colors.gray.borderMd};
-          background:${colors.background.surface};
-          font-size:${typography.scale.sm}px;
-          font-weight:${typography.weight.semibold};
-          cursor:pointer;
-          color:${colors.gray[700]};
-          transition:all 0.15s ease;
-        }
-        .pg-btn:hover:not(:disabled){
-          border-color:${colors.red.borderHover};
-          color:${colors.red.DEFAULT};
-        }
-        .pg-btn:disabled{ opacity:0.35; cursor:not-allowed }
-      `}</style>
+    <div className="cl-page">
+      <style>{CLIENTS_CSS}</style>
 
-      <div style={{
-        maxWidth: 900,
-        padding: isMobile ? '0 12px' : 0,
-        animation: 'fadeUp 0.3s ease',
-        fontFamily: typography.fontFamily,
-      }}>
-
-        {showImport && (
-          <ImportClientsModal
-            isMobile={isMobile}
-            onClose={() => setShowImport(false)}
-            onDone={() => fetchClients(search, 1, sort)}
-          />
-        )}
-        <ClientsHeader totalClients={totalAll} isMobile={isMobile} onImport={() => setShowImport(true)} />
-
-        <ClientsStatsBar
-          totalClients={totalAll}
-          completedPage={completedPage}
-          canceledPage={canceledPage}
-          revenuePage={revenuePage}
-          isMobile={isMobile}
+      {showImport && (
+        <ImportClientsModal
+          isMobile={narrow}
+          onClose={() => setShowImport(false)}
+          onDone={() => setReloadKey(k => k + 1)}
         />
+      )}
 
-        <ClientsSearchBar
-          search={search}
-          setSearch={setSearch}
-          sort={sort}
-          setSort={setSort}
-          isMobile={isMobile}
-        />
-
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: '50%',
-              border: `3px solid ${colors.red.subtle}`,
-              borderTopColor: colors.red.DEFAULT,
-              animation: 'spin 0.8s linear infinite',
-            }} />
-          </div>
-        ) : clients.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: isMobile ? '40px 24px' : '56px 32px',
-            background: glass.surface.default.background,
-            backdropFilter: glass.surface.default.backdropFilter,
-            borderRadius: radius.xl,
-            border: `1px solid ${colors.gray.border}`,
-          }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
-            <div style={{ fontSize: 16, fontWeight: typography.weight.semibold, color: typography.color.primary, marginBottom: 6 }}>
-              {search ? 'Nenhum cliente encontrado' : 'Nenhum cliente ainda'}
-            </div>
-            <div style={{ fontSize: typography.scale.base, color: typography.color.muted, marginBottom: 20 }}>
-              {search ? `Sem resultados para "${search}"` : 'Comece adicionando seu primeiro cliente.'}
-            </div>
-            {!search && (
-              <button
-                onClick={() => router.push('/dashboard/clientes/novo')}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: radius.sm,
-                  background: colors.red.gradient,
-                  color: '#fff', border: 'none',
-                  fontWeight: typography.weight.semibold,
-                  cursor: 'pointer',
-                  fontSize: typography.scale.base,
-                  boxShadow: shadows.redSm,
-                }}
-              >
-                + Novo cliente
+      <div className="cl-split">
+        <section className="cl-list" aria-label="Lista de clientes">
+          <div className="cl-head">
+            <h1 className="cl-h1 cl-d">
+              Clientes
+              {totalAll !== null && <span className="cl-count cl-n">{totalAll.toLocaleString('pt-BR')}</span>}
+            </h1>
+            <div className="cl-head-actions">
+              {clients.length > 0 && !selectionActive && (
+                <button type="button" className="cl-icon-btn" onClick={() => setSelecting(true)} aria-label="Selecionar clientes para exportar" title="Selecionar para exportar">
+                  <ListChecks size={17} strokeWidth={1.8} />
+                </button>
+              )}
+              <button type="button" className="cl-icon-btn" onClick={() => setShowImport(true)} aria-label="Importar clientes" title="Importar clientes">
+                <Upload size={17} strokeWidth={1.8} />
               </button>
+              <button type="button" className="cl-btn-new" onClick={() => router.push('/dashboard/clientes/novo')}>
+                <Plus size={17} strokeWidth={2.4} />
+                <span>Novo</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="cl-tools">
+            <label className="cl-search">
+              <Search size={17} strokeWidth={1.8} aria-hidden="true" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar por nome ou telefone"
+                aria-label="Buscar cliente"
+                inputMode="search"
+                enterKeyHint="search"
+              />
+              {search && (
+                <button type="button" className="cl-clear" onClick={() => setSearch('')} aria-label="Limpar busca">
+                  <X size={16} />
+                </button>
+              )}
+            </label>
+
+            <div className="cl-tabs" role="tablist" aria-label="Ordenar clientes">
+              {TABS.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.id}
+                  className={`cl-tab${tab === t.id ? ' is-on' : ''}`}
+                  onClick={() => changeTab(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="cl-rows" aria-busy="true" aria-label="Carregando clientes">
+              {[0, 1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="cl-skel"><i style={{ width: `${46 + (i % 3) * 12}%` }} /><i style={{ width: '28%' }} /></div>
+              ))}
+            </div>
+          ) : failed ? (
+            <div className="cl-state" role="alert">
+              <div className="cl-state-title">Não foi possível carregar os clientes</div>
+              <div className="cl-state-text">Verifique a conexão e tente de novo.</div>
+              <button type="button" className="cl-btn-out" onClick={() => setReloadKey(k => k + 1)}>Tentar de novo</button>
+            </div>
+          ) : clients.length === 0 ? (
+            <div className="cl-state">
+              <div className="cl-state-title">{search ? 'Nenhum cliente encontrado' : tab === 'lapsed' ? 'Nenhum cliente sumido' : 'Nenhum cliente ainda'}</div>
+              <div className="cl-state-text">{search ? `Sem resultados para "${search}".` : EMPTY_TEXT[tab]}</div>
+            </div>
+          ) : (
+            <>
+              <ClientsList
+                clients={clients}
+                tab={tab}
+                activeId={narrow ? null : shownId}
+                selectedIds={selected}
+                selectionActive={selectionActive}
+                onOpen={openClient}
+                onToggle={toggleSelect}
+              />
+              {page < pages && (
+                <div className="cl-more">
+                  <button type="button" className="cl-btn-out" onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? 'Carregando…' : `Carregar mais (${clients.length} de ${total})`}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className="cl-detail" aria-label="Ficha do cliente">
+          <div className="cl-detail-in">
+            {!narrow && shownId ? (
+              <ClientProfileView
+                key={shownId}
+                id={shownId}
+                embedded
+                onChanged={onProfileChanged}
+                onDeleted={onProfileDeleted}
+              />
+            ) : (
+              !loading && (
+                <div className="cl-state" style={{ paddingTop: 120 }}>
+                  <div className="cl-state-title">Escolha um cliente</div>
+                  <div className="cl-state-text">A ficha aparece aqui, com o gasto, o histórico e os dados.</div>
+                </div>
+              )
             )}
           </div>
-        ) : (
-          <>
-            {isMobile
-              ? <ClientsListMobile clients={clients} selectedIds={selected} selectionActive={selectionActive} onToggle={toggleSelect} />
-              : <ClientsTableDesktop clients={clients} selectedIds={selected} selectionActive={selectionActive} onToggle={toggleSelect} />
-            }
-
-            {/* Paginação */}
-            {pages > 1 && (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                marginTop: 16,
-                padding: isMobile ? '0' : '0 4px',
-                gap: 8, flexWrap: 'wrap',
-              }}>
-                <span style={{
-                  fontSize: typography.scale.sm,
-                  color: typography.color.muted,
-                }}>
-                  {isMobile
-                    ? `${(page - 1) * 30 + 1}–${Math.min(page * 30, total)} de ${total}`
-                    : `Mostrando ${(page - 1) * 30 + 1}–${Math.min(page * 30, total)} de ${total}`
-                  }
-                </span>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <button className="pg-btn" disabled={page <= 1}     onClick={() => setPage(p => p - 1)}>← Anterior</button>
-                  <span style={{ padding: '7px 12px', fontSize: typography.scale.sm, color: typography.color.muted }}>
-                    {page} / {pages}
-                  </span>
-                  <button className="pg-btn" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>Próxima →</button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+        </section>
       </div>
 
       {selectionActive && (
-        <div style={{
-          position: 'fixed', left: 0, right: 0,
-          bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom))' : 24,
-          zIndex: 9990, display: 'flex', justifyContent: 'center',
-          padding: '0 16px', pointerEvents: 'none',
-        }}>
-          <div style={{
-            pointerEvents: 'auto', width: '100%', maxWidth: 520,
-            background: 'rgba(20,20,26,0.92)',
-            backdropFilter: 'blur(20px) saturate(160%)',
-            WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-            color: '#fff', borderRadius: 18, padding: '11px 14px',
-            display: 'flex', alignItems: 'center', gap: 10,
-            boxShadow: '0 12px 40px rgba(0,0,0,0.32)',
-            animation: 'selBarUp 0.34s cubic-bezier(.34,1.56,.64,1)',
-          }}>
-            <span style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap' }}>
+        <div className="cl-selbar-wrap">
+          <div className="cl-selbar" role="region" aria-label="Clientes selecionados">
+            <span className="cl-n" style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' }}>
               {selected.size} selecionado{selected.size !== 1 ? 's' : ''}
             </span>
             <span style={{ flex: 1 }} />
-            <button
-              onClick={toggleSelectAll}
-              style={{
-                background: 'rgba(255,255,255,0.16)', border: 'none', color: '#fff',
-                borderRadius: 11, padding: '9px 13px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              {allSelected ? 'Limpar' : 'Todos'}
-            </button>
-            <button
-              onClick={exportCsv}
-              style={{
-                background: '#fff', border: 'none', color: '#1c1c1e',
-                borderRadius: 11, padding: '9px 15px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              Exportar CSV
-            </button>
-            <button
-              onClick={clearSelection}
-              aria-label="Cancelar selecao"
-              style={{
-                background: 'rgba(255,255,255,0.16)', border: 'none', color: '#fff',
-                width: 34, height: 34, borderRadius: 10, fontSize: 18, cursor: 'pointer', lineHeight: 1,
-              }}
-            >
-              &times;
+            <button type="button" className="is-soft" onClick={toggleAll}>{allSelected ? 'Limpar' : 'Todos'}</button>
+            <button type="button" className="is-solid" onClick={exportCsv} disabled={selected.size === 0}>Exportar CSV</button>
+            <button type="button" className="is-soft" onClick={closeSelection} aria-label="Sair da seleção" style={{ width: 40, padding: 0 }}>
+              <X size={17} />
             </button>
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

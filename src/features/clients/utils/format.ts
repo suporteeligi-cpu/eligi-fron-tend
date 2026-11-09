@@ -1,22 +1,5 @@
 // src/features/clients/utils/format.ts
 
-import { colors } from '@/shared/theme'
-
-const AVATAR_COLORS = [
-  colors.red.gradient,
-  'linear-gradient(135deg, #475569, #334155)',
-  'linear-gradient(135deg, #7c3aed, #6d28d9)',
-  'linear-gradient(135deg, #0891b2, #0e7490)',
-  'linear-gradient(135deg, #059669, #047857)',
-  'linear-gradient(135deg, #d97706, #b45309)',
-] as const
-
-/** Gera gradiente de avatar baseado no primeiro caractere do nome (estável) */
-export function avatarColor(name: string): string {
-  const idx = name.charCodeAt(0) % AVATAR_COLORS.length
-  return AVATAR_COLORS[idx]
-}
-
 /** Iniciais (até 2 primeiras letras do nome em caixa alta) */
 export function getInitials(name: string): string {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
@@ -61,8 +44,57 @@ export function maskPhone(v: string | null | undefined): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
 }
 
-/** Formata receita em BRL. Retorna "—" se for 0 ou null */
-export function fmtRevenue(v: number | null | undefined): string {
-  if (!v || v === 0) return '—'
-  return `R$ ${v.toFixed(2).replace('.', ',')}`
+// @eligi:clients-format-v2
+const BRL_INT = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 })
+const BRL_2   = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const MESES   = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
+const MESES_L = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+/** "R$ 1.530" (sem centavos) — linha da lista. Zero vira "R$ 0". */
+export function fmtMoneyShort(v: number | null | undefined): string {
+  return `R$ ${BRL_INT.format(Math.round(v ?? 0))}`
+}
+
+/** "1.530,00" — sem o prefixo, para colunas numericas. */
+export function fmtMoney2(v: number | null | undefined): string {
+  return BRL_2.format(v ?? 0)
+}
+
+/** Parte inteira e centavos separados, para o numero grande da ficha. */
+export function splitMoney(v: number | null | undefined): { int: string; cents: string } {
+  const [int, cents = '00'] = BRL_2.format(v ?? 0).split(',')
+  return { int, cents }
+}
+
+/** "02 NOV" — data curta em mono, no fuso de Sao Paulo. */
+export function fmtShortDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'numeric', year: 'numeric' })
+    .formatToParts(d)
+  const day   = parts.find(p => p.type === 'day')?.value ?? ''
+  const month = Number(parts.find(p => p.type === 'month')?.value ?? '1')
+  return `${day} ${MESES[month - 1] ?? ''}`
+}
+
+/** "mar 2025" — mes e ano, no fuso de Sao Paulo. */
+export function fmtMonthYear(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', month: 'numeric', year: 'numeric' })
+    .formatToParts(d)
+  const month = Number(parts.find(p => p.type === 'month')?.value ?? '1')
+  const year  = parts.find(p => p.type === 'year')?.value ?? ''
+  return `${MESES_L[month - 1] ?? ''} ${year}`
+}
+
+/** Ano da data no fuso de Sao Paulo (para separar o historico por ano). */
+export function yearOf(iso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date(iso))
+}
+
+export function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`
 }
