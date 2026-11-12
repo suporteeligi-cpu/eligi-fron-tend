@@ -53,6 +53,11 @@ export interface PendingProfessionalSplit {
   currentServiceTotal: number
   currentProductTotal: number
   currentCount:        number
+  // @eligi:ocf-types — tela do dono (nov/2026). Opcionais: back antigo nao manda.
+  openTotal?:          number   // so a semana em andamento
+  openServiceTotal?:   number
+  openProductTotal?:   number
+  openCount?:          number
   total:               number
   itemsCount:          number
   oldestEarnedAt:      string | null
@@ -61,6 +66,9 @@ export interface PendingProfessionalSplit {
 export interface PendingSummaryResponse {
   closedPeriod:  ClosedPeriodInfo | null
   professionals: PendingProfessionalSplit[]
+  currentPeriod?: ClosedPeriodInfo | null  // periodo em andamento @eligi:ocf-types2
+  queuedTotal?:   number                   // semanas encerradas esperando o proximo Gerar
+  queuedCount?:   number
 }
 
 export interface PayoutListItem {
@@ -99,9 +107,13 @@ export interface CommissionItemDetail {
     name:  string
     type:  CommissionType
     total: number
+    unitPrice?:       number // @eligi:ocf-types3
+    quantity?:        number
+    commissionType?:  'PERCENT' | 'FIXED' | null
+    commissionValue?: number | null
     sale: {
       id:          string
-      clientName:  string | null
+      clientName?: string | null // @eligi:ocf-types4
       confirmedAt: string | null
     }
   }
