@@ -27,6 +27,7 @@ import EditableField    from './EditableField'
 import DeleteModal      from './DeleteModal'
 import ShareWalletModal from './ShareWalletModal'
 import ClientHistory    from './ClientHistory'
+import { photoBackground } from '@/shared/utils/clientPhoto' // @eligi:client-photo
 
 interface Props {
   id:         string
@@ -299,6 +300,10 @@ export default function ClientProfileView({ id, embedded = false, onChanged, onD
       {showShare && <ShareWalletModal clientId={id} clientName={client.name} onClose={() => setShowShare(false)} />}
 
       <div className="cl-prof-id">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+        {photoBackground(client.avatarUrl) && (
+          <span aria-hidden style={{ width: 64, height: 64, flexShrink: 0, borderRadius: '50%', background: photoBackground(client.avatarUrl) ?? undefined, boxShadow: '0 4px 14px rgba(17,17,20,.12)' }} />
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <h2 className="cl-prof-name cl-d">
             {client.name}
@@ -309,6 +314,7 @@ export default function ClientProfileView({ id, embedded = false, onChanged, onD
               <span key={i}>{i > 0 && <span className="cl-dot">·</span>}{p}</span>
             ))}
           </div>
+        </div>
         </div>
         <div className="cl-actions">
           {client.phone && (

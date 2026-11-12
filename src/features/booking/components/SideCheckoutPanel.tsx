@@ -24,6 +24,7 @@ import TimeStepper from '@/features/business-hours/components/TimeStepper' // @e
 // @eligi:series-scp-import
 import RepeatSection, { REPEAT_OFF, repeatProblem, type RepeatValue } from './RepeatSection'
 import SeriesPreviewSheet, { type SeriesCreated } from './SeriesPreviewSheet'
+import { photoBackground } from '@/shared/utils/clientPhoto' // @eligi:client-photo
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -67,7 +68,7 @@ function ConfirmModal({ title, confirmLabel, onConfirm, onCancel, isMobile }: {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Service = { id: string; name: string; duration: number; price?: number }
-type Client  = { id: string; name: string; phone: string }
+type Client  = { id: string; name: string; phone: string; avatarUrl?: string | null }
 function waLink(p: string) {
   let d = p.replace(/\D/g, '')
   if (d.length <= 11) d = `55${d}` // nacional (DDD+numero) -> adiciona DDI Brasil
@@ -499,8 +500,8 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
                     const visits  = c.totalBookings ?? 0
                     return (
                       <button key={c.id} onClick={()=>{onSelect(c);onClose()}} className={`cs-row${isSel?' sel':''}`}>
-                        <span style={{width:46,height:46,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,letterSpacing:'-0.02em',color:'#fff',background:`linear-gradient(135deg,${c1},${c2})`,boxShadow:'0 2px 8px rgba(0,0,0,0.10)'}}>
-                          {getInitials(c.name)}
+                        <span style={{width:46,height:46,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,letterSpacing:'-0.02em',color:'#fff',background:photoBackground(c.avatarUrl) ?? `linear-gradient(135deg,${c1},${c2})`,boxShadow:'0 2px 8px rgba(0,0,0,0.10)'}}>
+                          {photoBackground(c.avatarUrl) ? null : getInitials(c.name)}
                         </span>
                         <span style={{flex:1,minWidth:0}}>
                           <span style={{display:'block',fontSize:16.5,fontWeight:700,letterSpacing:'-0.015em',color:colors.gray[900],whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
@@ -909,6 +910,7 @@ export default function SideCheckoutPanel({
             id:    data.client.id,
             name:  data.client.name,
             phone: data.client.phone ?? '',
+            avatarUrl: data.client.avatarUrl ?? null,
           })
         } else if (data.clientName) {
           // Cliente "Avulso" (sem id, só nome no booking)
@@ -1440,8 +1442,8 @@ export default function SideCheckoutPanel({
           {/* Seleção de cliente */}
           <div style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 20px 14px'}}>
             <button onClick={()=>setShowClientSheet(true)} style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:12,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',padding:0}}>
-              <div style={{width:44,height:44,borderRadius:'50%',border:`1.5px dashed ${selectedClient?'transparent':colors.gray.borderMd}`,background:selectedClient?colors.red.gradient:colors.background.page,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,fontWeight:700,color:selectedClient?'#fff':colors.gray.dimText,boxShadow:selectedClient?`0 2px 8px ${colors.red.glow}`:'none',transition:`all ${transitions.spring}`}}>
-                {selectedClient ? getInitials(selectedClient.name) : <User size={16} color={colors.gray.dimText} strokeWidth={1.8}/>}
+              <div style={{width:44,height:44,borderRadius:'50%',border:`1.5px dashed ${selectedClient?'transparent':colors.gray.borderMd}`,background:selectedClient?(photoBackground(selectedClient.avatarUrl) ?? colors.red.gradient):colors.background.page,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,fontWeight:700,color:selectedClient?'#fff':colors.gray.dimText,boxShadow:selectedClient?`0 2px 8px ${colors.red.glow}`:'none',transition:`all ${transitions.spring}`}}>
+                {selectedClient ? (photoBackground(selectedClient.avatarUrl) ? null : getInitials(selectedClient.name)) : <User size={16} color={colors.gray.dimText} strokeWidth={1.8}/>}
               </div>
               <div style={{flex:1,minWidth:0}}>
                 {selectedClient ? (

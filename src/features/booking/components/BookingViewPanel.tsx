@@ -38,6 +38,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
+import { photoBackground } from '@/shared/utils/clientPhoto' // @eligi:client-photo
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -73,6 +74,7 @@ interface BookingDetail {
     id:    string
     name:  string
     phone: string
+    avatarUrl?: string | null
   } | null
   sale?: {
     id:          string
@@ -1018,7 +1020,9 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
                 color: '#fff',
                 letterSpacing: '-0.02em',
               }}>
-                {getInitials(detail?.clientName ?? clientName)}
+                {photoBackground(detail?.client?.avatarUrl) ? (
+                  <span aria-hidden style={{ width: '100%', height: '100%', borderRadius: '50%', background: photoBackground(detail?.client?.avatarUrl) ?? undefined }} />
+                ) : getInitials(detail?.clientName ?? clientName)}
               </div>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.2 }}>

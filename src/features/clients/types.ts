@@ -9,6 +9,8 @@ export interface ClientListItem {
   phone:              string | null
   email:              string | null
   cpf:                string | null
+  /** foto vinda do Google, ja no armazenamento do Eligi (@eligi:client-photo) */
+  avatarUrl?:         string | null
   birthLabel?:        string | null
   createdAt:          string
   totalBookings:      number
@@ -129,6 +131,7 @@ export interface ClientProfile {
   cpf:           string | null
   /** havia contato, mas o cargo nao pode ve-lo */
   contactMasked?: boolean
+  avatarUrl?:    string | null
   birthLabel:    string | null
   createdAt:     string
   metrics:       ClientMetrics
