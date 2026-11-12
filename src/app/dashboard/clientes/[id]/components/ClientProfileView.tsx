@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, CreditCard, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2 } from 'lucide-react' // @eligi:cartao-antigo-fora (cartoes vivem na conta do cliente)
 
 import api from '@/shared/lib/apiClient'
 import { useAuth } from '@/hooks/useAuth'
@@ -25,7 +25,6 @@ import { INK, INK_2, INK_3 } from '@/features/clients/styles'
 
 import EditableField    from './EditableField'
 import DeleteModal      from './DeleteModal'
-import ShareWalletModal from './ShareWalletModal'
 import ClientHistory    from './ClientHistory'
 import { photoBackground } from '@/shared/utils/clientPhoto' // @eligi:client-photo
 
@@ -167,7 +166,6 @@ export default function ClientProfileView({ id, embedded = false, onChanged, onD
   const [failed,     setFailed]     = useState(false)
   const [tab,        setTab]        = useState<Tab>('history')
   const [showDelete, setShowDelete] = useState(false)
-  const [showShare,  setShowShare]  = useState(false)
   const [deleting,   setDeleting]   = useState(false)
   const [toast,      setToast]      = useState<{ msg: string; bad: boolean } | null>(null)
   const [retry,      setRetry]      = useState(0)
@@ -297,7 +295,6 @@ export default function ClientProfileView({ id, embedded = false, onChanged, onD
           isMobile={narrow}
         />
       )}
-      {showShare && <ShareWalletModal clientId={id} clientName={client.name} onClose={() => setShowShare(false)} />}
 
       <div className="cl-prof-id">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
@@ -326,11 +323,6 @@ export default function ClientProfileView({ id, embedded = false, onChanged, onD
           {canEdit && (
             <button type="button" className="cl-btn-out" onClick={() => setTab('data')}>
               <Pencil size={15} /><span>Editar</span>
-            </button>
-          )}
-          {canEdit && (
-            <button type="button" className="cl-btn-out" onClick={() => setShowShare(true)}>
-              <CreditCard size={15} /><span>Cartão</span>
             </button>
           )}
           {canDelete && embedded && (
