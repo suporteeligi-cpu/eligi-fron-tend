@@ -28,12 +28,19 @@ interface Sample {
   anticipationDays: number
   monthlyRatePct: number | null
 }
+// @eligi:club-ant-bloqueio-tipo — motivo da recusa, nas palavras do Asaas
+interface Block {
+  code: string | null
+  description: string
+}
 interface Overview {
   available: boolean
   reason: 'NOT_CONNECTED' | 'NOT_APPROVED' | 'ISENTO' | 'ASAAS_UNAVAILABLE' | null
   enabled: boolean | null
   limit: { total: number; available: number } | null
   sample: Sample | null
+  /** @eligi:club-ant-bloqueio-campo — ha cobranca confirmada mas nenhuma antecipavel */
+  blocked: Block | null
   updatedAt: string | null
   updatedByName: string | null
 }
@@ -154,7 +161,8 @@ export default function ClubAnticipationCard() {
   const taxaMes = s?.monthlyRatePct != null ? pct(s.monthlyRatePct) : RATE_FALLBACK
 
   const opcoes: { key: Choice | 'medio'; titulo: string; quando: string; fica: string; foot: string; disabled?: boolean }[] = [
-    { key: 'rapido', titulo: 'Rápido', quando: 'Em até 2 dias úteis',
+    // @eligi:club-ant-bloqueio-rapido — com recebivel reservado, "2 dias uteis" seria falso
+    { key: 'rapido', titulo: 'Rápido', quando: data.blocked ? 'Indisponível no momento' : 'Em até 2 dias úteis',
       fica: c ? brl(c.rapido.fica) : `${taxaMes} ao mês`, foot: c ? 'ficam pra você' : 'de antecipação' },
     { key: 'medio', titulo: 'Médio', quando: `Em cerca de ${MEDIO_DIAS} dias`,
       fica: c ? `~${brl(c.medio.fica)}` : '—', foot: 'estimado', disabled: true },
@@ -176,6 +184,25 @@ export default function ClubAnticipationCard() {
           {data.enabled ? 'Rápido ligado' : 'Normal'}
         </span>
       </div>
+
+      {/* @eligi:club-ant-bloqueio-aviso — o Asaas ja diz o motivo; so faltava exibir */}
+      {data.blocked && (
+        <div
+          role="status"
+          style={{
+            display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, lineHeight: 1.5,
+            color: inkLight.warn.text, background: inkLight.warn.bg, border: `1px solid ${inkLight.warn.border}`,
+            borderRadius: 12, padding: '10px 12px',
+          }}
+        >
+          <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+          <span>
+            <b style={{ display: 'block', marginBottom: 2 }}>Antecipação indisponível no momento</b>
+            {data.blocked.description} Enquanto isso as mensalidades caem no prazo normal,
+            em cerca de 32 dias.
+          </span>
+        </div>
+      )}
 
       <div role="radiogroup" aria-label="Quando receber o cartão" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {opcoes.map((o) => {
