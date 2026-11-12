@@ -270,7 +270,7 @@ export default function ComissoesPage() {
       `}</style>
 
       {/* Funcionários: visão somente leitura das próprias comissões */}
-      {isStaff && <MyCommissionsView isMobile={isMobile} />}
+      {isStaff && <MyCommissionsView />}{/* @eligi:mc-d-page */}
 
       {/* Owner/Manager: visão completa */}
       {!isStaff && <>

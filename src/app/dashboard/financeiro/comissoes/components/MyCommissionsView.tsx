@@ -1,549 +1,256 @@
 'use client'
 // src/app/dashboard/financeiro/comissoes/components/MyCommissionsView.tsx
-// Visao somente leitura para STAFF / BASIC_STAFF / RECEPTIONIST
-// Direcao A (performance): hero + delta + KPIs + por dia + onde rende mais + detalhamento
+// @eligi:mc-d-view — tela do profissional (STAFF / BASIC_STAFF / RECEPTIONIST),
+// direcao D "Central" (nov/2026): o valor a receber e seis modulos que abrem
+// numa janela com abas (Extrato, Servicos, Dias, Comparar, Ja recebi, Clube).
+// Somente leitura. Layout por @media (mcStyles.ts), nunca por isMobile.
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { ChevronDown, ChevronRight, Check, Clock, TrendingUp, TrendingDown } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { CalendarDays, TrendingDown, TrendingUp, UserRound, WifiOff } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
-import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
-import { colors, typography } from '@/shared/theme'
-import { methodLabel, fmtPayoutPeriod } from '@/features/payouts/utils/format'
+import { MC_CSS } from './my/mcStyles'
+import { Money, MoneyFlat, ModIcon } from './my/mcParts'
+import { WEEKDAYS, dayKeySP, pctDelta, periodTrack, rangeLabel, weekdayDate, weekdayOfKey } from './my/mcFormat'
+import { MODS, type ClubStaffResp, type ModKey, type MyCommissions, type MyPeriod } from './my/mcTypes'
+import CommissionWindow from './my/CommissionWindow'
+import { ModDias, ModExtrato, ModRecebi, ModServicos } from './my/ModPeriod'
+import { ModComparar } from './my/ModComparar'
+import { ModClube, clubUnpaid } from './my/ModClube'
 
-// --- Types ---
-type Period = 'week' | 'last_week' | 'month'
+type Status = 'loading' | 'ok' | 'error' | 'noprof'
 
-interface CommissionItem {
-  id:         string
-  name:       string
-  type:       string
-  clientName: string
-  time:       string
-  amount:     number
-  baseAmount: number
-  pct:        number
-  discountShare?: number | null // @eligi:dcm-mc-type
+const MONTH_FULL = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+function isNoProfessional(e: unknown): boolean {
+  const r = (e as { response?: { status?: number; data?: { code?: string } } })?.response
+  return r?.status === 404 && (r.data?.code === 'PROFESSIONAL_NOT_FOUND' || r.data?.code === undefined)
 }
 
-interface CommissionDay {
-  date:         string
-  label:        string
-  serviceCount: number
-  productCount: number
-  total:        number
-  items:        CommissionItem[]
+function segLabels(fortnight: boolean): Array<[MyPeriod, string, string]> {
+  return fortnight
+    ? [['week', 'Esta quinzena', 'Atual'], ['last_week', 'Quinzena passada', 'Anterior'], ['month', 'Este mês', 'Mês']]
+    : [['week', 'Esta semana', 'Atual'], ['last_week', 'Semana passada', 'Anterior'], ['month', 'Este mês', 'Mês']]
 }
 
-interface PaidPayout {
-  id:          string
-  periodStart: string
-  periodEnd:   string
-  totalAmount: number
-  paidAt:      string | null
-  paidVia:     string | null
-}
-
-interface MyCommissions {
-  periodKind?:    'week' | 'fortnight' | 'month' // @eligi:mycomm-kind-front
-  periodLabel:    string
-  periodStart:    string
-  periodEnd:      string
-  paymentDate:    string | null
-  serviceTotal:   number
-  productTotal:   number
-  total:          number
-  previousTotal?: number
-  serviceCount:   number
-  productCount:   number
-  days:           CommissionDay[]
-  paidPayouts:    PaidPayout[]
-}
-
-// --- Helpers ---
-function fmtBRL(v: number) {
-  return `R$ ${(v ?? 0).toFixed(2).replace('.', ',')}`
-}
-
-function fmtDateBR(iso: string | null) {
-  if (!iso) return '-'
-  return new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })
-}
-
-const PERIOD_LABELS: Record<Period, string> = {
-  week:      'Esta semana',
-  last_week: 'Semana passada',
-  month:     'Este mes',
-}
-// quinzenal: o back devolve o periodo de 14 dias do fechamento; o rotulo acompanha
-const FORTNIGHT_LABELS: Record<Period, string> = {
-  week:      'Esta quinzena',
-  last_week: 'Quinzena passada',
-  month:     'Este mes',
-}
-
-const cardStyle: React.CSSProperties = {
-  background:'#fff',
-  border:`0.5px solid ${colors.gray.borderMd}`,
-  borderRadius:14,
-  marginBottom:10,
-  boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
-}
-
-function SecTitle({ children, bordered }: { children: React.ReactNode; bordered?: boolean }) {
+function Seg({ period, fortnight, onChange }: { period: MyPeriod; fortnight: boolean; onChange: (p: MyPeriod) => void }) {
   return (
-    <div style={{
-      padding: bordered ? '12px 16px 8px' : '12px 18px 0',
-      fontSize:11, fontWeight:700, color:typography.color.muted,
-      textTransform:'uppercase', letterSpacing:'.06em',
-      borderBottom: bordered ? `0.5px solid ${colors.gray.border}` : 'none',
-    }}>
-      {children}
+    <div className="mc-seg" role="tablist" aria-label="Período">
+      {segLabels(fortnight).map(([p, long, short]) => (
+        <button key={p} role="tab" aria-selected={p === period} onClick={() => onChange(p)}>
+          <span className="l">{long}</span><span className="s">{short}</span>
+        </button>
+      ))}
     </div>
   )
 }
 
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div style={{ background:colors.background?.page ?? '#f9fafb', borderRadius:10, padding:'10px 14px' }}>
-      <div style={{ fontSize:10, color:typography.color.muted, marginBottom:3, textTransform:'uppercase', letterSpacing:'.05em' }}>{label}</div>
-      <div style={{ fontSize:16, fontWeight:700, color:typography.color.primary }}>{value}</div>
-      {hint && <div style={{ fontSize:10, color:typography.color.muted, marginTop:2 }}>{hint}</div>}
-    </div>
-  )
-}
+function Hero({ data, loadedAt }: { data: MyCommissions; loadedAt: number }) {
+  const t = periodTrack(data.periodStart, data.periodEnd, loadedAt)
+  const month = data.periodKind === 'month' || (t.n >= 28 && t.startKey.endsWith('-01'))
+  const what = month ? MONTH_FULL[Number(t.startKey.slice(5, 7)) - 1] : rangeLabel(t.startKey, t.endKey)
+  const delta = data.previousTotal ? pctDelta(data.previousTotal, data.total) : null
+  const prevLabel = data.previousStart && data.previousEnd ? rangeLabel(dayKeySP(data.previousStart), dayKeySP(data.previousEnd)) : 'anterior'
+  const atend = data.serviceCount + data.productCount
 
-// --- Aba Clube (EligiClub): fatia do barbeiro por periodo. Componente de modulo. ---
-// @eligi:club-baixa-staff-type — myItemPaidAt vem do back (club-pote-baixa)
-interface ClubStaffPeriod { periodKey: string; poolTotal: number; totalFichas: number; settledAt: string; myFichas: number; myPct: number; myAmount: number; myItemPaidAt?: string | null }
-interface ClubStaffResp { scope: 'staff'; totalAmount: number; totalFichas: number; periods: ClubStaffPeriod[] }
-
-function clubPeriodLabel(periodKey: string) {
-  const [y, m] = periodKey.split('-')
-  const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-  return `${months[Number(m) - 1] ?? m} ${y}`
-}
-
-function ClubTab({ isMobile }: { isMobile: boolean }) {
-  const [data, setData] = useState<ClubStaffResp | null>(null)
-  const [loading, setLoading] = useState(true)
-  const reqRef = useRef(0)
-
-  const fetchClub = useCallback(async () => {
-    const token = ++reqRef.current
-    try {
-      const res = await api.get('/club-settlements/commissions')
-      const d = (res.data?.data ?? null) as ClubStaffResp | null
-      if (token !== reqRef.current) return
-      setData(d)
-    } catch {
-      if (token === reqRef.current) setData(null)
-    } finally {
-      if (token === reqRef.current) setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { void fetchClub() }, [fetchClub])
-
-  const card: React.CSSProperties = { background: '#fff', border: `0.5px solid ${colors.gray.borderMd}`, borderRadius: 14, marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }
-
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: typography.color.muted, fontSize: 13 }}>Carregando…</div>
-
-  if (!data || data.periods.length === 0) return (
-    <div style={{ ...card, padding: '48px 24px', textAlign: 'center' }}>
-      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><EligiClubIcon size={32} color="#0E0E12" /></div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: typography.color.primary, marginBottom: 4 }}>Você ainda não tem comissões do EligiClub.</div>
-      <div style={{ fontSize: 13, color: typography.color.muted }}>Sua parte do pote aparece aqui quando um período for fechado.</div>
-    </div>
-  )
+  let caption: string
+  if (t.left == null && t.todayIdx >= t.n) caption = `Fechou ${weekdayDate(t.endKey)}`
+  else if (t.left == null) caption = `Começa ${weekdayDate(t.startKey)}`
+  else if (month) caption = `Dia ${t.todayIdx + 1} de ${t.n} · ${t.left === 0 ? 'último dia do mês' : `o mês fecha em ${t.left} dia${t.left !== 1 ? 's' : ''}`}`
+  else caption = `Fecha ${weekdayDate(t.endKey)} · ${t.left === 0 ? 'último dia' : `faltam ${t.left} dia${t.left !== 1 ? 's' : ''}`}`
 
   return (
-    <>
-      <div style={{ ...card, borderTop: '3px solid #0E0E12', padding: '18px 22px', textAlign: 'center' }}>
-        <div style={{ fontSize: 10.5, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.07em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 6 }}>
-          <EligiClubIcon size={13} color="#0E0E12" /> Recebido do clube (total)
-        </div>
-        <div style={{ fontSize: isMobile ? 30 : 34, fontWeight: 780, color: '#16a34a', lineHeight: 1, letterSpacing: '-1px' }}>{fmtBRL(data.totalAmount)}</div>
-        <div style={{ fontSize: 11, color: typography.color.muted, marginTop: 8 }}>
-          em {data.periods.length} período{data.periods.length !== 1 ? 's' : ''} fechado{data.periods.length !== 1 ? 's' : ''} · {data.totalFichas} fichas suas
-        </div>
+    <section className="mc-card mc-hero" aria-label="Resumo do período">
+      <div className="mc-hero-h">
+        <span className="mc-eyebrow">A receber · {what}</span>
+        {delta != null && (
+          <span className={`mc-chip ${delta >= 0 ? 'ok' : 'neu'}`} title={data.previousPartial ? 'Comparado com o mesmo ponto do período anterior' : 'Comparado com o período anterior inteiro'}>
+            {delta >= 0 ? <TrendingUp size={12} aria-hidden /> : <TrendingDown size={12} aria-hidden />}
+            {delta >= 0 ? '+' : ''}{delta}% vs {prevLabel}
+          </span>
+        )}
       </div>
-      <div style={{ ...card, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 16px 8px', fontSize: 11, fontWeight: 700, color: typography.color.muted, textTransform: 'uppercase', letterSpacing: '.06em', borderBottom: `0.5px solid ${colors.gray.border}` }}>Por período</div>
-        {data.periods.map((p, idx) => (
-          <div key={p.periodKey} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderBottom: idx < data.periods.length - 1 ? `0.5px solid ${colors.gray.border}` : 'none' }}>
-            <span style={{ width: 34, height: 34, borderRadius: 9, background: '#0E0E12', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <EligiClubIcon size={18} color="#F4F2EC" />
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 680, color: typography.color.primary }}>{clubPeriodLabel(p.periodKey)}</div>
-              <div style={{ fontSize: 10.5, color: typography.color.muted, marginTop: 1 }}>{p.myFichas} fichas · {p.myPct}% do pote</div>
-            </div>
-            <div style={{ marginLeft: 'auto', textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 780, color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(p.myAmount)}</div>
-              {/* @eligi:club-baixa-staff-status */}
-              <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700, color: p.myItemPaidAt ? '#0f6e56' : '#b45309' }}>
-                {p.myItemPaidAt ? `pago ${p.myItemPaidAt.slice(8, 10)}/${p.myItemPaidAt.slice(5, 7)}` : 'a receber'}
-              </div>
-            </div>
-          </div>
+      <div className="mc-big"><Money v={data.total} /></div>
+      <div className="mc-meta">
+        {data.paymentDate && <span className="mc-chip warn"><CalendarDays size={12} aria-hidden />Pagamento {data.paymentDate}</span>}
+        <span className="mc-chip neu">{atend} atendimento{atend !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="mc-track" style={{ gridTemplateColumns: `repeat(${t.n}, minmax(0,1fr))` }} aria-hidden>
+        {Array.from({ length: t.n }, (_, k) => (
+          <i key={k} className={k < t.todayIdx ? 'p' : k === t.todayIdx ? 't' : ''} />
         ))}
       </div>
-    </>
+      <div className="mc-cap">{caption}</div>
+    </section>
   )
 }
 
-// --- Componente principal ---
-export default function MyCommissionsView({ isMobile }: { isMobile: boolean }) {
-  const [period,    setPeriod]    = useState<Period>('week')
-  const [tab,       setTab]       = useState<'mine' | 'club'>('mine')
-  const [data,      setData]      = useState<MyCommissions | null>(null)
-  const [firstLoad, setFirstLoad] = useState(true)
-  const [expanded,  setExpanded]  = useState<Set<string>>(new Set())
-  // a aba "Este mes" nao diz a frequencia: guarda a da ultima resposta semanal/quinzenal
-  const [fortnight, setFortnight] = useState(false)
-
-  const cacheRef = useRef<Partial<Record<Period, MyCommissions>>>({})
-  const reqRef   = useRef(0)
-
-  // Render rapida: cache por periodo, troca otimista, token contra resposta tardia,
-  // spinner so no 1o load.
-  const fetchData = useCallback(async (p: Period) => {
-    const token  = ++reqRef.current
-    const cached = cacheRef.current[p]
-    if (cached) {
-      setData(cached)
-      setExpanded(cached.days[0] ? new Set([cached.days[0].date]) : new Set())
+function tileMeta(k: ModKey, data: MyCommissions, club: ClubStaffResp | null, clubStatus: 'loading' | 'ok' | 'error'): React.ReactNode {
+  switch (k) {
+    case 'extrato': {
+      const n = data.serviceCount + data.productCount
+      return `${n} ${n === 1 ? 'item' : 'itens'}`
     }
+    case 'servicos': {
+      const s = new Set<string>()
+      data.days.forEach(d => d.items.forEach(i => s.add(i.name)))
+      return s.size ? `${s.size} tipo${s.size !== 1 ? 's' : ''}` : '—'
+    }
+    case 'dias': {
+      const best = data.days.reduce<MyCommissions['days'][number] | null>((a, d) => (!a || d.total > a.total ? d : a), null)
+      return best ? `melhor: ${WEEKDAYS[weekdayOfKey(best.date)]} ${Number(best.date.slice(8))}` : '—'
+    }
+    case 'comparar': return 'mês × mês'
+    case 'recebi': return data.paidPayouts[0] ? <MoneyFlat v={data.paidPayouts[0].totalAmount} /> : 'nenhum ainda'
+    case 'clube': {
+      if (clubStatus !== 'ok') return 'pote do clube'
+      const unpaid = clubUnpaid(club)
+      if (unpaid > 0) return <span className="mc-warn"><MoneyFlat v={unpaid} /><span className="mc-wide"> a receber</span></span>
+      return club && club.periods.length ? <MoneyFlat v={club.totalAmount} /> : 'sem fichas ainda'
+    }
+  }
+}
+
+function Skeleton() {
+  return (
+    <div className="mc-grid" aria-busy="true" aria-label="Carregando">
+      <section className="mc-card mc-hero">
+        <div className="mc-sk" style={{ width: '45%', height: 12 }} />
+        <div className="mc-sk" style={{ width: '65%', height: 44, margin: '14px 0' }} />
+        <div className="mc-sk" style={{ width: '70%', height: 22 }} />
+        <div className="mc-sk" style={{ width: '100%', height: 6, marginTop: 18 }} />
+      </section>
+      <div className="mc-tiles">
+        {MODS.map(m => <div key={m.key} className="mc-tile"><div className="mc-sk" style={{ width: 34, height: 34 }} /><div className="mc-sk" style={{ width: '70%', height: 12, marginTop: 6 }} /></div>)}
+      </div>
+    </div>
+  )
+}
+
+export default function MyCommissionsView() {
+  const [period, setPeriod] = useState<MyPeriod>('week')
+  const [data, setData] = useState<MyCommissions | null>(null)
+  const [loadedAt, setLoadedAt] = useState(0)
+  const [status, setStatus] = useState<Status>('loading')
+  const [fortnight, setFortnight] = useState(false)
+  const [mod, setMod] = useState<ModKey | null>(null)
+  const [club, setClub] = useState<ClubStaffResp | null>(null)
+  const [clubStatus, setClubStatus] = useState<'loading' | 'ok' | 'error'>('loading')
+
+  const cacheRef = useRef<Partial<Record<MyPeriod, { d: MyCommissions; at: number }>>>({})
+  const reqRef = useRef(0)
+  const tilesRef = useRef<HTMLDivElement>(null)
+  const openedFrom = useRef<ModKey | null>(null)
+
+  const load = useCallback(async (p: MyPeriod) => {
+    const token = ++reqRef.current
+    const cached = cacheRef.current[p]
+    if (cached) { setData(cached.d); setLoadedAt(cached.at); setStatus('ok') }
     try {
       const res = await api.get('/payouts/my-commissions', { params: { period: p } })
-      const d: MyCommissions | null = res.data?.data ?? null
       if (token !== reqRef.current) return
-      if (d) cacheRef.current[p] = d
-      if (d?.periodKind && d.periodKind !== 'month') setFortnight(d.periodKind === 'fortnight')
-      setData(d)
-      setExpanded(d?.days?.[0] ? new Set([d.days[0].date]) : new Set())
-    } catch {
+      const d = (res.data?.data ?? null) as MyCommissions | null
+      if (!d) { if (!cached) setStatus('error'); return }
+      const at = Date.now()
+      cacheRef.current[p] = { d, at }
+      if (d.periodKind !== 'month') setFortnight(d.periodKind === 'fortnight')
+      setData(d); setLoadedAt(at); setStatus('ok')
+    } catch (e) {
       if (token !== reqRef.current) return
-      if (!cached) setData(null)
-    } finally {
-      if (token === reqRef.current) setFirstLoad(false)
+      if (isNoProfessional(e)) { setStatus('noprof'); return }
+      if (!cached) setStatus('error')
     }
   }, [])
 
-  useEffect(() => { void fetchData(period) }, [fetchData, period])
+  useEffect(() => { void load(period) }, [load, period])
 
-  function toggleDay(date: string) {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(date) ? next.delete(date) : next.add(date)
-      return next
-    })
+  useEffect(() => {
+    let alive = true
+    api.get('/club-settlements/commissions')
+      .then(r => {
+        if (!alive) return
+        const d = r.data?.data
+        setClub(d && d.scope === 'staff' ? (d as ClubStaffResp) : null)
+        setClubStatus('ok')
+      })
+      .catch(() => { if (alive) setClubStatus('error') })
+    return () => { alive = false }
+  }, [])
+
+  const closeWindow = useCallback(() => {
+    const from = openedFrom.current
+    setMod(null)
+    if (from) requestAnimationFrame(() => tilesRef.current?.querySelector<HTMLButtonElement>(`[data-mod="${from}"]`)?.focus())
+  }, [])
+
+  function openMod(k: ModKey) { openedFrom.current = k; setMod(k) }
+  function retry() { setStatus('loading'); void load(period) }
+
+  if (status === 'noprof') {
+    return (
+      <div className="mc-page">
+        <style>{MC_CSS}</style>
+        <section className="mc-card mc-state">
+          <div className="ico"><UserRound size={22} aria-hidden /></div>
+          <h3>Seu acesso não recebe comissão</h3>
+          <p>Comissão vem dos atendimentos. Se você também atende clientes, peça ao responsável para ligar seu usuário a um profissional em <b>Equipe</b>.</p>
+        </section>
+      </div>
+    )
   }
 
-  const wrap: React.CSSProperties = {
-    maxWidth:   680,
-    padding:    isMobile ? '0 12px' : 0,
-    fontFamily: typography.fontFamily,
-    animation:  'fadeUp 0.3s ease',
+  const subtitle = data ? data.periodLabel : ''
+  const modSubtitle: Record<ModKey, string> = {
+    extrato: subtitle, servicos: subtitle, dias: subtitle,
+    comparar: 'Você contra você mesmo, mês a mês',
+    recebi: 'Pagamentos fechados pelo estabelecimento',
+    clube: 'Sua parte do pote do EligiClub',
   }
-
-  if (firstLoad && !data) return (
-    <div style={{ ...wrap, display:'flex', alignItems:'center', justifyContent:'center', padding:60 }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      <div style={{ width:28, height:28, borderRadius:'50%', border:`3px solid rgba(220,38,38,0.15)`, borderTopColor:'#dc2626', animation:'spin 0.8s linear infinite' }} />
-    </div>
-  )
-
-  // --- Derivados (client-side, a partir do que o back ja devolve) ---
-  const atend = (data?.serviceCount ?? 0) + (data?.productCount ?? 0)
-  const avg   = atend ? ((data?.total ?? 0) / atend) : 0
-
-  let bestDay: CommissionDay | null = null
-  if (data) for (const d of data.days) { if (!bestDay || d.total > bestDay.total) bestDay = d }
-
-  const delta = (data?.previousTotal != null && data.previousTotal > 0)
-    ? Math.round((data.total - data.previousTotal) / data.previousTotal * 100)
-    : null
-
-  const ranking = (() => {
-    const m = new Map<string, number>()
-    data?.days.forEach(d => d.items.forEach(i => m.set(i.name, (m.get(i.name) ?? 0) + i.amount)))
-    const arr = Array.from(m, ([name, v]) => ({ name, v })).sort((a, b) => b.v - a.v).slice(0, 5)
-    const max = arr.length ? arr[0].v : 1
-    return arr.map(r => ({ name: r.name, v: r.v, w: Math.round(r.v / max * 100) }))
-  })()
 
   return (
-    <div style={wrap}>
-      <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
-
-      {/* Header */}
-      <div style={{ marginBottom:16 }}>
-        <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight:700, color:typography.color.primary, margin:'0 0 4px', letterSpacing:'-0.02em' }}>
-          Minhas comissoes
-        </h1>
-        <p style={{ fontSize:13, color:typography.color.muted, margin:0 }}>
-          {data?.periodLabel ?? '-'}
-        </p>
+    <div className="mc-page">
+      <style>{MC_CSS}</style>
+      <div className="mc-top">
+        <h1 className="mc-h1">Minhas comissões</h1>
+        <Seg period={period} fortnight={fortnight} onChange={setPeriod} />
       </div>
 
-      {/* Abas: Minhas comissoes | Clube */}
-      <div style={{ display:'flex', gap:6, marginBottom:16, borderBottom:`1px solid ${colors.gray.border}` }}>
-        <button onClick={() => setTab('mine')} style={{ padding:'10px 14px', marginBottom:-1, border:'none', background:'transparent', cursor:'pointer', fontFamily:'inherit', fontSize:14, fontWeight:600, color: tab === 'mine' ? colors.red.DEFAULT : typography.color.muted, borderBottom:`2px solid ${tab === 'mine' ? colors.red.DEFAULT : 'transparent'}`, transition:'all 0.15s ease', WebkitTapHighlightColor:'transparent' }}>
-          Minhas comissões
-        </button>
-        <button onClick={() => setTab('club')} style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 14px', marginBottom:-1, border:'none', background:'transparent', cursor:'pointer', fontFamily:'inherit', fontSize:14, fontWeight:600, color: tab === 'club' ? colors.red.DEFAULT : typography.color.muted, borderBottom:`2px solid ${tab === 'club' ? colors.red.DEFAULT : 'transparent'}`, transition:'all 0.15s ease', WebkitTapHighlightColor:'transparent' }}>
-          <EligiClubIcon size={14} color={tab === 'club' ? colors.red.DEFAULT : typography.color.muted} /> Clube
-        </button>
-      </div>
+      {status === 'loading' && !data && <Skeleton />}
 
-      {tab === 'club' ? <ClubTab isMobile={isMobile} /> : (
-      <>
-      {/* Seletor de periodo */}
-      <div style={{
-        display:'flex', gap:6, marginBottom:16,
-        background: colors.background?.page ?? '#f9fafb',
-        borderRadius:10, padding:4,
-        border:`0.5px solid ${colors.gray.border}`,
-        width:'fit-content',
-      }}>
-        {(['week','last_week','month'] as Period[]).map(p => (
-          <button
-            key={p}
-            onClick={() => setPeriod(p)}
-            style={{
-              padding:'6px 14px', borderRadius:8, border:'none',
-              background: period === p ? '#fff' : 'transparent',
-              color:      period === p ? typography.color.primary : typography.color.muted,
-              fontSize:   12, fontWeight: period === p ? 700 : 500,
-              cursor:'pointer', fontFamily:'inherit',
-              boxShadow: period === p ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              transition:'all 150ms ease',
-            }}
-          >
-            {(fortnight ? FORTNIGHT_LABELS : PERIOD_LABELS)[p]}
-          </button>
-        ))}
-      </div>
-
-      {/* Hero total */}
-      <div style={{
-        background:'#fff',
-        border:`0.5px solid ${colors.gray.borderMd}`,
-        borderTop:`3px solid #16a34a`,
-        borderRadius:14,
-        marginBottom:10,
-        boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
-      }}>
-        <div style={{ textAlign:'center', padding:'20px 24px 16px', borderBottom:`0.5px solid ${colors.gray.border}` }}>
-          <div style={{ fontSize:11, color:typography.color.muted, textTransform:'uppercase', letterSpacing:'.07em', marginBottom:6 }}>
-            A receber
-          </div>
-          <div style={{ fontSize: isMobile ? 36 : 46, fontWeight:700, color:'#16a34a', lineHeight:1, letterSpacing:'-1px' }}>
-            {fmtBRL(data?.total ?? 0)}
-          </div>
-          <div style={{ fontSize:12, color:typography.color.muted, marginTop:10, display:'flex', alignItems:'center', justifyContent:'center', gap:8, flexWrap:'wrap' }}>
-            {delta != null && (
-              <span style={{
-                display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600,
-                color:      delta >= 0 ? '#166534' : '#991b1b',
-                background:  delta >= 0 ? '#f0fdf4' : '#fef2f2',
-                padding:'2px 8px', borderRadius:999,
-              }}>
-                {delta >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                {delta >= 0 ? '+' : ''}{delta}% vs anterior
-              </span>
-            )}
-            <span>{atend} atendimentos</span>
-            {data?.paymentDate && (
-              <span style={{ display:'inline-flex', alignItems:'center', gap:4, color:'#854d0e', background:'#fef9c3', padding:'2px 8px', borderRadius:999, fontSize:11, fontWeight:600 }}>
-                <Clock size={10} />
-                Pgto {data.paymentDate}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Mini KPIs 2x2 */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, padding:'16px 24px' }}>
-          <Kpi label="Comissao media" value={fmtBRL(avg)} />
-          <Kpi label="Melhor dia" value={bestDay ? fmtBRL(bestDay.total) : '-'} hint={bestDay ? bestDay.label.replace('Hoje, ','').replace('Ontem, ','') : undefined} />
-          <Kpi label={`Servicos · ${data?.serviceCount ?? 0}`} value={fmtBRL(data?.serviceTotal ?? 0)} />
-          <Kpi label={`Produtos · ${data?.productCount ?? 0}`} value={fmtBRL(data?.productTotal ?? 0)} />
-        </div>
-      </div>
-
-      {/* Por dia */}
-      {data && data.days.length > 0 && (
-        <div style={cardStyle}>
-          <SecTitle>Por dia</SecTitle>
-          <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:104, padding:'14px 18px 10px' }}>
-            {[...data.days].reverse().map(d => {
-              const h = Math.max(Math.round(d.total / (bestDay?.total || 1) * 100), 4)
-              const isBest = !!bestDay && d.date === bestDay.date
-              return (
-                <div key={d.date} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:5, minWidth:0 }}>
-                  <div title={fmtBRL(d.total)} style={{ width:'100%', height:`${h}%`, background:'#16a34a', opacity:isBest?1:0.75, borderRadius:'4px 4px 0 0', minHeight:3 }} />
-                  <div style={{ fontSize:10, color:typography.color.muted }}>{d.date.slice(8,10)}</div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+      {status === 'error' && !data && (
+        <section className="mc-card mc-state">
+          <div className="ico"><WifiOff size={22} aria-hidden /></div>
+          <h3>Não deu para carregar agora</h3>
+          <p>Suas comissões estão guardadas. Confira a internet e tente de novo.</p>
+          <button className="mc-btn" style={{ marginTop: 18 }} onClick={retry}><span>Tentar de novo</span></button>
+        </section>
       )}
 
-      {/* Onde rende mais */}
-      {ranking.length > 0 && (
-        <div style={cardStyle}>
-          <SecTitle>Onde rende mais</SecTitle>
-          <div style={{ display:'flex', flexDirection:'column', gap:10, padding:'12px 18px 16px' }}>
-            {ranking.map(r => (
-              <div key={r.name}>
-                <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, marginBottom:5, color:typography.color.primary }}>
-                  <span style={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{r.name}</span>
-                  <span style={{ color:typography.color.muted, flexShrink:0, marginLeft:8 }}>{fmtBRL(r.v)}</span>
-                </div>
-                <div style={{ height:7, borderRadius:999, background:colors.background?.page ?? '#f3f4f6', overflow:'hidden' }}>
-                  <div style={{ width:`${r.w}%`, height:'100%', background:colors.red.DEFAULT, borderRadius:999 }} />
-                </div>
-              </div>
+      {data && (
+        <div className="mc-grid">
+          <Hero data={data} loadedAt={loadedAt} />
+          <div className="mc-tiles" ref={tilesRef}>
+            {MODS.map(m => (
+              <button key={m.key} data-mod={m.key} className="mc-tile" aria-haspopup="dialog" onClick={() => openMod(m.key)}>
+                <span className="mc-ti"><ModIcon k={m.key} /></span>
+                <span className="mc-tl1">{m.label}</span>
+                <span className="mc-tl2">{tileMeta(m.key, data, club, clubStatus)}</span>
+              </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* Detalhamento por dia */}
-      {data && data.days.length > 0 && (
-        <div style={{ ...cardStyle, overflow:'hidden' }}>
-          <SecTitle bordered>Detalhamento por dia</SecTitle>
-          {data.days.map((day, idx) => {
-            const isOpen = expanded.has(day.date)
-            const isLast = idx === data.days.length - 1
-            return (
-              <div key={day.date} style={{ borderBottom: isLast ? 'none' : `0.5px solid ${colors.gray.border}` }}>
-                <button
-                  onClick={() => toggleDay(day.date)}
-                  style={{
-                    width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
-                    padding:'12px 16px',
-                    background: isOpen ? colors.background?.page ?? '#f9fafb' : 'transparent',
-                    border:'none', cursor:'pointer', fontFamily:'inherit',
-                    transition:'background 150ms ease',
-                  }}
-                >
-                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <div style={{ color:typography.color.muted }}>
-                      {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                    </div>
-                    <div style={{ textAlign:'left' }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:typography.color.primary }}>{day.label}</div>
-                      <div style={{ fontSize:10, color:typography.color.muted, marginTop:1 }}>
-                        {day.serviceCount > 0 && `${day.serviceCount} servico${day.serviceCount > 1 ? 's' : ''}`}
-                        {day.serviceCount > 0 && day.productCount > 0 && ' · '}
-                        {day.productCount > 0 && `${day.productCount} produto${day.productCount > 1 ? 's' : ''}`}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ fontSize:15, fontWeight:700, color:typography.color.primary }}>
-                    {fmtBRL(day.total)}
-                  </div>
-                </button>
-
-                {isOpen && (
-                  <div style={{ background:'#fff', borderTop:`0.5px solid ${colors.gray.border}` }}>
-                    {day.items.map((item, iIdx) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          display:'flex', alignItems:'center', gap:12,
-                          padding:'10px 16px 10px 42px',
-                          borderBottom: iIdx < day.items.length - 1 ? `0.5px solid ${colors.gray.border}` : 'none',
-                        }}
-                      >
-                        <div style={{
-                          width:8, height:8, borderRadius:'50%', flexShrink:0,
-                          background: item.type === 'SERVICE' ? '#dc2626' : '#2563eb',
-                        }} />
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:13, fontWeight:500, color:typography.color.primary, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                            {item.name}
-                          </div>
-                          <div style={{ fontSize:11, color:typography.color.muted, marginTop:1 }}>
-                            {item.clientName} · {item.time}
-                            {item.pct > 0 && ` · ${item.pct}% de ${fmtBRL(item.baseAmount)}`}
-                            {item.discountShare ? ` · desconto dividido (−${fmtBRL(item.discountShare)})` : '' /* @eligi:dcm-mc-line */}
-                          </div>
-                        </div>
-                        <div style={{ fontSize:14, fontWeight:700, color:typography.color.primary, flexShrink:0 }}>
-                          {fmtBRL(item.amount)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Ja recebi */}
-      {data && data.paidPayouts.length > 0 && (
-        <div style={{ ...cardStyle, overflow:'hidden' }}>
-          <SecTitle bordered>Ja recebi</SecTitle>
-          {data.paidPayouts.map((payout, idx) => (
-            <div
-              key={payout.id}
-              style={{
-                display:'flex', alignItems:'center', gap:12, padding:'12px 16px',
-                borderBottom: idx < data.paidPayouts.length - 1 ? `0.5px solid ${colors.gray.border}` : 'none',
-              }}
-            >
-              <div style={{
-                width:36, height:36, borderRadius:10, flexShrink:0,
-                background:'#f0fdf4', border:'0.5px solid #bbf7d0',
-                display:'flex', alignItems:'center', justifyContent:'center',
-              }}>
-                <Check size={16} color="#16a34a" />
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:13, fontWeight:500, color:typography.color.primary }}>
-                  {fmtPayoutPeriod(payout.periodStart, payout.periodEnd)}
-                </div>
-                <div style={{ fontSize:11, color:typography.color.muted, marginTop:2 }}>
-                  Pago em {fmtDateBR(payout.paidAt)}
-                  {payout.paidVia && ` · ${methodLabel(payout.paidVia as Parameters<typeof methodLabel>[0])}`}
-                </div>
-              </div>
-              <div style={{ textAlign:'right', flexShrink:0 }}>
-                <div style={{ fontSize:14, fontWeight:700, color:typography.color.primary }}>{fmtBRL(payout.totalAmount)}</div>
-                <span style={{ fontSize:10, fontWeight:600, color:'#166534', background:'#f0fdf4', padding:'1px 7px', borderRadius:999 }}>
-                  Pago
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Estado vazio */}
-      {data && data.days.length === 0 && (
-        <div style={{
-          background:'#fff', border:`0.5px solid ${colors.gray.borderMd}`,
-          borderRadius:14, padding:'48px 24px', textAlign:'center',
-          boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
-        }}>
-          <div style={{ fontSize:32, marginBottom:12 }}>💈</div>
-          <div style={{ fontSize:15, fontWeight:600, color:typography.color.primary, marginBottom:4 }}>
-            Nenhuma comissao neste periodo
-          </div>
-          <div style={{ fontSize:13, color:typography.color.muted }}>
-            As comissoes aparecem aqui conforme os atendimentos sao confirmados.
-          </div>
-        </div>
-      )}
-      </>
+      {data && mod && (
+        <CommissionWindow mod={mod} subtitle={modSubtitle[mod]} onChange={setMod} onClose={closeWindow}>
+          {mod === 'extrato' && <ModExtrato data={data} />}
+          {mod === 'servicos' && <ModServicos data={data} />}
+          {mod === 'dias' && <ModDias data={data} loadedAt={loadedAt} />}
+          {mod === 'comparar' && <ModComparar loadedAt={loadedAt} />}
+          {mod === 'recebi' && <ModRecebi data={data} />}
+          {mod === 'clube' && <ModClube club={club} status={clubStatus} />}
+        </CommissionWindow>
       )}
     </div>
   )
 }
+
