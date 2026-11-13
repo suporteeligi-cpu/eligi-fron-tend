@@ -1,275 +1,255 @@
 'use client'
-// src/app/(dashboard)/configuracoes/page.tsx
+// src/app/dashboard/configuracoes/page.tsx
+//
+// @eligi:cfg-hub-v2 — tela inicial de Configuracoes, direcao B "Cartoes" com o
+// "o que falta" da C (nov/2026). Cada modulo diz para que serve e como esta
+// agora; o resumo vem de GET /business-settings/overview (so o dono).
+// Branco, ícones cinza, vermelho so no foco de teclado e em "Excluir conta".
+// Layout por @media. Todo texto tem cor propria: o globals.css pinta
+// `main span` de cinza (ver @eligi:doc-main-span).
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import LegalModal from '@/shared/legal/LegalModal'
 import { useCanBuyPlan } from '@/shared/utils/useEligiApp' // @eligi:cfg-web-only-import
+import { useCardStyle } from '@/hooks/useCardStyle'
+import api from '@/shared/lib/apiClient'
+import { typography } from '@/shared/theme'
 import {
-  Calendar, Building2, CreditCard, Users,
-  Sliders, Bell, Shield, ChevronRight, Scissors, Sparkles, Palette,
-  FileText, Lock, Globe, MessageSquare, // @eligi:msgtpl-nav-icon
-  UserX, // @eligi:cfg-conta-icon
+  Building2, Clock, CalendarDays, MessageSquare, Sparkles, Globe, Palette, Bell,
+  FileText, Lock, UserX, ChevronRight, AlertTriangle, Check,
 } from 'lucide-react'
 
-type ModuleItem = {
-  href?:       string
-  modal?:      'termos' | 'privacidade'
-  icon:        React.ElementType
-  label:       string
-  description: string
-  available:   boolean
-  /** So no navegador: contratar/pagar o plano nao aparece no app. @eligi:cfg-web-only */
-  webOnly?:    boolean
-}
-type ModuleGroup = { group: string; items: ModuleItem[] }
+type Tone = 'ok' | 'warn' | 'neutral'
+type Summary = { summary: string; tone: Tone }
+type ModuleKey = 'empresa' | 'horarios' | 'agendamento' | 'mensagens' | 'assinatura' | 'eligiclub' | 'notificacoes'
+type ChecklistItem = { key: string; label: string; hint: string; done: boolean; href: string; webOnly?: boolean }
+type Overview = { modules: Record<ModuleKey, Summary>; checklist: ChecklistItem[] }
 
-const MODULES: ModuleGroup[] = [
+type Card = {
+  key: ModuleKey | 'aparencia'
+  href: string
+  icon: React.ElementType
+  label: string
+  what: string
+  webOnly?: boolean
+}
+type Group = { title: string; sub: string; cards: Card[] }
+
+const GROUPS: Group[] = [
   {
-    group: 'Agendamento',
-    items: [
-      {
-        href:        '/dashboard/configuracoes/agendamento',
-        icon:        Calendar,
-        label:       'Configurações de agendamento',
-        description: 'Confirmação automática, limites de tempo e regras de remarcação.',
-        available:   true,
-      },
-      {
-        href:        '/dashboard/configuracoes/horarios',
-        icon:        Sliders,
-        label:       'Horários de funcionamento',
-        description: 'Defina os dias e horários em que seu negócio aceita agendamentos.',
-        available:   true,
-      },
+    title: 'Seu negócio', sub: 'O que o cliente vê de você',
+    cards: [
+      { key: 'empresa', href: '/dashboard/configuracoes/empresa', icon: Building2, label: 'Perfil e endereço', what: 'Nome, logo, capa, fotos, endereço, fuso e se aparece em "Perto de você".' },
+      { key: 'horarios', href: '/dashboard/configuracoes/horarios', icon: Clock, label: 'Horário de funcionamento', what: 'Os dias e as horas em que a casa abre para agendamento.' },
     ],
   },
   {
-    group: 'Financeiro',
-    items: [
-      {
-        href:        '/dashboard/configuracoes/assinatura',
-        icon:        Sparkles,
-        label:       'Sua Assinatura Eligi',
-        description: 'Seu plano, valor mensal e situacao da cobranca.',
-        available:   true,
-        webOnly:     true,
-      },
-      {
-        href:        '/dashboard/configuracoes/eligiclub',
-        icon:        Globe,
-        label:       'EligiClub — Cobrança recorrente',
-        description: 'Conecte sua conta Asaas para cobrar as mensalidades do clube automaticamente.',
-        available:   true,
-      },
-      {
-        href:        '/dashboard/configuracoes/pagamentos',
-        icon:        CreditCard,
-        label:       'Pagamentos e checkout',
-        description: 'Formas de pagamento aceitas e configurações de cobrança.',
-        available:   false,
-      },
+    title: 'Agenda e link', sub: 'Como o cliente marca horário',
+    cards: [
+      { key: 'agendamento', href: '/dashboard/configuracoes/agendamento', icon: CalendarDays, label: 'Regras do agendamento', what: 'Antecedência, até quando remarcar, CPF e planos no link.' },
+      { key: 'mensagens', href: '/dashboard/configuracoes/mensagens', icon: MessageSquare, label: 'Mensagem de confirmação', what: 'O texto que vai pelo WhatsApp quando você confirma o horário.' },
     ],
   },
   {
-    group: 'Negócio',
-    items: [
-      {
-        href:        '/dashboard/configuracoes/empresa',
-        icon:        Building2,
-        label:       'Detalhes da empresa',
-        description: 'Nome, endereço, fuso horário e informações do seu estabelecimento.',
-        available:   true,   // ⭐ HABILITADO
-      },
-      {
-        href:        '/dashboard/configuracoes/mensagens',
-        icon:        MessageSquare,
-        label:       'Mensagem de confirmação',
-        description: 'Escolha o que vai junto quando você confirmar o horário do cliente no WhatsApp.',
-        available:   true, // @eligi:confirmsg-nav
-      },
-      {
-        href:        '/dashboard/configuracoes/equipe',
-        icon:        Users,
-        label:       'Equipe e profissionais',
-        description: 'Gerencie permissões e configurações individuais de cada profissional.',
-        available:   false,
-      },
+    title: 'Dinheiro', sub: 'O que você paga e o que recebe',
+    cards: [
+      { key: 'assinatura', href: '/dashboard/configuracoes/assinatura', icon: Sparkles, label: 'Sua assinatura Eligi', what: 'Seu plano, o valor do mês e a próxima cobrança.', webOnly: true },
+      { key: 'eligiclub', href: '/dashboard/configuracoes/eligiclub', icon: Globe, label: 'Cobrança do EligiClub', what: 'A conta que recebe as mensalidades do clube no cartão.' },
     ],
   },
   {
-    group: 'Sistema',
-    items: [
-      {
-        href:        '/dashboard/configuracoes/aparencia',
-        icon:        Palette,
-        label:       'Aparência',
-        description: 'Estilo dos cards da agenda: clássico (cores cheias) ou clean (tons suaves).',
-        available:   true,
-      },
-      {
-        href:        '/dashboard/configuracoes/notificacoes',
-        icon:        Bell,
-        label:       'Notificações',
-        description: 'Escolha o que te avisa e como o pop-up aparece.',
-        available:   true,
-      },
-      {
-        href:        '/dashboard/configuracoes/privacidade',
-        icon:        Shield,
-        label:       'Privacidade e segurança',
-        description: 'Controle de dados, LGPD e configurações de acesso.',
-        available:   false,
-      },
-    ],
-  },
-  // @eligi:cfg-conta-excluir
-  {
-    group: 'Conta',
-    items: [
-      {
-        href:        '/dashboard/conta/excluir',
-        icon:        UserX,
-        label:       'Excluir conta',
-        description: 'Encerrar o Eligi deste negócio. Dá para desistir por 7 dias.',
-        available:   true,
-      },
-    ],
-  },
-  {
-    group: 'Legal',
-    items: [
-      {
-        modal:       'termos',
-        icon:        FileText,
-        label:       'Termos de Uso',
-        description: 'Condições de uso da plataforma, assinatura e responsabilidades.',
-        available:   true,
-      },
-      {
-        modal:       'privacidade',
-        icon:        Lock,
-        label:       'Política de Privacidade',
-        description: 'Como tratamos seus dados e os dados dos seus clientes (LGPD).',
-        available:   true,
-      },
+    title: 'Seu jeito de usar', sub: 'Muda só a sua tela',
+    cards: [
+      { key: 'aparencia', href: '/dashboard/configuracoes/aparencia', icon: Palette, label: 'Aparência da agenda', what: 'Cards com cor cheia ou suave. Vale só neste aparelho.' },
+      { key: 'notificacoes', href: '/dashboard/configuracoes/notificacoes', icon: Bell, label: 'Avisos', what: 'O que te avisa no sino e no celular.' },
     ],
   },
 ]
 
-function ModuleCard({
-  href, icon: Icon, label, description, available, modal, onOpenModal,
-}: {
-  href?: string; icon: React.ElementType; label: string
-  description: string; available: boolean
-  modal?: 'termos' | 'privacidade'
-  onOpenModal?: (kind: 'termos' | 'privacidade') => void
-}) {
-  const inner = (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', gap: 16,
-        padding: '18px 20px',
-        background: 'rgba(255,255,255,0.85)',
-        backdropFilter: 'blur(20px)',
-        borderRadius: 14,
-        border: `1px solid ${available ? 'rgba(0,0,0,0.07)' : 'rgba(0,0,0,0.05)'}`,
-        boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
-        cursor: available ? 'pointer' : 'default',
-        opacity: available ? 1 : 0.6,
-        transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, border-color 0.18s ease',
-        position: 'relative', overflow: 'hidden',
-      }}
-      onMouseEnter={e => {
-        if (!available) return
-        const el = e.currentTarget as HTMLDivElement
-        el.style.transform   = 'translateY(-2px)'
-        el.style.boxShadow   = '0 8px 24px rgba(220,38,38,0.10)'
-        el.style.borderColor = 'rgba(220,38,38,0.20)'
-      }}
-      onMouseLeave={e => {
-        const el = e.currentTarget as HTMLDivElement
-        el.style.transform   = 'translateY(0)'
-        el.style.boxShadow   = '0 1px 6px rgba(0,0,0,0.04)'
-        el.style.borderColor = available ? 'rgba(0,0,0,0.07)' : 'rgba(0,0,0,0.05)'
-      }}
-    >
-      <div style={{
-        width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-        background: available
-          ? 'linear-gradient(135deg,rgba(220,38,38,0.10),rgba(185,28,28,0.06))'
-          : 'rgba(0,0,0,0.05)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: available ? '1px solid rgba(220,38,38,0.12)' : '1px solid rgba(0,0,0,0.06)',
-      }}>
-        <Icon size={20} color={available ? '#dc2626' : 'rgba(0,0,0,0.3)'} strokeWidth={1.8} />
-      </div>
+const SOON = 'Pagamentos no link · Permissões da equipe · Privacidade e dados'
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: available ? '#111827' : 'rgba(0,0,0,0.4)' }}>
-            {label}
-          </span>
-          {!available && (
-            <span style={{
-              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20,
-              background: 'rgba(0,0,0,0.06)', color: 'rgba(0,0,0,0.35)',
-              letterSpacing: '0.04em', textTransform: 'uppercase',
-            }}>
-              Em breve
-            </span>
-          )}
-        </div>
-        <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', lineHeight: 1.5 }}>
-          {description}
-        </div>
-      </div>
+const INK = '#111114'
+const INK_2 = '#4b4b52'
+const INK_3 = '#6b6b73'
 
-      {available && (
-        <ChevronRight size={16} color="rgba(0,0,0,0.25)" strokeWidth={2} style={{ flexShrink: 0 }} />
-      )}
-    </div>
-  )
+const CSS = `
+.cfg{ max-width:1080px; font-family:${typography.fontFamily}; color:${INK}; animation:cfg-in .25s ease; }
+@keyframes cfg-in{ from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+@keyframes cfg-pulse{ 0%,100%{opacity:.5} 50%{opacity:1} }
+.cfg *{ box-sizing:border-box; }
+.cfg :where(span, div, b, i, p, h1, h2){ color:inherit; } /* vence main span (ver @eligi:doc-main-span) */
+.cfg a{ text-decoration:none; color:inherit; }
+.cfg button{ font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.cfg a:focus-visible, .cfg button:focus-visible{ outline:2px solid #dc2626; outline-offset:2px; }
+.cfg-d{ font-family:${typography.fontFamilyDisplay}; letter-spacing:-.03em; }
+.cfg-m{ font-family:${typography.fontFamilyMono}; }
+.cfg-h1{ margin:0; font-size:28px; font-weight:600; color:${INK}; }
+.cfg-lead{ margin:6px 0 0; font-size:14px; line-height:1.45; color:${INK_3}; max-width:560px; }
 
-  if (!available) return inner
-  if (modal) {
-    return (
-      <div onClick={() => onOpenModal?.(modal)} style={{ display: 'block', cursor: 'pointer' }}>
-        {inner}
-      </div>
-    )
-  }
+.cfg-todo{ background:#fff; border:1px solid #ececf0; border-radius:18px; padding:18px; margin-top:22px; }
+.cfg-todo-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.cfg-cap{ font-size:11px; letter-spacing:.06em; text-transform:uppercase; font-weight:500; color:${INK_3}; }
+.cfg-count{ font-size:12px; color:${INK_2}; font-variant-numeric:tabular-nums; }
+.cfg-todo-t{ font-size:21px; font-weight:600; margin:10px 0 4px; color:${INK}; }
+.cfg-todo-s{ font-size:13.5px; line-height:1.45; color:${INK_3}; margin:0 0 12px; }
+.cfg-track{ height:6px; border-radius:99px; background:#ececf0; overflow:hidden; }
+.cfg-track > i{ display:block; height:100%; background:${INK}; border-radius:99px; }
+.cfg-pend{ display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.cfg-pend a{ display:flex; align-items:center; gap:12px; min-height:56px; padding:10px 12px; border-radius:14px; background:#fffbeb; border:1px solid rgba(180,83,9,.16); }
+.cfg-pend .ic{ color:#b45309; flex-shrink:0; display:flex; }
+.cfg-pend .tx{ flex:1; min-width:0; }
+.cfg-pend .lb{ display:block; font-weight:600; font-size:14px; color:${INK}; }
+.cfg-pend .hn{ display:block; font-size:12.5px; line-height:1.4; color:#7a4a0f; margin-top:2px; }
+.cfg-pend .go{ font-size:13px; font-weight:600; color:${INK}; white-space:nowrap; display:flex; align-items:center; gap:2px; }
+.cfg-done{ display:flex; align-items:center; gap:10px; margin-top:22px; padding:12px 14px; border-radius:14px; background:#ecfdf5; color:#0f6e56; font-size:14px; font-weight:600; }
+
+.cfg-groups{ display:flex; flex-direction:column; gap:26px; margin-top:26px; }
+.cfg-gt{ font-size:19px; font-weight:600; color:${INK}; }
+.cfg-gs{ font-size:13px; color:${INK_3}; margin-top:2px; }
+.cfg-grid{ display:grid; grid-template-columns:minmax(0,1fr); gap:10px; margin-top:10px; }
+@media (min-width:720px){ .cfg-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.cfg-card{ display:flex; flex-direction:column; gap:10px; min-height:148px; padding:16px; background:#fff; border:1px solid #ececf0; border-radius:18px; transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+@media (hover:hover){ .cfg-card:hover{ border-color:#d6d6dc; box-shadow:0 6px 18px rgba(17,17,20,.06); transform:translateY(-1px); } }
+.cfg-card-top{ display:flex; align-items:center; justify-content:space-between; }
+.cfg-tile{ width:38px; height:38px; border-radius:11px; background:#f2f2f5; color:#3c3c43; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.cfg-chev{ color:#b8b8c0; display:flex; }
+.cfg-name{ font-weight:600; font-size:15.5px; color:${INK}; }
+.cfg-what{ font-size:13px; line-height:1.4; color:${INK_3}; margin-top:3px; }
+.cfg-state{ margin-top:auto; border-top:1px dashed #e6e6ea; padding-top:9px; display:flex; align-items:center; gap:7px; min-height:22px; }
+.cfg-dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; background:#b8b8c0; }
+.cfg-state .cfg-m{ font-size:11.5px; color:${INK_2}; line-height:1.35; }
+.cfg-state.ok .cfg-dot{ background:#16a34a; } .cfg-state.ok .cfg-m{ color:#0f6e56; }
+.cfg-state.warn .cfg-dot{ background:#d97706; } .cfg-state.warn .cfg-m{ color:#b45309; }
+.cfg-skel{ display:inline-block; height:10px; width:60%; border-radius:6px; background:#ececf0; animation:cfg-pulse 1.2s ease-in-out infinite; }
+
+.cfg-links{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.cfg-chip{ display:inline-flex; align-items:center; gap:7px; min-height:44px; padding:0 14px; border:1px solid #e3e3e8; border-radius:999px; background:#fff; font-size:14px; font-weight:500; color:${INK}; }
+.cfg-chip.danger{ color:#a32d2d; }
+.cfg-soon{ background:#fbfbfc; border:1px dashed #e3e3e8; border-radius:16px; padding:14px 16px; }
+.cfg-soon p{ margin:6px 0 0; font-size:13px; color:${INK_3}; }
+@media (prefers-reduced-motion:reduce){ .cfg, .cfg-skel{ animation:none; } .cfg-card{ transition:none; } }
+`
+
+// Busca pura: o setState fica no .then de quem chama (regra do React Compiler).
+function fetchOverview(): Promise<Overview> {
+  return api.get('/business-settings/overview').then((r) => r.data?.data ?? r.data)
+}
+
+type Load = { data: Overview | null; failed: boolean }
+
+function StateLine({ s, loading }: { s?: Summary; loading: boolean }) {
+  if (loading) return <div className="cfg-state"><span className="cfg-skel" aria-hidden /></div>
+  if (!s) return <div className="cfg-state"><span className="cfg-dot" /><span className="cfg-m">Abrir para ver</span></div>
   return (
-    <Link href={href!} style={{ textDecoration: 'none', display: 'block' }}>
-      {inner}
-    </Link>
+    <div className={`cfg-state ${s.tone === 'neutral' ? '' : s.tone}`}>
+      <span className="cfg-dot" aria-hidden />
+      <span className="cfg-m">{s.summary}</span>
+    </div>
   )
 }
 
 export default function ConfiguracoesPage() {
   const canBuy = useCanBuyPlan() // @eligi:cfg-web-only-flag
+  const cardStyle = useCardStyle()
   const [legal, setLegal] = useState<null | 'termos' | 'privacidade'>(null)
+  const [load, setLoad] = useState<Load | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    fetchOverview()
+      .then((data) => { if (vivo) setLoad({ data, failed: false }) })
+      .catch((e) => {
+        console.error('[configuracoes] resumo', e)
+        if (vivo) setLoad({ data: null, failed: true })
+      })
+    return () => { vivo = false }
+  }, [])
+
+  const loading = load === null
+  const ov = load?.data ?? null
+  const summaryOf = (key: Card['key']): Summary | undefined => {
+    if (key === 'aparencia') return { summary: cardStyle === 'clean' ? 'Clean · cores suaves' : 'Clássico · cores cheias', tone: 'neutral' }
+    return ov?.modules[key]
+  }
+
+  const items = (ov?.checklist ?? []).filter((c) => !c.webOnly || canBuy)
+  const pend = items.filter((c) => !c.done)
+  const done = items.length - pend.length
+
   return (
     <>
-      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }`}</style>
-      <div style={{ maxWidth: 720, animation: 'fadeUp 0.3s ease', fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
-        <div style={{ marginBottom: 32 }}>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', color: '#0f0f14' }}>Configurações</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>Personalize o comportamento do seu negócio no Eligi.</p>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-          {MODULES.map(group => (
-            <div key={group.group}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(0,0,0,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10, paddingLeft: 2 }}>
-                {group.group}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {group.items.filter(item => !item.webOnly || canBuy).map(item => (
-                  <ModuleCard key={item.href ?? item.modal ?? item.label} {...item} onOpenModal={setLegal} />
-                ))}
-              </div>
+      <style>{CSS}</style>
+      <div className="cfg">
+        <h1 className="cfg-h1 cfg-d">Configurações</h1>
+        <p className="cfg-lead">Separado pelo que muda: o que o cliente vê, como ele marca, o seu dinheiro e a sua tela. Cada cartão mostra como está agora.</p>
+
+        {/* @eligi:cfg-hub-todo — "o que falta" (direcao C) */}
+        {ov && items.length > 0 && (pend.length > 0 ? (
+          <section className="cfg-todo" aria-label="O que falta configurar">
+            <div className="cfg-todo-top">
+              <span className="cfg-cap cfg-m">Seu negócio no Eligi</span>
+              <span className="cfg-count cfg-m">{done}/{items.length}</span>
             </div>
-          ))}
+            <div className="cfg-todo-t cfg-d">{pend.length === 1 ? 'Falta 1 coisa' : `Faltam ${pend.length} coisas`}</div>
+            <p className="cfg-todo-s">Resolva para o cliente encontrar você e marcar sem travar.</p>
+            <div className="cfg-track" role="progressbar" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={done}>
+              <i style={{ width: `${Math.round((done / items.length) * 100)}%` }} />
+            </div>
+            <div className="cfg-pend">
+              {pend.map((c) => (
+                <Link key={c.key} href={c.href}>
+                  <span className="ic"><AlertTriangle size={18} strokeWidth={1.9} /></span>
+                  <span className="tx"><span className="lb">{c.label}</span><span className="hn">{c.hint}</span></span>
+                  <span className="go">Resolver <ChevronRight size={15} /></span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <div className="cfg-done"><Check size={18} strokeWidth={2.2} /> Tudo pronto: o essencial está configurado.</div>
+        ))}
+
+        <div className="cfg-groups">
+          {GROUPS.map((g) => {
+            const cards = g.cards.filter((c) => !c.webOnly || canBuy)
+            if (cards.length === 0) return null
+            return (
+              <section key={g.title} aria-label={g.title}>
+                <div className="cfg-gt cfg-d">{g.title}</div>
+                <div className="cfg-gs">{g.sub}</div>
+                <div className="cfg-grid">
+                  {cards.map(({ key, href, icon: Icon, label, what }) => (
+                    <Link key={key} href={href} className="cfg-card">
+                      <div className="cfg-card-top">
+                        <span className="cfg-tile"><Icon size={19} strokeWidth={1.8} /></span>
+                        <span className="cfg-chev"><ChevronRight size={17} /></span>
+                      </div>
+                      <div>
+                        <div className="cfg-name">{label}</div>
+                        <div className="cfg-what">{what}</div>
+                      </div>
+                      <StateLine s={summaryOf(key)} loading={loading && key !== 'aparencia'} />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )
+          })}
+
+          <section aria-label="Conta e documentos">
+            <div className="cfg-cap cfg-m">Conta e documentos</div>
+            <div className="cfg-links">
+              <button type="button" className="cfg-chip" onClick={() => setLegal('termos')}><FileText size={16} /> Termos de uso</button>
+              <button type="button" className="cfg-chip" onClick={() => setLegal('privacidade')}><Lock size={16} /> Política de privacidade</button>
+              <Link href="/dashboard/conta/excluir" className="cfg-chip danger"><UserX size={16} /> Excluir conta</Link>
+            </div>
+          </section>
+
+          <div className="cfg-soon">
+            <div className="cfg-cap cfg-m">Em breve</div>
+            <p>{SOON}</p>
+          </div>
         </div>
       </div>
       {legal && <LegalModal kind={legal} onClose={() => setLegal(null)} />}
