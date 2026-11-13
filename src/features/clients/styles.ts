@@ -189,5 +189,17 @@ export const CLIENTS_CSS = `
 .cl-toast span{ color:#fff; }
 .cl-toast.is-bad{ background:#a32d2d; }
 @media (min-width:1024px){ .cl-toast{ bottom:28px; } }
+/* @eligi:cl-narrow - celular estreito (decisao do Eli, 13/11/2026). Antes o topo passava 97px
+   da tela em 320px e a aba A-Z tinha 31px de largura. */
+.cl-tab{ min-width:44px; text-align:center; }
+@media (max-width:599px){ .cl-page{ margin:0 -16px; } } /* mesmo gutter das comissoes */
+@media (max-width:399px){
+  .cl-head{ gap:8px; }
+  .cl-h1{ font-size:24px; gap:6px; }
+  .cl-head-actions{ gap:4px; }
+  .cl-tabs{ gap:10px; }
+  .cl-btn-new{ width:44px; padding:0; justify-content:center; }
+  .cl-btn-new span{ position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+}
 @media (prefers-reduced-motion:reduce){ .cl-page, .cl-selbar{ animation:none; } .cl-skel i{ animation:none; } }
 `
