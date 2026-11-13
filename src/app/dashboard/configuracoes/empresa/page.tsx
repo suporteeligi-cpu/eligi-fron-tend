@@ -8,6 +8,7 @@ import api from '@/shared/lib/apiClient'
 import { type BusinessTheme, type BusinessSocials } from '@/shared/profileTheme'
 
 import TimezoneCard from './components/TimezoneCard'
+import DiscoverCard, { type DiscoverStatus } from './components/DiscoverCard' // @eligi:discover-card-import
 import ProfileThemeEditor from '@/features/settings/components/ProfileThemeEditor'
 
 interface BusinessSettings {
@@ -24,6 +25,7 @@ interface BusinessSettings {
   socials:  BusinessSocials | null
   gallery:  string[] | null
   galleryItems?: Array<{ url: string; professionalId: string | null }> | null // @eligi:gpro-page-tipo
+  discover?: DiscoverStatus | null // @eligi:discover-card-tipo (back antigo: ausente)
 }
 
 export default function EmpresaPage() {
@@ -32,6 +34,7 @@ export default function EmpresaPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
   const [showTheme, setShowTheme] = useState(false)
+  const [discoverRev, setDiscoverRev] = useState(0) // @eligi:discover-card-rev
 
   const fetch = useCallback(async () => {
     try {
@@ -122,6 +125,10 @@ export default function EmpresaPage() {
                 onSaved={(tz) => setData(d => d ? { ...d, timezone: tz } : d)}
               />
 
+              {data.discover && (
+                <DiscoverCard key={discoverRev} initial={data.discover} onEditAddress={() => setShowTheme(true)} /> // @eligi:discover-card-uso
+              )}
+
               {/* Botão Aparência — abre/fecha o editor do perfil público */}
               <button
                 onClick={() => setShowTheme(v => !v)}
@@ -187,7 +194,14 @@ export default function EmpresaPage() {
                   initialSocials={data.socials}
                   initialGallery={data.gallery}
                   initialGalleryItems={data.galleryItems ?? null} // @eligi:gpro-page-prop
-                  onSaved={(theme) => setData(d => d ? { ...d, theme } : d)}
+                  onSaved={(theme) => {
+                    setData(d => d ? { ...d, theme } : d)
+                    // endereco salvo aqui muda o "Para aparecer": rele o status
+                    void api.get('/business-settings').then((res) => {
+                      const next = res.data?.data?.discover as DiscoverStatus | undefined
+                      if (next) { setData(d => d ? { ...d, discover: next } : d); setDiscoverRev(r => r + 1) }
+                    }).catch(() => { /* o card segue com o status anterior */ })
+                  }}
                 />
               </div>
             )}
