@@ -14,12 +14,15 @@ import { Plus, Upload, Search, X, ListChecks } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
-import type { ClientListItem, ClientListResponse, ClientsTab } from '@/features/clients/types'
+import type { ClientListItem, ClientListResponse, ClientsTab, LapsedGroup } from '@/features/clients/types'
 import { CLIENTS_CSS } from '@/features/clients/styles'
+import { LAPSED_CSS } from '@/features/clients/lapsedStyles' // @eligi:lapsed-page-import
 
 import ClientsList        from './components/ClientsList'
 import ImportClientsModal from './components/ImportClientsModal'
 import ClientProfileView  from './[id]/components/ClientProfileView'
+import LapsedChips, { type LapsedFilter } from './components/LapsedChips'
+import LapsedWhatsSheet from './components/LapsedWhatsSheet'
 
 const PAGE_SIZE = 30
 const SPLIT_QUERY = '(min-width: 1024px)'
@@ -43,12 +46,13 @@ const EMPTY_TEXT: Record<ClientsTab, string> = {
   az:     'Comece adicionando seu primeiro cliente.',
   spent:  'Quando os clientes pagarem no caixa, o gasto aparece aqui.',
   recent: 'As visitas concluídas aparecem aqui.',
-  lapsed: 'Ninguém sumido: todos os clientes voltaram nos últimos 45 dias.',
+  lapsed: 'Ninguém sumido: todos voltaram dentro do ritmo de cada um.',
 }
 
-async function fetchPage(q: string, tab: ClientsTab, page: number, signal?: AbortSignal): Promise<ClientListResponse> {
+async function fetchPage(q: string, tab: ClientsTab, page: number, pro: LapsedFilter, signal?: AbortSignal): Promise<ClientListResponse> {
   const res = await api.get('/clients', {
-    params: { search: q || undefined, page, limit: PAGE_SIZE, ...paramsOf(tab) },
+    // @eligi:lapsed-page-fetch — filtro por profissional so na aba Sumidos
+    params: { search: q || undefined, page, limit: PAGE_SIZE, ...paramsOf(tab), professionalId: tab === 'lapsed' && pro ? pro : undefined },
     signal,
   })
   return (res.data?.data ?? res.data) as ClientListResponse
@@ -73,6 +77,10 @@ export default function ClientesPage() {
   const [selecting, setSelecting] = useState(false)
   const [selected,  setSelected]  = useState<Set<string>>(() => new Set<string>())
   const [reloadKey, setReloadKey] = useState(0)
+  const [proFilter, setProFilter] = useState<LapsedFilter>(null)
+  const [groups,    setGroups]    = useState<LapsedGroup[] | null>(null)
+  const [risk,      setRisk]      = useState(0)
+  const [whats,     setWhats]     = useState<ClientListItem | null>(null)
 
   // Busca da 1a pagina: debounce de 350ms na digitacao; troca de aba e
   // recarga chegam pelo mesmo caminho. setState so depois do await.
@@ -80,10 +88,12 @@ export default function ClientesPage() {
     const ctrl = new AbortController()
     const t = setTimeout(() => {
       setLoading(true)
-      fetchPage(search, tab, 1, ctrl.signal)
+      fetchPage(search, tab, 1, proFilter, ctrl.signal)
         .then(data => {
           if (ctrl.signal.aborted) return
           setClients(data.clients ?? [])
+          setGroups(data.lapsedGroups ?? null)
+          setRisk(data.lapsedRisk ?? 0)
           setTotal(data.total ?? 0)
           setTotalAll(data.stats?.totalClients ?? data.total ?? 0)
           setPage(1)
@@ -94,16 +104,16 @@ export default function ClientesPage() {
         .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
     }, search ? 350 : 0)
     return () => { clearTimeout(t); ctrl.abort() }
-  }, [search, tab, reloadKey])
+  }, [search, tab, reloadKey, proFilter])
 
   // "Carregar mais" le a busca e a aba atuais pelo ref, sem refazer o efeito.
-  const queryRef = useRef({ search, tab })
-  useEffect(() => { queryRef.current = { search, tab } }, [search, tab])
+  const queryRef = useRef({ search, tab, proFilter })
+  useEffect(() => { queryRef.current = { search, tab, proFilter } }, [search, tab, proFilter])
 
   const loadMore = useCallback(() => {
     const next = page + 1
     setLoadingMore(true)
-    fetchPage(queryRef.current.search, queryRef.current.tab, next)
+    fetchPage(queryRef.current.search, queryRef.current.tab, next, queryRef.current.proFilter)
       .then(data => {
         setClients(prev => {
           const seen = new Set(prev.map(c => c.id))
@@ -119,6 +129,8 @@ export default function ClientesPage() {
   const changeTab = (t: ClientsTab) => {
     if (t === tab) return
     setTab(t)
+    setProFilter(null)
+    setGroups(null)
     setSelected(new Set<string>())
   }
 
@@ -183,7 +195,7 @@ export default function ClientesPage() {
 
   return (
     <div className="cl-page">
-      <style>{CLIENTS_CSS}</style>
+      <style>{CLIENTS_CSS + LAPSED_CSS}</style>
 
       {showImport && (
         <ImportClientsModal
@@ -250,6 +262,10 @@ export default function ClientesPage() {
             </div>
           </div>
 
+          {tab === 'lapsed' && groups && groups.length > 0 && (
+            <LapsedChips groups={groups} risk={risk} value={proFilter} onChange={setProFilter} />
+          )}
+
           {loading ? (
             <div className="cl-rows" aria-busy="true" aria-label="Carregando clientes">
               {[0, 1, 2, 3, 4, 5].map(i => (
@@ -277,6 +293,7 @@ export default function ClientesPage() {
                 selectionActive={selectionActive}
                 onOpen={openClient}
                 onToggle={toggleSelect}
+                onWhats={setWhats}
               />
               {page < pages && (
                 <div className="cl-more">
@@ -310,6 +327,8 @@ export default function ClientesPage() {
           </div>
         </section>
       </div>
+
+      {whats && <LapsedWhatsSheet client={whats} onClose={() => setWhats(null)} />}
 
       {selectionActive && (
         <div className="cl-selbar-wrap">

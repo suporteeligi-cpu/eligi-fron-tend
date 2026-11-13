@@ -26,6 +26,31 @@ export interface ClientListItem {
   daysSinceLastVisit: number | null
   lapsed:             boolean
   hasClub:            boolean
+  // @eligi:lapsed-types — sumidos por profissional (nov/2026). Opcionais: back antigo nao manda.
+  /** profissional com quem fez a maior parte das visitas; null = sem preferencia */
+  topPro?:            LapsedTopPro | null
+  /** mediana dos dias entre visitas; null com menos de 3 */
+  rhythmDays?:        number | null
+  monthlyRisk?:       number
+}
+
+export interface LapsedTopPro {
+  id:     string
+  name:   string
+  /** false = saiu da equipe */
+  active: boolean
+  visits: number
+  chose:  number
+}
+
+export interface LapsedGroup {
+  /** null = sem preferencia */
+  professionalId: string | null
+  name:           string | null
+  avatarUrl:      string | null
+  active:         boolean
+  count:          number
+  monthlyRisk:    number
 }
 
 export interface ClientListResponse {
@@ -34,6 +59,8 @@ export interface ClientListResponse {
   page:    number
   pages:   number
   stats?:  { totalClients: number; lapsedDays: number }
+  lapsedGroups?: LapsedGroup[] | null
+  lapsedRisk?:   number | null
 }
 
 /** Aba da lista. Cada uma vira orderBy/segment no GET /clients. */
