@@ -85,8 +85,8 @@ const WA_INK = '#111b21'
 const WA_DIM = '#667781'
 const WA_LINK = '#027eb5'
 
-/** Chave liga-desliga no verde do WhatsApp. */
-const SWITCH_ON = 'linear-gradient(135deg, #22c55e, #16a34a)'
+/** Chave liga-desliga em grafite, igual as outras telas de Configuracoes. @eligi:msg-v3-switch */
+const SWITCH_ON = '#111114'
 const SWITCH_OFF = 'rgba(17,17,20,0.16)'
 
 /** Alvo minimo de toque. */
@@ -195,12 +195,12 @@ function missingContent(
 }
 
 const CSS = `
-.cfmsg-sheet {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1101;
-  background: #fff; border-radius: 26px 26px 0 0;
-  box-shadow: 0 -16px 50px rgba(0,0,0,0.30);
-  padding: 8px 20px calc(22px + env(safe-area-inset-bottom));
-  max-height: 86dvh; overflow: auto; overscroll-behavior: contain;
+.cfmsg-sheet { /* @eligi:msg-v3-sheet — entre a navbar (104px) e a barra de baixo (64px) */
+  position: fixed; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 9999;
+  background: #fff; border-radius: 22px 22px 0 0;
+  box-shadow: 0 -16px 50px rgba(0,0,0,0.22);
+  padding: 8px 20px 22px;
+  max-height: calc(100dvh - 104px - 64px - env(safe-area-inset-bottom)); overflow: auto; overscroll-behavior: contain;
   animation: cfmsgUp 0.26s cubic-bezier(0.32,0.72,0,1);
 }
 @keyframes cfmsgUp { from { transform: translateY(102%) } to { transform: translateY(0) } }
@@ -211,7 +211,7 @@ const CSS = `
 .cfmsg-acts { display: flex; flex-direction: column; gap: 10px; }
 @media (min-width: 900px) {
   .cfmsg-sheet {
-    left: 50%; right: auto; bottom: auto; top: 50%;
+    left: calc(50% + var(--sidebar-width, 0px) / 2); right: auto; bottom: auto; top: 50%;
     width: min(560px, 92vw); border-radius: 22px; max-height: 82dvh;
     transform: translate(-50%, -50%); padding: 22px 26px 26px;
     animation: cfmsgIn 0.2s ease;
@@ -221,6 +221,10 @@ const CSS = `
   .cfmsg-acts > button { flex: 1 1 0; }
 }
 .cfmsg-pre { white-space: pre-wrap; word-break: break-word; }
+.cfmsg-m { font-family: ${typography.fontFamilyMono}; } /* @eligi:msg-v3-css */
+.cfmsg-sheet *, .cfmsg-page * { box-sizing: border-box; }
+.cfmsg-d { font-family: ${typography.fontFamilyDisplay}; letter-spacing: -.03em; }
+.cfmsg-page button:focus-visible, .cfmsg-page a:focus-visible, .cfmsg-sheet button:focus-visible { outline: 2px solid #dc2626; outline-offset: 2px; }
 .cfmsg-row { transition: background 0.14s ease; }
 @media (hover: hover) { .cfmsg-row:hover { background: rgba(0,0,0,0.02); } }
 @media (prefers-reduced-motion: reduce) {
@@ -339,34 +343,24 @@ export default function ConfirmMessagePage() {
   const blocked = over || pending.length > 0
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 4px 48px' }}>
+    <div className="cfmsg-page" style={{ maxWidth: 720, padding: '0 0 48px' }}>{/* @eligi:msg-v3-shell */}
       <style>{CSS}</style>
 
       <Link
         href="/dashboard/configuracoes"
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14,
-          color: inkLight.label, fontSize: 13, fontWeight: 600, textDecoration: 'none',
-          minHeight: TAP,
+          display: 'inline-flex', alignItems: 'center', gap: 4, margin: '0 0 0 -4px', padding: '0 10px 0 4px',
+          color: '#4b4b52', fontSize: 14, fontWeight: 500, textDecoration: 'none',
+          minHeight: TAP, borderRadius: 12,
         }}
       >
-        <ChevronLeft size={16} /> Configurações
+        <ChevronLeft size={18} /> Configurações
       </Link>
 
-      <h1
-        style={{
-          margin: '0 0 10px',
-          fontFamily: typography.fontFamily,
-          fontSize: 'clamp(28px, 6vw, 42px)',
-          fontWeight: 700,
-          letterSpacing: '-1.2px',
-          lineHeight: 1.05,
-          color: inkLight.strong,
-        }}
-      >
+      <h1 className="cfmsg-d" style={{ margin: '4px 0 0', fontSize: 28, fontWeight: 600, lineHeight: 1.15, color: inkLight.strong }}>
         Mensagem de confirmação
       </h1>
-      <p style={{ margin: '0 0 20px', color: colors.gray[500], fontSize: 15, maxWidth: '52ch' }}>
+      <p style={{ margin: '6px 0 20px', color: '#6b6b73', fontSize: 14, lineHeight: 1.45, maxWidth: 560 }}>
         É o que o cliente recebe quando você toca no botão do WhatsApp na agenda.
         Ligue e desligue os blocos abaixo para montar a sua.
       </p>
@@ -381,9 +375,10 @@ export default function ConfirmMessagePage() {
           <div style={{ ...glassCard, padding: '16px 18px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ flexShrink: 0 }}>
               <span
+                className="cfmsg-d"
                 style={{
-                  fontSize: 'clamp(28px, 7vw, 38px)', fontWeight: 700, lineHeight: 1,
-                  letterSpacing: '-1.4px', fontVariantNumeric: 'tabular-nums',
+                  fontSize: 32, fontWeight: 600, lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
                   color: meterTone.text,
                 }}
               >
@@ -400,7 +395,7 @@ export default function ConfirmMessagePage() {
               <small style={{ display: 'block', fontSize: 12.5, color: inkLight.faint, marginTop: 2 }}>
                 {over
                   ? 'Desligue um bloco para poder salvar'
-                  : 'Acima de 500 o WhatsApp corta no meio'}
+                  : `Acima de ${CONFIRM_BODY_MAX} o celular pode não abrir a conversa`}{/* @eligi:msg-v3-limite: era 500, o teto e CONFIRM_BODY_MAX */}
               </small>
               <div style={{ height: 6, borderRadius: 999, background: 'rgba(0,0,0,0.07)', overflow: 'hidden', marginTop: 9 }}>
                 <div
@@ -472,9 +467,10 @@ export default function ConfirmMessagePage() {
 
           {/* blocos */}
           <p
+            className="cfmsg-m"
             style={{
-              margin: '0 0 9px 2px', fontSize: 11, fontWeight: 700, letterSpacing: '0.9px',
-              textTransform: 'uppercase', color: inkLight.faint,
+              margin: '0 0 9px 2px', fontSize: 11, fontWeight: 500, letterSpacing: '0.06em',
+              textTransform: 'uppercase', color: '#6b6b73',
             }}
           >
             Blocos da mensagem · {activeCount} de {BLOCK_ORDER.length} ligados
@@ -641,8 +637,8 @@ export default function ConfirmMessagePage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
                 border: 'none', borderRadius: 14, padding: 15, fontSize: 16, fontWeight: 700,
                 minHeight: 52, cursor: saving || blocked ? 'not-allowed' : 'pointer',
-                background: blocked ? '#d9d9de' : colors.red.DEFAULT, color: '#fff',
-                boxShadow: blocked ? 'none' : shadows.redMd,
+                background: blocked ? '#d9d9de' : inkLight.strong, color: '#fff', // @eligi:msg-v3-salvar
+                boxShadow: 'none',
                 fontFamily: typography.fontFamily,
               }}
             >
@@ -723,8 +719,7 @@ function BlockSheet({ blockKey, settings, onPatch, onRemove, onClose }: BlockShe
       <div
         onClick={onClose}
         style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.42)',
-          backdropFilter: 'blur(3px)', zIndex: 1100,
+          position: 'fixed', inset: 0, background: 'rgba(17,17,20,0.32)', zIndex: 9998, // @eligi:msg-v3-fundo
         }}
       />
       <div className="cfmsg-sheet" role="dialog" aria-label={meta.label}>
@@ -740,7 +735,7 @@ function BlockSheet({ blockKey, settings, onPatch, onRemove, onClose }: BlockShe
             <Icon size={22} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.7px', color: inkLight.strong }}>
+            <h2 className="cfmsg-d" style={{ margin: 0, fontSize: 21, fontWeight: 600, color: inkLight.strong }}>{/* @eligi:msg-v3-h2 */}
               {meta.label}
             </h2>
             <p style={{ margin: '3px 0 0', color: inkLight.faint, fontSize: 13.5 }}>{meta.hint}</p>
@@ -883,7 +878,7 @@ function BlockSheet({ blockKey, settings, onPatch, onRemove, onClose }: BlockShe
             style={{
               flex: '1 1 0', border: 'none', borderRadius: 14, padding: 15,
               fontSize: 16, fontWeight: 700, minHeight: 52, cursor: 'pointer',
-              background: colors.red.DEFAULT, color: '#fff', boxShadow: shadows.redMd,
+              background: inkLight.strong, color: '#fff', // @eligi:msg-v3-pronto
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               fontFamily: typography.fontFamily,
             }}
