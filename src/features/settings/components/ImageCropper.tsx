@@ -8,7 +8,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Check, X, ZoomIn, Loader2 } from 'lucide-react';
 
-const FRAME_W = 300;
+// @eligi:cropper-largura — 300 px fixos + margens estouravam celular de 320-360 px.
+const FRAME_MAX = 300;
 
 interface Props {
   src: string;                 // object URL ou data URL do arquivo escolhido
@@ -31,6 +32,8 @@ export default function ImageCropper({
   outType = 'image/webp', quality = 0.85, title = 'Recortar imagem',
   onCancel, onApply,
 }: Props) {
+  const [FRAME_W] = useState(() =>
+    typeof window === 'undefined' ? FRAME_MAX : Math.max(220, Math.min(FRAME_MAX, window.innerWidth - 76)));
   const frameH = Math.round(FRAME_W / aspect);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [baseScale, setBaseScale] = useState(1);
@@ -55,7 +58,7 @@ export default function ImageCropper({
     };
     i.src = src;
     return () => { active = false; };
-  }, [src, frameH]);
+  }, [src, frameH, FRAME_W]);
 
   const clamp = useCallback((x: number, y: number, scale: number, image: HTMLImageElement) => {
     const dispW = image.naturalWidth * scale;
@@ -64,7 +67,7 @@ export default function ImageCropper({
       x: Math.min(0, Math.max(FRAME_W - dispW, x)),
       y: Math.min(0, Math.max(frameH - dispH, y)),
     };
-  }, [frameH]);
+  }, [frameH, FRAME_W]);
 
   function onZoom(z: number) {
     if (!img) return;
@@ -159,7 +162,7 @@ export default function ImageCropper({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px' }}>
           <ZoomIn size={16} color="#71717a" />
-          <input type="range" min={1} max={3} step={0.01} value={zoom} disabled={!img} onChange={e => onZoom(Number(e.target.value))} style={{ flex: 1, accentColor: '#dc2626' }} />
+          <input type="range" min={1} max={3} step={0.01} value={zoom} disabled={!img} onChange={e => onZoom(Number(e.target.value))} aria-label="Zoom" style={{ flex: 1, minHeight: 44, accentColor: '#111114' }} />
         </div>
 
         <div style={{ display: 'flex', gap: 9, padding: '0 18px 18px' }}>
@@ -171,9 +174,9 @@ export default function ImageCropper({
   );
 }
 
-const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(12,12,18,.55)', display: 'grid', placeItems: 'center', zIndex: 10000, padding: 18, fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' };
+const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(12,12,18,.55)', display: 'grid', placeItems: 'center', zIndex: 10000, padding: 14, fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' };
 const modal: React.CSSProperties = { background: '#fff', borderRadius: 20, width: 'min(440px,100%)', overflow: 'hidden', boxShadow: '0 30px 80px -20px rgba(0,0,0,.5)' };
 const header: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 18px', borderBottom: '1px solid #f1f1f4' };
-const iconBtn: React.CSSProperties = { width: 30, height: 30, borderRadius: 8, border: '1px solid #e7e7ec', background: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#71717a' };
-const ghostBtn: React.CSSProperties = { flex: 1, padding: 12, borderRadius: 11, border: '1px solid #e7e7ec', background: '#fff', color: '#71717a', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' };
-const goBtn: React.CSSProperties = { flex: 2, padding: 12, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 };
+const iconBtn: React.CSSProperties = { width: 44, height: 44, borderRadius: 8, border: '1px solid #e7e7ec', background: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#71717a' };
+const ghostBtn: React.CSSProperties = { flex: 1, minHeight: 48, padding: 12, borderRadius: 11, border: '1px solid #e7e7ec', background: '#fff', color: '#71717a', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' };
+const goBtn: React.CSSProperties = { flex: 2, minHeight: 48, padding: 12, borderRadius: 11, border: 'none', background: '#111114', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 };

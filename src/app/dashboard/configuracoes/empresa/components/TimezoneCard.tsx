@@ -71,24 +71,21 @@ export default function TimezoneCard({ initialTimezone, onSaved }: Props) {
 
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.85)',
-      backdropFilter: 'blur(20px)',
-      borderRadius: 14,
-      border: '1px solid rgba(0,0,0,0.07)',
-      boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
-      padding: 24,
+      background: '#fff', // @eligi:tz-card-v2 — mesmo cartao de Perfil e endereco
+      borderRadius: 18,
+      border: '1px solid #ececf0',
+      padding: 16,
       fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <div style={{
           width: 38, height: 38, borderRadius: 11,
-          background: 'linear-gradient(135deg, rgba(220,38,38,0.10), rgba(185,28,28,0.06))',
-          border: '1px solid rgba(220,38,38,0.12)',
+          background: '#f2f2f5',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <Clock size={17} color="#dc2626" strokeWidth={2} />
+          <Clock size={18} color="#3c3c43" strokeWidth={2} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
@@ -172,9 +169,10 @@ export default function TimezoneCard({ initialTimezone, onSaved }: Props) {
             width: '100%',
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '12px 14px',
+            minHeight: 56,
             background: '#fff',
-            border: '1px solid rgba(0,0,0,0.10)',
-            borderRadius: 10,
+            border: '1px solid #e3e3e8',
+            borderRadius: 12,
             cursor: 'pointer',
             textAlign: 'left',
             fontFamily: 'inherit',
@@ -238,8 +236,8 @@ export default function TimezoneCard({ initialTimezone, onSaved }: Props) {
           background: 'rgba(220,38,38,0.06)',
           border: '1px solid rgba(220,38,38,0.18)',
           borderRadius: 8,
-          fontSize: 12,
-          color: '#dc2626',
+          fontSize: 13,
+          color: '#a32d2d',
           marginBottom: 12,
         }}>
           {error}
@@ -263,12 +261,11 @@ export default function TimezoneCard({ initialTimezone, onSaved }: Props) {
           onClick={save}
           disabled={!hasChanged || saving}
           style={{
-            padding: '9px 18px',
-            borderRadius: 8,
+            padding: '0 18px',
+            minHeight: 44,
+            borderRadius: 12,
             border: 'none',
-            background: hasChanged && !saving
-              ? 'linear-gradient(135deg, #dc2626, #b91c1c)'
-              : 'rgba(0,0,0,0.06)',
+            background: hasChanged && !saving ? '#111114' : 'rgba(0,0,0,0.06)',
             color: hasChanged && !saving ? '#fff' : 'rgba(0,0,0,0.35)',
             fontSize: 13,
             fontWeight: 700,
@@ -309,22 +306,23 @@ function OptionRow({ label, selected, onClick }: { label: string; selected: bool
       style={{
         width: '100%',
         display: 'flex', alignItems: 'center', gap: 8,
-        padding: '9px 10px',
-        background: selected ? 'rgba(220, 38, 38, 0.06)' : 'transparent',
+        padding: '0 12px',
+        minHeight: 44,
+        background: selected ? '#f2f2f5' : 'transparent',
         border: 'none',
         borderRadius: 7,
         cursor: 'pointer',
         textAlign: 'left',
         fontFamily: 'inherit',
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: selected ? 700 : 500,
-        color: selected ? '#dc2626' : '#111827',
+        color: '#111114',
         WebkitTapHighlightColor: 'transparent',
       }}
       onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }}
       onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent' }}
     >
-      {selected && <Check size={12} color="#dc2626" strokeWidth={2.4} />}
+      {selected && <Check size={14} color="#111114" strokeWidth={2.4} />}
       <span style={{ flex: 1 }}>{label}</span>
     </button>
   )

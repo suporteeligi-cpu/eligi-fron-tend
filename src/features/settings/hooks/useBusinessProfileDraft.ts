@@ -174,11 +174,11 @@ export function useBusinessProfileDraft(init: BusinessProfileDraftInit) {
       if (section === 'theme') return { ...theme }
       if (section === 'images') return { logoUrl, coverUrl }
       if (section === 'profile') {
+        // @eligi:draft-profile-sem-endereco — endereco tem rota propria
+        // (PATCH /business-settings/address, em partes). Mandar address/lat/lng
+        // daqui regravaria a linha sem as partes e com um rascunho velho.
         return {
           about: about.trim() || null,
-          address: address.trim() || null,
-          lat,
-          lng,
           socials,
         }
       }
@@ -190,7 +190,7 @@ export function useBusinessProfileDraft(init: BusinessProfileDraftInit) {
         items: gallery.map((url) => ({ url, professionalId: galleryPros[url] ?? null })),
       }
     },
-    [theme, logoUrl, coverUrl, about, address, lat, lng, socials, gallery, galleryPros],
+    [theme, logoUrl, coverUrl, about, socials, gallery, galleryPros],
   )
 
   /** Salva UMA secao. Devolve true em sucesso. Nunca lanca. */
@@ -224,6 +224,17 @@ export function useBusinessProfileDraft(init: BusinessProfileDraftInit) {
     return allOk
   }, [saveSection])
 
+  // @eligi:draft-snapshot — ao abrir uma folha guarda o rascunho; fechar sem
+  // salvar volta a ele (senao a previa mostraria o que nao foi gravado).
+  const snapshot = useCallback(() => ({
+    theme, logoUrl, coverUrl, about, socials, gallery, galleryPros,
+  }), [theme, logoUrl, coverUrl, about, socials, gallery, galleryPros])
+
+  const restore = useCallback((s: ReturnType<typeof snapshot>) => {
+    setTheme(s.theme); setLogoUrl(s.logoUrl); setCoverUrl(s.coverUrl); setAbout(s.about)
+    setSocials(s.socials); setGallery(s.gallery); setGalleryPros(s.galleryPros)
+  }, [])
+
   const busy = useMemo(
     () => PROFILE_SECTIONS.some(s => status[s] === 'saving'),
     [status],
@@ -245,6 +256,7 @@ export function useBusinessProfileDraft(init: BusinessProfileDraftInit) {
     socials, setSocials,
     gallery, setGallery,
     galleryPros, setGalleryPro, moveGalleryPro, pros, // @eligi:gpro-retorno
+    snapshot, restore, // @eligi:draft-snapshot-retorno
     status, errors, busy, failed,
     saveSection, saveAll,
   }

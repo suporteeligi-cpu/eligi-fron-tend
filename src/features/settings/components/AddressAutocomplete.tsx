@@ -29,6 +29,9 @@ interface Props {
    *  segundo campo ao lado dele. */
   value?: string;
   onTextChange?: (v: string) => void;
+  /** Texto que fica no campo depois de escolher (padrao: a linha da sugestao).
+   *  @eligi:autocomplete-picktext — o editor de endereco quer so a rua. */
+  pickText?: (hit: AddressHit) => string;
 }
 
 export default function AddressAutocomplete({
@@ -38,6 +41,7 @@ export default function AddressAutocomplete({
   label,
   value,
   onTextChange,
+  pickText,
 }: Props) {
   const [inner, setInner] = useState('');
   const controlled = value !== undefined;
@@ -66,12 +70,12 @@ export default function AddressAutocomplete({
       try {
         const r = await searchAddress(q, ctrl.signal);
         setHits(r);
-        setErr(r.length === 0 ? 'Nada encontrado. Tente sem o numero.' : null);
+        setErr(r.length === 0 ? 'Nada encontrado. Tente sem o número.' : null);
         setOpen(true);
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
           setHits([]);
-          setErr('Busca indisponivel agora. Ajuste o pino no mapa.');
+          setErr('Busca indisponível agora. Use o CEP ou ajuste o pino no mapa.');
         }
       } finally {
         setLoading(false);
@@ -93,7 +97,7 @@ export default function AddressAutocomplete({
 
   function choose(h: AddressHit) {
     onPickRef.current(h);
-    setQuery(h.label.replace(' | ', ', '));
+    setQuery(pickText ? pickText(h) : h.label.replace(' | ', ', '));
     setHits([]);
     setOpen(false);
     setTouched(true);

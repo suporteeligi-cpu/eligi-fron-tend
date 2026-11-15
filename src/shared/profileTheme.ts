@@ -284,7 +284,7 @@ export function coverBackground(
   primary: string,
 ): { background: string; isPhoto: boolean } {
   // foto enviada → imagem com overlay escuro (texto branco legível)
-  if (coverUrl && coverUrl.startsWith('data:')) {
+  if (isPhotoCover(coverUrl)) {
     return {
       background: `linear-gradient(180deg, rgba(12,12,18,.25), rgba(12,12,18,.80)), url("${coverUrl}") center/cover no-repeat`,
       isPhoto: true,
@@ -311,6 +311,13 @@ export function coverBackground(
 }
 
 /** true quando a capa é o preset "monograma" (pra desenhar a inicial em marca-d'água). */
+/** Capa e foto: base64 antigo OU URL do bucket (desde jul/2026 as capas sao URL).
+ *  @eligi:cover-foto-url — so `data:` deixava a previa do painel com gradiente
+ *  no lugar da foto de quem ja tinha migrado. */
+export function isPhotoCover(coverUrl: string | null | undefined): boolean {
+  return !!coverUrl && (coverUrl.startsWith('data:image/') || coverUrl.startsWith('https://'));
+}
+
 export function isMonogramCover(coverUrl: string | null | undefined): boolean {
   return coverUrl === 'preset:monogram';
 }
