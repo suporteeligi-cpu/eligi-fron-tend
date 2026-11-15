@@ -9,13 +9,19 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Plus, Trash2, Loader2, Scissors, AlertCircle } from 'lucide-react'
+import { X, Plus, Trash2, Loader2, Scissors, Users, AlertCircle } from 'lucide-react' // @eligi:club-prof-ed-icone
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography, transitions, radius } from '@/shared/theme'
 
 // ── tipos (espelham o back / page.tsx) ──────────────────────────────────────
 interface SvcLite { id: string; name: string; color: string | null; duration: number; price: number | null }
+// @eligi:club-prof-ed-tipo — quem atende o plano. Lista vazia = TODOS atendem.
+interface ProfLite { id: string; name: string; role: string | null }
+interface PlanProfessionalRef {
+  professionalId: string
+  professional: { id: string; name: string; role: string | null }
+}
 interface PlanServiceRef {
   serviceId: string
   monthlyLimit?: number | null // @eligi:club-limite-ed-tipo
@@ -32,6 +38,7 @@ interface ClubPlan {
   maxOpenBookings?: number | null // @eligi:club-aberto-ed-tipo
   color: string | null
   services: PlanServiceRef[]
+  professionals?: PlanProfessionalRef[] // @eligi:club-prof-ed-plano — opcional: back antigo nao devolvia
   _count?: { subscriptions: number }
 }
 
@@ -57,6 +64,10 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
   const [availableOnline, setAvailableOnline] = useState(plan?.availableOnline ?? true) // @eligi:item-online-club-state
   const [maxOpen, setMaxOpen] = useState<number | null>(plan?.maxOpenBookings ?? null) // @eligi:club-aberto-ed-state
   const [serviceIds,  setServiceIds]  = useState<string[]>(() => plan?.services.map(s => s.serviceId) ?? [])
+  // @eligi:club-prof-ed-state — vazio e' valido e significa "todos atendem"
+  const [professionalIds, setProfessionalIds] = useState<string[]>(
+    () => plan?.professionals?.map(p => p.professionalId) ?? [],
+  )
   // @eligi:club-limite-ed-state — usos por ciclo do membro; null = ilimitado
   const [limits, setLimits] = useState<Record<string, number | null>>(
     () => Object.fromEntries((plan?.services ?? []).map(s => [s.serviceId, s.monthlyLimit ?? null])),
@@ -77,6 +88,14 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
     })) ?? [],
   )
   const [showAddService, setShowAddService] = useState(false)
+
+  // @eligi:club-prof-ed-lista — semeia com os do plano; o fetch repoe a equipe toda
+  const [professionals, setProfessionals] = useState<ProfLite[]>(() =>
+    plan?.professionals?.map(p => ({
+      id: p.professional.id, name: p.professional.name, role: p.professional.role,
+    })) ?? [],
+  )
+  const [showAddProf, setShowAddProf] = useState(false)
 
   const [saving,  setSaving]  = useState(false)
   const [error,   setError]   = useState<string | null>(null)
@@ -101,6 +120,31 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
     return () => { cancelled = true }
   }, [])
 
+  // @eligi:club-prof-ed-fetch
+  // GET /equipe: a mesma rota do ServiceModal e de outras telas.
+  // So profissional ativo entra na escolha, MAS quem ja esta no plano fica
+  // na lista mesmo se foi desativado depois — senao o contador contaria um
+  // id que a tela nao mostra e o lojista nao conseguiria remover.
+  useEffect(() => {
+    let cancelled = false
+    api.get('/equipe').then(res => {
+      if (cancelled) return
+      const data = res.data?.data ?? res.data
+      const bruto = Array.isArray(data) ? data : (data?.professionals ?? data?.equipe ?? [])
+      const list: ProfLite[] = (Array.isArray(bruto) ? bruto : [])
+        .filter((p: { active?: boolean }) => p.active !== false)
+        .map((p: { id: string; name: string; role?: string | null }) => ({
+          id: p.id, name: p.name, role: p.role ?? null,
+        }))
+      setProfessionals(prev => {
+        const porId = new Map(list.map(p => [p.id, p]))
+        for (const p of prev) if (!porId.has(p.id)) porId.set(p.id, p)
+        return [...porId.values()]
+      })
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   function handleClose() {
     setMounted(false)
     setTimeout(onClose, 200)
@@ -112,6 +156,15 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
   }
   function removeService(id: string) {
     setServiceIds(prev => prev.filter(s => s !== id))
+  }
+
+  // @eligi:club-prof-ed-handlers
+  function addProf(id: string) {
+    setProfessionalIds(prev => prev.includes(id) ? prev : [...prev, id])
+    setShowAddProf(false)
+  }
+  function removeProf(id: string) {
+    setProfessionalIds(prev => prev.filter(p => p !== id))
   }
 
   const priceNum = parseFloat(priceStr.replace(',', '.')) || 0
@@ -134,6 +187,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
         color,
         serviceIds,
         serviceLimits: Object.fromEntries(serviceIds.map(id => [id, limits[id] ?? null])), // @eligi:club-limite-ed-body
+        professionalIds, // @eligi:club-prof-ed-body — [] apaga o vinculo e volta a "todos"
         active,          // @eligi:item-online-club-body — antes o Ativo era ignorado no salvar
         availableOnline,
         maxOpenBookings: maxOpen, // @eligi:club-aberto-ed-body
@@ -151,7 +205,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
       setSaving(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, priceNum, pctNum, color, serviceIds, limits, maxOpen, active, availableOnline, isEditing]) // @eligi:item-online-club-deps @eligi:club-limite-ed-deps @eligi:club-aberto-ed-deps
+  }, [name, description, priceNum, pctNum, color, serviceIds, limits, professionalIds, maxOpen, active, availableOnline, isEditing]) // @eligi:item-online-club-deps @eligi:club-limite-ed-deps @eligi:club-aberto-ed-deps @eligi:club-prof-ed-deps
 
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 700, color: colors.gray.dimText,
@@ -167,6 +221,12 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
     .map(id => services.find(s => s.id === id))
     .filter((s): s is SvcLite => s != null)
   const availableServices = services.filter(s => !serviceIds.includes(s.id))
+
+  // @eligi:club-prof-ed-derivados
+  const selectedProfs = professionalIds
+    .map(id => professionals.find(p => p.id === id))
+    .filter((p): p is ProfLite => p != null)
+  const availableProfs = professionals.filter(p => !professionalIds.includes(p.id))
 
   const content = (
     <div
@@ -345,6 +405,64 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
                         }}>+</button>
                       </div>
                       <button onClick={() => removeService(s.id)} aria-label="Remover" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: colors.gray.dimText, WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>
+                        <Trash2 size={14} strokeWidth={2} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* @eligi:club-prof-ed-bloco — quem atende. Vazio = todos, e a tela diz isso. */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>
+                  Quem atende {professionalIds.length > 0 ? `(${professionalIds.length})` : ''}
+                </label>
+                {availableProfs.length > 0 && (
+                  <button onClick={() => setShowAddProf(s => !s)} style={{
+                    display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8,
+                    border: `1px solid ${colors.gray.borderMd}`, background: '#fff', cursor: 'pointer',
+                    fontSize: 11, fontWeight: 700, color: colors.red.DEFAULT, fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
+                  }}>
+                    <Plus size={12} strokeWidth={2.4} />Adicionar
+                  </button>
+                )}
+              </div>
+
+              {showAddProf && availableProfs.length > 0 && (
+                <div style={{ background: colors.background.page, borderRadius: 10, border: `1px solid ${colors.gray.border}`, padding: 6, maxHeight: 200, overflowY: 'auto' }}>
+                  {availableProfs.map(p => (
+                    <button key={p.id} onClick={() => addProf(p.id)} style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+                      background: 'transparent', border: 'none', borderRadius: 7, cursor: 'pointer', textAlign: 'left',
+                      fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
+                    }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#fff')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div style={{ width: 3, height: 18, borderRadius: 2, background: colors.gray.borderMd }} />
+                      <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: colors.gray[900] }}>{p.name}</span>
+                      {p.role && <span style={{ fontSize: 11, color: colors.gray.dimText }}>{p.role}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {professionalIds.length === 0 ? (
+                <div style={{ padding: '22px 16px', textAlign: 'center', background: colors.background.page, borderRadius: 11, border: `1px dashed ${colors.gray.borderMd}`, color: colors.gray.dimText }}>
+                  <Users size={24} style={{ opacity: 0.3, marginBottom: 6 }} />
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>Todos os profissionais atendem</div>
+                  <div style={{ fontSize: 10, marginTop: 4 }}>Adicione nomes para restringir o plano a uma parte da equipe</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {selectedProfs.map(p => (
+                    <div key={p.id} style={{ background: '#fff', border: `1px solid ${colors.gray.border}`, borderRadius: 11, padding: '11px 12px', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 3, background: colors.gray.borderMd }} />
+                      <div style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: colors.gray[900], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                        {p.role && <div style={{ fontSize: 10.5, color: colors.gray.dimText, marginTop: 2 }}>{p.role}</div>}
+                      </div>
+                      <button onClick={() => removeProf(p.id)} aria-label={`Remover ${p.name}`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: colors.gray.dimText, WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>
                         <Trash2 size={14} strokeWidth={2} />
                       </button>
                     </div>
