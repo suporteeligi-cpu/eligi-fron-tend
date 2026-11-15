@@ -19,7 +19,9 @@ import {
   checkReadability, coverBackground, type BusinessSocials, type BusinessTheme, type ThemePreset,
 } from '@/shared/profileTheme'
 import { useBusinessProfileDraft, SECTION_LABEL, type GalleryItemInit, type ProfileSection } from '@/features/settings/hooks/useBusinessProfileDraft'
-import BusinessPreview, { initialsOf, type PreviewSlot } from '@/features/settings/components/BusinessPreview'
+import BusinessPreview, { initialsOf, type PreviewLive, type PreviewSlot } from '@/features/settings/components/BusinessPreview'
+import { openStatus } from '@/features/settings/lib/openStatus' // @eligi:preview-live-import
+import { getMe } from '@/lib/auth.api'
 import ImageCropper from '@/features/settings/components/ImageCropper'
 import { uploadBlob } from '@/shared/utils/uploadImage'
 import type { ImagePresetName } from '@/shared/utils/imageCompress'
@@ -63,7 +65,7 @@ const SHEET: Record<Exclude<SheetKey, 'address' | 'preview'>, { title: string; s
 }
 
 const SLOT_TO_SHEET: Record<PreviewSlot, SheetKey> = {
-  logo: 'logo', appearance: 'colors', about: 'about', address: 'address', socials: 'socials', photos: 'photos',
+  logo: 'logo', cover: 'cover', appearance: 'colors', about: 'about', address: 'address', socials: 'socials', photos: 'photos',
 }
 
 /* ---------- extracao de cores do logo (so no navegador) ---------- */
@@ -107,6 +109,36 @@ type CropState = { src: string; aspect: number; outW: number; outH: number; targ
 // Busca pura: o setState fica no .then de quem chama (regra do React Compiler).
 function fetchSettings(): Promise<BusinessSettings> {
   return api.get('/business-settings').then((r) => r.data?.data as BusinessSettings)
+}
+
+// @eligi:preview-live
+// O que a previa mostra e nao se edita aqui (servicos, equipe, horario, nota)
+// vem do proprio link publico, para a previa ser o que o cliente ve. Sem slug
+// ou com erro: null, e a previa segue sem esses blocos.
+type PublicProfileLite = {
+  business?: { timezone?: string; discoverable?: boolean }
+  hours?: PreviewLive['hours']
+  services?: PreviewLive['services']
+  professionals?: PreviewLive['professionals']
+  rating?: PreviewLive['rating']
+}
+function fetchLive(): Promise<PreviewLive | null> {
+  return getMe().then((me) => {
+    const slug = me?.businessSlug
+    if (!slug) return null
+    return api.get(`/public/${encodeURIComponent(slug)}`).then((r) => {
+      const p = r.data as PublicProfileLite
+      const hours = Array.isArray(p?.hours) ? p.hours : []
+      return {
+        hours,
+        services: Array.isArray(p?.services) ? p.services : [],
+        professionals: Array.isArray(p?.professionals) ? p.professionals : [],
+        rating: p?.rating ?? null,
+        discoverable: p?.business?.discoverable !== false,
+        status: openStatus(hours, p?.business?.timezone || 'America/Sao_Paulo', new Date()),
+      }
+    })
+  })
 }
 
 export default function EmpresaPage() {
@@ -163,6 +195,14 @@ function ProfileScreen({ data }: { data: BusinessSettings }) {
   }))
   const [discover, setDiscover] = useState<DiscoverStatus | null>(data.discover ?? null)
   const [discoverRev, setDiscoverRev] = useState(0)
+  const [live, setLive] = useState<PreviewLive | null | undefined>(undefined) // @eligi:preview-live-state
+  useEffect(() => {
+    let vivo = true
+    fetchLive()
+      .then((v) => { if (vivo) setLive(v) })
+      .catch((e) => { console.error('[perfil] previa do link', e); if (vivo) setLive(null) })
+    return () => { vivo = false }
+  }, [])
 
   const [sheet, setSheet] = useState<SheetKey | null>(null)
   const snapRef = useRef<ReturnType<typeof draft.snapshot> | null>(null)
@@ -310,8 +350,14 @@ function ProfileScreen({ data }: { data: BusinessSettings }) {
       coverUrl={draft.coverUrl}
       about={draft.about}
       address={addr.address}
+      city={ap.city}
+      state={ap.state}
+      hasPin={temPino}
       socials={draft.socials}
       gallery={draft.gallery}
+      galleryPros={draft.galleryPros}
+      pros={draft.pros}
+      live={live}
       onEditSlot={onSlot}
     />
   )

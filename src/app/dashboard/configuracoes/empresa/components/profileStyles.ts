@@ -34,6 +34,8 @@ export const PROFILE_CSS = (t: Typo) => `
   .pf-side{ display:block; position:sticky; top:120px; }
   .pf-mobile-only{ display:none !important; }
 }
+/* @eligi:preview-scroll — a previa e alta: rola dentro da coluna fixa */
+.pf-side .bp-page{ max-height:calc(100vh - 176px); overflow-y:auto; overscroll-behavior:contain; }
 .pf-side-head{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:26px 0 10px; font-size:13px; font-weight:600; color:${INK_2}; }
 .pf-side-head span{ font-weight:400; color:${INK_3}; font-size:12px; }
 
