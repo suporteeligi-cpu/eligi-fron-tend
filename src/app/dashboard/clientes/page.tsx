@@ -14,9 +14,11 @@ import { Plus, Upload, Search, X, ListChecks } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { appReceivesFiles, sendFileToApp } from '@/shared/utils/appFiles'
-import type { ClientListItem, ClientListResponse, ClientsTab, LapsedGroup } from '@/features/clients/types'
+import type { ClientAppSummary, ClientListItem, ClientListResponse, ClientsTab, LapsedGroup } from '@/features/clients/types'
 import { CLIENTS_CSS } from '@/features/clients/styles'
 import { LAPSED_CSS } from '@/features/clients/lapsedStyles' // @eligi:lapsed-page-import
+import { APP_CSS } from '@/features/clients/appStyles' // @eligi:clients-app-page-import
+import { useAuth } from '@/hooks/useAuth'
 
 import ClientsList        from './components/ClientsList'
 import ImportClientsModal from './components/ImportClientsModal'
@@ -32,9 +34,14 @@ const TABS: { id: ClientsTab; label: string }[] = [
   { id: 'spent',  label: 'Mais gasto' },
   { id: 'recent', label: 'Recentes' },
   { id: 'lapsed', label: 'Sumidos' },
+  { id: 'app',    label: 'No app' }, // @eligi:clients-app-tab
 ]
 
-function paramsOf(tab: ClientsTab): { orderBy: string; order: 'asc' | 'desc'; segment?: 'lapsed' } {
+/** Aba No app: dono, gerente e recepcao (o back recusa os outros). */
+const APP_ROLES = new Set(['BUSINESS_OWNER', 'MANAGER', 'RECEPTIONIST'])
+
+function paramsOf(tab: ClientsTab): { orderBy: string; order: 'asc' | 'desc'; segment?: 'lapsed' | 'app' } {
+  if (tab === 'app') return { orderBy: 'name', order: 'asc', segment: 'app' }
   if (tab === 'spent')  return { orderBy: 'spent', order: 'desc' }
   if (tab === 'recent') return { orderBy: 'lastVisit', order: 'desc' }
   // Sumidos: quem mais gastou primeiro — e quem vale a ligacao.
@@ -47,6 +54,7 @@ const EMPTY_TEXT: Record<ClientsTab, string> = {
   spent:  'Quando os clientes pagarem no caixa, o gasto aparece aqui.',
   recent: 'As visitas concluídas aparecem aqui.',
   lapsed: 'Ninguém sumido: todos voltaram dentro do ritmo de cada um.',
+  app:    'Quem agendar pelo link ou entrar no app Eligi Cliente aparece aqui.',
 }
 
 async function fetchPage(q: string, tab: ClientsTab, page: number, pro: LapsedFilter, signal?: AbortSignal): Promise<ClientListResponse> {
@@ -61,6 +69,9 @@ async function fetchPage(q: string, tab: ClientsTab, page: number, pro: LapsedFi
 export default function ClientesPage() {
   const router = useRouter()
   const narrow = useIsMobile(1024)
+  const { user } = useAuth()
+  const canSeeApp = APP_ROLES.has(String(user?.role ?? ''))
+  const tabs = canSeeApp ? TABS : TABS.filter(t => t.id !== 'app')
 
   const [clients,   setClients]   = useState<ClientListItem[]>([])
   const [total,     setTotal]     = useState(0)
@@ -81,6 +92,7 @@ export default function ClientesPage() {
   const [groups,    setGroups]    = useState<LapsedGroup[] | null>(null)
   const [risk,      setRisk]      = useState(0)
   const [whats,     setWhats]     = useState<ClientListItem | null>(null)
+  const [appSum,    setAppSum]    = useState<ClientAppSummary | null>(null)
 
   // Busca da 1a pagina: debounce de 350ms na digitacao; troca de aba e
   // recarga chegam pelo mesmo caminho. setState so depois do await.
@@ -94,6 +106,7 @@ export default function ClientesPage() {
           setClients(data.clients ?? [])
           setGroups(data.lapsedGroups ?? null)
           setRisk(data.lapsedRisk ?? 0)
+          setAppSum(data.appSummary ?? null)
           setTotal(data.total ?? 0)
           setTotalAll(data.stats?.totalClients ?? data.total ?? 0)
           setPage(1)
@@ -195,7 +208,7 @@ export default function ClientesPage() {
 
   return (
     <div className="cl-page">
-      <style>{CLIENTS_CSS + LAPSED_CSS}</style>
+      <style>{CLIENTS_CSS + LAPSED_CSS + APP_CSS}</style>
 
       {showImport && (
         <ImportClientsModal
@@ -247,7 +260,7 @@ export default function ClientesPage() {
             </label>
 
             <div className="cl-tabs" role="tablist" aria-label="Ordenar clientes">
-              {TABS.map(t => (
+              {tabs.map(t => (
                 <button
                   key={t.id}
                   type="button"
@@ -261,6 +274,26 @@ export default function ClientesPage() {
               ))}
             </div>
           </div>
+
+          {tab === 'app' && appSum && !loading && ( /* @eligi:clients-app-summary-ui */
+            <div className="cl-app-sum" aria-label="Clientes no app">
+              <div className="cl-app-k">
+                <span className="cl-app-l">NO APP</span>
+                <span className="cl-app-v">{appSum.noApp.toLocaleString('pt-BR')}</span>
+                {totalAll !== null && <span className="cl-app-s">de {totalAll.toLocaleString('pt-BR')} clientes</span>}
+              </div>
+              <div className="cl-app-k is-ok">
+                <span className="cl-app-l">RECEBEM AVISOS</span>
+                <span className="cl-app-v">{appSum.recebem.toLocaleString('pt-BR')}</span>
+                <span className="cl-app-s">{appSum.desligaram > 0 ? `${appSum.desligaram} desligaram` : 'ninguém desligou'}</span>
+              </div>
+              <div className="cl-app-k is-online">
+                <span className="cl-app-l">AGENDAM ONLINE</span>
+                <span className="cl-app-v">{appSum.onlinePct90 === null ? '—' : `${appSum.onlinePct90}%`}</span>
+                <span className="cl-app-s">dos atendimentos em 90 dias</span>
+              </div>
+            </div>
+          )}
 
           {tab === 'lapsed' && groups && groups.length > 0 && (
             <LapsedChips groups={groups} risk={risk} value={proFilter} onChange={setProFilter} />
@@ -280,7 +313,7 @@ export default function ClientesPage() {
             </div>
           ) : clients.length === 0 ? (
             <div className="cl-state">
-              <div className="cl-state-title">{search ? 'Nenhum cliente encontrado' : tab === 'lapsed' ? 'Nenhum cliente sumido' : 'Nenhum cliente ainda'}</div>
+              <div className="cl-state-title">{search ? 'Nenhum cliente encontrado' : tab === 'lapsed' ? 'Nenhum cliente sumido' : tab === 'app' ? 'Ninguém no app ainda' : 'Nenhum cliente ainda'}</div>
               <div className="cl-state-text">{search ? `Sem resultados para "${search}".` : EMPTY_TEXT[tab]}</div>
             </div>
           ) : (

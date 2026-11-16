@@ -26,6 +26,8 @@ export interface ClientListItem {
   daysSinceLastVisit: number | null
   lapsed:             boolean
   hasClub:            boolean
+  /** @eligi:clients-app-type — so dono, gerente e recepcao; null = nao esta no app */
+  app?:               ClientAppInfo | null
   // @eligi:lapsed-types — sumidos por profissional (nov/2026). Opcionais: back antigo nao manda.
   /** profissional com quem fez a maior parte das visitas; null = sem preferencia */
   topPro?:            LapsedTopPro | null
@@ -61,10 +63,22 @@ export interface ClientListResponse {
   stats?:  { totalClients: number; lapsedDays: number }
   lapsedGroups?: LapsedGroup[] | null
   lapsedRisk?:   number | null
+  appSummary?:   ClientAppSummary | null
+}
+
+/** Situacao do app do cliente (ver back clients.app.ts). */
+export type ClientAppState = 'ON' | 'OFF' | 'NONE'
+export interface ClientAppInfo { state: ClientAppState; online: number }
+export interface ClientAppSummary {
+  noApp:       number
+  recebem:     number
+  desligaram:  number
+  semCelular:  number
+  onlinePct90: number | null
 }
 
 /** Aba da lista. Cada uma vira orderBy/segment no GET /clients. */
-export type ClientsTab = 'az' | 'spent' | 'recent' | 'lapsed'
+export type ClientsTab = 'az' | 'spent' | 'recent' | 'lapsed' | 'app'
 
 export type CoveredBy = 'CLUB' | 'PACKAGE' | 'MEMBERSHIP' | null
 

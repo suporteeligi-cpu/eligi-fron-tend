@@ -29,8 +29,12 @@ function initialOf(name: string): string {
   return /[A-Z]/.test(ch) ? ch : '#'
 }
 
+const APP_LABEL = { ON: 'Recebe avisos', OFF: 'Desligou', NONE: 'Sem celular' } as const
+
 function metaOf(c: ClientListItem, tab: ClientsTab): { text: string; warn: boolean } {
   if (c.visits === 0) return { text: 'SEM VISITAS', warn: false }
+  // @eligi:clients-app-meta — aba No app: quantos atendimentos vieram pelo app
+  if (tab === 'app' && c.app) return { text: `${c.app.online} DE ${c.visits} PELO APP`, warn: false }
   const visits = plural(c.visits, 'VISITA', 'VISITAS')
   if (tab === 'lapsed' && c.daysSinceLastVisit !== null) {
     // @eligi:lapsed-list-meta — o ritmo do cliente explica por que ele conta como sumido
@@ -120,8 +124,9 @@ export default function ClientsList({ clients, tab, activeId, selectedIds, selec
                 <span className="cl-row-name">
                   <span className="cl-ellipsis">{c.name}</span>
                   {c.hasClub && <EligiClubIcon size={15} color="#111114" aria-label="Membro do clube" />}
+                  {tab === 'app' && c.app && <span className={`cl-app-pill is-${c.app.state}`}>{APP_LABEL[c.app.state]}</span>}
                 </span>
-                <span className={`cl-row-meta cl-m cl-n${meta.warn ? ' is-warn' : ''}`}>{meta.text}</span>
+                <span className={`cl-row-meta cl-m cl-n${meta.warn ? ' is-warn' : ''}${tab === 'app' && c.app && c.app.online > 0 ? ' is-online' : ''}`}>{meta.text}</span>
                 {fid && <span className={`cl-fid${fid.gone ? ' is-gone' : ''}`}>{fid.text}</span>}
               </span>
               <span className={`cl-row-money cl-d cl-n${c.spent > 0 ? '' : ' is-zero'}`}>
