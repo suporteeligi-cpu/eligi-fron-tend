@@ -169,7 +169,7 @@ export default function ConfiguracoesPage() {
   const loading = load === null
   const ov = load?.data ?? null
   const summaryOf = (key: Card['key']): Summary | undefined => {
-    if (key === 'aparencia') return { summary: cardStyle === 'clean' ? 'Clean · cores suaves' : 'Clássico · cores cheias', tone: 'neutral' }
+    if (key === 'aparencia') return { summary: cardStyle === 'clean' ? 'Suave · tons claros' : 'Clássico · cores cheias' /* @eligi:hub-aparencia-suave */, tone: 'neutral' }
     return ov?.modules[key]
   }
 
