@@ -14,6 +14,7 @@ import {
   Sparkles,
   Banknote,
   ClipboardList, // @eligi:anamnese-nav-icone
+  Megaphone, // @eligi:cpromo-nav-icone
 } from 'lucide-react' // @eligi:sb-icons — Servicos e Caixa com icones proprios; sem tesoura (segmento-neutro)
 import EligiClubIcon from './EligiClubIcon'
 
@@ -46,6 +47,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Serviços',      path: '/dashboard/servicos',      icon: Sparkles,        section: 'principal'  },
     { label: 'Pacotes',       path: '/dashboard/pacotes',       icon: CreditCard,      section: 'principal'  },
     { label: 'EligiClub',     path: '/dashboard/eligiclub',     icon: EligiClubIcon,   section: 'principal'  },
+    { label: 'Promoções',     path: '/dashboard/promocoes',     icon: Megaphone,       section: 'principal'  }, // @eligi:cpromo-nav-dono
     { label: 'Equipe',        path: '/dashboard/equipe',        icon: UserCog,         section: 'principal'  },
     { label: 'Estoque',       path: '/dashboard/estoque',       icon: PackageOpen,     section: 'principal'  },
     { label: 'Caixa',         path: '/dashboard/caixa',         icon: Banknote,     section: 'financeiro' },
@@ -61,6 +63,7 @@ export const navigationByRole: Record<Role, NavItemType[]> = {
     { label: 'Fichas',    path: '/dashboard/anamnese', icon: ClipboardList,   section: 'principal'  }, // @eligi:anamnese-nav-gerente
     { label: 'Serviços',  path: '/dashboard/servicos', icon: Sparkles,        section: 'principal'  },
     { label: 'Pacotes',   path: '/dashboard/pacotes',  icon: CreditCard,      section: 'principal'  },
+    { label: 'Promoções', path: '/dashboard/promocoes', icon: Megaphone,      section: 'principal'  }, // @eligi:cpromo-nav-gerente
     { label: 'Equipe',    path: '/dashboard/equipe',   icon: UserCog,         section: 'principal'  },
     { label: 'Estoque',   path: '/dashboard/estoque',  icon: PackageOpen,     section: 'principal'  },
     { label: 'Caixa',     path: '/dashboard/caixa',    icon: Banknote,     section: 'financeiro' },
