@@ -8,6 +8,10 @@
 
 export type WallPattern = 'none' | 'dots' | 'grid';
 
+/** @eligi:profile-style-dash — mesmo tipo do back e do link publico. */
+export type ProfileStyle = 'claro' | 'marca' | 'papel';
+export const PROFILE_STYLES: ProfileStyle[] = ['claro', 'marca', 'papel'];
+
 /** O que fica salvo em `business.theme` (JSON enxuto — só primitivos). */
 export interface BusinessTheme {
   /** Cor principal: botão agendar, selects, pills, destaques. */
@@ -22,6 +26,8 @@ export interface BusinessTheme {
   wall: WallPattern;
   /** Painel escuro do Modelo B. 'auto' = derivado da cor principal. */
   panel: string | 'auto';
+  /** Estilo do perfil publico. Ausente em tema antigo = 'claro'. */
+  style?: ProfileStyle;
 }
 
 /** Tokens finais já resolvidos, prontos pra virar CSS variables. */
@@ -52,6 +58,7 @@ export const DEFAULT_THEME: BusinessTheme = {
   bg: '#f6f6f8',
   wall: 'none',
   panel: 'auto',
+  style: 'claro',
 };
 
 export interface ThemePreset {
@@ -220,6 +227,45 @@ export function deriveTheme(theme: BusinessTheme): ResolvedTheme {
   };
 }
 
+/**
+ * @eligi:page-style-vars-dash
+ * Copia de front-end-public/src/lib/theme.ts (pageStyleVars). Mudou la, muda aqui.
+ * Variaveis da pagina para o estilo do perfil. O body (globals.css) desenha
+ * textura + brilho + fundo, e o .glass usa --glass-bg/--glass-line.
+ * Cada estilo vem pronto e legivel: o lojista nao combina cores soltas.
+ */
+export function pageStyleVars(primary: string, bg: string, style: ProfileStyle | undefined): Record<string, string> {
+  const none = 'linear-gradient(transparent, transparent)';
+  if (style === 'marca') {
+    return {
+      '--background': mix('#fafafb', primary, 0.07),
+      '--page-tex': none,
+      '--page-tex-size': 'auto',
+      '--page-glow': `radial-gradient(900px 560px at 50% -120px, color-mix(in srgb, ${primary} 24%, transparent), transparent 72%)`,
+      '--glass-bg': 'color-mix(in srgb, #ffffff 94%, transparent)',
+      '--glass-line': 'color-mix(in srgb, #18181b 8%, transparent)',
+    };
+  }
+  if (style === 'papel') {
+    return {
+      '--background': '#f3eee6',
+      '--page-tex': 'radial-gradient(rgba(80, 60, 40, 0.11) 1px, transparent 1.3px)',
+      '--page-tex-size': '7px 7px',
+      '--page-glow': none,
+      '--glass-bg': 'color-mix(in srgb, #fbf8f3 88%, transparent)',
+      '--glass-line': 'rgba(80, 60, 40, 0.13)',
+    };
+  }
+  return {
+    '--background': bg,
+    '--page-tex': none,
+    '--page-tex-size': 'auto',
+    '--page-glow': `radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, ${primary} 6%, transparent), transparent 60%)`,
+    '--glass-bg': 'color-mix(in srgb, #ffffff 72%, transparent)',
+    '--glass-line': 'color-mix(in srgb, #18181b 8%, transparent)',
+  };
+}
+
 /** Aplica os tokens resolvidos num elemento (helper de front). */
 export function applyTheme(el: { style: { setProperty(k: string, v: string): void } }, theme: BusinessTheme): void {
   const vars = deriveTheme(theme);
@@ -262,6 +308,9 @@ export function sanitizeTheme(input: Partial<BusinessTheme> | null | undefined):
     bg: okHex(t.bg, DEFAULT_THEME.bg),
     wall,
     panel,
+    style: typeof t.style === 'string' && PROFILE_STYLES.includes(t.style as ProfileStyle)
+      ? (t.style as ProfileStyle)
+      : 'claro',
   };
 }
 

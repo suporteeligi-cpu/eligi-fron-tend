@@ -21,6 +21,7 @@ import {
 import { useBusinessProfileDraft, SECTION_LABEL, type GalleryItemInit, type ProfileSection } from '@/features/settings/hooks/useBusinessProfileDraft'
 import BusinessPreview, { initialsOf, type PreviewLive, type PreviewSlot } from '@/features/settings/components/BusinessPreview'
 import { openStatus } from '@/features/settings/lib/openStatus' // @eligi:preview-live-import
+import { styleLabel } from '@/features/settings/components/ProfileFields' // @eligi:cores-estilo-import
 import { getMe } from '@/lib/auth.api'
 import ImageCropper from '@/features/settings/components/ImageCropper'
 import { uploadBlob } from '@/shared/utils/uploadImage'
@@ -421,7 +422,7 @@ function ProfileScreen({ data }: { data: BusinessSettings }) {
               </span>
             ) : undefined} />
           <Card icon={<Palette size={18} />} cap="Cores" onOpen={() => openSheet('colors')} act="Mudar"
-            now={`Principal ${draft.theme.primary.toUpperCase()}`}
+            now={`${styleLabel(draft.theme.style)} · ${draft.theme.primary.toUpperCase()}`} /* @eligi:cores-resumo-estilo */
             side={<span className="pf-mini-sw" aria-hidden>{[draft.theme.primary, draft.theme.surface, draft.theme.bg].map((c, i) => <i key={i} style={{ background: c }} />)}</span>} />
           <Card icon={<Share2 size={18} />} cap="Redes e contato" onOpen={() => openSheet('socials')} act={redes.length ? 'Mudar' : 'Adicionar'}
             now={redes.length ? redes.join(' · ') : 'Nenhum contato. O cliente não tem como falar com você pelo link.'}

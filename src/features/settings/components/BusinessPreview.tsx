@@ -27,6 +27,7 @@ import {
   type BusinessSocials,
   coverBackground,
   isMonogramCover,
+  pageStyleVars,
 } from '@/shared/profileTheme'
 
 /** Regioes editaveis do preview. */
@@ -161,7 +162,7 @@ const CSS = `
   box-shadow:0 1px 2px rgba(12,12,18,.04),0 24px 60px -30px rgba(12,12,18,.3); }
 .bp :where(span,div,p,b,strong,i){ color:inherit; }
 .bp-page{ position:relative; padding:16px 16px 22px; color:#18181b; font-family:var(--font-sans); }
-.bp-glass{ background:color-mix(in srgb,#fff 72%,transparent); border:1px solid color-mix(in srgb,#18181b 8%,transparent); }
+.bp-glass{ background:var(--glass-bg); border:1px solid var(--glass-line); } /* @eligi:preview-style */
 .bp-cover{ position:relative; margin:-16px -16px 0; height:188px; overflow:hidden; }
 .bp-wm{ position:absolute; right:-16px; bottom:-40px; font-family:var(--bp-display); font-weight:700; font-size:210px; line-height:1; opacity:.16; pointer-events:none; user-select:none; }
 .bp-topbar{ position:absolute; inset:0 0 auto 0; display:flex; justify-content:space-between; padding:16px; }
@@ -249,6 +250,8 @@ export function BusinessPreview({
   onEditSlot,
 }: Props) {
   const primary = theme.primary
+  // Mesmo fundo, brilho, textura e cartoes do link (estilo do perfil).
+  const pageVars = pageStyleVars(theme.primary, theme.bg, theme.style)
   const cover = coverBackground(coverUrl, primary)
   const watermark = isMonogramCover(coverUrl)
   const ini = initialsOf(businessName)
@@ -327,7 +330,11 @@ export function BusinessPreview({
       <div
         className="bp-page"
         style={{
-          background: `radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, #dc2626 6%, transparent), transparent 60%), ${theme.bg}`,
+          ...(pageVars as React.CSSProperties),
+          backgroundColor: 'var(--background)',
+          backgroundImage: 'var(--page-tex), var(--page-glow)',
+          backgroundSize: 'var(--page-tex-size), auto',
+          backgroundRepeat: 'repeat, no-repeat',
         }}
       >
         {/* CAPA */}
