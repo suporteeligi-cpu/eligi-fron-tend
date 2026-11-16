@@ -11,7 +11,7 @@
 // - Detecta Sale OPEN linkada → muda label CHECKOUT pra "CONTINUAR CHECKOUT"
 // - jun/2026: bump de legibilidade (nome cliente 18, serviço/data 15, meta 13)
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, Clock, User, Calendar, AlertTriangle, CheckCircle, Ban, Phone,
@@ -331,9 +331,22 @@ function ConfirmModal({
   body: string
   confirmLabel: string
   danger?: boolean
-  onConfirm: () => void
+  onConfirm: () => void | Promise<void>
   onCancel: () => void
 }) {
+  // @eligi:bvp-confirm-once — tres toques rapidos no "Sim, cancelar" mandavam
+  // tres pedidos (16/11/2026). O ref barra no mesmo quadro; o estado mostra.
+  const busyRef = useRef(false)
+  const [busy, setBusy] = useState(false)
+  function confirmar() {
+    if (busyRef.current) return
+    busyRef.current = true
+    setBusy(true)
+    void Promise.resolve(onConfirm()).finally(() => {
+      busyRef.current = false
+      setBusy(false)
+    })
+  }
   if (typeof document === 'undefined') return null
   return createPortal(
     <>
@@ -373,15 +386,15 @@ function ConfirmModal({
         <p style={{ margin: '0 0 24px', fontSize: 14, color: colors.gray.dimText, lineHeight: 1.6 }}>
           {body}
         </p>
-        <button onClick={onConfirm} style={{
-          width: '100%', padding: '14px', marginBottom: 10,
+        <button onClick={confirmar} disabled={busy} aria-busy={busy} style={{
+          width: '100%', padding: '14px', marginBottom: 10, opacity: busy ? 0.6 : 1,
           background: danger ? colors.red.gradient : 'linear-gradient(135deg,#475569,#334155)',
           color: '#fff', border: 'none', borderRadius: 14,
-          fontWeight: 700, fontSize: 14, cursor: 'pointer',
+          fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer',
           letterSpacing: '.06em', textTransform: 'uppercase' as const,
           boxShadow: danger ? `0 6px 20px rgba(220,38,38,0.3)` : '0 6px 20px rgba(71,85,105,0.25)',
         }}>
-          {confirmLabel}
+          {busy ? 'Aguarde…' : confirmLabel}
         </button>
         <button onClick={onCancel} style={{
           width: '100%', padding: '13px',
@@ -494,7 +507,15 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
       setConfirm(null)
       onClose()
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
+      const e = err as { response?: { data?: { error?: string; code?: string } } }
+      // @eligi:bvp-already-canceled — outra aba ou outra pessoa ja cancelou: o
+      // resultado e o mesmo que o pedido, entao fecha como sucesso.
+      if (e.response?.data?.code === 'BOOKING_ALREADY_CANCELED') {
+        removeBooking(dateStr, bookingId)
+        setConfirm(null)
+        onClose()
+        return
+      }
       setError(e.response?.data?.error ?? 'Erro ao cancelar')
       setSaving(false)
     }
@@ -518,7 +539,14 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
       // Evita warning de var não usada
       void updated
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
+      const e = err as { response?: { data?: { error?: string; code?: string } } }
+      if (e.response?.data?.code === 'BOOKING_ALREADY_NO_SHOW') { // @eligi:bvp-already-noshow
+        updateBooking(dateStr, { ...booking, status: 'NO_SHOW' })
+        setDetail(prev => prev ? { ...prev, status: 'NO_SHOW' } : prev)
+        setConfirm(null)
+        setSaving(false)
+        return
+      }
       setError(e.response?.data?.error ?? 'Erro ao marcar não compareceu')
       setSaving(false)
     }
