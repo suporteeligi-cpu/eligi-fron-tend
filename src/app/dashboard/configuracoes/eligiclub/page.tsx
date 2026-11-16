@@ -1,42 +1,45 @@
 "use client"
 // src/app/dashboard/configuracoes/eligiclub/page.tsx
+// @eligi:cfg-club-v2
 //
-// ATIVAÇÃO DA COBRANÇA DO CLUBE (subconta Asaas White Label).
-// O Eligi CRIA a conta de pagamentos do lojista via API — ele nunca sai do dashboard.
+// COBRANCA DO ELIGICLUB — direcao B das Configuracoes (nov/2026).
+// A conta de pagamentos do lojista no Asaas (subconta White Label), criada pelo
+// Eligi via API. O lojista nunca sai do painel para abrir a conta.
 //
-// Estados: (1) nao conectado -> formulario · (2) em analise -> enviar documentos
-//          (3) aprovado -> cobrando + assinaturas aguardando pagamento · (4) isento
+// Uma situacao por vez, sempre com o que fazer:
+//   nao ativada · falta cadastro (CNPJ/CEP/endereco) · em analise · recusada · ativa
+//   + modo teste, so o dono, app, erro ao carregar.
 //
-// Mobile-first: inputs 16px (sem zoom iOS), alvos >= 44px, mascaras ao vivo.
-// React Compiler: subcomponentes em escopo de modulo.
+// Regras de quem pode: so o dono ativa e envia documento (o back recusa os outros).
+// Saldo, saque, chave Pix e antecipacao ficam no modulo do clube (aba Financeiro).
+// Erro ao carregar NUNCA vira "nao ativada": mostraria a ativacao a quem ja tem conta.
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import {
-  ChevronLeft, AlertCircle, Check, Download, Loader2, ShieldCheck, Link2, MessageCircle, Upload, FileText,
-  Minus, Plus, TrendingUp,
-  // @eligi:club-pitch-icons
+  ChevronLeft, ChevronRight, Check, Loader2, Link2, MessageCircle, ExternalLink,
+  RefreshCw, ShieldCheck, Wallet, CircleAlert, Lock,
 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
-import EligiClubIcon from '@/app/components/navigation/EligiClubIcon'
+import { typography } from '@/shared/theme'
+import { useAuth } from '@/hooks/useAuth'
 import { waLink, clubPaymentMessage } from '@/shared/utils/whatsapp'
 import AsaasSeal, { AsaasSupportNote } from '@/shared/components/AsaasSeal'
-import { useCanBuyPlan } from '@/shared/utils/useEligiApp' // @eligi:club-cfg-app-import
+import { useCanBuyPlan } from '@/shared/utils/useEligiApp'
 
 // ── tipos ───────────────────────────────────────────────────────────────────
+type Missing = 'CNPJ' | 'CEP' | 'ADDRESS'
 interface AccountOnboarding {
   connected: boolean
   accountId: string | null
   status: string
   approved: boolean
-  general: string | null
-  documentation: string | null
-  commercialInfo: string | null
   onboardingUrl: string | null
   pendingDocs: string[]
-  /** grupos que precisam de upload por aqui (sem onboardingUrl) */
   pendingDocIds?: { id: string; type: string }[]
   isento: boolean
+  /** back antigo nao manda: tratar como lista vazia */
+  missing?: Missing[]
 }
 interface PendingSub {
   id: string
@@ -47,27 +50,35 @@ interface PendingSub {
 }
 interface PaymentLink {
   checkoutUrl: string | null
-  mode: string
-  status: string
   businessName: string
   clientName: string
   clientPhone: string | null
 }
 type CompanyType = 'MEI' | 'LIMITED'
+type Load = { state: 'loading' } | { state: 'error' } | { state: 'ok'; acc: AccountOnboarding }
+type ApiErr = { response?: { status?: number; data?: { error?: string | { message?: string }; code?: string } } }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
+/** Espelha CLUB_ACTIVATION_FEE no back (billing.service.ts). Mudou la, muda aqui. */
+const CLUB_ACTIVATION_FEE = 12.9
+
 const DOC_LABEL: Record<string, string> = {
-  IDENTIFICATION: 'Identificação (RG/CNH)',
+  IDENTIFICATION: 'Documento com foto (RG ou CNH)',
   SELFIE: 'Selfie do titular',
   SOCIAL_CONTRACT: 'Contrato social',
   ENTREPRENEUR_REQUIREMENT: 'Requerimento de empresário',
   MINUTES_OF_ELECTION: 'Ata de eleição',
   CUSTOM: 'Documento adicional',
 }
-function docLabel(t: string): string {
-  return DOC_LABEL[t] ?? t.replace(/_/g, ' ').toLowerCase()
+const docLabel = (t: string) => DOC_LABEL[t] ?? t.replace(/_/g, ' ').toLowerCase()
+
+const MISSING_LABEL: Record<Missing, string> = {
+  CNPJ: 'CNPJ do negócio',
+  CEP: 'CEP',
+  ADDRESS: 'Endereço (rua)',
 }
-function onlyDigits(v: string): string { return v.replace(/\D/g, '') }
+
+const onlyDigits = (v: string) => v.replace(/\D/g, '')
 function maskPhone(v: string): string {
   const d = onlyDigits(v).slice(0, 11)
   if (d.length <= 2) return d
@@ -75,808 +86,654 @@ function maskPhone(v: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
 }
 function maskMoney(v: string): string {
-  const d = onlyDigits(v)
+  const d = onlyDigits(v).slice(0, 11)
   if (!d) return ''
   return (Number(d) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
-function moneyToNumber(v: string): number { return Number(onlyDigits(v)) / 100 }
-function brl(v: number): string {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const moneyToNumber = (v: string) => Number(onlyDigits(v)) / 100
+const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+function errMsg(e: unknown, fallback: string): string {
+  const err = (e as ApiErr)?.response?.data?.error
+  if (typeof err === 'string' && err) return err
+  if (err && typeof err === 'object' && err.message) return err.message
+  return fallback
 }
+const errCode = (e: unknown) => (e as ApiErr)?.response?.data?.code ?? null
+const errStatus = (e: unknown) => (e as ApiErr)?.response?.status ?? null
 
-// ── upload de documento cadastral ──
-const DOC_MAX_MB = 5
-const DOC_ACCEPT = '.pdf,.jpg,.jpeg,.png'
-const DOC_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
-
-/** Le o arquivo como data URL (base64) — formato que o back espera. */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(String(r.result))
-    r.onerror = () => reject(new Error('Falha ao ler o arquivo'))
-    r.readAsDataURL(file)
-  })
+function fetchAccount(force = false): Promise<AccountOnboarding> {
+  return api
+    .get(`/club-subscriptions/asaas/account-status${force ? '?force=1' : ''}`)
+    .then((r) => {
+      const d = r.data?.data as AccountOnboarding | undefined
+      if (!d) throw new Error('resposta sem dados')
+      return d
+    })
+}
+function fetchPending(): Promise<PendingSub[]> {
+  return api
+    .get('/club-subscriptions?status=PENDING')
+    .then((r) => ((r.data?.data ?? []) as PendingSub[]).filter((s) => s.status === 'PENDING'))
 }
 
 // ── estilos ─────────────────────────────────────────────────────────────────
-const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)',
-  border: '1px solid rgba(0,0,0,0.07)', borderRadius: 15,
-  boxShadow: '0 1px 6px rgba(0,0,0,0.04)', padding: 20,
-}
-const LABEL: React.CSSProperties = {
-  fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6, display: 'block',
-}
-const INPUT: React.CSSProperties = {
-  width: '100%', padding: '13px 12px', border: '1px solid rgba(0,0,0,0.13)',
-  borderRadius: 10, fontSize: 16, fontFamily: 'inherit', background: '#fff',
-  marginBottom: 14, outline: 'none', WebkitAppearance: 'none',
-}
-const BTN: React.CSSProperties = {
-  width: '100%', padding: 15, border: 'none', borderRadius: 11,
-  background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff',
-  fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50,
-}
-// O texto solto foi substituido pelo SELO OFICIAL (exigencia do playbook BaaS).
-const ASAAS_HINT: React.CSSProperties = {
-  fontSize: 10.5, color: 'rgba(0,0,0,0.35)', marginTop: 10, textAlign: 'center',
-}
-const MINI_BTN: React.CSSProperties = {
-  flex: 1, minHeight: 44, padding: '10px 12px', borderRadius: 9,
-  fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-  border: '1px solid rgba(0,0,0,0.12)', background: '#fff', color: '#374151',
-  textDecoration: 'none',
+const INK = '#111114'
+const INK_2 = '#4b4b52'
+const INK_3 = '#6b6b73'
+
+const CSS = `
+.cfc{ max-width:640px; font-family:${typography.fontFamily}; color:${INK}; animation:cfc-in .25s ease; }
+@keyframes cfc-in{ from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+@keyframes cfc-pulse{ 0%,100%{opacity:.5} 50%{opacity:1} }
+@keyframes cfc-spin{ to{ transform:rotate(360deg) } }
+.cfc *{ box-sizing:border-box; }
+.cfc :where(span, div, b, i, p, h1, h2, h3, strong, small, label, li){ color:inherit; } /* vence main span */
+.cfc a{ text-decoration:none; color:inherit; }
+.cfc button{ font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.cfc a:focus-visible, .cfc button:focus-visible, .cfc input:focus-visible{ outline:2px solid #dc2626; outline-offset:2px; }
+.cfc-d{ font-family:${typography.fontFamilyDisplay}; letter-spacing:-.03em; }
+.cfc-n{ font-variant-numeric:tabular-nums; }
+.cfc-spin{ animation:cfc-spin .9s linear infinite; }
+.cfc-back{ display:inline-flex; align-items:center; gap:4px; min-height:44px; padding:0 10px 0 4px; margin-left:-4px; border-radius:12px; font-size:14px; font-weight:500; color:${INK_2}; }
+.cfc-h1{ margin:4px 0 0; font-size:28px; font-weight:600; }
+.cfc-lead{ margin:6px 0 0; font-size:14px; line-height:1.45; color:${INK_3}; }
+.cfc-cap{ margin:24px 0 8px; font-family:${typography.fontFamilyMono}; font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:500; color:${INK_3}; }
+.cfc-card{ background:#fff; border:1px solid #ececf0; border-radius:18px; padding:18px; }
+.cfc-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.cfc-t{ font-size:20px; font-weight:600; line-height:1.2; }
+.cfc-p{ margin:8px 0 0; font-size:14px; line-height:1.5; color:${INK_2}; }
+.cfc-pill{ display:inline-flex; align-items:center; gap:6px; min-height:28px; padding:0 10px; border-radius:99px; font-size:12.5px; font-weight:600; white-space:nowrap; }
+.cfc-pill i{ width:7px; height:7px; border-radius:50%; background:currentColor; }
+.cfc-pill.ok{ background:#ecfdf5; color:#0f6e56; }
+.cfc-pill.warn{ background:#fffbeb; color:#b45309; }
+.cfc-pill.bad{ background:#fef2f2; color:#b91c1c; }
+.cfc-pill.neutral{ background:#f2f2f5; color:${INK_2}; }
+.cfc-note{ margin-top:14px; display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:14px; font-size:13.5px; line-height:1.5; background:#f7f7f9; color:${INK_2}; }
+.cfc-note.warn{ background:#fffbeb; color:#92400e; }
+.cfc-note.bad{ background:#fef2f2; color:#991b1b; }
+.cfc-note svg{ flex-shrink:0; margin-top:2px; }
+.cfc-cta{ display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:48px; padding:0 18px; border-radius:14px; border:0; background:${INK}; color:#fff !important; font-size:15px; font-weight:600; }
+.cfc-cta.block{ width:100%; }
+.cfc-cta:disabled{ opacity:.5; cursor:default; }
+.cfc-sec{ display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:0 14px; border-radius:12px; border:1px solid #e3e3e8; background:#fff; font-size:14px; font-weight:600; color:${INK}; }
+.cfc-sec:disabled{ opacity:.55; cursor:default; }
+@media (hover:hover){ .cfc-sec:not(:disabled):hover{ border-color:#cfcfd6; background:#fafafb; } }
+.cfc-actions{ margin-top:16px; display:flex; gap:8px; flex-wrap:wrap; }
+.cfc-actions > *{ flex:1 1 200px; }
+
+/* passos da analise */
+.cfc-steps{ margin:16px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; }
+.cfc-step{ display:flex; gap:12px; align-items:flex-start; padding:10px 0; font-size:14px; line-height:1.4; }
+.cfc-step + .cfc-step{ border-top:1px solid #f4f4f6; }
+.cfc-step-n{ width:26px; height:26px; flex-shrink:0; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; background:#f2f2f5; color:${INK_2}; }
+.cfc-step.done .cfc-step-n{ background:#ecfdf5; color:#0f6e56; }
+.cfc-step.now .cfc-step-n{ background:${INK}; color:#fff; }
+.cfc-step small{ display:block; margin-top:2px; font-size:13px; color:${INK_3}; }
+.cfc-docs{ margin:8px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; }
+.cfc-docs li{ display:flex; gap:8px; align-items:center; font-size:13.5px; color:${INK_2}; }
+.cfc-docs li i{ width:6px; height:6px; border-radius:50%; background:#b45309; flex-shrink:0; }
+
+/* falta cadastro */
+.cfc-miss{ margin:14px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
+.cfc-miss li{ display:flex; align-items:center; gap:10px; font-size:14px; color:${INK}; }
+.cfc-miss li i{ width:18px; height:18px; border-radius:50%; border:2px solid #d97706; flex-shrink:0; }
+
+/* valor + perguntas */
+.cfc-fee{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.cfc-fee b{ font-size:15px; font-weight:600; }
+.cfc-fee span{ font-size:26px; font-weight:700; letter-spacing:-.035em; }
+.cfc-faq{ border:1px solid #ececf0; border-radius:18px; background:#fff; overflow:hidden; }
+.cfc-faq > div{ padding:14px 16px; }
+.cfc-faq > div + div{ border-top:1px solid #f0f0f3; }
+.cfc-faq b{ display:block; font-size:14px; font-weight:600; }
+.cfc-faq p{ margin:4px 0 0; font-size:13.5px; line-height:1.5; color:${INK_3}; }
+
+/* formulario */
+.cfc-lbl{ display:block; margin:16px 0 6px; font-size:13px; font-weight:600; color:${INK_2}; }
+.cfc-lbl small{ font-weight:400; color:${INK_3}; }
+.cfc-in{ width:100%; min-height:48px; padding:0 14px; border:1px solid #dcdce2; border-radius:12px; font-size:16px; font-family:inherit; background:#fff; color:${INK}; -webkit-appearance:none; appearance:none; }
+.cfc-in:focus{ border-color:${INK}; outline:none; }
+.cfc-in[aria-invalid="true"]{ border-color:#dc2626; }
+.cfc-help{ margin-top:6px; font-size:12.5px; line-height:1.45; color:${INK_3}; }
+.cfc-fielderr{ margin-top:6px; font-size:12.5px; color:#b91c1c; }
+.cfc-row{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr); gap:10px; }
+.cfc-seg{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.cfc-seg button{ min-height:48px; border-radius:12px; border:1px solid #dcdce2; background:#fff; font-size:15px; font-weight:500; color:${INK}; }
+.cfc-seg button[aria-checked="true"]{ border:2px solid ${INK}; font-weight:600; }
+
+/* assinaturas aguardando */
+.cfc-sub{ padding:14px 0; }
+.cfc-sub + .cfc-sub{ border-top:1px solid #f0f0f3; }
+.cfc-sub-n{ font-size:15px; font-weight:600; }
+.cfc-sub-m{ margin-top:2px; font-size:13px; color:${INK_3}; }
+.cfc-sub-a{ margin-top:10px; display:flex; gap:8px; }
+.cfc-sub-a > *{ flex:1; }
+.cfc-go{ margin-top:10px; display:flex; align-items:center; gap:12px; min-height:64px; padding:12px 16px; border-radius:18px; border:1px solid #ececf0; background:#fff; }
+@media (hover:hover){ .cfc-go:hover{ border-color:#d6d6dc; } }
+.cfc-go-i{ width:40px; height:40px; border-radius:12px; background:#f2f2f5; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:${INK_2}; }
+.cfc-go-t{ flex:1; min-width:0; }
+.cfc-go-t b{ display:block; font-size:15px; font-weight:600; }
+.cfc-go-t small{ display:block; margin-top:2px; font-size:13px; color:${INK_3}; }
+
+.cfc-trust{ margin-top:22px; display:flex; gap:8px; align-items:flex-start; font-size:12.5px; line-height:1.5; color:${INK_3}; }
+.cfc-skel{ border-radius:18px; background:#f2f2f5; animation:cfc-pulse 1.2s ease-in-out infinite; }
+.cfc-toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(64px + env(safe-area-inset-bottom) + 14px); z-index:10000; padding:11px 16px; border-radius:12px; font-size:14px; font-weight:500; font-family:${typography.fontFamily}; box-shadow:0 8px 24px rgba(17,17,20,.18); max-width:calc(100vw - 32px); }
+.cfc-toast.ok{ background:${INK}; color:#fff; }
+.cfc-toast.err{ background:#fff; color:#a32d2d; border:1px solid #f1d0d0; }
+@media (min-width:1024px){ .cfc-toast{ bottom:24px; left:calc(50% + var(--sidebar-width, 0px) / 2); } }
+@media (max-width:379px){ .cfc-row{ grid-template-columns:1fr; } .cfc-h1{ font-size:25px; } }
+@media (prefers-reduced-motion:reduce){ .cfc, .cfc-skel, .cfc-spin{ animation:none; } }
+`
+
+// ── pagina ──────────────────────────────────────────────────────────────────
+type Toast = { kind: 'ok' | 'err'; text: string }
+
+export default function EligiClubCobrancaPage() {
+  const { user } = useAuth()
+  const isOwner = user?.role === 'BUSINESS_OWNER'
+  const canBuy = useCanBuyPlan()
+
+  const [load, setLoad] = useState<Load>({ state: 'loading' })
+  const [refreshing, setRefreshing] = useState(false)
+  const [toast, setToast] = useState<Toast | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    fetchAccount()
+      .then((acc) => { if (vivo) setLoad({ state: 'ok', acc }) })
+      .catch((e) => { console.error('[cobranca-clube] carregar', e); if (vivo) setLoad({ state: 'error' }) })
+    return () => { vivo = false }
+  }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = window.setTimeout(() => setToast(null), 3200)
+    return () => window.clearTimeout(t)
+  }, [toast])
+
+  const retry = () => {
+    setLoad({ state: 'loading' })
+    fetchAccount()
+      .then((acc) => setLoad({ state: 'ok', acc }))
+      .catch((e) => { console.error('[cobranca-clube] carregar', e); setLoad({ state: 'error' }) })
+  }
+
+  /** "Atualizar situacao": consulta o Asaas agora, ignorando o atalho de 5 min. */
+  const refresh = useCallback(() => {
+    setRefreshing(true)
+    fetchAccount(true)
+      .then((acc) => { setLoad({ state: 'ok', acc }); setToast({ kind: 'ok', text: 'Situação atualizada.' }) })
+      .catch((e) => {
+        console.error('[cobranca-clube] atualizar', e)
+        setToast({ kind: 'err', text: 'Não foi possível atualizar agora. Tente em instantes.' })
+      })
+      .finally(() => setRefreshing(false))
+  }, [])
+
+  const acc = load.state === 'ok' ? load.acc : null
+  const rejected = !!acc?.connected && !acc.approved && acc.status === 'REJECTED'
+  const inReview = !!acc?.connected && !acc.approved && !rejected
+
+  return (
+    <div className="cfc">
+      <style>{CSS}</style>
+      <Link href="/dashboard/configuracoes" className="cfc-back"><ChevronLeft size={18} aria-hidden /> Configurações</Link>
+      <h1 className="cfc-h1 cfc-d">Cobrança do EligiClub</h1>
+      <p className="cfc-lead">A conta de pagamentos que recebe as mensalidades do clube no cartão do cliente.</p>
+
+      {load.state === 'loading' && (
+        <div aria-busy="true" aria-label="Carregando" style={{ marginTop: 22, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="cfc-skel" style={{ height: 150 }} />
+          <div className="cfc-skel" style={{ height: 220 }} />
+        </div>
+      )}
+
+      {load.state === 'error' && (
+        <div className="cfc-card" role="alert" style={{ marginTop: 22 }}>
+          <div className="cfc-p" style={{ marginTop: 0 }}>Não foi possível carregar a situação da sua conta de pagamentos.</div>
+          <button type="button" className="cfc-cta" style={{ marginTop: 14 }} onClick={retry}>Tentar de novo</button>
+        </div>
+      )}
+
+      {acc?.isento && (
+        <div className="cfc-note" style={{ marginTop: 18 }}>
+          <CircleAlert size={16} aria-hidden />
+          <span><b>Modo teste.</b> As cobranças do clube são simuladas e não geram pagamento de verdade.</span>
+        </div>
+      )}
+
+      {acc && !acc.connected && (
+        <NotConnected acc={acc} isOwner={isOwner} canBuy={canBuy}
+          onActivated={(next) => { setLoad({ state: 'ok', acc: next }); setToast({ kind: 'ok', text: 'Conta de pagamentos criada.' }) }} />
+      )}
+
+      {acc && inReview && <InReview acc={acc} isOwner={isOwner} refreshing={refreshing} onRefresh={refresh} />}
+
+      {acc && rejected && (
+        <>
+          <p className="cfc-cap">Situação</p>
+          <div className="cfc-card">
+            <div className="cfc-top">
+              <div className="cfc-t cfc-d">Conta recusada</div>
+              <span className="cfc-pill bad"><i aria-hidden />Recusada pelo Asaas</span>
+            </div>
+            <p className="cfc-p">
+              O Asaas não aprovou a sua conta de pagamentos, então o clube ainda não cobra no cartão.
+              Fale com o suporte do Asaas informando o CNPJ do negócio para saber o motivo e como corrigir.
+            </p>
+            <div className="cfc-actions">
+              <a className="cfc-sec" href="tel:08000090037">Ligar 0800 009 0037</a>
+              <a className="cfc-sec" href="mailto:contato@asaas.com.br">Enviar e-mail</a>
+            </div>
+            <button type="button" className="cfc-sec" style={{ marginTop: 8, width: '100%' }} onClick={refresh} disabled={refreshing}>
+              <RefreshCw size={15} aria-hidden className={refreshing ? 'cfc-spin' : undefined} />
+              {refreshing ? 'Atualizando…' : 'Atualizar situação'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {acc?.approved && <Approved isOwner={isOwner} onToast={setToast} />}
+
+      {acc && (
+        <>
+          <div className="cfc-trust">
+            <ShieldCheck size={15} aria-hidden style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>O dinheiro cai na conta do seu negócio no Asaas, não passa pelo Eligi. Os dados do cartão ficam com o Asaas; o Eligi nunca os guarda.</span>
+          </div>
+          <AsaasSeal variant="positivo" />
+          <AsaasSupportNote />
+        </>
+      )}
+
+      {toast && <div className={`cfc-toast ${toast.kind}`} role="status" aria-live="polite">{toast.text}</div>}
+    </div>
+  )
 }
 
-// ── subcomponentes ──────────────────────────────────────────────────────────
-function Header({ onBack }: { onBack: () => void }) {
+// ── 1. nao ativada ──────────────────────────────────────────────────────────
+function NotConnected({ acc, isOwner, canBuy, onActivated }: {
+  acc: AccountOnboarding
+  isOwner: boolean
+  canBuy: boolean
+  onActivated: (acc: AccountOnboarding) => void
+}) {
+  const missing = acc.missing ?? []
+
   return (
     <>
-      <button onClick={onBack} style={{
-        display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none',
-        cursor: 'pointer', color: 'rgba(0,0,0,0.5)', fontSize: 13, marginBottom: 14,
-        fontFamily: 'inherit', padding: '6px 0', minHeight: 40,
-      }}>
-        <ChevronLeft size={16} /> Configurações
-      </button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 18 }}>
-        <span style={{
-          width: 42, height: 42, borderRadius: 12, background: '#0E0E12', flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <EligiClubIcon size={21} color="#F4F2EC" />
-        </span>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em' }}>
-            Cobrança do clube
-          </h2>
-          <div style={{ fontSize: 12.5, color: 'rgba(0,0,0,0.45)', marginTop: 2 }}>
-            Mensalidades no cartão, automaticamente
+      <p className="cfc-cap">Situação</p>
+      <div className="cfc-card">
+        <div className="cfc-top">
+          <div className="cfc-t cfc-d">Cobrança desligada</div>
+          <span className="cfc-pill neutral"><i aria-hidden />Não ativada</span>
+        </div>
+        <p className="cfc-p">
+          Com a conta ativa, as mensalidades do clube são cobradas no cartão do cliente todo mês, sem você lembrar ninguém.
+        </p>
+        {!isOwner && (
+          <div className="cfc-note"><Lock size={16} aria-hidden /><span>Só o dono do estabelecimento ativa a cobrança do clube.</span></div>
+        )}
+        {isOwner && !canBuy && (
+          <div className="cfc-note"><CircleAlert size={16} aria-hidden /><span>A ativação não é feita pelo app. Abra o Eligi no navegador para ativar.</span></div>
+        )}
+      </div>
+
+      {isOwner && canBuy && missing.length > 0 && (
+        <>
+          <p className="cfc-cap">Antes de ativar</p>
+          <div className="cfc-card">
+            <div className="cfc-t cfc-d" style={{ fontSize: 17 }}>Complete o cadastro do negócio</div>
+            <p className="cfc-p">O Asaas usa estes dados para abrir a conta em nome do seu negócio. Falta:</p>
+            <ul className="cfc-miss">
+              {missing.map((m) => <li key={m}><i aria-hidden />{MISSING_LABEL[m]}</li>)}
+            </ul>
+            <Link href="/dashboard/configuracoes/empresa" className="cfc-cta block" style={{ marginTop: 16 }}>
+              Completar perfil e endereço <ChevronRight size={17} aria-hidden />
+            </Link>
+          </div>
+        </>
+      )}
+
+      {isOwner && canBuy && (
+        <>
+          <p className="cfc-cap">Quanto custa</p>
+          <div className="cfc-card">
+            <div className="cfc-fee">
+              <b>Ativação da conta</b>
+              <span className="cfc-d cfc-n">{brl(CLUB_ACTIVATION_FEE)}</span>
+            </div>
+            <p className="cfc-p">
+              Uma única vez. Você não paga nada agora: o valor entra na sua próxima mensalidade do Eligi.
+              Se o Asaas não aprovar a conta, a cobrança é cancelada antes de vencer.
+            </p>
+          </div>
+
+          <p className="cfc-cap">Perguntas comuns</p>
+          <div className="cfc-faq">
+            <div><b>O dinheiro passa pelo Eligi?</b><p>Não. A conta é aberta no Asaas, em nome do seu negócio. O valor cai direto lá.</p></div>
+            <div><b>Quanto tempo leva?</b><p>O Asaas analisa em até 48h depois que você envia os documentos. Você acompanha por esta tela.</p></div>
+            <div><b>O cliente pode cancelar?</b><p>Pode, quando quiser. Ele fica com o plano até o fim do mês já pago e não é cobrado de novo.</p></div>
+          </div>
+
+          {missing.length === 0 && <ActivateForm onActivated={onActivated} />}
+        </>
+      )}
+    </>
+  )
+}
+
+type Field = 'mobilePhone' | 'email' | 'addressNumber' | 'province' | 'income'
+const FIELD_ORDER: Field[] = ['mobilePhone', 'email', 'addressNumber', 'province', 'income']
+
+function ActivateForm({ onActivated }: { onActivated: (acc: AccountOnboarding) => void }) {
+  const [companyType, setCompanyType] = useState<CompanyType>('MEI')
+  const [mobilePhone, setMobilePhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [addressNumber, setAddressNumber] = useState('')
+  const [province, setProvince] = useState('')
+  const [income, setIncome] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
+  const [formError, setFormError] = useState<string | null>(null)
+
+  function validate(): Partial<Record<Field, string>> {
+    const e: Partial<Record<Field, string>> = {}
+    if (onlyDigits(mobilePhone).length < 10) e.mobilePhone = 'Informe um celular com DDD.'
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = 'E-mail inválido.'
+    if (!addressNumber.trim()) e.addressNumber = 'Informe o número.'
+    if (!province.trim()) e.province = 'Informe o bairro.'
+    if (!(moneyToNumber(income) > 0)) e.income = 'Informe o faturamento mensal aproximado.'
+    return e
+  }
+
+  function submit(ev: React.FormEvent) {
+    ev.preventDefault()
+    if (saving) return
+    const e = validate()
+    setErrors(e)
+    setFormError(null)
+    const first = FIELD_ORDER.find((k) => e[k])
+    if (first) { document.getElementById(`cfc-${first}`)?.focus(); return }
+
+    setSaving(true)
+    api.post('/club-subscriptions/asaas/provision', {
+      companyType,
+      mobilePhone: onlyDigits(mobilePhone),
+      addressNumber: addressNumber.trim(),
+      province: province.trim(),
+      incomeValue: moneyToNumber(income),
+      ...(email.trim() ? { email: email.trim() } : {}),
+    })
+      .then(() => fetchAccount(true))
+      .then((acc) => onActivated(acc))
+      .catch((err: unknown) => {
+        console.error('[cobranca-clube] ativar', err)
+        if (errStatus(err) === 403) { setFormError('Só o dono do estabelecimento ativa a cobrança.'); return }
+        if (errCode(err) === 'ASAAS_EMAIL_IN_USE') {
+          setErrors({ email: errMsg(err, 'Este e-mail já tem conta no Asaas. Use outro.') })
+          window.setTimeout(() => document.getElementById('cfc-email')?.focus(), 30)
+          return
+        }
+        setFormError(errMsg(err, 'Não foi possível ativar a cobrança. Tente de novo.'))
+      })
+      .finally(() => setSaving(false))
+  }
+
+  const fieldProps = (k: Field) => ({
+    id: `cfc-${k}`,
+    className: 'cfc-in',
+    'aria-invalid': errors[k] ? true : undefined,
+    'aria-describedby': errors[k] ? `cfc-${k}-err` : undefined,
+  })
+  const fieldErr = (k: Field) => (errors[k] ? <div id={`cfc-${k}-err`} className="cfc-fielderr">{errors[k]}</div> : null)
+
+  return (
+    <>
+      <p className="cfc-cap">Ativar a cobrança</p>
+      <form className="cfc-card" onSubmit={submit} noValidate>
+        <p className="cfc-p" style={{ marginTop: 0 }}>
+          Confirme alguns dados do negócio. O Eligi abre a conta no Asaas por você.
+        </p>
+
+        <span className="cfc-lbl" id="cfc-type-l">Tipo de empresa</span>
+        <div className="cfc-seg" role="radiogroup" aria-labelledby="cfc-type-l">
+          <button type="button" role="radio" aria-checked={companyType === 'MEI'} onClick={() => setCompanyType('MEI')}>MEI</button>
+          <button type="button" role="radio" aria-checked={companyType === 'LIMITED'} onClick={() => setCompanyType('LIMITED')}>LTDA / ME</button>
+        </div>
+
+        <label className="cfc-lbl" htmlFor="cfc-mobilePhone">Celular do responsável</label>
+        <input {...fieldProps('mobilePhone')} value={mobilePhone} onChange={(e) => setMobilePhone(maskPhone(e.target.value))}
+          placeholder="(11) 99999-9999" inputMode="numeric" autoComplete="tel" />
+        {fieldErr('mobilePhone')}
+
+        <label className="cfc-lbl" htmlFor="cfc-email">E-mail da conta de pagamentos <small>(opcional)</small></label>
+        <input {...fieldProps('email')} value={email} onChange={(e) => setEmail(e.target.value)}
+          placeholder="Em branco = o e-mail da sua conta" inputMode="email" autoComplete="email" type="email" />
+        {fieldErr('email') ?? <div className="cfc-help">Já tem conta no Asaas? Use outro e-mail aqui: cada conta precisa de um e-mail próprio.</div>}
+
+        <div className="cfc-row">
+          <div>
+            <label className="cfc-lbl" htmlFor="cfc-addressNumber">Número</label>
+            <input {...fieldProps('addressNumber')} value={addressNumber} onChange={(e) => setAddressNumber(e.target.value)} placeholder="123" />
+            {fieldErr('addressNumber')}
+          </div>
+          <div>
+            <label className="cfc-lbl" htmlFor="cfc-province">Bairro</label>
+            <input {...fieldProps('province')} value={province} onChange={(e) => setProvince(e.target.value)} placeholder="Centro" />
+            {fieldErr('province')}
           </div>
         </div>
+
+        <label className="cfc-lbl" htmlFor="cfc-income">Faturamento mensal aproximado</label>
+        <input {...fieldProps('income')} value={income} onChange={(e) => setIncome(maskMoney(e.target.value))}
+          placeholder="R$ 5.000,00" inputMode="numeric" />
+        {fieldErr('income') ?? <div className="cfc-help">Exigido pelo Asaas para a análise do cadastro.</div>}
+
+        {formError && <div className="cfc-note bad" role="alert"><CircleAlert size={16} aria-hidden /><span>{formError}</span></div>}
+
+        <button type="submit" className="cfc-cta block" style={{ marginTop: 18 }} disabled={saving}>
+          {saving && <Loader2 size={16} aria-hidden className="cfc-spin" />}
+          {saving ? 'Criando a conta…' : 'Ativar cobrança'}
+        </button>
+      </form>
+    </>
+  )
+}
+
+// ── 2. em analise ───────────────────────────────────────────────────────────
+function InReview({ acc, isOwner, refreshing, onRefresh }: {
+  acc: AccountOnboarding
+  isOwner: boolean
+  refreshing: boolean
+  onRefresh: () => void
+}) {
+  const docs = Array.from(new Set([...(acc.pendingDocIds ?? []).map((d) => d.type), ...acc.pendingDocs]))
+  const awaiting = acc.status === 'AWAITING_APPROVAL' || (docs.length === 0 && !acc.onboardingUrl)
+
+  return (
+    <>
+      <p className="cfc-cap">Situação</p>
+      <div className="cfc-card">
+        <div className="cfc-top">
+          <div className="cfc-t cfc-d">Conta em análise</div>
+          <span className="cfc-pill warn"><i aria-hidden />{awaiting ? 'Aguardando o Asaas' : 'Faltam documentos'}</span>
+        </div>
+        <p className="cfc-p">A cobrança no cartão é liberada assim que o Asaas aprovar a conta.</p>
+
+        <ol className="cfc-steps">
+          <li className="cfc-step done">
+            <span className="cfc-step-n" aria-hidden><Check size={14} /></span>
+            <div>Conta criada<small>A conta do seu negócio já existe no Asaas.</small></div>
+          </li>
+          <li className={`cfc-step ${awaiting ? 'done' : 'now'}`}>
+            <span className="cfc-step-n" aria-hidden>{awaiting ? <Check size={14} /> : '2'}</span>
+            <div>
+              Enviar documentos
+              <small>{awaiting ? 'Nada pendente do seu lado.' : 'Leva uns 2 minutos, pelo site seguro do Asaas.'}</small>
+              {!awaiting && docs.length > 0 && (
+                <ul className="cfc-docs">
+                  {docs.map((t) => <li key={t}><i aria-hidden />{docLabel(t)}</li>)}
+                </ul>
+              )}
+            </div>
+          </li>
+          <li className={`cfc-step ${awaiting ? 'now' : ''}`}>
+            <span className="cfc-step-n" aria-hidden>3</span>
+            <div>Análise do Asaas<small>Até 48h depois do envio. A aprovação aparece aqui.</small></div>
+          </li>
+        </ol>
+
+        {!awaiting && !isOwner && (
+          <div className="cfc-note"><Lock size={16} aria-hidden /><span>Só o dono do estabelecimento envia os documentos.</span></div>
+        )}
+        {!awaiting && isOwner && acc.onboardingUrl && (
+          <a className="cfc-cta block" style={{ marginTop: 14 }} href={acc.onboardingUrl} target="_blank" rel="noopener noreferrer">
+            Enviar documentos <ExternalLink size={16} aria-hidden />
+          </a>
+        )}
+        {!awaiting && isOwner && !acc.onboardingUrl && (
+          <div className="cfc-note warn">
+            <CircleAlert size={16} aria-hidden />
+            <span>
+              O link de envio expirou ou já foi usado. Peça um novo ao suporte do Asaas pelo <b>0800 009 0037</b> ou{' '}
+              <a href="mailto:contato@asaas.com.br" style={{ textDecoration: 'underline' }}>contato@asaas.com.br</a>, informando o CNPJ do negócio.
+            </span>
+          </div>
+        )}
+
+        <button type="button" className="cfc-sec" style={{ marginTop: 10, width: '100%' }} onClick={onRefresh} disabled={refreshing}>
+          <RefreshCw size={15} aria-hidden className={refreshing ? 'cfc-spin' : undefined} />
+          {refreshing ? 'Atualizando…' : 'Atualizar situação'}
+        </button>
       </div>
     </>
   )
 }
 
-function Banner({ tone, children }: { tone: 'amber' | 'red' | 'green'; children: React.ReactNode }) {
-  const cfg = {
-    amber: { bg: 'rgba(245,158,11,0.09)', bd: 'rgba(245,158,11,0.22)', fg: '#92600a' },
-    red: { bg: 'rgba(220,38,38,0.08)', bd: 'rgba(220,38,38,0.2)', fg: '#b91c1c' },
-    green: { bg: 'rgba(22,163,74,0.07)', bd: 'rgba(22,163,74,0.2)', fg: '#15803d' },
-  }[tone]
-  return (
-    <div style={{
-      display: 'flex', gap: 9, background: cfg.bg, border: `1px solid ${cfg.bd}`,
-      borderRadius: 10, padding: '12px 14px', fontSize: 12.5, color: cfg.fg,
-      lineHeight: 1.5, marginBottom: 16, alignItems: 'flex-start',
-    }}>
-      {tone === 'green' ? <Check size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        : <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />}
-      <span>{children}</span>
-    </div>
-  )
-}
+// ── 3. ativa ────────────────────────────────────────────────────────────────
+type PendingLoad = { state: 'loading' } | { state: 'error' } | { state: 'ok'; subs: PendingSub[] }
 
-function StatusRow({ color, title, meta }: { color: string; title: string; meta: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-      <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, flexShrink: 0 }} />
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
-        <div style={{ fontSize: 11.5, color: '#8a8a92', marginTop: 2 }}>{meta}</div>
-      </div>
-    </div>
-  )
-}
-
-// @eligi:club-pitch-component
-// APRESENTACAO DO ELIGICLUB (estado 1 - nao conectado).
-//
-// REDUZIDA em ago/2026: o modulo /dashboard/eligiclub ja mostra a tela de
-// ativacao (ClubGateScreen) com hero, tres beneficios e o valor. Quem chega
-// aqui JA leu aquilo e JA clicou. Repetir comparativo, passos e lista de
-// features fazia o lojista ler a mesma venda duas vezes seguidas.
-// Fica o que a outra tela nao tem: o simulador, o valor detalhado e a FAQ.
-//
-// O simulador e o argumento central: numero proprio convence mais que copy.
-// A nota de "estimativa" e obrigatoria - sem ela vira promessa de resultado
-// financeiro, vedada pelo playbook BaaS do Asaas.
-//
-// React Compiler: subcomponentes em escopo de modulo, sem leitura de ref no render.
-
-const PITCH_SUBS_MIN = 5
-const PITCH_SUBS_MAX = 300
-const PITCH_SUBS_STEP = 5
-const PITCH_FEE_MIN = 29
-const PITCH_FEE_MAX = 499
-const PITCH_FEE_STEP = 10
-
-/** Valor da ativacao. Espelha CLUB_ACTIVATION_FEE no back (billing.service.ts). */
-const CLUB_ACTIVATION_FEE = 12.9
-
-const PITCH_NUM: React.CSSProperties = {
-  fontFamily: "var(--font-eligi-display), var(--font-eligi-sans), system-ui, sans-serif",
-  fontVariantNumeric: 'tabular-nums',
-}
-
-function PitchStepper({
-  label, display, onDec, onInc, decLabel, incLabel,
-}: {
-  label: string
-  display: string
-  onDec: () => void
-  onInc: () => void
-  decLabel: string
-  incLabel: string
-}) {
-  const btn: React.CSSProperties = {
-    width: 44, height: 44, flexShrink: 0, borderRadius: 12, border: 0, cursor: 'pointer',
-    background: 'rgba(255,255,255,0.10)', color: '#fff', display: 'inline-flex',
-    alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit',
-  }
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-      background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.11)',
-      borderRadius: 16, padding: 7,
-    }}>
-      <button type="button" className="ecp-btn" style={btn} onClick={onDec} aria-label={decLabel}>
-        <Minus size={17} />
-      </button>
-      <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-        <div style={{ ...PITCH_NUM, fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', color: '#fff' }}>
-          {display}
-        </div>
-        <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
-          {label}
-        </div>
-      </div>
-      <button type="button" className="ecp-btn" style={btn} onClick={onInc} aria-label={incLabel}>
-        <Plus size={17} />
-      </button>
-    </div>
-  )
-}
-
-function PitchFaq({ q, a }: { q: string; a: string }) {
-  return (
-    <div style={{ background: '#fff', padding: 14 }}>
-      <b style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.01em', color: '#111114', display: 'block' }}>{q}</b>
-      <p style={{ margin: '5px 0 0', fontSize: 12.5, lineHeight: 1.55, color: 'rgba(0,0,0,0.5)' }}>{a}</p>
-    </div>
-  )
-}
-
-const PITCH_EYEBROW: React.CSSProperties = {
-  fontSize: 10.5, fontWeight: 700, letterSpacing: '0.11em', textTransform: 'uppercase',
-  color: 'rgba(0,0,0,0.38)', margin: 0,
-}
-const PITCH_H2: React.CSSProperties = {
-  fontSize: 19, fontWeight: 700, letterSpacing: '-0.028em', lineHeight: 1.2,
-  color: '#111114', margin: '8px 0 0',
-}
-
-function ClubPitch() {
-  const [subs, setSubs] = useState(30)
-  const [fee, setFee] = useState(89)
-  const mrr = subs * fee
-  const yearly = (mrr * 12).toLocaleString('pt-BR', {
-    style: 'currency', currency: 'BRL', maximumFractionDigits: 0,
-  })
-
-  return (
-    <div style={{ marginBottom: 18 }}>
-      {/* hero curto */}
-      <div style={{ marginBottom: 20 }}>
-        <p style={{ ...PITCH_EYEBROW, color: '#b91c1c' }}>EligiClub</p>
-        <h2 style={{
-          fontSize: 24, fontWeight: 700, letterSpacing: '-0.032em', lineHeight: 1.15,
-          color: '#111114', margin: '10px 0 0',
-        }}>
-          Quanto o clube pode<br />render por mes
-        </h2>
-      </div>
-
-      {/* simulador */}
-      <div style={{
-        borderRadius: 20, padding: 18, marginBottom: 20,
-        background: 'linear-gradient(165deg,#17171b,#26262d)',
-        boxShadow: '0 16px 40px rgba(17,17,20,0.26)',
-      }}>
-        <p style={{ ...PITCH_EYEBROW, color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>
-          Simule a sua base
-        </p>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <PitchStepper
-            label="ASSINANTES"
-            display={String(subs)}
-            decLabel="Menos assinantes"
-            incLabel="Mais assinantes"
-            onDec={() => setSubs(v => Math.max(PITCH_SUBS_MIN, v - PITCH_SUBS_STEP))}
-            onInc={() => setSubs(v => Math.min(PITCH_SUBS_MAX, v + PITCH_SUBS_STEP))}
-          />
-          <PitchStepper
-            label="POR MES, CADA UM"
-            display={brl(fee)}
-            decLabel="Diminuir mensalidade"
-            incLabel="Aumentar mensalidade"
-            onDec={() => setFee(v => Math.max(PITCH_FEE_MIN, v - PITCH_FEE_STEP))}
-            onInc={() => setFee(v => Math.min(PITCH_FEE_MAX, v + PITCH_FEE_STEP))}
-          />
-        </div>
-
-        <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-          <p style={{ ...PITCH_EYEBROW, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
-            Entra todo mes
-          </p>
-          <div style={{ ...PITCH_NUM, fontSize: 42, fontWeight: 700, letterSpacing: '-0.045em', lineHeight: 1, color: '#fff' }}>
-            {brl(mrr)}
-          </div>
-          <div style={{
-            marginTop: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '11px 13px',
-            fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 500, gap: 10,
-          }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-              <TrendingUp size={15} /> Em 12 meses
-            </span>
-            <b style={{ ...PITCH_NUM, fontSize: 16, fontWeight: 700, color: '#fff' }}>{yearly}</b>
-          </div>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.38)', margin: '12px 0 0', lineHeight: 1.5 }}>
-            Estimativa baseada nos numeros que voce escolheu acima. Nao e previsao nem
-            garantia de resultado.
-          </p>
-        </div>
-      </div>
-
-      {/* @eligi:club-pitch-fee — o valor, explicito e sem letra miuda */}
-      <div style={{
-        borderRadius: 18, padding: 17, marginBottom: 20, background: '#fff',
-        border: '1px solid rgba(220,38,38,0.22)',
-        boxShadow: '0 6px 20px rgba(220,38,38,0.07)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-          <b style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.018em', color: '#111114' }}>
-            Ativacao do EligiClub
-          </b>
-          <span style={{ ...PITCH_NUM, fontSize: 26, fontWeight: 700, letterSpacing: '-0.035em', color: '#b91c1c' }}>
-            {brl(CLUB_ACTIVATION_FEE)}
-          </span>
-        </div>
-        <p style={{ margin: '9px 0 0', fontSize: 13.5, lineHeight: 1.55, color: 'rgba(0,0,0,0.62)' }}>
-          Cobrado <b>uma unica vez</b> para abrir sua conta de pagamentos. Voce nao paga
-          nada agora: o valor entra na <b>sua proxima mensalidade do Eligi</b>.
-        </p>
-        <div style={{
-          display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 12, paddingTop: 12,
-          borderTop: '1px solid rgba(17,17,20,0.07)',
-        }}>
-          <span style={{
-            width: 20, height: 20, flexShrink: 0, borderRadius: 7, background: '#ecfdf5',
-            border: '1px solid rgba(16,185,129,0.20)', display: 'inline-flex',
-            alignItems: 'center', justifyContent: 'center', marginTop: 1,
-          }}>
-            <Check size={11} color="#0f6e56" strokeWidth={3} />
-          </span>
-          <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'rgba(0,0,0,0.55)' }}>
-            Sem mensalidade extra depois. Se a analise do Asaas nao for aprovada, a
-            cobranca e cancelada antes de vencer.
-          </span>
-        </div>
-      </div>
-
-      {/* faq */}
-      <div style={{ marginBottom: 20 }}>
-        <p style={PITCH_EYEBROW}>Antes de comecar</p>
-        <h3 style={{ ...PITCH_H2, marginBottom: 14 }}>Tres duvidas que todo mundo tem</h3>
-        <div style={{
-          display: 'grid', gap: 1, background: 'rgba(17,17,20,0.07)', borderRadius: 14,
-          overflow: 'hidden', border: '1px solid rgba(17,17,20,0.07)',
-        }}>
-          <PitchFaq
-            q="O dinheiro passa pelo Eligi?"
-            a="Nao. Sua conta de pagamentos e aberta no Asaas, em seu nome. O valor cai direto la e voce saca quando quiser." />
-          <PitchFaq
-            q="Quanto tempo leva para liberar?"
-            a="A analise cadastral e feita pelo Asaas e leva ate 48h apos o envio dos documentos. Voce acompanha por esta tela." />
-          <PitchFaq
-            q="O cliente pode cancelar?"
-            a="Pode, a qualquer momento. Ele fica com o plano ate o fim do mes ja pago e depois nao e cobrado de novo." />
-        </div>
-      </div>
-
-      <Divider />
-    </div>
-  )
-}
-
-function Divider() {
-  return <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '16px 0' }} />
-}
-
-function SegOption({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} style={{
-      flex: 1, padding: 13, minHeight: 48,
-      border: `1px solid ${active ? '#dc2626' : 'rgba(0,0,0,0.13)'}`,
-      borderRadius: 10, textAlign: 'center', fontSize: 13.5, fontWeight: 600,
-      cursor: 'pointer', fontFamily: 'inherit',
-      background: active ? 'rgba(220,38,38,0.06)' : '#fff',
-      color: active ? '#dc2626' : '#111827', transition: 'all 0.15s ease',
-    }}>
-      {label}
-    </button>
-  )
-}
-
-/** Linha de assinatura aguardando pagamento: copiar link + enviar no WhatsApp. */
-function PendingRow({
-  sub, busy, copied, onCopy, onWhats,
-}: {
-  sub: PendingSub
-  busy: boolean
-  copied: boolean
-  onCopy: (id: string) => void
-  onWhats: (id: string) => void
-}) {
-  const price = sub.value ?? sub.plan?.price ?? 0
-  return (
-    <div style={{ padding: '14px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-      <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1c1c1e' }}>
-        {sub.client?.name ?? 'Cliente'}
-      </div>
-      <div style={{ fontSize: 11.5, color: '#8a8a92', marginTop: 2, marginBottom: 10 }}>
-        {sub.plan?.name ?? 'Plano'} · {brl(price)}/mês
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={() => onCopy(sub.id)} disabled={busy} style={{ ...MINI_BTN, opacity: busy ? 0.6 : 1 }}>
-          {busy ? <Loader2 size={14} style={{ animation: 'eligi-spin 0.9s linear infinite' }} />
-            : copied ? <Check size={14} color="#16a34a" /> : <Link2 size={14} />}
-          {copied ? 'Copiado' : 'Copiar link'}
-        </button>
-        {sub.client?.phone && (
-          <button onClick={() => onWhats(sub.id)} disabled={busy} style={{
-            ...MINI_BTN, opacity: busy ? 0.6 : 1,
-            border: '1px solid rgba(30,190,90,0.35)', background: 'rgba(30,190,90,0.07)', color: '#128c4a',
-          }}>
-            <MessageCircle size={14} /> WhatsApp
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── página ──────────────────────────────────────────────────────────────────
-export default function EligiClubCobrancaPage() {
-  const router = useRouter()
-  const canBuy = useCanBuyPlan() // @eligi:club-cfg-app-flag
-
-  const [acc, setAcc] = useState<AccountOnboarding | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const [companyType, setCompanyType] = useState<CompanyType>('MEI')
-  const [mobilePhone, setMobilePhone] = useState('')
-  // e-mail da conta de pagamentos. Vazio = usa o e-mail do dono.
-  // Necessario quando o lojista JA tem conta Asaas (o e-mail e unico la).
-  const [email, setEmail] = useState('')
-  const [addressNumber, setAddressNumber] = useState('')
-  const [province, setProvince] = useState('')
-  const [income, setIncome] = useState('')
-
-  const [pending, setPending] = useState<PendingSub[]>([])
+function Approved({ isOwner, onToast }: { isOwner: boolean; onToast: (t: Toast) => void }) {
+  const [pend, setPend] = useState<PendingLoad>({ state: 'loading' })
   const [busyId, setBusyId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [linkError, setLinkError] = useState<string | null>(null)
 
-  // upload de documentos cadastrais (grupos sem onboardingUrl)
-  const [uploadingId, setUploadingId] = useState<string | null>(null)
-  const [docError, setDocError] = useState<string | null>(null)
-  const [sentDocIds, setSentDocIds] = useState<string[]>([])
-  const [refreshing, setRefreshing] = useState(false)
-  const docInputs = useRef<Record<string, HTMLInputElement | null>>({})
-
-  const load = useCallback(async () => {
-    try {
-      const res = await api.get('/club-subscriptions/asaas/account-status')
-      const data = (res.data?.data ?? null) as AccountOnboarding | null
-      setAcc(data)
-      if (data?.approved) {
-        try {
-          const subs = await api.get('/club-subscriptions?status=PENDING')
-          setPending(((subs.data?.data ?? []) as PendingSub[]).filter(s => s.status === 'PENDING'))
-        } catch { setPending([]) }
-      }
-    } catch {
-      setAcc(null)
-    } finally {
-      setLoading(false)
-    }
+  useEffect(() => {
+    let vivo = true
+    fetchPending()
+      .then((subs) => { if (vivo) setPend({ state: 'ok', subs }) })
+      .catch((e) => { console.error('[cobranca-clube] pendentes', e); if (vivo) setPend({ state: 'error' }) })
+    return () => { vivo = false }
   }, [])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    if (!copiedId) return
+    const t = window.setTimeout(() => setCopiedId(null), 2200)
+    return () => window.clearTimeout(t)
+  }, [copiedId])
 
-  const activate = useCallback(async () => {
-    if (onlyDigits(mobilePhone).length < 10) { setError('Informe um celular válido com DDD.'); return }
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('E-mail inválido.'); return
-    }
-    if (!addressNumber.trim()) { setError('Informe o número do endereço.'); return }
-    if (!province.trim()) { setError('Informe o bairro.'); return }
-    const inc = moneyToNumber(income)
-    if (!inc || inc <= 0) { setError('Informe o faturamento mensal aproximado.'); return }
-
-    setSaving(true); setError(null)
-    try {
-      await api.post('/club-subscriptions/asaas/provision', {
-        companyType, mobilePhone: onlyDigits(mobilePhone),
-        addressNumber: addressNumber.trim(), province: province.trim(), incomeValue: inc,
-        ...(email.trim() ? { email: email.trim() } : {}),
-      })
-      await load()
-    } catch (e: unknown) {
-      const res = (e as { response?: { data?: { error?: string; code?: string } } })?.response?.data
-      setError(res?.error ?? 'Não foi possível ativar a cobrança. Tente novamente.')
-      // e-mail ja usado no Asaas: leva o cursor direto pro campo que precisa mudar
-      if (res?.code === 'ASAAS_EMAIL_IN_USE') {
-        window.setTimeout(() => {
-          document.getElementById('club-asaas-email')?.focus()
-        }, 60)
-      }
-    } finally {
-      setSaving(false)
-    }
-  }, [companyType, mobilePhone, addressNumber, province, income, email, load])
-
-  /** Busca o link no Asaas (sob demanda) e devolve os dados da mensagem. */
-  const fetchLink = useCallback(async (id: string): Promise<PaymentLink | null> => {
-    setBusyId(id); setLinkError(null)
-    try {
-      const res = await api.get(`/club-subscriptions/${id}/payment-link`)
-      const data = (res.data?.data ?? null) as PaymentLink | null
-      if (!data?.checkoutUrl) {
-        setLinkError('Link de pagamento indisponível para esta assinatura.')
-        return null
-      }
-      return data
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-      setLinkError(msg ?? 'Não foi possível obter o link.')
-      return null
-    } finally {
-      setBusyId(null)
-    }
-  }, [])
-
-  const handleCopy = useCallback(async (id: string) => {
-    const data = await fetchLink(id)
-    if (!data?.checkoutUrl) return
-    try {
-      await navigator.clipboard.writeText(data.checkoutUrl)
-      setCopiedId(id)
-      window.setTimeout(() => setCopiedId(null), 2200)
-    } catch {
-      setLinkError('Não foi possível copiar. Link: ' + data.checkoutUrl)
-    }
-  }, [fetchLink])
-
-  const handleWhats = useCallback(async (id: string) => {
-    const data = await fetchLink(id)
-    if (!data?.checkoutUrl || !data.clientPhone) return
-    const msg = clubPaymentMessage(data.clientName, data.businessName, data.checkoutUrl)
-    window.open(waLink(data.clientPhone, msg), '_blank', 'noopener,noreferrer')
-  }, [fetchLink])
-
-  /** Valida no cliente antes de gastar request, converte e envia. */
-  const handleDocFile = useCallback(async (docId: string, type: string, file: File | undefined) => {
-    if (!file) return
-    setDocError(null)
-
-    if (!DOC_MIMES.includes(file.type)) {
-      setDocError('Envie um arquivo PDF, JPG ou PNG.')
-      return
-    }
-    if (file.size > DOC_MAX_MB * 1024 * 1024) {
-      setDocError(`O arquivo deve ter no máximo ${DOC_MAX_MB} MB.`)
-      return
-    }
-
-    setUploadingId(docId)
-    try {
-      const fileBase64 = await fileToBase64(file)
-      await api.post(`/club-subscriptions/asaas/documents/${docId}`, {
-        type, fileName: file.name, mimeType: file.type, fileBase64,
-      })
-      setSentDocIds(prev => [...prev, docId])
-      await load() // o back ja invalidou o cache; reflete na hora
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-      setDocError(msg ?? 'Não foi possível enviar o documento. Tente novamente.')
-    } finally {
-      setUploadingId(null)
-    }
-  }, [load])
-
-  /** Botao "Atualizar situacao": consulta o Asaas ignorando o cache. */
-  const refreshStatus = useCallback(async () => {
-    setRefreshing(true)
-    setDocError(null)
-    try {
-      const res = await api.get('/club-subscriptions/asaas/account-status?force=1')
-      setAcc((res.data?.data ?? null) as AccountOnboarding | null)
-    } catch {
-      setDocError('Não foi possível atualizar agora. Tente novamente em instantes.')
-    } finally {
-      setRefreshing(false)
-    }
-  }, [])
-
-  const goBack = useCallback(() => router.push('/dashboard/configuracoes'), [router])
-
-  if (loading) {
-    return <div style={{ padding: 40, textAlign: 'center', color: 'rgba(0,0,0,0.4)' }}>Carregando…</div>
+  const retryPending = () => {
+    setPend({ state: 'loading' })
+    fetchPending()
+      .then((subs) => setPend({ state: 'ok', subs }))
+      .catch((e) => { console.error('[cobranca-clube] pendentes', e); setPend({ state: 'error' }) })
   }
 
-  const connected = !!acc?.connected
-  const approved = !!acc?.approved
-  const emAnalise = connected && !approved
+  /** O link e buscado na hora: link guardado pode expirar no Asaas. */
+  function getLink(id: string): Promise<PaymentLink | null> {
+    setBusyId(id)
+    return api.get(`/club-subscriptions/${id}/payment-link`)
+      .then((r) => {
+        const d = (r.data?.data ?? null) as PaymentLink | null
+        if (!d?.checkoutUrl) { onToast({ kind: 'err', text: 'Link de pagamento indisponível para esta assinatura.' }); return null }
+        return d
+      })
+      .catch((e) => { console.error('[cobranca-clube] link', e); onToast({ kind: 'err', text: errMsg(e, 'Não foi possível buscar o link.') }); return null })
+      .finally(() => setBusyId(null))
+  }
+
+  function copy(id: string) {
+    void getLink(id).then((d) => {
+      if (!d?.checkoutUrl) return
+      navigator.clipboard.writeText(d.checkoutUrl)
+        .then(() => { setCopiedId(id); onToast({ kind: 'ok', text: 'Link copiado.' }) })
+        .catch(() => onToast({ kind: 'err', text: 'Não foi possível copiar. Tente o WhatsApp.' }))
+    })
+  }
+
+  function whats(id: string) {
+    // a aba abre antes da espera: aberta depois de um await, o navegador bloqueia
+    const win = window.open('', '_blank')
+    void getLink(id).then((d) => {
+      if (!d?.checkoutUrl || !d.clientPhone) { win?.close(); return }
+      const url = waLink(d.clientPhone, clubPaymentMessage(d.clientName, d.businessName, d.checkoutUrl))
+      if (win) { win.opener = null; win.location.href = url } else { window.location.href = url }
+    })
+  }
+
+  const subs = pend.state === 'ok' ? pend.subs : []
 
   return (
-    <div style={{ maxWidth: 540, fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
-      <style>{`@keyframes eligi-spin { to { transform: rotate(360deg) } }
-        /* @eligi:club-pitch-css - hover nao existe em style inline */
-        .ecp-btn { transition: background 180ms ease, transform 160ms cubic-bezier(0.34,1.56,0.64,1); }
-        .ecp-btn:hover { background: rgba(255,255,255,0.19) !important; }
-        .ecp-btn:active { transform: scale(0.9); }
-      `}</style>
-      <Header onBack={goBack} />
-
-      {acc?.isento && (
-        <Banner tone="amber">
-          <b>Modo teste</b> — as cobranças são simuladas e não geram pagamento real.
-        </Banner>
-      )}
-
-      {/* ── 1: não conectado ── */}
-      {/* @eligi:club-pitch-render */}
-      {/* @eligi:club-cfg-app — no app: sem ativacao (cobra R$ 12,90 no plano) */}
-      {!connected && !canBuy && (
-        <Banner tone="amber">A ativação do EligiClub não é feita pelo app.</Banner>
-      )}
-      {!connected && canBuy && <ClubPitch />}
-      {!connected && canBuy && (
-        <div style={CARD}>
-          <p style={{ fontSize: 12.5, color: 'rgba(0,0,0,0.5)', lineHeight: 1.55, marginBottom: 18 }}>
-            Sua conta de pagamentos é aberta no <b>Asaas</b>, sem você sair do Eligi. Confirme alguns
-            dados do seu negócio para começar.
-          </p>
-
-          {error && <Banner tone="red">{error}</Banner>}
-
-          <label style={LABEL}>Tipo de empresa</label>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-            <SegOption label="MEI" active={companyType === 'MEI'} onClick={() => setCompanyType('MEI')} />
-            <SegOption label="LTDA / ME" active={companyType === 'LIMITED'} onClick={() => setCompanyType('LIMITED')} />
-          </div>
-
-          <label style={LABEL}>Celular do responsável</label>
-          <input style={INPUT} value={mobilePhone} onChange={e => setMobilePhone(maskPhone(e.target.value))}
-            placeholder="(11) 99999-9999" inputMode="numeric" autoComplete="tel" />
-
-          <label style={LABEL}>
-            E-mail da conta de pagamentos <span style={{ fontWeight: 400, color: '#9a9aa2' }}>(opcional)</span>
-          </label>
-          <input
-            id="club-asaas-email"
-            style={INPUT}
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="deixe em branco para usar o e-mail da sua conta"
-            inputMode="email"
-            autoComplete="email"
-            type="email"
-          />
-          <div style={{ fontSize: 11, color: '#9a9aa2', margin: '-8px 0 14px', lineHeight: 1.45 }}>
-            Se você já tem conta no Asaas, informe um e-mail diferente aqui — cada conta precisa
-            de um e-mail próprio.
-          </div>
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={LABEL}>Número</label>
-              <input style={INPUT} value={addressNumber} onChange={e => setAddressNumber(e.target.value)}
-                placeholder="123" inputMode="numeric" />
-            </div>
-            <div style={{ flex: 2 }}>
-              <label style={LABEL}>Bairro</label>
-              <input style={INPUT} value={province} onChange={e => setProvince(e.target.value)} placeholder="Centro" />
-            </div>
-          </div>
-
-          <label style={LABEL}>Faturamento mensal aproximado</label>
-          <input style={INPUT} value={income} onChange={e => setIncome(maskMoney(e.target.value))}
-            placeholder="R$ 5.000,00" inputMode="numeric" />
-          <div style={{ fontSize: 11, color: '#9a9aa2', margin: '-8px 0 16px', lineHeight: 1.45 }}>
-            Exigido pelo provedor de pagamentos para a análise cadastral.
-          </div>
-
-          <button onClick={activate} disabled={saving} style={{ ...BTN, opacity: saving ? 0.65 : 1 }}>
-            {saving && <Loader2 size={16} style={{ animation: 'eligi-spin 0.9s linear infinite' }} />}
-            {saving ? 'Ativando…' : 'Ativar cobrança'}
-          </button>
-          <AsaasSeal variant="positivo" />
-          <AsaasSupportNote />
+    <>
+      <p className="cfc-cap">Situação</p>
+      <div className="cfc-card">
+        <div className="cfc-top">
+          <div className="cfc-t cfc-d">Cobrança ativa</div>
+          <span className="cfc-pill ok"><i aria-hidden />Conta aprovada</span>
         </div>
+        <p className="cfc-p">As mensalidades do clube são cobradas no cartão do cliente todo mês e caem na conta do seu negócio no Asaas.</p>
+      </div>
+
+      {isOwner && (
+        <Link href="/dashboard/eligiclub?tab=financeiro" className="cfc-go">
+          <span className="cfc-go-i"><Wallet size={19} aria-hidden /></span>
+          <span className="cfc-go-t"><b>Saldo, saque e antecipação</b><small>No clube, aba Financeiro</small></span>
+          <ChevronRight size={18} aria-hidden style={{ color: INK_3 }} />
+        </Link>
       )}
 
-      {/* ── 2: em análise ── */}
-      {emAnalise && (
-        <div style={CARD}>
-          <StatusRow color="#f59e0b" title="Conta em análise"
-            meta="Aprovação em até 48h após o envio dos documentos" />
-          <Divider />
-          <Banner tone="amber">Para liberar a cobrança, envie seus documentos. Leva 2 minutos.</Banner>
-
-          {docError && <Banner tone="red">{docError}</Banner>}
-
-          {/* Documentos pendentes. O Asaas so aceita envio via API para ALGUNS tipos;
-              os demais (contrato social, identificacao, selfie) exigem o link de
-              onboarding. Quando o link nao vem (expirou/ja foi usado), orientamos
-              o lojista a pedir um novo ao suporte — melhor que um botao que falha. */}
-          {(acc!.pendingDocIds ?? []).length > 0 && (
-            <>
-              <div style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>
-                {acc!.onboardingUrl
-                  ? 'Envie estes documentos pelo site do Asaas:'
-                  : 'Documentos pendentes:'}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 16 }}>
-                {(acc!.pendingDocIds ?? []).map(d => (
-                  <div key={d.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 13px', borderRadius: 10,
-                    border: '1px solid rgba(0,0,0,0.08)', background: '#fff',
-                  }}>
-                    <FileText size={15} style={{ color: '#8a8a92', flexShrink: 0 }} />
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>
-                      {docLabel(d.type)}
-                    </span>
+      <p className="cfc-cap">Aguardando o 1º pagamento</p>
+      <div className="cfc-card">
+        {pend.state === 'loading' && <div className="cfc-skel" style={{ height: 64 }} aria-label="Carregando" />}
+        {pend.state === 'error' && (
+          <div role="alert">
+            <div className="cfc-p" style={{ marginTop: 0 }}>Não foi possível carregar as assinaturas.</div>
+            <button type="button" className="cfc-sec" style={{ marginTop: 10 }} onClick={retryPending}>Tentar de novo</button>
+          </div>
+        )}
+        {pend.state === 'ok' && subs.length === 0 && (
+          <div className="cfc-p" style={{ marginTop: 0 }}>Ninguém esperando. Quem você assina no cartão aparece aqui até pagar a 1ª mensalidade.</div>
+        )}
+        {subs.length > 0 && (
+          <>
+            <div className="cfc-p" style={{ marginTop: 0 }}>Envie o link para o cliente pagar e cadastrar o cartão.</div>
+            <div style={{ marginTop: 6 }}>
+              {subs.map((s) => {
+                const busy = busyId === s.id
+                return (
+                  <div key={s.id} className="cfc-sub">
+                    <div className="cfc-sub-n">{s.client?.name ?? 'Cliente'}</div>
+                    <div className="cfc-sub-m cfc-n">{s.plan?.name ?? 'Plano'} · {brl(s.value ?? s.plan?.price ?? 0)}/mês</div>
+                    <div className="cfc-sub-a">
+                      <button type="button" className="cfc-sec" disabled={busy} onClick={() => copy(s.id)}>
+                        {busy ? <Loader2 size={15} aria-hidden className="cfc-spin" /> : copiedId === s.id ? <Check size={15} aria-hidden /> : <Link2 size={15} aria-hidden />}
+                        {copiedId === s.id ? 'Copiado' : 'Copiar link'}
+                      </button>
+                      {s.client?.phone && (
+                        <button type="button" className="cfc-sec" disabled={busy} onClick={() => whats(s.id)}>
+                          <MessageCircle size={15} aria-hidden /> WhatsApp
+                        </button>
+                      )}
+                    </div>
                   </div>
-                ))}
-              </div>
-
-              {/* sem link disponivel: o envio nao pode ser feito por aqui */}
-              {!acc!.onboardingUrl && (
-                <div style={{
-                  display: 'flex', gap: 9, alignItems: 'flex-start',
-                  background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.22)',
-                  borderRadius: 10, padding: '12px 14px', marginBottom: 16,
-                  fontSize: 12.5, color: '#92600a', lineHeight: 1.55,
-                }}>
-                  <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-                  <span>
-                    O link de envio já foi utilizado ou expirou. Solicite um novo link ao
-                    suporte do Asaas pelo <b>0800 009 0037</b> ou{' '}
-                    <a href="mailto:contato@asaas.com.br" style={{ color: 'inherit' }}>
-                      contato@asaas.com.br
-                    </a>
-                    , informando o CNPJ do seu negócio.
-                  </span>
-                </div>
-              )}
-            </>
-          )}
-
-          {false && acc!.pendingDocs.length > 0 && (
-            <>
-              <div style={{ fontSize: 12, color: '#555', marginBottom: 6 }}>Pendentes:</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                {acc!.pendingDocs.map(d => (
-                  <span key={d} style={{
-                    fontSize: 11.5, background: 'rgba(0,0,0,0.05)', borderRadius: 20,
-                    padding: '5px 11px', color: '#555',
-                  }}>{docLabel(d)}</span>
-                ))}
-              </div>
-            </>
-          )}
-
-          {acc!.onboardingUrl ? (
-            <a href={acc!.onboardingUrl} target="_blank" rel="noopener noreferrer"
-              style={{ ...BTN, background: '#0E0E12', textDecoration: 'none' }}>
-              <Download size={16} /> Enviar documentos
-            </a>
-          ) : (
-            <button
-              onClick={() => void refreshStatus()}
-              disabled={refreshing}
-              style={{
-                ...BTN, background: '#fff', color: '#374151',
-                border: '1px solid rgba(0,0,0,0.12)', opacity: refreshing ? 0.65 : 1,
-              }}
-            >
-              {refreshing && <Loader2 size={15} style={{ animation: 'eligi-spin 0.9s linear infinite' }} />}
-              {refreshing ? 'Atualizando…' : 'Atualizar situação'}
-            </button>
-          )}
-          <div style={ASAAS_HINT}>Você será direcionado ao ambiente seguro do Asaas</div>
-          <AsaasSeal variant="positivo" />
-          <AsaasSupportNote />
-        </div>
-      )}
-
-      {/* ── 3: aprovado ── */}
-      {approved && (
-        <div style={CARD}>
-          <StatusRow color="#16a34a" title="Cobrança ativa" meta="Conta de pagamentos aprovada" />
-          <Divider />
-          <Banner tone="green">
-            As mensalidades do clube são cobradas automaticamente no cartão do cliente, todo mês.
-          </Banner>
-
-          {pending.length > 0 && (
-            <>
-              <Divider />
-              <div style={{
-                fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                color: 'rgba(0,0,0,0.35)', marginBottom: 4,
-              }}>
-                Aguardando pagamento ({pending.length})
-              </div>
-              <div style={{ fontSize: 11.5, color: '#8a8a92', marginBottom: 6 }}>
-                Envie o link para o cliente cadastrar o cartão.
-              </div>
-              {linkError && <Banner tone="red">{linkError}</Banner>}
-              {pending.map(s => (
-                <PendingRow
-                  key={s.id}
-                  sub={s}
-                  busy={busyId === s.id}
-                  copied={copiedId === s.id}
-                  onCopy={handleCopy}
-                  onWhats={handleWhats}
-                />
-              ))}
-            </>
-          )}
-
-          <div style={{
-            display: 'flex', gap: 8, alignItems: 'center', marginTop: 16,
-            fontSize: 11.5, color: 'rgba(0,0,0,0.4)',
-          }}>
-            <ShieldCheck size={14} style={{ flexShrink: 0 }} />
-            <span>Os dados do cartão são tratados pelo Asaas — o Eligi nunca os armazena.</span>
-          </div>
-          <AsaasSeal variant="positivo" />
-          <AsaasSupportNote />
-        </div>
-      )}
-    </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </>
   )
 }

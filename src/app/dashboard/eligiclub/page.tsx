@@ -168,6 +168,14 @@ const TABS: { id: Tab; label: string; Icon: LucideIcon }[] = [
   { id: 'financeiro', label: 'Financeiro', Icon: Wallet },
 ]
 
+/** `?tab=financeiro` abre direto na aba (link da Cobranca do EligiClub). Aba sem
+ *  permissao continua sem conteudo: o render ja checa o papel. */
+function initialClubTab(): Tab {
+  if (typeof window === 'undefined') return 'painel'
+  const t = new URLSearchParams(window.location.search).get('tab')
+  return TABS.some((x) => x.id === t) ? (t as Tab) : 'painel'
+}
+
 // Fechamento decide quanto cada profissional recebe do pote; Financeiro mostra
 // saldo e saque. Recepcao e gerente nao entram — o back tambem recusa (98e08e1).
 const ABAS_DO_DONO: Tab[] = ['fechamento', 'financeiro']
@@ -1337,7 +1345,7 @@ export default function EligiClubPage() {
   const mode = useDeviceMode()
   const isMobile = mode === 'mobile'
 
-  const [tab, setTab] = useState<Tab>('painel') // @eligi:club-painel-default
+  const [tab, setTab] = useState<Tab>(initialClubTab) // @eligi:club-painel-default @eligi:club-tab-url
   // enquanto carrega, `allowed` e false: a aba aparece so quando o papel confirma
   const { allowed: isDono } = useRoleGuard(OWNER_ROLES)
   const [toast, setToast] = useState<string | null>(null)
