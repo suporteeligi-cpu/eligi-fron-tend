@@ -17,7 +17,7 @@ import api from '@/shared/lib/apiClient'
 import { typography } from '@/shared/theme'
 import {
   Building2, Clock, CalendarDays, MessageSquare, Sparkles, Globe, Palette, Bell,
-  FileText, Lock, UserX, ChevronRight, AlertTriangle, Check,
+  FileText, Lock, UserX, ChevronRight, AlertTriangle, Check, Smartphone,
 } from 'lucide-react'
 
 type Tone = 'ok' | 'warn' | 'neutral'
@@ -27,7 +27,7 @@ type ChecklistItem = { key: string; label: string; hint: string; done: boolean; 
 type Overview = { modules: Record<ModuleKey, Summary>; checklist: ChecklistItem[] }
 
 type Card = {
-  key: ModuleKey | 'aparencia'
+  key: ModuleKey | 'aparencia' | 'avisosapp'
   href: string
   icon: React.ElementType
   label: string
@@ -49,6 +49,7 @@ const GROUPS: Group[] = [
     cards: [
       { key: 'agendamento', href: '/dashboard/configuracoes/agendamento', icon: CalendarDays, label: 'Regras do agendamento', what: 'Antecedência, até quando remarcar, CPF e planos no link.' },
       { key: 'mensagens', href: '/dashboard/configuracoes/mensagens', icon: MessageSquare, label: 'Mensagem de confirmação', what: 'O texto que vai pelo WhatsApp quando você confirma o horário.' },
+      { key: 'avisosapp', href: '/dashboard/configuracoes/avisos-app', icon: Smartphone, label: 'Avisos do app do cliente', what: 'O texto dos avisos que chegam no celular do cliente. Aniversário e sumido você desliga.' }, // @eligi:cfg-hub-avisosapp
     ],
   },
   {
@@ -169,6 +170,7 @@ export default function ConfiguracoesPage() {
   const loading = load === null
   const ov = load?.data ?? null
   const summaryOf = (key: Card['key']): Summary | undefined => {
+    if (key === 'avisosapp') return { summary: '12 avisos · lembretes, caixa e relacionamento', tone: 'neutral' }
     if (key === 'aparencia') return { summary: cardStyle === 'clean' ? 'Suave · tons claros' : 'Clássico · cores cheias' /* @eligi:hub-aparencia-suave */, tone: 'neutral' }
     return ov?.modules[key]
   }
@@ -229,7 +231,7 @@ export default function ConfiguracoesPage() {
                         <div className="cfg-name">{label}</div>
                         <div className="cfg-what">{what}</div>
                       </div>
-                      <StateLine s={summaryOf(key)} loading={loading && key !== 'aparencia'} />
+                      <StateLine s={summaryOf(key)} loading={loading && key !== 'aparencia' && key !== 'avisosapp'} />
                     </Link>
                   ))}
                 </div>
