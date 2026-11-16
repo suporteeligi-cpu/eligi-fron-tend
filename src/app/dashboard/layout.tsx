@@ -13,6 +13,7 @@ import CommandPalette from '@/app/components/search/CommandPalette'
 import BillingGuard from './components/BillingGuard'
 import AnnouncementModal from './components/AnnouncementModal' // @eligi:announcement-module
 import { logoutRequest } from '@/lib/auth.api' // @eligi:staff-sem-vinculo-import
+import HelpWidget from '@/features/help/HelpWidget' // @eligi:help-mount-import
 
 const NAVBAR_HEIGHT = 104
 
@@ -150,6 +151,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </main>
 
       <CommandPalette />
+      {/* @eligi:help-mount */}
+      <HelpWidget userName={user.name} role={user.role} businessName={user.businessName} />
     </BillingGuard>
   )
 }

@@ -18,7 +18,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type FocusEvent } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutGrid, LogOut, Pin, PinOff } from 'lucide-react'
+import { LayoutGrid, LifeBuoy, LogOut, Pin, PinOff } from 'lucide-react'
+import { HELP_OPEN_EVENT } from '@/features/help/help.rules' // @eligi:help-mais-import
 import { navigationByRole, mobileTabsByRole, activeNavPath, getRoleLabel, type NavItemType, type Role } from './navigation.config'
 import { useAuth } from '@/hooks/useAuth'
 import api from '@/shared/lib/apiClient'
@@ -229,6 +230,7 @@ const CSS = `
 .esb-tile.on{background:rgba(254,0,0,.14);border-color:rgba(254,0,0,.28);color:#fff}
 .esb-tile:active{transform:scale(.94)}
 @keyframes esb-tile{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+.esb-help{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:48px;margin-top:14px;border-radius:14px;border:1px solid ${D.line};background:rgba(255,255,255,.06);color:#fff;font:600 14px var(--font-sans);cursor:pointer} /* @eligi:help-mais-css */
 .esb-mout{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:48px;margin-top:14px;border-radius:14px;border:1px solid ${D.line};background:transparent;color:#ff6b6b;font:600 14px var(--font-sans);cursor:pointer}
 .esb-del{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;margin-top:6px;color:rgba(255,255,255,.5);font:500 13px var(--font-sans);text-decoration:none} /* @eligi:sheet-excluir-css */
 .esb span,.esb small,.esb b{color:inherit}
@@ -465,6 +467,10 @@ function MobileBar({ role, items, active, badges, account, onLogout }: {
               })}
             </div>
           )}
+          {/* @eligi:help-mais */}
+          <button type="button" className="esb-help" onClick={() => { setSheet(false); window.dispatchEvent(new Event(HELP_OPEN_EVENT)) }}>
+            <LifeBuoy size={18} />Ajuda e suporte
+          </button>
           <button type="button" className="esb-mout" onClick={() => { setSheet(false); onLogout() }}>
             <LogOut size={18} />Sair da conta
           </button>

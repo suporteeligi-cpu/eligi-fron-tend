@@ -8,6 +8,8 @@ import {
   Sunrise, CalendarPlus, CalendarClock, CalendarX, UserX, Package, CreditCard, UserPlus, CheckCheck,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { LifeBuoy } from 'lucide-react' // @eligi:help-nav-icon
+import { HELP_OPEN_EVENT } from '@/features/help/help.rules' // @eligi:help-nav-import
 import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import api from '@/shared/lib/apiClient'
@@ -728,6 +730,10 @@ export default function AppNavbar() {
                     <Settings size={16} color="#4b4b52" strokeWidth={2} /><span>Configurações</span>
                   </button>
                 )}
+                {/* @eligi:help-nav-item */}
+                <button className="nb-mi" role="menuitem" onClick={() => { closeMenu(); window.dispatchEvent(new Event(HELP_OPEN_EVENT)) }}>
+                  <LifeBuoy size={16} color="#4b4b52" strokeWidth={2} /><span>Ajuda e suporte</span>
+                </button>
                 {/* @eligi:nav-excluir-conta */}
                 <button className="nb-mi" role="menuitem" onClick={() => { closeMenu(); router.push('/dashboard/conta/excluir') }}>
                   <UserX size={16} color="#4b4b52" strokeWidth={2} /><span>Excluir conta</span>
