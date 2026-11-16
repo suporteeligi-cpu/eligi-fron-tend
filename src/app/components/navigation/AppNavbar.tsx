@@ -508,6 +508,24 @@ export default function AppNavbar() {
   }, [])
 
   /* ── Notificações: contador inicial + toast de boas-vindas ── */
+  // @eligi:notif-popup-pref — "Aviso na tela" em Configuracoes > Avisos. Desligado,
+  // o sino segue contando, so o balao nao aparece. Ref (nao state): so e lido
+  // dentro de handler assincrono. A tela de Avisos avisa a mudanca por evento.
+  const popupOnRef = useRef(true)
+  const popupReadyRef = useRef<Promise<void>>(Promise.resolve())
+  useEffect(() => {
+    let alive = true
+    popupReadyRef.current = api.get('/notifications/settings')
+      .then((r) => { if (alive) popupOnRef.current = r.data?.popupEnabled !== false })
+      .catch(() => { /* sem preferencia = balao ligado */ })
+    const onPref = (e: Event) => {
+      const d = (e as CustomEvent<{ popupEnabled?: boolean }>).detail
+      popupOnRef.current = d?.popupEnabled !== false
+    }
+    window.addEventListener('eligi:notif-popup', onPref)
+    return () => { alive = false; window.removeEventListener('eligi:notif-popup', onPref) }
+  }, [])
+
   useEffect(() => {
     let alive = true
     async function run() {
@@ -516,7 +534,8 @@ export default function AppNavbar() {
         if (!alive) return
         const count: number = res.data?.count ?? 0
         setUnreadCount(count)
-        if (count > 0) setToast({ kind: 'summary', count })
+        await popupReadyRef.current // o balao de boas-vindas espera a preferencia
+        if (alive && count > 0 && popupOnRef.current) setToast({ kind: 'summary', count })
       } catch { /* silencioso */ }
     }
     void run()
@@ -545,7 +564,7 @@ export default function AppNavbar() {
           const res = await api.get('/notifications', { params: { limit: 1 } })
           setUnreadCount(res.data?.unread ?? 0)
           const first: NotifItem | undefined = res.data?.items?.[0]
-          if (first && first.id === n.id) setToast({ kind: 'item', notif: first })
+          if (first && first.id === n.id && popupOnRef.current) setToast({ kind: 'item', notif: first })
         } catch {
           /* silencioso: o sino se corrige no proximo fetch */
         }

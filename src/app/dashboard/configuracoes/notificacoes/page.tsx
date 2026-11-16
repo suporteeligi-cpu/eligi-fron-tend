@@ -1,172 +1,270 @@
 'use client'
-// configuracoes/notificacoes/page.tsx
+// src/app/dashboard/configuracoes/notificacoes/page.tsx
+// @eligi:cfg-avisos-v2 — Avisos, direcao B (ver @eligi:doc-cfg-avisos).
+// Cada aviso diz quando chega e quem recebe. Vale para o negocio inteiro, no
+// sino e no celular, e so dono e gerente mudam (o back recusa os outros com 403;
+// `canEdit` vem do GET). Cobranca e notas fiscais ficam sempre ligadas.
+// "Nao veio" saiu da lista: o evento ainda nao e disparado por nenhuma tela.
+// Salva a cada toque, com a lista inteira; erro volta a chave e avisa.
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import api from '@/shared/lib/apiClient'
+import { useEffect, useRef, useState } from 'react'
 import {
-  BellRing, ChevronLeft, Users, Check,
-  Sunrise, CalendarPlus, CalendarClock, CalendarX2,
-  Package, UserPlus, CreditCard, UserX,
+  ChevronLeft, BellRing, Sunrise, CalendarPlus, CalendarClock, CalendarX2,
+  UserPlus, Cake, Package, CreditCard, ReceiptText, Lock,
 } from 'lucide-react'
+import api from '@/shared/lib/apiClient'
+import { typography } from '@/shared/theme'
 
-type CatDef = { key: string; label: string; icon: React.ElementType; locked?: boolean }
+type CatKey =
+  | 'DAILY_SUMMARY' | 'BOOKING_ONLINE' | 'RESCHEDULE' | 'CANCELLATION'
+  | 'NEW_CLIENT' | 'BIRTHDAY' | 'STOCK_LOW' | 'BILLING' | 'FISCAL'
 
-const CATS: CatDef[] = [
-  { key: 'DAILY_SUMMARY',  label: 'Resumo do dia',          icon: Sunrise },
-  { key: 'BOOKING_ONLINE', label: 'Agendamento online',     icon: CalendarPlus },
-  { key: 'RESCHEDULE',     label: 'Reagendamento',          icon: CalendarClock },
-  { key: 'CANCELLATION',   label: 'Cancelamento',           icon: CalendarX2 },
-  { key: 'STOCK_LOW',      label: 'Estoque baixo',          icon: Package },
-  { key: 'NEW_CLIENT',     label: 'Novo cliente pelo link', icon: UserPlus },
-  { key: 'BILLING',        label: 'Assinatura e cobrança',  icon: CreditCard },
-  { key: 'NO_SHOW',        label: 'Não compareceu',         icon: UserX, locked: true },
+type Cat = { key: CatKey; label: string; when: string; who: string; icon: React.ElementType }
+type Group = { title: string; cats: Cat[] }
+
+const DONO = 'Dono'
+const DONO_PROF = 'Dono e o profissional do horário'
+
+const GROUPS: Group[] = [
+  { title: 'Agenda', cats: [
+    { key: 'DAILY_SUMMARY',  label: 'Resumo do dia',     icon: Sunrise,       who: DONO,      when: 'Às 8h, quantos clientes você tem no dia.' },
+    { key: 'BOOKING_ONLINE', label: 'Agendou pelo link', icon: CalendarPlus,  who: DONO_PROF, when: 'O cliente marcou sozinho pelo seu link.' },
+    { key: 'RESCHEDULE',     label: 'Remarcou',          icon: CalendarClock, who: DONO_PROF, when: 'O cliente mudou o horário pelo link.' },
+    { key: 'CANCELLATION',   label: 'Cancelou',          icon: CalendarX2,    who: DONO_PROF, when: 'O cliente cancelou pelo link.' },
+  ] },
+  { title: 'Clientes', cats: [
+    { key: 'NEW_CLIENT', label: 'Cliente novo',  icon: UserPlus, who: DONO, when: 'Alguém se cadastrou pelo seu link.' },
+    { key: 'BIRTHDAY',   label: 'Aniversários',  icon: Cake,     who: DONO, when: 'Os da semana e os do dia, às 9h.' },
+  ] },
+  { title: 'Estoque', cats: [
+    { key: 'STOCK_LOW', label: 'Estoque baixo', icon: Package, who: DONO, when: 'Um produto chegou no mínimo ou acabou.' },
+  ] },
 ]
 
-function Toggle({ on, disabled, onClick }: { on: boolean; disabled?: boolean; onClick?: () => void }) {
+const ALWAYS: Cat[] = [
+  { key: 'BILLING', label: 'Assinatura e cobrança', icon: CreditCard,  who: DONO, when: 'Mensalidade perto de vencer ou vencida.' },
+  { key: 'FISCAL',  label: 'Notas fiscais',         icon: ReceiptText, who: DONO, when: 'Certificado vencendo ou nota recusada.' },
+]
+
+const EDITABLE: CatKey[] = GROUPS.flatMap(g => g.cats.map(c => c.key))
+
+type Settings = { muted: CatKey[]; popup: boolean; canEdit: boolean }
+type Load = { state: 'loading' } | { state: 'error' } | { state: 'ok'; s: Settings }
+
+// Busca pura: o setState fica no .then de quem chama (regra do React Compiler).
+function fetchSettings(): Promise<Settings> {
+  return api.get('/notifications/settings').then((r) => {
+    const d = r.data ?? {}
+    const muted = (Array.isArray(d.mutedCategories) ? d.mutedCategories : [])
+      .filter((c: string): c is CatKey => (EDITABLE as string[]).includes(c))
+    // back antigo nao manda canEdit: ele aceitava todos, entao vale true
+    return { muted, popup: d.popupEnabled !== false, canEdit: d.canEdit !== false }
+  })
+}
+
+/** Avisa a navbar (balao na tela) sem precisar recarregar. */
+function announcePopup(on: boolean) {
+  window.dispatchEvent(new CustomEvent('eligi:notif-popup', { detail: { popupEnabled: on } }))
+}
+
+const INK = '#111114'
+const INK_2 = '#4b4b52'
+const INK_3 = '#6b6b73'
+
+const CSS = `
+.cfn{ max-width:720px; font-family:${typography.fontFamily}; color:${INK}; animation:cfn-in .25s ease; }
+@keyframes cfn-in{ from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+@keyframes cfn-pulse{ 0%,100%{opacity:.5} 50%{opacity:1} }
+.cfn *{ box-sizing:border-box; }
+.cfn :where(span, div, b, i, p, h1, h2, strong, small){ color:inherit; } /* vence main span */
+.cfn a{ text-decoration:none; color:inherit; }
+.cfn button{ font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.cfn a:focus-visible, .cfn button:focus-visible{ outline:2px solid #dc2626; outline-offset:2px; }
+.cfn-back{ display:inline-flex; align-items:center; gap:4px; min-height:44px; padding:0 10px 0 4px; margin-left:-4px; border-radius:12px; font-size:14px; font-weight:500; color:${INK_2}; }
+.cfn-h1{ margin:4px 0 0; font-size:28px; font-weight:600; font-family:${typography.fontFamilyDisplay}; letter-spacing:-.03em; }
+.cfn-lead{ margin:6px 0 0; font-size:14px; line-height:1.45; color:${INK_3}; max-width:560px; }
+.cfn-ro{ margin-top:16px; display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:14px; background:#f7f7f9; font-size:13px; line-height:1.5; color:${INK_2}; }
+.cfn-cap{ margin:24px 0 8px; font-family:${typography.fontFamilyMono}; font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:500; color:${INK_3}; }
+.cfn-card{ background:#fff; border:1px solid #ececf0; border-radius:18px; overflow:hidden; }
+.cfn-row{ display:flex; align-items:center; gap:12px; padding:14px 16px; }
+.cfn-row + .cfn-row{ border-top:1px solid #f0f0f3; }
+.cfn-tile{ width:38px; height:38px; border-radius:11px; background:#f2f2f5; color:#3c3c43; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.cfn-body{ flex:1; min-width:0; }
+.cfn-t{ font-size:15px; font-weight:600; }
+.cfn-w{ font-size:13px; line-height:1.4; color:${INK_3}; margin-top:2px; }
+.cfn-who{ font-family:${typography.fontFamilyMono}; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:#6b6b73; margin-top:4px; }
+.cfn-sw{ position:relative; flex-shrink:0; width:52px; height:44px; border:0; background:transparent; padding:0; }
+.cfn-sw i{ position:absolute; left:2px; top:8px; width:48px; height:28px; border-radius:99px; background:#d6d6dc; transition:background .18s ease; }
+.cfn-sw i::after{ content:''; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(17,17,20,.25); transition:transform .18s cubic-bezier(.34,1.56,.64,1); }
+.cfn-sw[aria-checked="true"] i{ background:${INK}; }
+.cfn-sw[aria-checked="true"] i::after{ transform:translateX(20px); }
+.cfn-sw:disabled{ opacity:.5; cursor:default; }
+.cfn-lock{ flex-shrink:0; display:inline-flex; align-items:center; gap:5px; min-height:28px; padding:0 10px; border-radius:99px; background:#f2f2f5; color:${INK_2}; font-size:12px; font-weight:600; }
+.cfn-note{ margin-top:16px; padding:12px 14px; border-radius:14px; background:#f7f7f9; font-size:13px; line-height:1.5; color:${INK_3}; }
+.cfn-skel{ height:64px; border-radius:18px; background:#f2f2f5; animation:cfn-pulse 1.2s ease-in-out infinite; margin-top:10px; }
+.cfn-err{ margin-top:22px; padding:16px; border-radius:16px; background:#fff; border:1px solid #ececf0; font-size:14px; color:${INK_2}; }
+.cfn-err button{ margin-top:12px; min-height:44px; padding:0 16px; border-radius:12px; border:0; background:${INK}; color:#fff; font-weight:600; font-size:14px; }
+.cfn-toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(64px + env(safe-area-inset-bottom) + 14px); z-index:10000; padding:11px 16px; border-radius:12px; font-size:14px; font-weight:500; font-family:${typography.fontFamily}; box-shadow:0 8px 24px rgba(17,17,20,.18); max-width:calc(100vw - 32px); }
+.cfn-toast.ok{ background:${INK}; color:#fff; }
+.cfn-toast.err{ background:#fff; color:#a32d2d; border:1px solid #f1d0d0; }
+@media (min-width:1024px){ .cfn-toast{ bottom:24px; left:calc(50% + var(--sidebar-width, 0px) / 2); } }
+@media (max-width:379px){ .cfn-tile{ display:none; } }
+`
+
+function Switch({ on, label, disabled, onClick }: { on: boolean; label: string; disabled?: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      disabled={disabled}
-      onClick={onClick}
-      style={{
-        width: 42, height: 25, borderRadius: 999, border: 'none', flexShrink: 0,
-        position: 'relative', cursor: disabled ? 'not-allowed' : 'pointer',
-        background: on ? '#1D9E75' : 'rgba(0,0,0,0.16)',
-        opacity: disabled ? 0.4 : 1, transition: 'background 0.18s ease',
-      }}
-    >
-      <span style={{
-        position: 'absolute', top: 2.5, left: on ? 19.5 : 2.5,
-        width: 20, height: 20, borderRadius: '50%', background: '#fff',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-        transition: 'left 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-      }} />
+    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} className="cfn-sw" onClick={onClick}>
+      <i aria-hidden />
     </button>
   )
 }
 
-export default function NotificacoesConfigPage() {
-  const [loading, setLoading] = useState(true)
-  const [popup, setPopup] = useState(true)
-  const [enabled, setEnabled] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(CATS.map(c => [c.key, true])),
-  )
-  const [saved, setSaved] = useState(false)
+export default function AvisosPage() {
+  const [load, setLoad] = useState<Load>({ state: 'loading' })
+  const [toast, setToast] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const saving = useRef(Promise.resolve())
 
   useEffect(() => {
-    let alive = true
-    const run = async () => {
-      try {
-        const { data } = await api.get('/notifications/settings')
-        if (!alive) return
-        const muted: string[] = data?.mutedCategories ?? []
-        setEnabled(Object.fromEntries(CATS.map(c => [c.key, !muted.includes(c.key)])))
-        setPopup(data?.popupEnabled ?? true)
-      } catch {
-        /* mantem defaults */
-      } finally {
-        if (alive) setLoading(false)
-      }
-    }
-    void run()
-    return () => { alive = false }
+    let vivo = true
+    fetchSettings()
+      .then((s) => { if (vivo) setLoad({ state: 'ok', s }) })
+      .catch((e) => { console.error('[avisos] carregar', e); if (vivo) setLoad({ state: 'error' }) })
+    return () => { vivo = false }
   }, [])
 
-  const persist = async (nextEnabled: Record<string, boolean>, nextPopup: boolean) => {
-    const mutedCategories = CATS.filter(c => !c.locked && !nextEnabled[c.key]).map(c => c.key)
-    try {
-      await api.put('/notifications/settings', { mutedCategories, popupEnabled: nextPopup })
-      setSaved(true)
-      window.setTimeout(() => setSaved(false), 1600)
-    } catch {
-      /* silencioso */
-    }
+  useEffect(() => {
+    if (!toast) return
+    const t = window.setTimeout(() => setToast(null), 2600)
+    return () => window.clearTimeout(t)
+  }, [toast])
+
+  const retry = () => {
+    setLoad({ state: 'loading' })
+    fetchSettings()
+      .then((s) => setLoad({ state: 'ok', s }))
+      .catch((e) => { console.error('[avisos] carregar', e); setLoad({ state: 'error' }) })
   }
 
-  const toggleCat = (key: string, locked?: boolean) => {
-    if (locked || loading) return
-    const next = { ...enabled, [key]: !enabled[key] }
-    setEnabled(next)
-    void persist(next, popup)
+  /** Grava o estado novo; erro volta para o anterior. Pedidos em fila, na ordem dos toques. */
+  const save = (prev: Settings, next: Settings, okText: string) => {
+    setLoad({ state: 'ok', s: next })
+    saving.current = saving.current.then(() =>
+      api.put('/notifications/settings', { mutedCategories: next.muted, popupEnabled: next.popup })
+        .then(() => {
+          if (next.popup !== prev.popup) announcePopup(next.popup)
+          setToast({ kind: 'ok', text: okText })
+        })
+        .catch((e: { response?: { status?: number } }) => {
+          console.error('[avisos] salvar', e)
+          setLoad({ state: 'ok', s: prev })
+          setToast({ kind: 'err', text: e?.response?.status === 403
+            ? 'Só o dono e o gerente mudam os avisos.'
+            : 'Não foi possível salvar. Tente de novo.' })
+        }),
+    )
   }
 
+  const s = load.state === 'ok' ? load.s : null
+  const ro = !!s && !s.canEdit
+
+  const toggleCat = (c: Cat) => {
+    if (!s || ro) return
+    const off = s.muted.includes(c.key)
+    const muted = off ? s.muted.filter(k => k !== c.key) : [...s.muted, c.key]
+    save(s, { ...s, muted }, off ? `${c.label}: ligado` : `${c.label}: desligado`)
+  }
   const togglePopup = () => {
-    if (loading) return
-    const next = !popup
-    setPopup(next)
-    void persist(enabled, next)
+    if (!s || ro) return
+    save(s, { ...s, popup: !s.popup }, !s.popup ? 'Aviso na tela ligado' : 'Aviso na tela desligado')
   }
 
   return (
-    <>
-      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }`}</style>
-      <div style={{ maxWidth: 720, animation: 'fadeUp 0.3s ease', fontFamily: 'var(--font-eligi-sans), system-ui, sans-serif' }}>
+    <div className="cfn">
+      <style>{CSS}</style>
+      <Link href="/dashboard/configuracoes" className="cfn-back"><ChevronLeft size={18} aria-hidden /> Configurações</Link>
+      <h1 className="cfn-h1">Avisos</h1>
+      <p className="cfn-lead">O que avisa você e a equipe, no sino do painel e no celular. Vale para todo o negócio.</p>
 
-        <Link href="/dashboard/configuracoes" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none',
-          fontSize: 13, fontWeight: 600, color: 'rgba(0,0,0,0.45)', marginBottom: 18,
-        }}>
-          <ChevronLeft size={16} strokeWidth={2.2} /> Configurações
-        </Link>
+      {load.state === 'loading' && <div aria-busy="true" aria-label="Carregando">{[0, 1, 2, 3].map(i => <div key={i} className="cfn-skel" />)}</div>}
 
-        <div style={{ marginBottom: 26 }}>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', color: '#0f0f14' }}>Notificações</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>Escolha o que te avisa e como o pop-up aparece.</p>
+      {load.state === 'error' && (
+        <div className="cfn-err" role="alert">
+          Não foi possível carregar os avisos.
+          <div><button type="button" onClick={retry}>Tentar de novo</button></div>
         </div>
+      )}
 
-        <div style={{
-          background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)',
-          borderRadius: 14, border: '1px solid rgba(0,0,0,0.07)',
-          boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden',
-          opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease',
-        }}>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', background: 'rgba(0,0,0,0.015)', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-            <div style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: 'linear-gradient(135deg,rgba(220,38,38,0.10),rgba(185,28,28,0.06))', border: '1px solid rgba(220,38,38,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BellRing size={18} color="#dc2626" strokeWidth={1.8} />
+      {s && (
+        <>
+          {ro && (
+            <div className="cfn-ro" role="note">
+              <Lock size={16} aria-hidden style={{ flexShrink: 0, marginTop: 2 }} />
+              Só o dono e o gerente mudam os avisos. Aqui você vê o que está ligado.
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Pop-up na tela</div>
-              <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', marginTop: 2 }}>Balão no topo da tela quando chega algo novo.</div>
-            </div>
-            <Toggle on={popup} disabled={loading} onClick={togglePopup} />
-          </div>
+          )}
 
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(0,0,0,0.32)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 20px 6px' }}>
-            O que me notifica
-          </div>
-
-          {CATS.map((c, i) => {
-            const Icon = c.icon
-            return (
-              <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 20px', borderTop: i === 0 ? 'none' : '1px solid rgba(0,0,0,0.04)' }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon size={17} color="rgba(0,0,0,0.45)" strokeWidth={1.8} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0, fontSize: 14, color: c.locked ? 'rgba(0,0,0,0.4)' : '#111827', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {c.label}
-                  {c.locked && (
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: 'rgba(0,0,0,0.06)', color: 'rgba(0,0,0,0.35)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                      Em breve
-                    </span>
-                  )}
-                </div>
-                <Toggle on={c.locked ? false : !!enabled[c.key]} disabled={loading || c.locked} onClick={() => toggleCat(c.key, c.locked)} />
+          <div className="cfn-cap">Na tela</div>
+          <div className="cfn-card">
+            <div className="cfn-row">
+              <span className="cfn-tile"><BellRing size={18} aria-hidden /></span>
+              <div className="cfn-body">
+                <div className="cfn-t">Aviso na tela</div>
+                <div className="cfn-w">Um balão aparece no topo quando chega algo novo. Desligado, o sino continua contando.</div>
               </div>
-            )
-          })}
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 20px', borderTop: '1px solid rgba(0,0,0,0.05)', background: 'rgba(0,0,0,0.015)', fontSize: 12, color: 'rgba(0,0,0,0.42)' }}>
-            <Users size={15} strokeWidth={1.8} /> Lembretes para clientes e profissionais — em breve
+              <Switch on={s.popup} label="Aviso na tela" disabled={ro} onClick={togglePopup} />
+            </div>
           </div>
-        </div>
 
-        <div style={{ height: 18, marginTop: 10, display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#1D9E75', fontWeight: 600, opacity: saved ? 1 : 0, transition: 'opacity 0.2s ease' }}>
-          <Check size={14} strokeWidth={2.4} /> Salvo
-        </div>
-      </div>
-    </>
+          {GROUPS.map(g => (
+            <section key={g.title} aria-label={g.title}>
+              <div className="cfn-cap">{g.title}</div>
+              <div className="cfn-card">
+                {g.cats.map(c => {
+                  const Icon = c.icon
+                  const on = !s.muted.includes(c.key)
+                  return (
+                    <div key={c.key} className="cfn-row">
+                      <span className="cfn-tile"><Icon size={18} aria-hidden /></span>
+                      <div className="cfn-body">
+                        <div className="cfn-t">{c.label}</div>
+                        <div className="cfn-w">{c.when}</div>
+                        <div className="cfn-who">{on ? c.who : 'Ninguém recebe'}</div>
+                      </div>
+                      <Switch on={on} label={c.label} disabled={ro} onClick={() => toggleCat(c)} />
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
+
+          <div className="cfn-cap">Sempre ligados</div>
+          <div className="cfn-card">
+            {ALWAYS.map(c => {
+              const Icon = c.icon
+              return (
+                <div key={c.key} className="cfn-row">
+                  <span className="cfn-tile"><Icon size={18} aria-hidden /></span>
+                  <div className="cfn-body">
+                    <div className="cfn-t">{c.label}</div>
+                    <div className="cfn-w">{c.when}</div>
+                    <div className="cfn-who">{c.who}</div>
+                  </div>
+                  <span className="cfn-lock"><Lock size={12} aria-hidden /> Sempre</span>
+                </div>
+              )
+            })}
+          </div>
+
+          <p className="cfn-note">
+            Sem estes dois avisos, uma mensalidade vencida ou um certificado vencendo pararia o seu negócio sem ninguém perceber.
+            Os lembretes de horário dos seus clientes não dependem desta tela.
+          </p>
+        </>
+      )}
+
+      {toast && <div className={`cfn-toast ${toast.kind}`} role="status" aria-live="polite">{toast.text}</div>}
+    </div>
   )
 }
