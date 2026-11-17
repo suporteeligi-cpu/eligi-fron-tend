@@ -68,7 +68,7 @@ function ConfirmModal({ title, confirmLabel, onConfirm, onCancel, isMobile }: {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Service = { id: string; name: string; duration: number; price?: number }
+type Service = { id: string; name: string; duration: number; price?: number; color?: string | null } // @eligi:scp-c-svc-color
 type Client  = { id: string; name: string; phone: string; avatarUrl?: string | null }
 function waLink(p: string) {
   let d = p.replace(/\D/g, '')
@@ -1299,16 +1299,14 @@ export default function SideCheckoutPanel({
 
   const panelStyle = isMobile ? {
     position:'fixed' as const, left:0, right:0, bottom:'calc(64px + env(safe-area-inset-bottom, 0px))', top:'104px',
-    background:glass.surface.modal.background, backdropFilter:glass.surface.modal.backdropFilter,
-    WebkitBackdropFilter:glass.surface.modal.backdropFilter,
+    background:'#f8f8fa', // @eligi:scp-c-surface
     borderRadius:`${radius['2xl']}px ${radius['2xl']}px 0 0`,
     boxShadow:'0 -8px 40px rgba(0,0,0,0.18)', zIndex:9995,
     display:'flex', flexDirection:'column' as const, fontFamily:typography.fontFamily,
     animation:'sheetUp 0.32s cubic-bezier(0.34,1.2,0.64,1)',
   } : {
     position:'fixed' as const, top:0, right:0, bottom:0, width:'var(--cp-w,460px)' as unknown as number, maxWidth:'100vw',
-    background:glass.surface.modal.background, backdropFilter:glass.surface.modal.backdropFilter,
-    WebkitBackdropFilter:glass.surface.modal.backdropFilter,
+    background:'#f8f8fa',
     borderLeft:`1px solid ${colors.gray.borderMd}`,
     boxShadow:`-12px 0 40px rgba(0,0,0,0.12)`, zIndex:9995,
     display:'flex', flexDirection:'column' as const, fontFamily:typography.fontFamily,
@@ -1325,30 +1323,32 @@ export default function SideCheckoutPanel({
         .scp-wa-pulse{animation:scp-waRing 2.1s ease-out 3}
         .scp-wa:active{transform:scale(0.92)}
         @media(prefers-reduced-motion:reduce){.scp-wa-pulse{animation:none}}
-        .cp-acc{width:100%;display:flex;align-items:center;gap:12;min-height:60px;padding:12px 14px;border-radius:${radius.md}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};cursor:pointer;font-family:${typography.fontFamily};transition:border-color ${transitions.fast}}
-        .cp-acc:hover{border-color:${colors.red.borderHover}}
-        .cp-lbl{display:block;font-size:13px;font-weight:700;color:${colors.gray.dimText};text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
-        .cp-field{padding:11px 14px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-family:${typography.fontFamily}}
-        .cp-svc{width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};cursor:pointer;text-align:left;transition:border-color ${transitions.fast};font-family:${typography.fontFamily}}
-        .cp-svc:hover,.cp-svc.has-value{border-color:${colors.red.borderHover}}
-        .cp-prof{padding:7px 14px;border-radius:${radius.full}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-size:13px;font-weight:500;cursor:pointer;color:${colors.gray[700]};transition:all ${transitions.spring};white-space:nowrap}
-        .cp-prof.sel{background:${colors.red.gradient};color:#fff;border-color:transparent;box-shadow:0 3px 10px ${colors.red.glow}}
-        .cp-discard{flex:1;padding:13px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:${colors.gray[700]};letter-spacing:.04em;transition:background ${transitions.fast};font-family:${typography.fontFamily}}
-        .cp-discard:hover{background:${colors.gray.hover}}
-        .cp-save{flex:2;padding:13px;border-radius:${radius.sm}px;border:none;background:rgba(0,0,0,0.06);font-size:13px;font-weight:700;cursor:pointer;color:rgba(0,0,0,0.3);letter-spacing:.04em;transition:all ${transitions.spring};font-family:${typography.fontFamily}}
-        .cp-save:not(:disabled){background:${colors.red.gradient};color:#fff;box-shadow:${shadows.redSm};cursor:pointer}
-        .cp-save:not(:disabled):hover{transform:translateY(-1px);box-shadow:${shadows.redMd}}
-        .cp-note{width:100%;padding:12px;border-radius:${radius.sm}px;border:1px dashed rgba(17,17,20,.22);background:#fff;font-size:16px;line-height:1.45;resize:none;outline:none;font-family:${typography.fontFamily};color:${colors.gray[900]};box-sizing:border-box;transition:border-color ${transitions.fast};min-height:96px}
-        .cp-note:focus{border-color:${colors.red.borderHover}}
-        .cp-prof-sel{width:100%;display:flex;align-items:center;gap:11px;padding:10px 14px;min-height:62px;border-radius:${radius.md}px;border:1px solid ${colors.gray.borderMd};background:#fff;cursor:pointer;font-family:${typography.fontFamily};transition:border-color ${transitions.fast}}
-        .cp-prof-sel:hover{border-color:${colors.red.borderHover}}
-        .cp-prof-list{border:1px solid ${colors.gray.borderMd};border-radius:${radius.md}px;overflow:hidden;background:#fff}
-        .cp-prof-row{width:100%;display:flex;align-items:center;gap:11px;padding:10px 14px;min-height:60px;border:none;background:#fff;cursor:pointer;font-family:${typography.fontFamily};color:${colors.gray[900]}}
-        .cp-prof-row+.cp-prof-row{border-top:1px solid ${colors.gray.border}}
-        .cp-prof-row:hover{background:${colors.background.page}}
-        .cp-prof-row.sel{background:${colors.red.subtle};color:${colors.red.dark}}
-        .add-svc-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 14px;border-radius:${radius.sm}px;border:1.5px dashed ${colors.red.border};background:transparent;cursor:pointer;color:${colors.red.DEFAULT};font-size:16px;font-weight:700;transition:all ${transitions.fast};font-family:${typography.fontFamily}}
-        .add-svc-btn:hover{background:${colors.red.subtle};border-color:${colors.red.DEFAULT}}
+        /* @eligi:scp-c-css — direcao C final: grafite na acao, vermelho so em perigo. */
+        .cp-acc{width:100%;display:flex;align-items:center;gap:12;min-height:60px;padding:12px 14px;border-radius:14px;border:1px solid rgba(17,17,20,.1);background:#fff;cursor:pointer;font-family:${typography.fontFamily};transition:border-color ${transitions.fast}}
+        .cp-acc:hover{border-color:rgba(17,17,20,.28)}
+        .cp-lbl{display:block;font-family:${typography.fontFamilyMono};font-size:11px;font-weight:500;color:#6b6b73;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+        .cp-field{padding:11px 14px;border-radius:14px;border:1px solid rgba(17,17,20,.1);background:#fff;font-family:${typography.fontFamily}}
+        .cp-svc{width:100%;min-height:60px;display:flex;align-items:center;gap:10px;justify-content:space-between;padding:11px 14px;border-radius:0;border:none;background:#fff;cursor:pointer;text-align:left;font-family:${typography.fontFamily}}
+        .cp-svc:hover{background:#fafafb}
+        .cp-prof{padding:7px 14px;border-radius:999px;border:1px solid rgba(17,17,20,.1);background:#fff;font-size:13px;font-weight:500;cursor:pointer;color:#4b4b52;white-space:nowrap}
+        .cp-prof.sel{background:#111114;color:#fff;border-color:transparent}
+        .cp-discard{height:52px;padding:0 18px;border-radius:14px;border:1px solid rgba(17,17,20,.12);background:#fff;font-size:15px;font-weight:600;cursor:pointer;color:#111114;font-family:${typography.fontFamily}}
+        .cp-discard:hover{background:#f5f5f7}
+        .cp-save{flex:1;height:52px;border-radius:14px;border:none;background:rgba(17,17,20,.08);font-size:16px;font-weight:600;cursor:not-allowed;color:rgba(17,17,20,.38);display:flex;align-items:center;justify-content:center;gap:8px;font-family:${typography.fontFamily}}
+        .cp-save:not(:disabled){background:#111114;color:#fff;cursor:pointer}
+        .cp-save:not(:disabled):hover{background:#26262c}
+        .cp-note{width:100%;padding:12px 14px;border-radius:14px;border:1px dashed rgba(17,17,20,.22);background:#fff;font-size:16px;line-height:1.45;resize:none;font-family:${typography.fontFamily};color:#111114;box-sizing:border-box;min-height:96px}
+        .cp-note:focus{border-style:solid;border-color:#111114;outline:2px solid rgba(17,17,20,.12);outline-offset:1px}
+        .cp-prof-sel{width:100%;display:flex;align-items:center;gap:11px;padding:10px 14px;min-height:62px;border-radius:14px;border:1px solid rgba(17,17,20,.1);background:#fff;cursor:pointer;font-family:${typography.fontFamily}}
+        .cp-prof-sel:hover{border-color:rgba(17,17,20,.28)}
+        .cp-prof-list{border:1px solid rgba(17,17,20,.1);border-radius:14px;overflow:hidden;background:#fff}
+        .cp-prof-row{width:100%;display:flex;align-items:center;gap:11px;padding:10px 14px;min-height:56px;border:none;background:#fff;cursor:pointer;font-family:${typography.fontFamily};color:#111114}
+        .cp-prof-row+.cp-prof-row{border-top:1px solid rgba(17,17,20,.06)}
+        .cp-prof-row:hover{background:#f8f8fa}
+        .cp-prof-row.sel{background:#f0f0f3}
+        .add-svc-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 14px;border-radius:14px;border:1.5px dashed rgba(17,17,20,.2);background:transparent;cursor:pointer;color:#111114;font-size:15px;font-weight:600;font-family:${typography.fontFamily}}
+        .add-svc-btn:hover{background:#fff;border-color:rgba(17,17,20,.35)}
+        .cp-disp{font-family:${typography.fontFamilyDisplay};font-variant-numeric:tabular-nums}
         /* @eligi:booking-summary-css
            O resumo repete o que esta no formulario ao lado, de proposito:
            conferir antes de salvar e uma leitura diferente de preencher.
@@ -1358,16 +1358,16 @@ export default function SideCheckoutPanel({
         .cp-summary{display:none}
         @media (min-width:1280px){
           .cp-panel{--cp-w:880px}
-          .cp-summary{display:block;width:340px;flex-shrink:0;overflow-y:auto;padding:20px 22px;border-left:1px solid ${colors.gray.border};background:${colors.background.page}}
+          .cp-summary{display:block;width:340px;flex-shrink:0;overflow-y:auto;padding:20px 22px;border-left:1px solid rgba(17,17,20,.08);background:#fff}
         }
         .cp-sum-row{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid ${colors.gray.border}}
         .cp-sum-row:last-of-type{border-bottom:none}
-        .cp-sum-k{font-size:12.5px;font-weight:700;letter-spacing:.045em;text-transform:uppercase;color:${colors.gray.dimText};width:84px;flex-shrink:0;padding-top:2px}
+        .cp-sum-k{font-family:${typography.fontFamilyMono};font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:#6b6b73;width:84px;flex-shrink:0;padding-top:3px}
         .cp-sum-v{flex:1;min-width:0;font-size:16px;font-weight:700;letter-spacing:-.02em;color:${colors.gray[900]}}
         .cp-sum-v small{display:block;font-size:13px;font-weight:500;color:${colors.gray.dimText};margin-top:2px;letter-spacing:0}
         .cp-sum-v.none{color:${colors.gray.dimTextLight};font-weight:600}
-        .cp-seg-btn{flex:1;padding:8px 6px;border-radius:9px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-size:12px;font-weight:600;cursor:pointer;color:${colors.gray[700]};transition:all ${transitions.fast};font-family:${typography.fontFamily};white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:4px}
-        .cp-seg-btn.sel{background:${colors.red.gradient};color:#fff;border-color:transparent;box-shadow:0 2px 8px ${colors.red.glow}}
+        .cp-seg-btn{flex:1;min-height:40px;padding:8px 6px;border-radius:10px;border:1px solid rgba(17,17,20,.1);background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:${colors.gray[700]};transition:all ${transitions.fast};font-family:${typography.fontFamily};white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:4px}
+        .cp-seg-btn.sel{background:#111114;color:#fff;border-color:transparent}
       `}</style>
 
       {showSvcSheet && (
@@ -1426,32 +1426,35 @@ export default function SideCheckoutPanel({
       <div className="cp-panel" style={panelStyle}>
         {isMobile && <div style={{display:'flex',justifyContent:'center',padding:'10px 0 4px',flexShrink:0}}><div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)'}}/></div>}
 
-        {/* Header */}
-        <div style={{flexShrink:0,borderBottom:`1px solid ${colors.gray.border}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 20px 10px'}}>
-            <button onClick={onClose} style={{width:32,height:32,borderRadius:10,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <X size={16} color={colors.gray[700]} strokeWidth={2.5}/>
+        {/* Header — @eligi:scp-c-header */}
+        <div style={{flexShrink:0,padding:'8px 16px 0'}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div className="cp-lbl" style={{margin:0}}>{isEdit ? 'Editar agendamento' : addToGroupRefId ? 'Somar serviço' : 'Novo agendamento'}</div>
+              <h2 className="cp-disp" style={{margin:0,fontSize:22,fontWeight:600,letterSpacing:'-0.03em',color:'#111114',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                {dateLabel}{firstItem?.startTime ? ` · ${firstItem.startTime}` : ''}
+              </h2>
+            </div>
+            <button onClick={onClose} aria-label="Fechar" style={{width:44,height:44,borderRadius:12,border:'none',background:'#f0f0f3',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <X size={18} color="#111114" strokeWidth={2.2}/>
             </button>
-            <h2 style={{margin:0,fontSize:17,fontWeight:700,color:colors.gray[900],letterSpacing:'-0.02em'}}>
-              {isEdit ? 'Editar agendamento' : 'Novo agendamento'}
-            </h2>
           </div>
 
           {/* Seleção de cliente */}
-          <div style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 20px 14px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:12,margin:'12px 0 4px',padding:'10px 12px',background:'#fff',borderRadius:16,boxShadow:'inset 0 0 0 1px rgba(17,17,20,.08)'}}>
             <button onClick={()=>setShowClientSheet(true)} style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:12,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',padding:0}}>
-              <div style={{width:44,height:44,borderRadius:'50%',border:`1.5px dashed ${selectedClient?'transparent':colors.gray.borderMd}`,background:selectedClient?(photoBackground(selectedClient.avatarUrl) ?? colors.red.gradient):colors.background.page,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,fontWeight:700,color:selectedClient?'#fff':colors.gray.dimText,boxShadow:selectedClient?`0 2px 8px ${colors.red.glow}`:'none',transition:`all ${transitions.spring}`}}>
+              <div style={{width:44,height:44,borderRadius:12,border:`1.5px dashed ${selectedClient?'transparent':'rgba(17,17,20,.2)'}`,background:selectedClient?(photoBackground(selectedClient.avatarUrl) ?? '#ece9f6'):'#f8f8fa',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:15,fontWeight:600,fontFamily:typography.fontFamilyDisplay,color:selectedClient?'#4b3f8a':'#6b6b73'}}>
                 {selectedClient ? (photoBackground(selectedClient.avatarUrl) ? null : getInitials(selectedClient.name)) : <User size={16} color={colors.gray.dimText} strokeWidth={1.8}/>}
               </div>
               <div style={{flex:1,minWidth:0}}>
                 {selectedClient ? (
                   <>
-                    <div style={{fontSize:17,fontWeight:700,color:colors.gray[900],letterSpacing:'-0.02em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{selectedClient.name}</div>
+                    <div style={{fontSize:16,fontWeight:600,color:'#111114',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{selectedClient.name}</div>
                     {selectedClient.phone&&<div style={{fontSize:13.5,color:colors.gray.dimText,marginTop:1}}>{fmtPhone(selectedClient.phone)}</div>}
                   </>
                 ) : (
                   <>
-                      <div style={{fontSize:17,fontWeight:700,color:colors.gray.dimText,letterSpacing:'-0.02em'}}>Cliente</div>
+                      <div style={{fontSize:16,fontWeight:600,color:'#111114'}}>Cliente</div>
                       <div style={{fontSize:13.5,color:colors.gray.dimText,marginTop:1}}>Buscar, cadastrar ou deixar como chegada</div>
                     </>
                 )}
@@ -1465,13 +1468,13 @@ export default function SideCheckoutPanel({
                 onClick={(e)=>e.stopPropagation()}
                 aria-label="Abrir conversa no WhatsApp"
                 className="scp-wa scp-wa-pulse"
-                style={{width:40,height:40,borderRadius:'50%',background:'#fff',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 14px rgba(0,0,0,0.18)',color:'#1ebe5a',textDecoration:'none',WebkitTapHighlightColor:'transparent'}}
+                style={{width:44,height:44,borderRadius:12,background:'#fff',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(17,17,20,.1)',color:'#1ebe5a',textDecoration:'none',WebkitTapHighlightColor:'transparent'}}
               >
                 <svg width={22} height={22} viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm5.8 14.06c-.25.69-1.45 1.32-1.99 1.4-.51.08-1.16.11-1.87-.12-.43-.14-.99-.32-1.7-.63-2.99-1.29-4.94-4.3-5.09-4.5-.15-.2-1.22-1.62-1.22-3.09 0-1.47.77-2.19 1.04-2.49.27-.3.59-.37.79-.37.2 0 .39 0 .57.01.18.01.43-.07.67.51.25.6.84 2.07.91 2.22.07.15.12.32.02.52-.1.2-.15.32-.3.5-.15.18-.31.4-.45.53-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.03 1.12 1 2.07 1.31 2.37 1.46.3.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.71.81 2 .96.3.15.5.22.57.35.07.12.07.72-.18 1.41Z"/></svg>
               </a>
             )}
-            <button onClick={()=>setShowClientSheet(true)} aria-label="Trocar cliente" style={{width:28,height:28,borderRadius:'50%',border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <Plus size={14} color={colors.gray.dimText} strokeWidth={2.5}/>
+            <button onClick={()=>setShowClientSheet(true)} aria-label={selectedClient ? 'Trocar cliente' : 'Escolher cliente'} style={{height:44,minWidth:44,padding:'0 12px',borderRadius:12,border:'none',background:'#f0f0f3',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,fontWeight:600,color:'#111114',fontFamily:typography.fontFamily}}>
+              {selectedClient ? 'Trocar' : <Plus size={16} color="#111114" strokeWidth={2.4}/>}
             </button>
           </div>
 
@@ -1479,10 +1482,10 @@ export default function SideCheckoutPanel({
 
         {/* Body */}
         <div style={{flex:1,display:'flex',minHeight:0}}>
-        <div style={{flex:1,minWidth:0,overflowY:'auto',padding:'16px 20px'}}>
+        <div style={{flex:1,minWidth:0,overflowY:'auto',padding:'12px 16px 20px'}}>
           {loadingBooking ? (
             <div style={{display:'flex',justifyContent:'center',alignItems:'center',padding:60}}>
-              <Loader2 size={28} color={colors.red.DEFAULT} style={{animation:'scp-spin 0.8s linear infinite'}}/>
+              <Loader2 size={26} color="#111114" style={{animation:'scp-spin 0.8s linear infinite'}}/>
             </div>
           ) : (
             <>
@@ -1494,10 +1497,10 @@ export default function SideCheckoutPanel({
                   {/* Data — clicável */}
                   <div>
                     <span className="cp-lbl">Data</span>
-                    <button className="cp-field" onClick={()=>setShowDatePicker(true)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page,borderRadius:radius.md,padding:'15px 16px'}}>
+                    <button className="cp-field" onClick={()=>setShowDatePicker(true)} style={{width:'100%',minHeight:52,display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',padding:'0 16px'}}>
                       <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <Calendar size={19} color={colors.red.DEFAULT} strokeWidth={2}/>
-                        <span style={{fontSize:17,fontWeight:700,letterSpacing:'-0.02em',color:colors.gray[900]}}>{dateLabel}</span>
+                        <Calendar size={18} color="#111114" strokeWidth={2}/>
+                        <span style={{fontSize:16,fontWeight:600,color:'#111114'}}>{dateLabel}</span>
                       </div>
                       <ChevronDown size={14} color={colors.gray.dimText}/>
                     </button>
@@ -1524,36 +1527,38 @@ export default function SideCheckoutPanel({
 
                   {/* Serviços */}
                   {items.map((item, idx) => (
-                    <div key={idx} style={{borderRadius:radius.sm,border:`1px solid ${colors.gray.borderMd}`,background:colors.background.page,overflow:'hidden'}}>
-                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderBottom:`1px solid ${colors.gray.border}`}}>
+                    <div key={idx} style={{borderRadius:16,background:'#fff',boxShadow:'inset 0 0 0 1px rgba(17,17,20,.08)',overflow:'hidden'}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',minHeight:44,padding:'0 6px 0 14px',borderBottom:'1px solid rgba(17,17,20,.06)'}}>
                         <span className="cp-lbl" style={{margin:0}}>Serviço{items.length>1?` ${idx+1}`:''}</span>
-                        {idx>0&&<button onClick={()=>removeItem(idx)} style={{background:'none',border:'none',cursor:'pointer',padding:2,display:'flex'}}><Trash2 size={14} color={colors.gray.dimText}/></button>}
+                        {idx>0&&<button onClick={()=>removeItem(idx)} aria-label="Tirar serviço" style={{width:44,height:44,background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Trash2 size={16} color="#6b6b73"/></button>}
                       </div>
 
                       {/* Frente 2: relação temporal com o item anterior (só do 2º item em diante) */}
                       {idx > 0 && (
-                        <div style={{display:'flex',gap:6,padding:'10px 14px',borderBottom:`1px solid ${colors.gray.border}`}}>
+                        <div style={{display:'flex',gap:6,padding:'10px 14px',borderBottom:'1px solid rgba(17,17,20,.06)'}}>
                           <button className={`cp-seg-btn${(item.mode ?? 'after')==='after'?' sel':''}`} onClick={()=>setItemMode(idx,'after')}>↳ Após anterior</button>
                           <button className={`cp-seg-btn${item.mode==='parallel'?' sel':''}`} onClick={()=>setItemMode(idx,'parallel')}>∥ Em paralelo</button>
                         </div>
                       )}
 
-                      <button className={`cp-svc${item.service?' has-value':''}`} style={{borderRadius:0,border:'none',borderBottom:`1px solid ${colors.gray.border}`}} onClick={()=>{setAddingSvcIdx(idx);setShowSvcSheet(true)}}>
-                        <div>
-                          <div style={{fontSize:17,fontWeight:item.service?700:600,letterSpacing:'-0.02em',color:item.service?colors.gray[900]:colors.gray.dimTextLight}}>
+                      <button className={`cp-svc${item.service?' has-value':''}`} style={{borderBottom:'1px solid rgba(17,17,20,.06)'}} onClick={()=>{setAddingSvcIdx(idx);setShowSvcSheet(true)}}>
+                        {/* @eligi:scp-c-svc-bar — traco com a cor do servico na agenda */}
+                        <span aria-hidden style={{width:4,alignSelf:'stretch',minHeight:36,borderRadius:2,flexShrink:0,background:item.service?.color ?? 'rgba(17,17,20,.12)'}}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:16,fontWeight:600,color:item.service?'#111114':'#6b6b73'}}>
                             {item.service?item.service.name:'Selecione o serviço'}
                           </div>
-                          {item.service&&<div style={{fontSize:13.5,color:colors.gray.dimText,marginTop:3,display:'flex',alignItems:'center',gap:5}}>
-                            <Clock size={14} strokeWidth={2} color={colors.gray.dimText}/>{item.service.duration}min
+                          {item.service&&<div style={{fontSize:13,color:'#4b4b52',marginTop:2,display:'flex',alignItems:'center',gap:5}}>
+                            <Clock size={13} strokeWidth={2} color="#6b6b73"/>{item.service.duration}min
                             {item.service.price!=null&&<> · R$ {item.service.price.toFixed(2).replace('.',',')}</>}
                           </div>}
                         </div>
-                        <ChevronRight size={19} color={item.service?colors.red.DEFAULT:colors.gray.dimText}/>
+                        <ChevronRight size={18} color="#6b6b73"/>
                       </button>
 
                       <div data-eligi="booking-times-row" style={{display:'flex',gap:8,alignItems:'flex-start'}}>
                         <div style={{flex:'1 1 0',minWidth:0,padding:'8px 8px'}}>
-                          <div style={{fontSize:13,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Início</div>
+                          <div className="cp-lbl">Início</div>
                           {/* @eligi:booking-stepper-start */}
                           <TimeStepper
                             value={item.startTime||'09:00'}
@@ -1565,7 +1570,7 @@ export default function SideCheckoutPanel({
                           />
                         </div>
                         <div style={{flex:'1 1 0',minWidth:0,padding:'8px 8px'}}>
-                          <div style={{fontSize:13,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Fim</div>
+                          <div className="cp-lbl">Fim</div>
                           {/* @eligi:booking-stepper-end */}
                           <TimeStepper
                             value={item.endTime||addMinutes(item.startTime||'09:00', item.service?.duration ?? 30)}
@@ -1584,12 +1589,12 @@ export default function SideCheckoutPanel({
                       </div>
 
                       {professionals.length > 1 && (
-                        <div style={{padding:'12px 14px',borderTop:`1px solid ${colors.gray.border}`}}>
+                        <div style={{padding:'12px 14px',borderTop:'1px solid rgba(17,17,20,.06)'}}>
                           {/* @eligi:booking-prof-collapse
                               Fechado ocupa 62px com 3 ou com 12 profissionais. Os chips
                               antigos mostravam so o primeiro nome: dois "Carlos" na
                               equipe viravam dois botoes identicos. */}
-                          <div style={{fontSize:13,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>Funcionário</div>
+                          <div className="cp-lbl" style={{marginBottom:8}}>Profissional</div>
                           {(() => {
                             const avail = getAvailableProfs(professionals, item.service?.id, serviceProfMap)
                             const cur   = avail.find(p => p.id === item.profId) ?? avail[0]
@@ -1616,7 +1621,7 @@ export default function SideCheckoutPanel({
                                   <button key={p.id} type="button" className={`cp-prof-row${item.profId===p.id?' sel':''}`} onClick={()=>pick(p.id)}>
                                     <ProfAvatar name={p.name} avatarUrl={p.avatarUrl} size={36} />
                                     <span style={{flex:1,minWidth:0,textAlign:'left',fontSize:16,fontWeight:item.profId===p.id?700:600,letterSpacing:'-0.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</span>
-                                    {item.profId===p.id && <Check size={19} color={colors.red.DEFAULT}/>}
+                                    {item.profId===p.id && <Check size={19} color="#111114"/>}
                                   </button>
                                 ))}
                               </div>
@@ -1630,7 +1635,7 @@ export default function SideCheckoutPanel({
                   {/* Adicionar outro serviço — só em modo create */}
                   {!isEdit && (
                     <button className="add-svc-btn" onClick={()=>{setAddingSvcIdx(-1);setShowSvcSheet(true)}}>
-                      <Plus size={15} strokeWidth={2}/> Adicionar outro serviço
+                      <Plus size={16} strokeWidth={2.2}/> Somar serviço
                     </button>
                   )}
 
@@ -1707,7 +1712,7 @@ export default function SideCheckoutPanel({
             </span>
           </div>
           <div className="cp-sum-row">
-            <span className="cp-sum-k">Servicos</span>
+            <span className="cp-sum-k">Serviços</span>
             {items.some(it => it.service) ? (
               <span className="cp-sum-v">
                 {items.filter(it => it.service).map((it, i) => (
@@ -1724,10 +1729,10 @@ export default function SideCheckoutPanel({
               <span className="cp-sum-v none">Nenhum ainda</span>
             )}
           </div>
-          <div style={{marginTop:16,paddingTop:16,borderTop:`2px solid ${colors.gray[900]}`}}>
+          <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid rgba(17,17,20,.12)'}}>
             <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:10}}>
               <span style={{fontSize:14,fontWeight:700,color:colors.gray[900]}}>Total</span>
-              <span style={{fontSize:27,fontWeight:700,letterSpacing:'-0.03em',color:colors.gray[900],fontVariantNumeric:'tabular-nums'}}>R$ {total.toFixed(2).replace('.',',')}</span>
+              <span className="cp-disp" style={{fontSize:26,fontWeight:600,letterSpacing:'-0.03em',color:'#111114'}}>R$ {total.toFixed(2).replace('.',',')}</span>
             </div>
             <p style={{margin:'8px 0 0',fontSize:13,color:colors.gray.dimText,lineHeight:1.5}}>
               {isDisabled ? 'Escolha um servico para liberar o salvamento.' : 'Cobranca no caixa, ao finalizar o atendimento.'}
@@ -1737,14 +1742,14 @@ export default function SideCheckoutPanel({
         </div>
 
         {/* Footer */}
-        <div style={{padding:'12px 20px 20px',borderTop:`1px solid ${colors.gray.border}`,flexShrink:0,background:colors.background.surface,backdropFilter:glass.blur.sm}}>
+        <div style={{padding:'12px 16px 16px',borderTop:'1px solid rgba(17,17,20,.08)',flexShrink:0,background:'#fff'}}>
           {/* @eligi:booking-total-unico
               O rodape imprimia a variavel `total` duas vezes, com rotulos
               diferentes. Enquanto nao existir pagamento parcial neste painel,
               o segundo numero e ruido. */}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:12,gap:12}}>
-            <div style={{fontSize:13,fontWeight:700,color:colors.gray.dimText,textTransform:'uppercase',letterSpacing:'.05em'}}>Total</div>
-            <div style={{fontSize:28,fontWeight:700,color:colors.gray[900],letterSpacing:'-0.03em',fontVariantNumeric:'tabular-nums'}}>R$ {total.toFixed(2).replace('.',',')}</div>
+            <div className="cp-lbl" style={{margin:0}}>Total</div>
+            <div className="cp-disp" style={{fontSize:26,fontWeight:600,color:'#111114',letterSpacing:'-0.03em'}}>R$ {Math.floor(total).toLocaleString('pt-BR')}<span style={{fontSize:15,color:'#6b6b73'}}>,{total.toFixed(2).split('.')[1]}</span></div>
           </div>
           {/* @eligi:club-aberto-scp-aviso — so avisa; o balcao decide */}
           {clubOpenWarn && clubOpen && (
@@ -1757,11 +1762,11 @@ export default function SideCheckoutPanel({
             </div>
           )}
           <div style={{display:'flex',gap:8}}>
-            <button className="cp-discard" onClick={onClose}>DESCARTAR</button>
-            <button className="cp-save" disabled={isDisabled} onClick={()=>(repeatOn ? openSeries() : handleSave(false)) /* @eligi:series-scp-save */} style={{background:success?'linear-gradient(135deg,#16a34a,#15803d)':isDisabled?undefined:colors.red.gradient,boxShadow:success?'0 4px 14px rgba(22,163,74,0.28)':isDisabled?'none':shadows.redMd}}>
-              {success ? (isEdit ? '✓ ATUALIZADO' : repeatOn ? '✓ SÉRIE CRIADA' /* @eligi:series-scp-done */ : '✓ CONFIRMADO')
-              : saving ? 'SALVANDO...'
-              : (isEdit ? 'ATUALIZAR' : repeatOn ? 'REVISAR DATAS' : 'SALVAR') /* @eligi:series-scp-label */}
+            <button className="cp-discard" onClick={onClose}>Descartar</button>
+            <button className="cp-save" disabled={isDisabled} onClick={()=>(repeatOn ? openSeries() : handleSave(false)) /* @eligi:series-scp-save */} style={success?{background:'#15803d',color:'#fff'}:undefined}>
+              {success ? <><Check size={18} strokeWidth={2.4}/>{isEdit ? 'Atualizado' : repeatOn ? 'Série criada' /* @eligi:series-scp-done */ : 'Agendado'}</>
+              : saving ? <><Loader2 size={18} style={{animation:'scp-spin 0.8s linear infinite'}}/>Salvando…</>
+              : (isEdit ? 'Atualizar' : repeatOn ? 'Revisar datas' : <><Check size={18} strokeWidth={2.4}/>Agendar</>) /* @eligi:series-scp-label */}
             </button>
           </div>
         </div>
