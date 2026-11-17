@@ -37,8 +37,10 @@ import ClubCommissionsTab, { clubPeriodLabel, type ClubCommItem, type ClubCommOw
 import PersonDetail, { PersonSheet } from './PersonDetail'
 import { Avatar, freqText, kindWord, periodTxt, toPerson, type OcPerson } from './ocParts'
 import { OC_CSS } from './ocStyles'
+import TeamCompare from './TeamCompare' // @eligi:tcf-import
+import { TC_CSS } from './tcStyles'
 
-type Seg = 'pay' | 'paid' | 'club'
+type Seg = 'pay' | 'paid' | 'club' | 'cmp' // @eligi:tcf-seg
 const WD_FULL = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
 const EMPTY: PendingSummaryResponse = { closedPeriod: null, professionals: [] }
 
@@ -166,7 +168,7 @@ export default function OwnerCommissionsView() {
   }
 
   const fin = canAccessRoute(user?.role, '/dashboard/financeiro') ? <FinanceBackLink /> : null
-  const css = <style>{MC_CSS + OC_CSS}</style>
+  const css = <style>{MC_CSS + OC_CSS + TC_CSS}</style>
 
   if (!role || status === 'loading' || (!data && status !== 'error')) {
     return (
@@ -241,7 +243,7 @@ export default function OwnerCommissionsView() {
     />
   ) : null
 
-  const segs: Array<[Seg, string]> = isOwner ? [['pay', 'A pagar'], ['paid', 'Pagos'], ['club', 'Clube']] : [['pay', 'A pagar'], ['club', 'Clube']]
+  const segs: Array<[Seg, string]> = isOwner ? [['pay', 'A pagar'], ['paid', 'Pagos'], ['club', 'Clube'], ['cmp', 'Comparar']] : [['pay', 'A pagar'], ['club', 'Clube'], ['cmp', 'Comparar']]
 
   return (
     <div className="mc-page oc-page">
@@ -265,7 +267,7 @@ export default function OwnerCommissionsView() {
         )}
       </header>
 
-      <div className={`mc-seg oc-seg${segs.length === 2 ? ' two' : ''}`} role="tablist" aria-label="Comissões">
+      <div className={`mc-seg oc-seg${segs.length === 2 ? ' two' : segs.length === 4 ? ' four' : ''}`} role="tablist" aria-label="Comissões">
         {segs.map(([k, label]) => (
           <button key={k} role="tab" aria-selected={seg === k} onClick={() => setSeg(k)}>{label}</button>
         ))}
@@ -464,6 +466,8 @@ export default function OwnerCommissionsView() {
           <ClubCommissionsTab key={refresh} isMobile={isMobile} professionalId={profFilter} period={period} canPay={isOwner} />
         </div>
       )}
+
+      {seg === 'cmp' && <TeamCompare loadedAt={loadedAt} />}
 
       {sheetOpen && detail && sel && (
         <PersonSheet title={`Pagamento da ${kind} ${cardRange}`} onClose={closeSheet}>{detail}</PersonSheet>
