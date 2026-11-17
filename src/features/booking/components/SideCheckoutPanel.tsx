@@ -41,12 +41,12 @@ function ConfirmModal({ title, confirmLabel, onConfirm, onCancel, isMobile }: {
       <div style={{position:'fixed',bottom:0,left:0,right:0,background:'rgba(255,255,255,0.99)',borderRadius:'24px 24px 0 0',boxShadow:'0 -8px 40px rgba(0,0,0,0.15)',zIndex:10999,padding:`28px 24px max(36px,env(safe-area-inset-bottom))`,textAlign:'center',fontFamily:typography.fontFamily,animation:'cmUp 0.28s cubic-bezier(0.34,1.2,0.64,1)'}}>
         <style>{`@keyframes cmUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
         <div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)',margin:'0 auto 24px'}}/>
-        <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(145deg,#ef4444,#dc2626,#b91c1c)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px',boxShadow:'0 6px 18px rgba(220,38,38,0.30)'}}>
-          <span style={{color:'#fff',fontWeight:800,fontSize:20,letterSpacing:'-0.04em'}}>e</span>
+        <div style={{width:48,height:48,borderRadius:14,background:'#fffbeb',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>{/* @eligi:scp-c2-confirm-icon */}
+          <TriangleAlert size={22} color="#b45309" strokeWidth={2.2}/>
         </div>
         <h3 style={{margin:'0 0 22px',fontSize:17,fontWeight:700,color:'#0f0f14',lineHeight:1.3,whiteSpace:'pre-line'}}>{title}</h3>
-        <button onClick={onConfirm} style={{width:'100%',padding:'15px',marginBottom:10,background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',border:'none',borderRadius:13,fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'0.04em',textTransform:'uppercase' as const,boxShadow:'0 4px 16px rgba(220,38,38,0.28)'}}>{confirmLabel}</button>
-        <button onClick={onCancel} style={{width:'100%',padding:'14px',background:'transparent',border:'1px solid rgba(0,0,0,0.08)',borderRadius:13,fontSize:14,cursor:'pointer',color:'rgba(0,0,0,0.45)',fontWeight:500}}>Voltar</button>
+        <button onClick={onConfirm} style={{width:'100%',minHeight:52,marginBottom:10,background:'#111114',color:'#fff',border:'none',borderRadius:14,fontWeight:600,fontSize:16,cursor:'pointer',fontFamily:typography.fontFamily}}>{confirmLabel}</button>
+        <button onClick={onCancel} style={{width:'100%',minHeight:48,background:'#fff',border:'1px solid rgba(17,17,20,.12)',borderRadius:14,fontSize:15,cursor:'pointer',color:'#111114',fontWeight:600,fontFamily:typography.fontFamily}}>Voltar</button>
       </div>
     </>
   ) : (
@@ -54,12 +54,12 @@ function ConfirmModal({ title, confirmLabel, onConfirm, onCancel, isMobile }: {
       <div onClick={onCancel} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.28)',backdropFilter:'blur(8px)',zIndex:10998}}/>
       <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:340,maxWidth:'88vw',background:'rgba(255,255,255,0.98)',borderRadius:22,boxShadow:'0 32px 72px rgba(0,0,0,0.18)',zIndex:10999,padding:'32px 24px 22px',fontFamily:typography.fontFamily,textAlign:'center',animation:'cmIn 0.22s cubic-bezier(0.34,1.56,0.64,1)'}}>
         <style>{`@keyframes cmIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}`}</style>
-        <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(145deg,#ef4444,#dc2626,#b91c1c)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px',boxShadow:'0 6px 18px rgba(220,38,38,0.30)'}}>
-          <span style={{color:'#fff',fontWeight:800,fontSize:20,letterSpacing:'-0.04em'}}>e</span>
+        <div style={{width:48,height:48,borderRadius:14,background:'#fffbeb',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px'}}>{/* @eligi:scp-c2-confirm-icon */}
+          <TriangleAlert size={22} color="#b45309" strokeWidth={2.2}/>
         </div>
         <h3 style={{margin:'0 0 24px',fontSize:18,fontWeight:700,color:'#0f0f14',lineHeight:1.3,letterSpacing:'-0.02em',whiteSpace:'pre-line'}}>{title}</h3>
-        <button onClick={onConfirm} style={{width:'100%',padding:'14px',marginBottom:10,background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',border:'none',borderRadius:13,fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'0.04em',textTransform:'uppercase' as const,boxShadow:'0 4px 16px rgba(220,38,38,0.28)'}}>{confirmLabel}</button>
-        <button onClick={onCancel} style={{width:'100%',padding:'13px',background:'transparent',border:'1px solid rgba(0,0,0,0.08)',borderRadius:13,fontSize:14,cursor:'pointer',color:'rgba(0,0,0,0.45)',fontWeight:500}}>Voltar</button>
+        <button onClick={onConfirm} style={{width:'100%',minHeight:50,marginBottom:10,background:'#111114',color:'#fff',border:'none',borderRadius:14,fontWeight:600,fontSize:15,cursor:'pointer',fontFamily:typography.fontFamily}}>{confirmLabel}</button>
+        <button onClick={onCancel} style={{width:'100%',minHeight:46,background:'#fff',border:'1px solid rgba(17,17,20,.12)',borderRadius:14,fontSize:15,cursor:'pointer',color:'#111114',fontWeight:600,fontFamily:typography.fontFamily}}>Voltar</button>
       </div>
     </>
   )
@@ -212,11 +212,11 @@ function DatePickerModal({ date, onSelect, onClose, isMobile }: {
         <style>{`@keyframes dpIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes dpUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
         {isMobile && <div style={{display:'flex',justifyContent:'center',padding:'12px 0 4px'}}><div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)'}}/></div>}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 20px 10px'}}>
-          <button onClick={()=>setView(v=>v.subtract(1,'month'))} style={{width:32,height:32,borderRadius:'50%',border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <button onClick={()=>setView(v=>v.subtract(1,'month'))} aria-label="Mês anterior" style={{width:44,height:44,borderRadius:12,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
             <ChevronRight size={16} color={colors.gray[700]} style={{transform:'rotate(180deg)'}} strokeWidth={2.5}/>
           </button>
           <span style={{fontSize:16,fontWeight:700,color:colors.gray[900]}}>{MONTHS[view.month()]} {view.year()}</span>
-          <button onClick={()=>setView(v=>v.add(1,'month'))} style={{width:32,height:32,borderRadius:'50%',border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <button onClick={()=>setView(v=>v.add(1,'month'))} aria-label="Próximo mês" style={{width:44,height:44,borderRadius:12,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
             <ChevronRight size={16} color={colors.gray[700]} strokeWidth={2.5}/>
           </button>
         </div>
@@ -232,9 +232,8 @@ function DatePickerModal({ date, onSelect, onClose, isMobile }: {
                 const isTodayD = day.isSame(today,'day')
                 const isOther  = day.month()!==view.month()
                 return (
-                  <button key={ci} onClick={()=>{onSelect(day);onClose()}} style={{height:36,borderRadius:'50%',border:'none',background:isSel?colors.red.gradient:'transparent',color:isSel?'#fff':isTodayD?colors.red.DEFAULT:isOther?'rgba(0,0,0,0.2)':colors.gray[900],fontWeight:isSel||isTodayD?700:500,fontSize:13,cursor:'pointer',position:'relative',boxShadow:isSel?`0 3px 10px ${colors.red.glow}`:'none'}}>
+                  <button key={ci} onClick={()=>{onSelect(day);onClose()}} style={{height:40,borderRadius:12,border:'none',background:isSel?'#111114':'transparent',color:isSel?'#fff':isOther?'rgba(0,0,0,0.25)':'#111114',fontWeight:isSel||isTodayD?700:500,fontSize:14,cursor:'pointer',position:'relative',boxShadow:isTodayD&&!isSel?'inset 0 0 0 1.5px #111114':'none',fontVariantNumeric:'tabular-nums'}}>{/* @eligi:scp-c2-date-sel — selecionado grafite, hoje com anel */}
                     {day.date()}
-                    {isTodayD&&!isSel&&<div style={{position:'absolute',bottom:3,left:'50%',transform:'translateX(-50%)',width:4,height:4,borderRadius:'50%',background:colors.red.DEFAULT}}/>}
                   </button>
                 )
               })}
@@ -283,32 +282,33 @@ function ServiceSheet({ services, selected, loading, onSelect, onClose }: {
         {isMobile && <div style={{display:'flex',justifyContent:'center',padding:'12px 0 4px',flexShrink:0}}><div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)'}}/></div>}
         <div style={{padding:'14px 20px',borderBottom:`1px solid ${colors.gray.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
           <h3 style={{margin:0,fontSize:16,fontWeight:700,color:colors.gray[900]}}>Selecione o serviço</h3>
-          <button onClick={onClose} style={{width:28,height:28,borderRadius:radius.full,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <X size={14} color={colors.gray.dimText}/>
+          <button onClick={onClose} aria-label="Fechar" style={{width:44,height:44,borderRadius:12,border:'none',background:'#f0f0f3',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <X size={18} color="#111114"/>
           </button>
         </div>
         <div style={{padding:'10px 16px',borderBottom:`1px solid ${colors.gray.border}`,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderRadius:10,background:colors.background.page,border:`1px solid ${colors.gray.borderMd}`}}>
             <Search size={14} color={colors.gray.dimText}/>
-            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar serviço..." style={{flex:1,border:'none',outline:'none',fontSize:13,background:'transparent',color:colors.gray[900],fontFamily:typography.fontFamily}}/>
+            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar serviço..." style={{flex:1,minHeight:28,border:'none',outline:'none',fontSize:16,background:'transparent',color:colors.gray[900],fontFamily:typography.fontFamily}}/>
           </div>
         </div>
         <div style={{flex:1,overflowY:'auto'}}>
           {loading ? <div style={{padding:32,textAlign:'center',color:colors.gray.dimText}}>Carregando...</div>
           : filtered.length===0 ? <div style={{padding:32,textAlign:'center',color:colors.gray.dimText}}>Nenhum serviço encontrado</div>
           : filtered.map(s=>(
-            <button key={s.id} onClick={()=>{onSelect(s);onClose()}} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px 20px',border:'none',borderBottom:`1px solid ${colors.gray.border}`,background:selected?.id===s.id?colors.red.subtle:'transparent',cursor:'pointer',textAlign:'left',transition:`background ${transitions.fast}`}}
-              onMouseEnter={e=>(e.currentTarget.style.background=selected?.id===s.id?colors.red.subtle:colors.gray.hover)}
-              onMouseLeave={e=>(e.currentTarget.style.background=selected?.id===s.id?colors.red.subtle:'transparent')}
+            <button key={s.id} onClick={()=>{onSelect(s);onClose()}} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px 20px',border:'none',borderBottom:`1px solid ${colors.gray.border}`,background:selected?.id===s.id?'#f0f0f3':'transparent',cursor:'pointer',textAlign:'left',transition:`background ${transitions.fast}`}}
+              onMouseEnter={e=>(e.currentTarget.style.background=selected?.id===s.id?'#f0f0f3':colors.gray.hover)}
+              onMouseLeave={e=>(e.currentTarget.style.background=selected?.id===s.id?'#f0f0f3':'transparent')}
             >
+              <span aria-hidden style={{width:4,alignSelf:'stretch',minHeight:32,borderRadius:2,flexShrink:0,background:s.color ?? 'rgba(17,17,20,.12)'}}/>{/* @eligi:scp-c2-svc-bar */}
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:600,color:colors.gray[900]}}>{s.name}</div>
-                <div style={{fontSize:12,color:colors.gray.dimText,marginTop:2,display:'flex',alignItems:'center',gap:4}}>
+                <div style={{fontSize:16,fontWeight:600,color:'#111114'}}>{s.name}</div>
+                <div style={{fontSize:13,color:'#4b4b52',marginTop:2,display:'flex',alignItems:'center',gap:4}}>
                   <Clock size={11} strokeWidth={2} color={colors.gray.dimText}/>{s.duration}min
                   {s.price!=null&&<span style={{marginLeft:4}}>· R$ {s.price.toFixed(2).replace('.',',')}</span>}
                 </div>
               </div>
-              {selected?.id===s.id ? <Check size={16} color={colors.red.DEFAULT} strokeWidth={2.5}/> : <div style={{width:18,height:18,borderRadius:radius.full,border:`1.5px solid ${colors.gray.borderMd}`,flexShrink:0}}/>}
+              {selected?.id===s.id ? <Check size={18} color="#111114" strokeWidth={2.5}/> : <div style={{width:18,height:18,borderRadius:radius.full,border:`1.5px solid ${colors.gray.borderMd}`,flexShrink:0}}/>}
             </button>
           ))}
         </div>
@@ -363,7 +363,7 @@ function highlight(text: string, term: string) {
   return (
     <>
       {text.slice(0, i)}
-      <mark style={{background:'rgba(220,38,38,0.16)',color:'inherit',borderRadius:3,padding:'0 1px'}}>
+      <mark style={{background:'#fef3c7',color:'inherit',borderRadius:3,padding:'0 1px'}}>
         {text.slice(i, i + q.length)}
       </mark>
       {text.slice(i + q.length)}
@@ -440,7 +440,7 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
             border:none;border-bottom:1px solid ${colors.gray.border};background:transparent;cursor:pointer;
             text-align:left;font-family:${typography.fontFamily};transition:background ${transitions.fast}}
           .cs-row:hover{background:${colors.gray.hover}}
-          .cs-row.sel,.cs-row.sel:hover{background:${colors.red.subtle}}
+          .cs-row.sel,.cs-row.sel:hover{background:#f0f0f3}
           .cs-sec{position:sticky;top:0;z-index:2;padding:8px 18px;font-size:12.5px;font-weight:700;
             letter-spacing:.09em;color:${colors.gray.dimText};background:${colors.background.page};
             border-bottom:1px solid ${colors.gray.border}}
@@ -449,7 +449,7 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
           .cs-az button{border:none;background:transparent;font-family:${typography.fontFamily};
             font-size:10.5px;font-weight:700;color:${colors.gray.dimText};cursor:pointer;
             line-height:1.25;padding:0 4px}
-          .cs-az button:hover{color:${colors.red.DEFAULT}}
+          .cs-az button:hover{color:#111114}
         `}</style>
         {isMobile && <div style={{display:'flex',justifyContent:'center',padding:'12px 0 4px',flexShrink:0}}><div style={{width:40,height:4,borderRadius:2,background:'rgba(0,0,0,0.12)'}}/></div>}
 
@@ -523,7 +523,7 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
                             novo
                           </span>
                         )}
-                        {isSel&&<Check size={18} color={colors.red.DEFAULT} strokeWidth={2.5}/>}
+                        {isSel&&<Check size={18} color="#111114" strokeWidth={2.5}/>}
                       </button>
                     )
                   })}
@@ -541,7 +541,7 @@ function ClientSearchSheet({ selected, onSelect, onClose, onCreateNew }: {
         </div>
 
         <div style={{flexShrink:0,borderTop:`1px solid ${colors.gray.border}`,padding:'12px 18px',paddingBottom:isMobile?'max(12px,env(safe-area-inset-bottom))':12}}>
-          <button onClick={()=>{onClose();onCreateNew(term)}} style={{width:'100%',minHeight:54,borderRadius:16,border:`1.5px dashed ${colors.red.border}`,background:'rgba(220,38,38,0.03)',color:colors.red.DEFAULT,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:9,fontSize:16.5,fontWeight:700,letterSpacing:'-0.015em',fontFamily:typography.fontFamily}}>
+          <button onClick={()=>{onClose();onCreateNew(term)}} style={{width:'100%',minHeight:54,borderRadius:16,border:'1.5px dashed rgba(17,17,20,.2)',background:'transparent',color:'#111114',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:9,fontSize:16,fontWeight:600,letterSpacing:'-0.015em',fontFamily:typography.fontFamily}}>
             <Plus size={19} strokeWidth={2.2}/>
             {term ? `Cadastrar "${titleCase(term)}"` : 'Cadastrar novo cliente'}
           </button>
@@ -671,15 +671,15 @@ function CreateClientSheet({ onCreated, onClose, prefillName = '' }: {
           <div onClick={()=>setShowNoPhoneWarn(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',backdropFilter:'blur(8px)',zIndex:11001}}/>
           <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:400,maxWidth:'90vw',background:'#fff',borderRadius:22,boxShadow:'0 32px 72px rgba(0,0,0,0.22)',zIndex:11002,padding:'28px 26px 22px',fontFamily:typography.fontFamily,animation:'cmIn 0.22s cubic-bezier(0.34,1.56,0.64,1)'}}>
             <h3 style={{margin:'0 0 8px',fontSize:20,fontWeight:800,color:'#0f0f14',letterSpacing:'-0.03em'}}>Cadastrar sem telefone?</h3>
-            <p style={{margin:'0 0 16px',fontSize:14.5,color:colors.gray.dimText,lineHeight:1.5}}>O numero e o que liga o cliente ao atendimento:</p>
+            <p style={{margin:'0 0 16px',fontSize:14.5,color:colors.gray.dimText,lineHeight:1.5}}>O número é o que liga o cliente ao atendimento:</p>
             <ul style={{margin:'0 0 24px',padding:0,listStyle:'none',display:'flex',flexDirection:'column',gap:11}}>
-              {['Ele recebe a confirmacao do agendamento','Voce consegue falar com ele depois','Reduz falta sem aviso, que custa a cadeira vazia'].map((t,i)=>(
+              {['Ele recebe a confirmação do agendamento','Você consegue falar com ele depois','Reduz falta sem aviso, que custa a cadeira vazia'].map((t,i)=>(
                 <li key={i} style={{display:'flex',gap:10,alignItems:'flex-start',fontSize:14.5,color:colors.gray[700],lineHeight:1.45}}>
-                  <span style={{color:colors.red.DEFAULT,fontWeight:800,flexShrink:0,marginTop:1}}>&bull;</span>{t}
+                  <span style={{color:'#111114',fontWeight:800,flexShrink:0,marginTop:1}}>&bull;</span>{t}
                 </li>
               ))}
             </ul>
-            <button onClick={()=>{setShowNoPhoneWarn(false);setTimeout(()=>phoneRef.current?.focus(),60)}} style={{width:'100%',minHeight:54,marginBottom:10,background:colors.red.gradient,color:'#fff',border:'none',borderRadius:15,fontWeight:700,fontSize:16.5,cursor:'pointer',letterSpacing:'-0.01em',boxShadow:'0 6px 18px rgba(220,38,38,0.26)',fontFamily:typography.fontFamily}}>Adicionar telefone</button>
+            <button onClick={()=>{setShowNoPhoneWarn(false);setTimeout(()=>phoneRef.current?.focus(),60)}} style={{width:'100%',minHeight:52,marginBottom:10,background:'#111114',color:'#fff',border:'none',borderRadius:14,fontWeight:600,fontSize:16,cursor:'pointer',fontFamily:typography.fontFamily}}>Adicionar telefone</button>
             <button onClick={doCreate} style={{width:'100%',minHeight:50,background:'transparent',border:`1px solid ${colors.gray.borderMd}`,borderRadius:15,fontSize:15.5,cursor:'pointer',color:colors.gray.dimText,fontWeight:600,fontFamily:typography.fontFamily}}>Cadastrar assim mesmo</button>
           </div>
         </>
@@ -716,7 +716,7 @@ function CreateClientSheet({ onCreated, onClose, prefillName = '' }: {
 
         <div style={{padding:'0 20px 16px',display:'flex',gap:10,flexShrink:0}}>
           <button onClick={onClose} style={{flex:1,minHeight:54,borderRadius:15,border:`1px solid ${colors.gray.borderMd}`,background:'transparent',fontSize:16,cursor:'pointer',color:colors.gray[700],fontWeight:700,fontFamily:typography.fontFamily}}>Cancelar</button>
-          <button onClick={handleSave} disabled={!name.trim()||saving==='saving'} style={{flex:2,minHeight:54,borderRadius:15,border:'none',background:colors.red.gradient,color:'#fff',fontSize:16.5,cursor:!name.trim()?'not-allowed':'pointer',fontWeight:700,letterSpacing:'-0.01em',boxShadow:shadows.redSm,opacity:!name.trim()?0.5:1,fontFamily:typography.fontFamily}}>
+          <button onClick={handleSave} disabled={!name.trim()||saving==='saving'} style={{flex:2,minHeight:52,borderRadius:14,border:'none',background:'#111114',color:'#fff',fontSize:16,cursor:!name.trim()?'not-allowed':'pointer',fontWeight:600,opacity:!name.trim()?0.4:1,fontFamily:typography.fontFamily}}>
             {saving==='saving'?'Salvando...':'Cadastrar'}
           </button>
         </div>
