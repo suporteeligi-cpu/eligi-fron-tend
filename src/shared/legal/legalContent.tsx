@@ -117,7 +117,7 @@ export const TERMOS_PLANO: LegalDocData = {
 
 export const PRIVACIDADE: LegalDocData = {
   title: 'Politica de Privacidade',
-  updated: '21 de junho de 2026',
+  updated: '16 de novembro de 2026', // @eligi:priv-data-nov
   intro:
     'A ELIGI SISTEMAS EMPRESARIAIS LTDA, CNPJ 64.539.922/0001-54, com sede na Avenida Major Benjamin Franco, Centro Residencial, Aruja/SP, explica nesta Politica como trata dados pessoais na plataforma Eligi, conforme a LGPD (Lei no 13.709/2018).',
   blocks: [
@@ -171,6 +171,18 @@ export const PRIVACIDADE: LegalDocData = {
 
     { kind: 'h', text: '11. Alteracoes desta Politica' },
     { kind: 'p', text: 'Podemos atualizar esta Politica periodicamente, alterando a data de ultima atualizacao e, em mudancas relevantes, comunicando os titulares pelos canais disponiveis.' },
+
+    // @eligi:priv-conta-cliente
+    { kind: 'h', text: '12. Conta Eligi do cliente final (app Eligi Cliente e link de agendamento)' },
+    { kind: 'p', text: 'Quem agenda pelo app Eligi Cliente ou pelo link de agendamento pode criar uma Conta Eligi, valida em todos os estabelecimentos que usam a plataforma. Em relacao a essa conta, o Eligi atua como controlador. Os cadastros que cada estabelecimento mantem do cliente (historico de atendimento, vendas) continuam sob controladoria do estabelecimento, conforme o item 1.' },
+    { kind: 'ul', items: [
+      'Dados da conta: nome, e-mail, telefone (quando confirmado), foto do perfil do Google (quando o login e feito com Google) e os identificadores de login do Google ou da Apple.',
+      'Localizacao do aparelho: so com a sua permissao e so para mostrar estabelecimentos perto de voce. A localizacao e usada na hora da busca e nao e guardada.',
+      'Identificador de notificacao do aparelho: para enviar lembretes de horario e avisos dos estabelecimentos em que voce e cliente. Os avisos podem ser desligados por tipo e por estabelecimento na tela Conta > Avisos no celular, ou nas configuracoes do aparelho.',
+      'Promocoes: os estabelecimentos dos quais voce e cliente podem enviar promocoes pelo app, no maximo duas por semana cada um. Esse tipo de aviso pode ser desligado a qualquer momento.',
+    ] },
+    { kind: 'p', text: 'Bases legais: execucao de contrato (art. 7o, V) para a conta, os agendamentos e os lembretes; consentimento (art. 7o, I) para a localizacao e as notificacoes, revogavel a qualquer momento nas configuracoes do aparelho.' },
+    { kind: 'p', text: 'Exclusao da conta: pelo proprio app ou em app.eligi.com.br/conta, na opcao Excluir conta, ou por pedido a privacidade@eligi.com.br. A exclusao apaga a conta, as sessoes e os identificadores de notificacao, e desliga a conta dos cadastros nos estabelecimentos. O historico de atendimento fica com cada estabelecimento, como numa ficha de papel, e pode ser pedido a ele.' },
 
     { kind: 'note', text: 'Encarregado pelo Tratamento de Dados (DPO): Elivelton Caio Borges - privacidade@eligi.com.br' },
   ],
