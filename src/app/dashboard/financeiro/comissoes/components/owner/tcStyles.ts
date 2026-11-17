@@ -38,6 +38,8 @@ export const TC_CSS = `
 .tc-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .tc-head .nm{font-family:${typography.fontFamilyDisplay};font-size:24px;font-weight:600;letter-spacing:-.035em;line-height:1.1;color:${INK}}
 .tc-head .sm{font-size:13px;color:${MUTED};margin-top:3px}
+.tc-pdf{display:grid;justify-items:end;gap:4px}
+@media (max-width:599px){.tc-pdf{flex-basis:100%;justify-items:stretch}.tc-pdf .mc-btn{width:100%;justify-content:center}}
 .tc-cards{display:grid;gap:10px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 @media (min-width:768px){.tc-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .tc-card{padding:14px;min-width:0}

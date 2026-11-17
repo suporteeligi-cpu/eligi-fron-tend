@@ -9,8 +9,9 @@
 // leva estrela (nunca so cor). Tocar numa celula abre a pessoa.
 
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Star, Users } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, FileDown, Star, Users } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
+import { canShareFiles, fetchPdf, saveBlob, shareBlob } from '@/features/fiscal/download' // @eligi:tcf-pdf-import
 import { MONTHS, monthKeySP, monthLabel, shiftMonth } from '../my/mcFormat'
 import { Money } from '../my/mcParts'
 import { Avatar } from './ocParts'
@@ -152,7 +153,41 @@ function Rows({ metrics, focus, base, focusLabel, refLabel }: {
   )
 }
 
-function Ficha({ data, pro, vs, setVs, other, setOtherId, sorted }: {
+function PdfButton({ data, pro }: { data: TeamCompareResponse; pro: TcProfessional }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  async function run() {
+    setBusy(true)
+    setErr(null)
+    const name = `comparativo-${firstName(pro.name).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}-${data.a.month}.pdf`
+    try {
+      const q = new URLSearchParams({ a: data.a.month, b: data.b.month, mode: data.mode }).toString()
+      const blob = await fetchPdf(`/payouts/team-compare/${encodeURIComponent(pro.id)}/pdf?${q}`)
+      if (canShareFiles(blob, name)) {
+        try { await shareBlob(blob, name, `Comparativo de ${firstName(pro.name)}`) } catch (e) {
+          if ((e as { name?: string })?.name !== 'AbortError') saveBlob(blob, name)
+        }
+      } else {
+        saveBlob(blob, name)
+      }
+    } catch (e) {
+      setErr(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <span className="tc-pdf">
+      <button className="mc-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }} onClick={run} disabled={busy}>
+        <FileDown size={17} aria-hidden /><span>{busy ? 'Gerando…' : 'PDF para o profissional'}</span>
+      </button>
+      {err && <span role="status" style={{ fontSize: 12, color: '#a32d2d' }}>{err}</span>}
+    </span>
+  )
+}
+
+function Ficha({ data, pro, vs, setVs, other, setOtherId, sorted, canPdf }: {
+  canPdf: boolean
   data: TeamCompareResponse
   pro: TcProfessional
   vs: TcVs
@@ -183,7 +218,9 @@ function Ficha({ data, pro, vs, setVs, other, setOtherId, sorted }: {
           <div className="nm mc-ell">{pro.name}{!pro.active && <span className="mc-fnt" style={{ fontSize: 13, fontWeight: 500 }}> · saiu da equipe</span>}</div>
           <div className="sm">{periodTxt} <span className="mc-fnt">comparado com</span> {vs === 'self' ? data.b.label : refName}</div>
         </div>
+        {canPdf && <PdfButton data={data} pro={pro} />}
       </div>
+      {canPdf && <p className="tc-foot" style={{ marginTop: -4 }}>O PDF mostra só {fname} e a média da equipe, comparando {data.a.label} com {data.b.label}. Os colegas não aparecem.</p>}
 
       <div className="tc-chips" role="group" aria-label="Comparar com">
         <button className="mcw-pchip" aria-pressed={vs === 'self'} onClick={() => setVs('self')}>{fname} em {data.b.label}</button>
@@ -336,7 +373,7 @@ function Matrix({ data, sorted, byVar, onOpen }: {
   )
 }
 
-export default function TeamCompare({ loadedAt }: { loadedAt: number }) {
+export default function TeamCompare({ loadedAt, isOwner }: { loadedAt: number; isOwner: boolean }) {
   const cur0 = monthKeySP(loadedAt)
   const [a, setA] = useState(cur0)
   const [b, setB] = useState(shiftMonth(cur0, -1))
@@ -491,6 +528,7 @@ export default function TeamCompare({ loadedAt }: { loadedAt: number }) {
               other={other}
               setOtherId={setOtherId}
               sorted={sorted}
+              canPdf={isOwner}
             />
           </div>
         </>

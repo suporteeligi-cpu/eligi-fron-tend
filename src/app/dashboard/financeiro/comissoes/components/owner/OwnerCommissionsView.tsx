@@ -467,7 +467,7 @@ export default function OwnerCommissionsView() {
         </div>
       )}
 
-      {seg === 'cmp' && <TeamCompare loadedAt={loadedAt} />}
+      {seg === 'cmp' && <TeamCompare loadedAt={loadedAt} isOwner={isOwner} />}
 
       {sheetOpen && detail && sel && (
         <PersonSheet title={`Pagamento da ${kind} ${cardRange}`} onClose={closeSheet}>{detail}</PersonSheet>
