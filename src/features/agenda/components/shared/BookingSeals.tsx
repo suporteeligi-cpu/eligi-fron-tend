@@ -16,7 +16,7 @@
 // legivel) abaixo disso. Os demais selos seguem EXATAMENTE o comportamento
 // anterior - nada neles mudou.
 import { useId } from 'react'
-import { Rocket, Heart, EyeOff, ShoppingBag, Cake, RefreshCw, Star, Repeat /* @eligi:series-seal-icon */ } from 'lucide-react' /* @eligi:plan-intent-seal-icon */ /* @eligi:loyalty-seal-icon */ // @eligi:birthday-seal-icon
+import { Rocket, Heart, EyeOff, ShoppingBag, Cake, RefreshCw, Star, Repeat /* @eligi:series-seal-icon */, StickyNote /* @eligi:booking-note-seal-icon */ } from 'lucide-react' /* @eligi:plan-intent-seal-icon */ /* @eligi:loyalty-seal-icon */ // @eligi:birthday-seal-icon
 
 interface Props {
   isPaid?:                 boolean
@@ -35,6 +35,7 @@ interface Props {
   membershipExpired?:      boolean  // assinatura do caixa vencida: selo renovar (some em card minimo)
   hasPlanIntent?:          boolean  // @eligi:plan-intent-seal-prop — quer fechar plano escolhido no link
   isSeries?:               boolean  // @eligi:series-seal-prop — ocorrencia de agendamento recorrente
+  hasNote?:                boolean  // @eligi:booking-note-seal-prop — tem nota interna da equipe
 }
 
 const MAX_SIZE  = 18   // tamanho cheio (cards altos)
@@ -116,6 +117,7 @@ export default function BookingSeals({
   clubPastDue, membershipExpired, // @eligi:loyalty-seal-arg
   hasPlanIntent, // @eligi:plan-intent-seal-arg
   isSeries, // @eligi:series-seal-arg
+  hasNote, // @eligi:booking-note-seal-arg
 }: Props) {
   const items: { size: number; node: React.ReactNode }[] = []
 
@@ -180,6 +182,9 @@ export default function BookingSeals({
     // @eligi:series-seal-badge — recorrente: vazado com icone slate escuro
     // (mesmo token do card COMPLETED). Branco + icone, como plano e aniversario.
     if (isSeries)               items.push({ size, node: <Badge bg="#ffffff" size={size}><Repeat size={iconSz} color="#334155" strokeWidth={2.6} /></Badge> })
+    // @eligi:booking-note-seal — nota da equipe: vazado com icone grafite
+    // (mesma familia por preenchimento do plano, serie e aniversario).
+    if (hasNote)                items.push({ size, node: <Badge bg="#ffffff" size={size}><StickyNote size={iconSz} color="#111114" strokeWidth={2.4} /></Badge> })
     if (isNoShow)               items.push({ size, node: <Badge bg="#475569" size={size}><EyeOff size={iconSz} color="#fff" strokeWidth={2.4} /></Badge> })
   }
 

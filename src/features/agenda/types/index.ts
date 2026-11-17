@@ -23,6 +23,7 @@ export type AgendaBooking = {
   professionalPreference?: boolean  // cliente escolheu o profissional
   hasProducts?:            boolean  // escolheu produto na vitrine do link
   hasPlanIntent?:          boolean  // @eligi:plan-intent-fe-type — quer fechar plano (link)
+  hasNote?:                boolean  // @eligi:booking-note-fe-type — tem nota interna da equipe
   // @eligi:birthday-agenda-fe-type
   birthdayInDays?:         number | null  // 0 = hoje; 1..6 = na semana; null = sem selo
   birthdayAge?:            number | null  // idade que completa; null quando nao ha ano

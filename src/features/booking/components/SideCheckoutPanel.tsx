@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ChevronRight, Clock, Check, Search, Plus, Star, Trash2, Calendar, ChevronDown, User, Loader2 , StickyNote , TriangleAlert } from 'lucide-react'
+import { X, ChevronRight, Clock, Check, Search, Plus, Trash2, Calendar, ChevronDown, User, Loader2 , Lock , TriangleAlert } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import utc      from 'dayjs/plugin/utc'
@@ -21,6 +21,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { useAgendaStore, type PrefillItem } from '@/features/agenda/hooks/useAgendaStore'
 import ProfAvatar from '@/features/agenda/components/shared/ProfAvatar' // @eligi:booking-profavatar
 import TimeStepper from '@/features/business-hours/components/TimeStepper' // @eligi:booking-stepper-import
+import { BOOKING_NOTE_MAX } from './BookingNoteCard' // @eligi:booking-note-scp-import
 // @eligi:series-scp-import
 import RepeatSection, { REPEAT_OFF, repeatProblem, type RepeatValue } from './RepeatSection'
 import SeriesPreviewSheet, { type SeriesCreated } from './SeriesPreviewSheet'
@@ -733,7 +734,6 @@ export default function SideCheckoutPanel({
   const isMobile = useIsMobile()
   const { setPreview, setSelectedDate } = useAgendaStore()
 
-  const [showNotes,     setShowNotes]    = useState(false)
   const [selectedClient,setSelectedClient]= useState<Client|null>(null)
   const [services,      setServices]     = useState<Service[]>([])
   const [servicesLoad,  setServicesLoad] = useState(false)
@@ -784,7 +784,6 @@ export default function SideCheckoutPanel({
 
   // Notas e mensagem (aba Informações)
   const [internalNote, setInternalNote] = useState('')
-  const [clientMessage,setClientMessage]= useState('')
 
   const [saving,  setSaving]  = useState(false)
   const [success, setSuccess] = useState(false)
@@ -815,9 +814,8 @@ export default function SideCheckoutPanel({
     // Já inicializado nesta abertura → NÃO re-roda (trocar selectedDate cai aqui).
     if (initedRef.current) return
     initedRef.current = true
-    setShowNotes(false)
     setSuccess(false); setError(null); setPendingOverlap(false)
-    setInternalNote(''); setClientMessage('')
+    setInternalNote('')
     setRepeat(REPEAT_OFF); setShowSeries(false) // @eligi:series-scp-reset
 
     const initTime  = time ?? '09:00'
@@ -1230,8 +1228,7 @@ export default function SideCheckoutPanel({
               endAt,
               allowOverlap,
               groupId,
-              internalNote:   internalNote || undefined,
-              clientMessage:  clientMessage || undefined,
+              internalNote:   internalNote.trim() || undefined, // @eligi:booking-note-scp-send
             })
           }))
         }
@@ -1274,6 +1271,7 @@ export default function SideCheckoutPanel({
         startAt:        dayjs.tz(`${firstDateStr} ${firstItem.startTime}`, 'America/Sao_Paulo').toISOString(),
         endAt:          firstItem.endTime ? dayjs.tz(`${firstDateStr} ${firstItem.endTime}`, 'America/Sao_Paulo').toISOString() : null,
         intervalWeeks:  repeat.intervalWeeks,
+        internalNote:   internalNote.trim() || null, // @eligi:booking-note-scp-series
         ...(repeat.endMode === 'count' ? { count: repeat.count } : { untilDate: repeat.untilDate }),
       })
     : ''
@@ -1340,7 +1338,7 @@ export default function SideCheckoutPanel({
         .cp-save{flex:2;padding:13px;border-radius:${radius.sm}px;border:none;background:rgba(0,0,0,0.06);font-size:13px;font-weight:700;cursor:pointer;color:rgba(0,0,0,0.3);letter-spacing:.04em;transition:all ${transitions.spring};font-family:${typography.fontFamily}}
         .cp-save:not(:disabled){background:${colors.red.gradient};color:#fff;box-shadow:${shadows.redSm};cursor:pointer}
         .cp-save:not(:disabled):hover{transform:translateY(-1px);box-shadow:${shadows.redMd}}
-        .cp-note{width:100%;padding:12px;border-radius:${radius.sm}px;border:1px solid ${colors.gray.borderMd};background:${colors.background.page};font-size:13px;resize:none;outline:none;font-family:${typography.fontFamily};color:${colors.gray[900]};box-sizing:border-box;transition:border-color ${transitions.fast};min-height:96px}
+        .cp-note{width:100%;padding:12px;border-radius:${radius.sm}px;border:1px dashed rgba(17,17,20,.22);background:#fff;font-size:16px;line-height:1.45;resize:none;outline:none;font-family:${typography.fontFamily};color:${colors.gray[900]};box-sizing:border-box;transition:border-color ${transitions.fast};min-height:96px}
         .cp-note:focus{border-color:${colors.red.borderHover}}
         .cp-prof-sel{width:100%;display:flex;align-items:center;gap:11px;padding:10px 14px;min-height:62px;border-radius:${radius.md}px;border:1px solid ${colors.gray.borderMd};background:#fff;cursor:pointer;font-family:${typography.fontFamily};transition:border-color ${transitions.fast}}
         .cp-prof-sel:hover{border-color:${colors.red.borderHover}}
@@ -1664,34 +1662,24 @@ export default function SideCheckoutPanel({
 
                 </div>
               
-                {/* @eligi:booking-notes-inline
-                    A aba INFORMACOES tinha dois campos e meia tela vazia, e
-                    obrigava trocar de contexto para escrever uma nota. */}
+                {/* @eligi:booking-note-scp-field — so a nota interna (a mensagem
+                    para o cliente saiu: nunca foi gravada nem enviada). Fica
+                    visivel ao criar e ao somar servico ao grupo nao: ali a nota
+                    ja e a do atendimento e se edita no detalhe. */}
+                {!isEdit && !addToGroupRefId && (
                 <div style={{marginTop:18}}>
-                  <button type="button" className="cp-acc" onClick={()=>setShowNotes(v=>!v)}>
-                    <StickyNote size={18} color={colors.gray.dimText} strokeWidth={1.9}/>
-                    <span style={{flex:1,minWidth:0,textAlign:'left'}}>
-                      <span style={{display:'block',fontSize:15.5,fontWeight:700,letterSpacing:'-0.01em',color:colors.gray[900]}}>Observacoes</span>
-                      <span style={{display:'block',fontSize:13,color:colors.gray.dimText,marginTop:1}}>Nota interna e mensagem para o cliente</span>
-                    </span>
-                    <ChevronDown size={18} color={colors.gray.dimText} style={{transform:showNotes?'rotate(180deg)':'none',transition:`transform ${transitions.fast}`}}/>
-                  </button>
-                  {showNotes && (
-                    <div style={{display:'flex',flexDirection:'column',gap:14,marginTop:14}}>
-                  <div>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-                      <span className="cp-lbl" style={{margin:0}}>Nota interna</span>
-                      <Star size={14} color={colors.gray.dimText} strokeWidth={1.8}/>
-                    </div>
-                    <textarea className="cp-note" value={internalNote} onChange={e=>setInternalNote(e.target.value)} placeholder="Nota interna (visível apenas para funcionários)"/>
+                  <label htmlFor="cp-note-field" style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,fontFamily:typography.fontFamilyMono,fontSize:11,letterSpacing:'.06em',textTransform:'uppercase',color:'#6b6b73'}}>
+                    <Lock size={13} strokeWidth={2} aria-hidden/>
+                    Nota · só a equipe vê
+                  </label>
+                  <textarea id="cp-note-field" className="cp-note" value={internalNote} maxLength={BOOKING_NOTE_MAX}
+                    onChange={e=>setInternalNote(e.target.value)}
+                    placeholder="Ex.: alergia, preferência, aviso para quem vai atender"/>
+                  <div style={{textAlign:'right',fontFamily:typography.fontFamilyMono,fontSize:12,color:'#6b6b73',marginTop:6,fontVariantNumeric:'tabular-nums'}}>
+                    {internalNote.trim().length}/{BOOKING_NOTE_MAX}
                   </div>
-                  <div>
-                    <span className="cp-lbl">Mensagem para o cliente</span>
-                    <textarea className="cp-note" value={clientMessage} onChange={e=>setClientMessage(e.target.value)} placeholder="Mensagem para o cliente"/>
-                      </div>
-                    </div>
-                  )}
                 </div>
+                )}
             </>
           )}
         </div>

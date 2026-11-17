@@ -39,6 +39,7 @@ import 'dayjs/locale/pt-br'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import { photoBackground } from '@/shared/utils/clientPhoto' // @eligi:client-photo
+import BookingNoteCard from './BookingNoteCard' // @eligi:booking-note-bvp-import
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -89,6 +90,7 @@ interface BookingDetail {
   planIntent?:     PlanIntent | null // @eligi:plan-intent-bvp-field
   seriesId?:       string | null     // @eligi:series-bvp-field
   seriesIndex?:    number | null
+  internalNote?:   string | null     // @eligi:booking-note-bvp-field — undefined = back antigo (nao mostra)
 }
 
 interface ProductIntent {
@@ -1423,6 +1425,13 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
 
               <PlanIntentCard intent={detail?.planIntent ?? null} /> {/* @eligi:plan-intent-bvp-render */}
               <ProductIntentsCard items={products} />
+              {detail && detail.internalNote !== undefined && ( /* @eligi:booking-note-bvp-render */
+                <BookingNoteCard
+                  bookingId={detail.id}
+                  note={detail.internalNote}
+                  onSaved={note => setDetail(prev => prev ? { ...prev, internalNote: note } : prev)}
+                />
+              )}
 
               {/* Card total + status de venda */}
               {(price > 0 || isGroup || !!detail?.sale || products.length > 0) && (
