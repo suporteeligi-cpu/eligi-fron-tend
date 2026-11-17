@@ -14,8 +14,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  X, Clock, User, Calendar, AlertTriangle, CheckCircle, Ban, Phone,
-  ShoppingBag, Receipt, ChevronDown, Loader2, AlertCircle, Plus, Star /* @eligi:plan-intent-bvp-icon */, Repeat /* @eligi:series-bvp-icon */ } from 'lucide-react'
+  X, AlertTriangle, CheckCircle, Ban, EyeOff, MoreHorizontal, Pencil, // @eligi:bvp-c-icons
+  ShoppingBag, Receipt, Loader2, AlertCircle, Plus, Star /* @eligi:plan-intent-bvp-icon */, Repeat /* @eligi:series-bvp-icon */ } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import api from '@/shared/lib/apiClient'
 import { AgendaBooking } from '@/features/agenda/types'
@@ -318,11 +318,49 @@ function buildConfirmText(
   })
 }
 
-const STATUS_CFG: Record<BookingStatus, { label: string; gradient: string; icon: typeof CheckCircle }> = {
-  CONFIRMED: { label: 'CONFIRMADO', gradient: 'linear-gradient(135deg,#16a34a,#15803d)', icon: CheckCircle },
-  COMPLETED: { label: 'FINALIZADO', gradient: 'linear-gradient(135deg,#1e293b,#0f172a)', icon: Receipt },
-  CANCELED:  { label: 'CANCELADO',  gradient: 'linear-gradient(135deg,#dc2626,#b91c1c)', icon: Ban },
-  NO_SHOW:   { label: 'NÃO COMPARECEU', gradient: 'linear-gradient(135deg,#b45309,#92400e)', icon: AlertTriangle },
+// @eligi:bvp-tone — cor do cartao por estado (as mesmas do painel antigo, em tom
+// fechado: texto branco passa AA). Vermelho aqui e estado, nao acao.
+const TONE: Record<BookingStatus, { label: string; bg: string; icon: typeof CheckCircle }> = {
+  CONFIRMED: { label: 'Confirmado', bg: '#14532d', icon: CheckCircle },
+  COMPLETED: { label: 'Pago',       bg: '#1e293b', icon: Receipt },
+  CANCELED:  { label: 'Cancelado',  bg: '#991b1b', icon: Ban },
+  NO_SHOW:   { label: 'Não veio',   bg: '#92400e', icon: EyeOff },
+}
+const TZ        = 'America/Sao_Paulo'
+const INK       = '#111114'
+const INK2      = '#4b4b52'
+const INK3      = '#6b6b73'
+const LINE      = 'rgba(17,17,20,.08)'
+const GREEN_INK = '#0f6e56'
+const AMBER     = '#b45309'
+
+function brl(v: number): string {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+/** Valor com centavos menores (padrao das telas novas). */
+function Money({ value, muted }: { value: number; muted?: boolean }) {
+  const [int, cents] = value.toFixed(2).split('.')
+  const intLabel = Number(int).toLocaleString('pt-BR')
+  return (
+    <span className="bvp-disp" style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.03em', color: muted ? INK3 : INK }}>
+      R$ {intLabel}<span style={{ fontSize: 14, color: INK3 }}>,{cents}</span>
+    </span>
+  )
+}
+function menuItem(color: string): React.CSSProperties {
+  return {
+    width: '100%', minHeight: 48, display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px',
+    border: 'none', borderBottom: '1px solid rgba(17,17,20,0.06)', background: 'transparent', cursor: 'pointer',
+    textAlign: 'left', color, fontSize: 15, fontWeight: 600, fontFamily: typography.fontFamily,
+  }
+}
+function btn2(grow: boolean): React.CSSProperties {
+  return {
+    ...(grow ? { flex: 1 } : {}), height: 52, padding: '0 18px', borderRadius: 14,
+    border: '1px solid rgba(17,17,20,.12)', background: '#fff', color: INK, fontSize: 16, fontWeight: 600,
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+    fontFamily: typography.fontFamily,
+  }
 }
 
 // ─── ConfirmModal interno ─────────────────────────────────────────────────────
@@ -739,8 +777,6 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
 
   // ─── Render ────────────────────────────────────────────────────────────────
   const status     = detail?.status ?? booking.status as BookingStatus
-  const cfg        = STATUS_CFG[status as BookingStatus] ?? STATUS_CFG.CONFIRMED
-  const StatusIcon = cfg.icon
 
   const isConfirmed = status === 'CONFIRMED'
   const isCompleted = status === 'COMPLETED'
@@ -754,7 +790,6 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
 
   // Sale info
   const hasOpenSale     = detail?.sale?.status === 'OPEN'
-  const checkoutLabel   = hasOpenSale ? 'CONTINUAR CHECKOUT' : 'CHECKOUT'
   const showAnticipated = isConfirmed && !bookingEnded && !hasOpenSale
 
   const isGroup    = !!(detail?.groupItems && detail.groupItems.length > 1)
@@ -763,9 +798,45 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
   const productsTotal = products.reduce((s, p) => s + p.total, 0)
   const price     = detail?.service.price ?? 0
   const displayTotal = detail?.sale ? detail.sale.total : ((isGroup ? (detail?.groupTotal ?? 0) : price) + productsTotal)
-  const profName  = detail?.professional?.name
-  const dateLabel = dayjs(detail?.startAt ?? `${dateStr}T${bookingStart}:00`)
-    .tz('America/Sao_Paulo').format('ddd, DD [de] MMM [de] YYYY').replace(/^\w/, c => c.toUpperCase())
+
+  // @eligi:bvp-c-final — direcao C final (16/11/2026): cartao com a cor do
+  // estado, servicos como recibo com o traco da cor do servico, nota da equipe.
+  const tone       = TONE[status as BookingStatus] ?? TONE.CONFIRMED
+  const ToneIcon   = tone.icon
+  const isPaidSale = isCompleted && !!detail?.sale?.confirmedAt
+  const toneLabel  = status === 'COMPLETED' && !isPaidSale ? 'Finalizado' : tone.label
+  const rows: GroupItem[] = detail
+    ? ((detail.groupItems?.length ?? 0) > 0
+        ? (detail.groupItems ?? [])
+        : [{ id: detail.id, startAt: detail.startAt, endAt: detail.endAt, status: detail.status, service: detail.service, professional: detail.professional ?? null }])
+    : []
+  const spanStart = rows.length ? dayjs(rows[0].startAt).tz(TZ).format('HH:mm') : bookingStart
+  const spanEnd   = rows.length
+    ? rows.reduce((m, r) => (dayjs(r.endAt).isAfter(dayjs(m)) ? r.endAt : m), rows[0].endAt)
+    : null
+  const spanEndLabel = spanEnd ? dayjs(spanEnd).tz(TZ).format('HH:mm') : bookingEnd
+  const dayShort = bookingStartDt.format('ddd, DD MMM').replace('.', '').replace(/^\w/, c => c.toUpperCase())
+  const paidAt   = detail?.sale?.confirmedAt ? dayjs(detail.sale.confirmedAt).tz(TZ) : null
+  const subLine = [
+    dayShort,
+    status === 'CONFIRMED'
+      ? (hasOpenSale ? 'checkout em aberto' : (booking.fromOnline ? 'pelo link' : null))
+      : status === 'COMPLETED'
+        ? (paidAt ? `pago ${paidAt.isSame(bookingStartDt, 'day') ? 'às' : `em ${paidAt.format('DD/MM')} às`} ${paidAt.format('HH:mm')}` : null)
+        : status === 'CANCELED' ? 'não ocupa a agenda' : 'marcado como não veio',
+  ].filter(Boolean).join(' · ')
+  const showTotals = price > 0 || isGroup || !!detail?.sale || products.length > 0 || extras.length > 0
+  const totalTone = isPaidSale
+    ? { label: 'Pago', color: GREEN_INK }
+    : hasOpenSale
+      ? { label: 'Checkout em aberto', color: AMBER }
+      : status === 'CANCELED' || status === 'NO_SHOW'
+        ? { label: 'Não cobrado', color: status === 'NO_SHOW' ? AMBER : INK3 }
+        : { label: 'Total previsto', color: INK2 }
+  const totalMuted = (status === 'CANCELED' || status === 'NO_SHOW') && !detail?.sale
+  const displayClientName = detail?.clientName ?? clientName
+  const avatarBg = photoBackground(detail?.client?.avatarUrl)
+  const canEditServices = isConfirmed && !hasOpenSale
 
   const panel = (
     <>
@@ -781,12 +852,17 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
         @keyframes bvp-sheetIn { from { transform: translateX(100%); opacity: 0 } to { transform: translateX(0); opacity: 1 } }
         @keyframes bvp-sheetUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
         @keyframes bvp-spin    { to { transform: rotate(360deg) } }
-        .bvp-alter-btn:hover { background: rgba(255,255,255,0.28) !important }
-        .bvp-drop-item:hover { background: rgba(0,0,0,0.04) !important }
-        @keyframes bvp-waRing { 0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.5) } 70% { box-shadow: 0 0 0 9px rgba(37,211,102,0) } 100% { box-shadow: 0 0 0 0 rgba(37,211,102,0) } }
+        .bvp-ghost-dark:hover { background: rgba(255,255,255,0.24) !important }
+        .bvp-drop-item:hover { background: rgba(17,17,20,0.04) !important }
+        .bvp-btn2:hover { background: #f5f5f7 !important }
+        .bvp-btn1:hover:not(:disabled) { background: #26262c !important }
+        @keyframes bvp-waRing { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.55) } 70% { box-shadow: 0 0 0 9px rgba(255,255,255,0) } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0) } }
         .bvp-wa-pulse { animation: bvp-waRing 2.1s ease-out 3 }
         .bvp-wa:active { transform: scale(0.92) }
+        .bvp-mono { font-family: ${typography.fontFamilyMono}; }
+        .bvp-disp { font-family: ${typography.fontFamilyDisplay}; font-variant-numeric: tabular-nums; }
         @media (prefers-reduced-motion: reduce) { .bvp-wa-pulse { animation: none } }
+        @media (max-width: 379px) { .bvp-antecip { display: none } }
       `}</style>
 
       {confirm === 'cancel' && (
@@ -862,8 +938,7 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
         background: 'rgba(0,0,0,0.18)',
         backdropFilter: 'blur(4px)',
       }}/>
-
-      <div style={{
+      <div role="dialog" aria-modal="true" aria-label={`Agendamento de ${displayClientName}`} style={{
         position: 'fixed',
         ...(isMobile
           ? {
@@ -883,252 +958,162 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
         zIndex: 9995,
         display: 'flex', flexDirection: 'column',
         fontFamily: typography.fontFamily,
+        color: INK,
         overflow: 'hidden',
       }}>
-
         {isMobile && (
-          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12, paddingBottom: 4, flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 10, paddingBottom: 2, flexShrink: 0 }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.14)' }}/>
           </div>
         )}
 
-        {/* ── HEADER STATUS ── */}
+        {/* ── CARTAO DO HORARIO (cor = estado) ── */}
         <div style={{
-          background: cfg.gradient,
-          padding: isMobile ? '16px 20px 20px' : '20px 24px 24px',
+          margin: isMobile ? '8px 16px 0' : '16px 20px 0',
+          background: tone.bg,
+          borderRadius: 20,
+          padding: 16,
+          color: '#fff',
           flexShrink: 0,
-          position: 'relative',
+          transition: 'background 0.25s',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <StatusIcon size={15} color="#fff" strokeWidth={2.5}/>
-              <span style={{ color: 'rgba(255,255,255,0.95)', fontWeight: 800, fontSize: 12, letterSpacing: '.1em' }}>
-                {cfg.label}
-              </span>
-              {showAnticipated && (
-                <span style={{
-                  marginLeft: 4,
-                  fontSize: 9, fontWeight: 700,
-                  color: 'rgba(255,255,255,0.85)',
-                  background: 'rgba(255,255,255,0.18)',
-                  padding: '2px 7px',
-                  borderRadius: 5,
-                  letterSpacing: '.06em',
-                  border: '1px solid rgba(255,255,255,0.25)',
-                  backdropFilter: 'blur(4px)',
-                }}>
-                  ANTECIPADO
-                </span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {isConfirmed && (
-                <div style={{ position: 'relative' }}>
-                  <button
-                    className="bvp-alter-btn"
-                    onClick={() => setShowAlter(v => !v)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 5,
-                      padding: '6px 12px',
-                      borderRadius: 10,
-                      border: '1.5px solid rgba(255,255,255,0.3)',
-                      background: 'rgba(255,255,255,0.15)',
-                      color: '#fff',
-                      fontSize: 12, fontWeight: 700,
-                      cursor: 'pointer',
-                      letterSpacing: '.06em',
-                      backdropFilter: 'blur(8px)',
-                      transition: 'background 0.15s',
-                    }}
-                  >
-                    ALTERAR <ChevronDown size={12} strokeWidth={2.5}/>
-                  </button>
-                  {showAlter && (
-                    <>
-                      <div onClick={() => setShowAlter(false)}
-                        style={{ position: 'fixed', inset: 0, zIndex: 9996 }}/>
-                      <div style={{
-                        position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                        width: 240,
-                        background: '#fff',
-                        borderRadius: 16,
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
-                        zIndex: 9997,
-                        overflow: 'hidden',
-                        border: '1px solid rgba(0,0,0,0.06)',
-                      }}>
-                        {bookingEnded && (
-                          <button className="bvp-drop-item"
-                            onClick={() => { setShowAlter(false); setConfirm('noshow') }}
-                            style={{
-                              width: '100%',
-                              display: 'flex', alignItems: 'center', gap: 10,
-                              padding: '14px 18px',
-                              border: 'none',
-                              borderBottom: '1px solid rgba(0,0,0,0.06)',
-                              background: 'transparent',
-                              cursor: 'pointer', textAlign: 'left',
-                              color: '#374151',
-                              fontSize: 14, fontWeight: 600,
-                              fontFamily: typography.fontFamily,
-                              transition: 'background 0.12s',
-                            }}
-                          >
-                            <User size={14} strokeWidth={2}/>
-                            Cliente não compareceu
-                          </button>
-                        )}
-                        {seriesAnchor && canManageSeries && ( /* @eligi:series-bvp-menu @eligi:series-adjust-bvp-menugate @eligi:series-group-alter */
-                          <button className="bvp-drop-item"
-                            onClick={() => { setShowAlter(false); setConfirm('cancelSeries') }}
-                            style={{
-                              width: '100%',
-                              display: 'flex', alignItems: 'center', gap: 10,
-                              padding: '14px 18px',
-                              border: 'none',
-                              borderBottom: '1px solid rgba(0,0,0,0.06)',
-                              background: 'transparent',
-                              cursor: 'pointer', textAlign: 'left',
-                              color: colors.red.DEFAULT,
-                              fontSize: 14, fontWeight: 600,
-                              fontFamily: typography.fontFamily,
-                              transition: 'background 0.12s',
-                            }}
-                          >
-                            <Repeat size={14} strokeWidth={2}/>
-                            Cancelar este e os próximos
-                          </button>
-                        )}
-                        <button className="bvp-drop-item"
-                          onClick={() => { setShowAlter(false); setConfirm('cancel') }}
-                          style={{
-                            width: '100%',
-                            display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '14px 18px',
-                            border: 'none',
-                            background: 'transparent',
-                            cursor: 'pointer', textAlign: 'left',
-                            color: colors.red.DEFAULT,
-                            fontSize: 14, fontWeight: 600,
-                            fontFamily: typography.fontFamily,
-                            transition: 'background 0.12s',
-                          }}
-                        >
-                          <Ban size={14} strokeWidth={2}/>
-                          Cancelar agendamento
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 12px 0 10px', flexShrink: 0, whiteSpace: 'nowrap',
+              borderRadius: 999, background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 15, fontWeight: 600,
+            }}>
+              <ToneIcon size={16} strokeWidth={2.4} aria-hidden/>
+              {toneLabel}
+            </span>
+            {showAnticipated && (
+              <span className="bvp-mono bvp-antecip" style={{
+                fontSize: 11, letterSpacing: '.06em', color: 'rgba(255,255,255,0.85)',
+                border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, padding: '3px 7px',
+              }}>ANTECIPADO</span>
+            )}
+            <span style={{ flex: 1 }}/>
+            {isConfirmed && (
+              <div style={{ position: 'relative' }}>
+                <button type="button" className="bvp-ghost-dark" aria-label="Mais ações" aria-expanded={showAlter}
+                  onClick={() => setShowAlter(v => !v)}
+                  style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <MoreHorizontal size={20} strokeWidth={2.2}/>
+                </button>
+                {showAlter && (
+                  <>
+                    <div onClick={() => setShowAlter(false)} style={{ position: 'fixed', inset: 0, zIndex: 9996 }}/>
+                    <div role="menu" style={{
+                      position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 252,
+                      background: '#fff', borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+                      zIndex: 9997, overflow: 'hidden', border: '1px solid rgba(17,17,20,0.06)',
+                    }}>
+                      {bookingEnded && (
+                        <button type="button" role="menuitem" className="bvp-drop-item"
+                          onClick={() => { setShowAlter(false); setConfirm('noshow') }}
+                          style={menuItem(INK)}>
+                          <EyeOff size={16} strokeWidth={2}/>
+                          Cliente não compareceu
                         </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-              <button onClick={onClose} style={{
-                width: 30, height: 30, borderRadius: '50%',
-                border: '1.5px solid rgba(255,255,255,0.3)',
-                background: 'rgba(255,255,255,0.15)',
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backdropFilter: 'blur(8px)',
-              }}>
-                <X size={14} color="#fff" strokeWidth={2.5}/>
-              </button>
-            </div>
+                      )}
+                      {seriesAnchor && canManageSeries && ( /* @eligi:series-bvp-menu @eligi:series-adjust-bvp-menugate @eligi:series-group-alter */
+                        <button type="button" role="menuitem" className="bvp-drop-item"
+                          onClick={() => { setShowAlter(false); setConfirm('cancelSeries') }}
+                          style={menuItem(colors.red.DEFAULT)}>
+                          <Repeat size={16} strokeWidth={2}/>
+                          Cancelar este e os próximos
+                        </button>
+                      )}
+                      <button type="button" role="menuitem" className="bvp-drop-item"
+                        onClick={() => { setShowAlter(false); setConfirm('cancel') }}
+                        style={{ ...menuItem(colors.red.DEFAULT), borderBottom: 'none' }}>
+                        <Ban size={16} strokeWidth={2}/>
+                        Cancelar agendamento
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            <button type="button" className="bvp-ghost-dark" aria-label="Fechar" onClick={onClose}
+              style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <X size={19} strokeWidth={2.2}/>
+            </button>
           </div>
 
-          {/* Cliente */}
-          {!loading && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: '50%',
-                background: 'rgba(255,255,255,0.22)',
-                backdropFilter: 'blur(8px)',
-                border: '2px solid rgba(255,255,255,0.35)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-                fontSize: 15, fontWeight: 800,
-                color: '#fff',
-                letterSpacing: '-0.02em',
-              }}>
-                {photoBackground(detail?.client?.avatarUrl) ? (
-                  <span aria-hidden style={{ width: '100%', height: '100%', borderRadius: '50%', background: photoBackground(detail?.client?.avatarUrl) ?? undefined }} />
-                ) : getInitials(detail?.clientName ?? clientName)}
-              </div>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-                  {detail?.clientName ?? clientName}
-                </div>
-                {detail?.clientPhone ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                    <Phone size={11} color="rgba(255,255,255,0.7)" strokeWidth={2}/>
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.80)', fontVariantNumeric: 'tabular-nums' }}>
-                      {fmtPhone(detail.clientPhone)}
-                    </span>
-                  </div>
-                ) : detail?.clientPhoneMasked ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                    <Phone size={11} color="rgba(255,255,255,0.7)" strokeWidth={2}/>
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em' }}>
-                      ••••••••
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-              {detail?.clientPhone && (
-                <a
-                  href={waLink(detail.clientPhone, buildConfirmText(detail, status, msgCfg))}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label="Abrir conversa no WhatsApp"
-                  className={`bvp-wa${status === 'CANCELED' ? '' : ' bvp-wa-pulse'}`}
-                  style={{
-                    marginLeft: 'auto',
-                    width: 46, height: 46, borderRadius: '50%',
-                    background: '#fff', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-                    color: '#1ebe5a', textDecoration: 'none',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  <svg width={24} height={24} viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm5.8 14.06c-.25.69-1.45 1.32-1.99 1.4-.51.08-1.16.11-1.87-.12-.43-.14-.99-.32-1.7-.63-2.99-1.29-4.94-4.3-5.09-4.5-.15-.2-1.22-1.62-1.22-3.09 0-1.47.77-2.19 1.04-2.49.27-.3.59-.37.79-.37.2 0 .39 0 .57.01.18.01.43-.07.67.51.25.6.84 2.07.91 2.22.07.15.12.32.02.52-.1.2-.15.32-.3.5-.15.18-.31.4-.45.53-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.03 1.12 1 2.07 1.31 2.37 1.46.3.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.71.81 2 .96.3.15.5.22.57.35.07.12.07.72-.18 1.41Z"/>
-                  </svg>
-                </a>
-              )}
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)', marginTop: 10 }}>{subLine}</div>
+          <div className="bvp-disp" style={{
+            fontSize: 36, fontWeight: 600, letterSpacing: '-0.04em', lineHeight: 1.1, marginTop: 2, color: '#fff',
+            textDecoration: status === 'CANCELED' ? 'line-through' : 'none',
+            textDecorationColor: 'rgba(255,255,255,0.55)',
+          }}>
+            {spanStart} – {spanEndLabel}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+            <div aria-hidden style={{
+              width: 40, height: 40, borderRadius: 12, flexShrink: 0, overflow: 'hidden',
+              background: 'rgba(255,255,255,0.16)', color: '#fff', fontWeight: 600, fontSize: 15,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: typography.fontFamilyDisplay,
+            }}>
+              {avatarBg
+                ? <span style={{ width: '100%', height: '100%', background: avatarBg }}/>
+                : getInitials(displayClientName)}
             </div>
-          )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {displayClientName}
+              </div>
+              {detail?.clientPhone ? (
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtPhone(detail.clientPhone)}
+                </div>
+              ) : detail?.clientPhoneMasked ? (
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.12em' }}>••••••••</div>
+              ) : null}
+            </div>
+            {detail?.clientPhone && (
+              <a
+                href={waLink(detail.clientPhone, buildConfirmText(detail, status, msgCfg))}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Abrir conversa no WhatsApp"
+                className={`bvp-wa${status === 'CANCELED' ? '' : ' bvp-wa-pulse'}`}
+                style={{
+                  width: 44, height: 44, borderRadius: 12, background: '#fff', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#1ebe5a', textDecoration: 'none', WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <svg width={22} height={22} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm5.8 14.06c-.25.69-1.45 1.32-1.99 1.4-.51.08-1.16.11-1.87-.12-.43-.14-.99-.32-1.7-.63-2.99-1.29-4.94-4.3-5.09-4.5-.15-.2-1.22-1.62-1.22-3.09 0-1.47.77-2.19 1.04-2.49.27-.3.59-.37.79-.37.2 0 .39 0 .57.01.18.01.43-.07.67.51.25.6.84 2.07.91 2.22.07.15.12.32.02.52-.1.2-.15.32-.3.5-.15.18-.31.4-.45.53-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.03 1.12 1 2.07 1.31 2.37 1.46.3.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.71.81 2 .96.3.15.5.22.57.35.07.12.07.72-.18 1.41Z"/>
+                </svg>
+              </a>
+            )}
+          </div>
         </div>
 
-        {/* ── BODY ── */}
+        {/* ── CORPO ── */}
         <div style={{
           flex: 1, overflowY: 'auto',
-          padding: isMobile ? '16px' : '20px',
+          padding: isMobile ? '12px 16px 16px' : '12px 20px 20px',
           display: 'flex', flexDirection: 'column', gap: 12,
         }}>
           {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, paddingTop: 60 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%',
-                border: `3px solid ${colors.red.subtle}`,
-                borderTopColor: colors.red.DEFAULT,
-                animation: 'bvp-spin 0.8s linear infinite',
-              }}/>
+            <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
+              {[72, 72, 52].map((h, i) => (
+                <div key={i} style={{ height: h, borderRadius: 16, background: 'linear-gradient(90deg,#ececf0,#f4f4f7,#ececf0)', backgroundSize: '200% 100%', animation: 'bvp-shimmer 1.2s linear infinite' }}/>
+              ))}
+              <style>{`@keyframes bvp-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}`}</style>
             </div>
           ) : (
             <>
               {error && (
-                <div style={{
-                  padding: '10px 12px',
-                  background: 'rgba(220,38,38,0.06)',
-                  border: `1px solid ${colors.red.border}`,
-                  borderRadius: 9,
-                  fontSize: 12,
-                  color: colors.red.DEFAULT,
-                  display: 'flex', alignItems: 'center', gap: 6,
+                <div role="alert" style={{
+                  padding: '10px 12px', background: 'rgba(220,38,38,0.06)', border: `1px solid ${colors.red.border}`,
+                  borderRadius: 12, fontSize: 14, color: '#b91c1c', display: 'flex', alignItems: 'center', gap: 8,
                 }}>
-                  <AlertCircle size={13} strokeWidth={2}/>
+                  <AlertCircle size={16} strokeWidth={2}/>
                   {error}
                 </div>
               )}
@@ -1143,283 +1128,67 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
                 />
               )}
 
-              {/* Card de serviços — lista o grupo quando há múltiplos (estilo Booksy) */}
-              {(() => {
-                const group = detail && ((detail.groupItems?.length ?? 0) > 1 || extras.length > 0)
-                  ? (detail.groupItems ?? [])
-                  : null
-
-                if (group) {
-                  // ── MODO GRUPO: vários serviços do mesmo agendamento ──
+              {/* Servicos como recibo; o traco e a cor do servico na agenda */}
+              <div style={{ background: '#fff', borderRadius: 16, padding: '4px 14px', boxShadow: `inset 0 0 0 1px ${LINE}` }}>
+                {rows.map(it => {
+                  const s = dayjs(it.startAt).tz(TZ).format('HH:mm')
+                  const e = dayjs(it.endAt).tz(TZ).format('HH:mm')
+                  const p = it.service.price ?? 0
                   return (
-                    <div style={{
-                      background: '#fff',
-                      borderRadius: 18,
-                      overflow: 'hidden',
-                      boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
-                      border: '1px solid rgba(0,0,0,0.06)',
+                    <div key={it.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0',
+                      borderBottom: `1px dashed ${LINE}`, opacity: status === 'CANCELED' ? 0.55 : 1,
                     }}>
-                      {/* Data do grupo */}
-                      <div style={{
-                        padding: '14px 18px',
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        borderBottom: '1px solid rgba(0,0,0,0.06)',
-                      }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: 10,
-                          background: colors.red.subtle,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          flexShrink: 0,
-                        }}>
-                          <Calendar size={16} color={colors.red.DEFAULT} strokeWidth={2}/>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: '#0f0f14' }}>{dateLabel}</div>
-                          <div style={{ fontSize: 13, color: colors.gray.dimText, marginTop: 2 }}>
-                            {group.length + extras.length} serviços
-                          </div>
+                      <span aria-hidden style={{ width: 4, alignSelf: 'stretch', minHeight: 36, borderRadius: 2, background: it.service.color ?? colors.gray.borderMd, flexShrink: 0 }}/>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.service.name}</div>
+                        <div style={{ fontSize: 13, color: INK2, marginTop: 1 }}>
+                          <span className="bvp-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>{s}–{e}</span>
+                          {it.professional?.name ? ` · ${it.professional.name}` : ''}
                         </div>
                       </div>
-
-                      {/* Lista de serviços */}
-                      {group.map((it, gi) => {
-                        const itStart = dayjs(it.startAt).tz('America/Sao_Paulo').format('HH:mm')
-                        const itEnd   = dayjs(it.endAt).tz('America/Sao_Paulo').format('HH:mm')
-                        const itPrice = it.service.price ?? 0
-                        return (
-                          <div key={it.id} style={{
-                            padding: '14px 18px',
-                            display: 'flex', alignItems: 'flex-start', gap: 10,
-                            borderBottom: gi < group.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
-                          }}>
-                            <div style={{
-                              width: 4, height: 40, borderRadius: 2,
-                              background: it.service.color ?? colors.red.DEFAULT,
-                              flexShrink: 0,
-                            }}/>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{
-                                display: 'flex', justifyContent: 'space-between',
-                                alignItems: 'baseline', gap: 8,
-                              }}>
-                                <span style={{
-                                  fontSize: 15, fontWeight: 700, color: '#0f0f14',
-                                  letterSpacing: '-0.01em',
-                                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                }}>
-                                  {it.service.name}
-                                </span>
-                                {itPrice > 0 && (
-                                  <span style={{
-                                    fontSize: 14, fontWeight: 800, color: '#0f0f14',
-                                    fontVariantNumeric: 'tabular-nums', flexShrink: 0,
-                                  }}>
-                                    R$ {itPrice.toFixed(2).replace('.',',')}
-                                  </span>
-                                )}
-                              </div>
-                              <div style={{
-                                display: 'flex', alignItems: 'center', gap: 6,
-                                marginTop: 3, fontSize: 13, color: colors.gray.dimText,
-                                fontVariantNumeric: 'tabular-nums',
-                              }}>
-                                <Clock size={11} color={colors.gray.dimText} strokeWidth={2}/>
-                                {itStart}–{itEnd}
-                                {it.professional?.name && (
-                                  <>
-                                    <span style={{ opacity: 0.4 }}>·</span>
-                                    {it.professional.name}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                      {extras.map((ex) => (
-                        <div key={ex.id} style={{
-                          padding: '14px 18px',
-                          display: 'flex', alignItems: 'flex-start', gap: 10,
-                          borderTop: '1px solid rgba(0,0,0,0.05)',
-                          background: 'rgba(0,0,0,0.015)',
-                        }}>
-                          <div style={{
-                            width: 4, height: 40, borderRadius: 2,
-                            background: colors.gray.borderMd,
-                            flexShrink: 0,
-                          }}/>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              display: 'flex', justifyContent: 'space-between',
-                              alignItems: 'baseline', gap: 8,
-                            }}>
-                              <span style={{
-                                fontSize: 15, fontWeight: 700, color: '#0f0f14',
-                                letterSpacing: '-0.01em',
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                              }}>
-                                {ex.name}
-                              </span>
-                              {ex.price > 0 && (
-                                <span style={{
-                                  fontSize: 14, fontWeight: 800, color: '#0f0f14',
-                                  fontVariantNumeric: 'tabular-nums', flexShrink: 0,
-                                }}>
-                                  R$ {ex.price.toFixed(2).replace('.',',')}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{
-                              display: 'flex', alignItems: 'center', gap: 6,
-                              marginTop: 3, fontSize: 13, color: colors.gray.dimText,
-                            }}>
-                              <span style={{
-                                fontSize: 9, fontWeight: 700,
-                                color: '#b45309',
-                                background: 'rgba(245,158,11,0.12)',
-                                border: '1px solid rgba(245,158,11,0.25)',
-                                padding: '1px 6px', borderRadius: 5,
-                                letterSpacing: '.04em', textTransform: 'uppercase',
-                              }}>
-                                no caixa
-                              </span>
-                              {ex.professional?.name && (
-                                <>
-                                  <span style={{ opacity: 0.4 }}>·</span>
-                                  {ex.professional.name}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                      {p > 0 && <span className="bvp-disp" style={{ fontSize: 15, fontWeight: 600, flexShrink: 0 }}>{brl(p)}</span>}
                     </div>
                   )
-                }
-
-                // ── MODO SINGLE: 1 serviço (layout original) ──
-                return (
-                  <div style={{
-                    background: '#fff',
-                    borderRadius: 18,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
-                    border: '1px solid rgba(0,0,0,0.06)',
-                  }}>
-                    {/* Serviço */}
-                    <div style={{
-                      padding: '16px 18px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      borderBottom: '1px solid rgba(0,0,0,0.06)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                        <div style={{
-                          width: 4, height: 40, borderRadius: 2,
-                          background: detail?.service.color ?? colors.red.DEFAULT,
-                          flexShrink: 0,
-                        }}/>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{
-                            fontSize: 15, fontWeight: 700,
-                            color: '#0f0f14',
-                            letterSpacing: '-0.01em',
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                          }}>
-                            {detail?.service.name ?? serviceName}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                            <Clock size={11} color={colors.gray.dimText} strokeWidth={2}/>
-                            <span style={{ fontSize: 13, color: colors.gray.dimText }}>
-                              {detail?.service.duration ? `${detail.service.duration}min` : `${bookingStart}–${bookingEnd}`}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      {price > 0 && (
-                        <span style={{
-                          fontSize: 17, fontWeight: 800,
-                          color: '#0f0f14',
-                          fontVariantNumeric: 'tabular-nums',
-                          flexShrink: 0, marginLeft: 12,
-                        }}>
-                          R$ {price.toFixed(2).replace('.',',')}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Horário */}
-                    <div style={{
-                      padding: '14px 18px',
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      borderBottom: profName ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                    }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: 10,
-                        background: colors.red.subtle,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        <Calendar size={16} color={colors.red.DEFAULT} strokeWidth={2}/>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#0f0f14' }}>{dateLabel}</div>
-                        <div style={{
-                          fontSize: 13, color: colors.gray.dimText, marginTop: 2,
-                          fontVariantNumeric: 'tabular-nums',
-                        }}>
-                          {bookingStart} – {bookingEnd}
-                        </div>
+                })}
+                {extras.map(ex => (
+                  <div key={ex.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0', borderBottom: `1px dashed ${LINE}` }}>
+                    <span aria-hidden style={{ width: 4, alignSelf: 'stretch', minHeight: 36, borderRadius: 2, background: colors.gray.borderMd, flexShrink: 0 }}/>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.name}</div>
+                      <div style={{ fontSize: 13, color: INK2, marginTop: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span className="bvp-mono" style={{ fontSize: 11, letterSpacing: '.04em', color: AMBER, background: '#fffbeb', border: '1px solid rgba(180,83,9,0.2)', padding: '1px 6px', borderRadius: 5 }}>NO CAIXA</span>
+                        {ex.professional?.name ?? ''}
                       </div>
                     </div>
-
-                    {/* Profissional */}
-                    {profName && (
-                      <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: 10,
-                          background: 'rgba(71,85,105,0.08)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          flexShrink: 0,
-                        }}>
-                          <User size={16} color="#475569" strokeWidth={2}/>
-                        </div>
-                        <div>
-                          <div style={{
-                            fontSize: 11, fontWeight: 700,
-                            color: colors.gray.dimText,
-                            textTransform: 'uppercase',
-                            letterSpacing: '.07em',
-                            marginBottom: 2,
-                          }}>Profissional</div>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: '#0f0f14' }}>{profName}</div>
-                        </div>
+                    {ex.price > 0 && <span className="bvp-disp" style={{ fontSize: 15, fontWeight: 600, flexShrink: 0 }}>{brl(ex.price)}</span>}
+                  </div>
+                ))}
+                {showTotals ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0 10px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: totalTone.color }}>{totalTone.label}</span>
+                    <span style={{ flex: 1 }}/>
+                    <Money value={displayTotal} muted={totalMuted}/>
+                    {isPaidSale && detail?.sale?.id && (
+                      <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                        {/* @eligi:nfse-booking-total — a nota vive aqui (atendimento pago vira COMPLETED). */}
+                        <NfseBookingAction saleId={detail.sale.id} saleConfirmedAt={detail.sale.confirmedAt ?? null} variant="inline"/>
+                        <button type="button" onClick={openReceipt} disabled={loadingReceipt}
+                          style={{ height: 40, padding: '0 4px', border: 'none', background: 'transparent', color: INK, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: typography.fontFamily, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          {loadingReceipt ? <Loader2 size={15} style={{ animation: 'bvp-spin 0.8s linear infinite' }}/> : <Receipt size={15}/>}
+                          Ver recibo
+                        </button>
                       </div>
                     )}
                   </div>
-                )
-              })()}
+                ) : <div style={{ height: 6 }}/>}
+              </div>
 
-              {/* Adicionar serviço ao grupo — só em CONFIRMED e não pago */}
-              {isConfirmed && !hasOpenSale && (
-                <button
-                  onClick={handleEditClick /* @eligi:series-adjust-bvp-edit */}
-                  style={{
-                    width: '100%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    padding: '13px',
-                    borderRadius: 14,
-                    border: `1.5px dashed ${colors.red.border}`,
-                    background: colors.red.subtle,
-                    color: colors.red.DEFAULT,
-                    fontSize: 13, fontWeight: 700,
-                    cursor: 'pointer',
-                    letterSpacing: '.04em',
-                    fontFamily: typography.fontFamily,
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  <Plus size={15} strokeWidth={2.5}/>
-                  ADICIONAR / EDITAR SERVIÇO
+              {canEditServices && (
+                <button type="button" onClick={handleEditClick /* @eligi:series-adjust-bvp-edit */}
+                  style={{ alignSelf: 'flex-start', height: 44, padding: '0 6px', border: 'none', background: 'transparent', color: INK, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: typography.fontFamily }}>
+                  <Plus size={17} strokeWidth={2.2}/>
+                  Somar ou editar serviço
                 </button>
               )}
 
@@ -1432,229 +1201,48 @@ export default function BookingViewPanel({ booking, date, open, onClose, profess
                   onSaved={note => setDetail(prev => prev ? { ...prev, internalNote: note } : prev)}
                 />
               )}
-
-              {/* Card total + status de venda */}
-              {(price > 0 || isGroup || !!detail?.sale || products.length > 0) && (
-                <div
-                  onClick={isCompleted && detail?.sale?.confirmedAt ? openReceipt : undefined}
-                  style={{
-                  background: '#fff',
-                  borderRadius: 18,
-                  padding: '18px',
-                  boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
-                  border: '1px solid rgba(0,0,0,0.06)',
-                  cursor: isCompleted && detail?.sale?.confirmedAt ? 'pointer' : 'default',
-                }}>
-                  <div style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  }}>
-                    <div>
-                      <div style={{
-                        fontSize: 11, fontWeight: 700,
-                        color: colors.gray.dimText,
-                        textTransform: 'uppercase',
-                        letterSpacing: '.07em',
-                        marginBottom: 4,
-                      }}>Total</div>
-                      <div style={{
-                        fontSize: 26, fontWeight: 800,
-                        color: '#0f0f14',
-                        fontVariantNumeric: 'tabular-nums',
-                        letterSpacing: '-0.03em',
-                      }}>
-                        R$ {displayTotal.toFixed(2).replace('.',',')}
-                      </div>
-                    </div>
-                    {isCompleted && detail?.sale?.confirmedAt ? (
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{
-                          fontSize: 11, fontWeight: 700,
-                          color: colors.gray.dimText,
-                          textTransform: 'uppercase',
-                          letterSpacing: '.07em',
-                          marginBottom: 4,
-                        }}>Pago em</div>
-                        <div style={{
-                          fontSize: 13, fontWeight: 700,
-                          color: '#15803d',
-                          fontVariantNumeric: 'tabular-nums',
-                        }}>
-                          {dayjs(detail.sale.confirmedAt).tz('America/Sao_Paulo').format('DD/MM HH:mm')}
-                        </div>
-                        <div style={{
-                          marginTop: 8, fontSize: 11, fontWeight: 700,
-                          color: colors.red.DEFAULT,
-                          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4,
-                        }}>
-                          Ver recibo ›
-                        </div>
-                        {/* @eligi:nfse-booking-total — a ação de nota vive AQUI,
-                            não no dropdown "Alterar": o dropdown só existe em
-                            CONFIRMED, e atendimento pago vira COMPLETED. */}
-                        {detail?.sale?.id && (
-                          <NfseBookingAction
-                            saleId={detail.sale.id}
-                            saleConfirmedAt={detail.sale.confirmedAt ?? null}
-                            variant="inline"
-                          />
-                        )}
-                      </div>
-                    ) : hasOpenSale ? (
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{
-                          fontSize: 11, fontWeight: 700,
-                          color: '#b45309',
-                          textTransform: 'uppercase',
-                          letterSpacing: '.07em',
-                          marginBottom: 4,
-                        }}>Checkout em aberto</div>
-                        <div style={{
-                          fontSize: 13, fontWeight: 700,
-                          color: '#b45309',
-                        }}>
-                          aguardando pagamento
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{
-                          fontSize: 11, fontWeight: 700,
-                          color: colors.gray.dimText,
-                          textTransform: 'uppercase',
-                          letterSpacing: '.07em',
-                          marginBottom: 4,
-                        }}>A ser pago</div>
-                        <div style={{
-                          fontSize: 26, fontWeight: 800,
-                          color: colors.red.DEFAULT,
-                          fontVariantNumeric: 'tabular-nums',
-                          letterSpacing: '-0.03em',
-                        }}>
-                          R$ {displayTotal.toFixed(2).replace('.',',')}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
 
-        {/* ── FOOTER ── */}
-        {!loading && (
+        {/* ── RODAPE ── */}
+        {!loading && (isConfirmed || isCompleted) && (
           <div style={{
-            padding: isMobile ? `14px 20px max(20px,env(safe-area-inset-bottom))` : '16px 24px',
-            borderTop: '1px solid rgba(0,0,0,0.07)',
-            background: '#fff',
-            flexShrink: 0,
-            display: 'flex',
-            gap: 10,
+            padding: isMobile ? '12px 16px max(16px,env(safe-area-inset-bottom))' : '12px 20px 20px',
+            borderTop: `1px solid ${LINE}`, background: '#fff', flexShrink: 0, display: 'flex', gap: 8,
           }}>
             {isCompleted ? (
-              <>
-                <button onClick={onClose} style={{
-                  flex: 1, padding: '14px',
-                  borderRadius: 14,
-                  border: '1.5px solid rgba(0,0,0,0.10)',
-                  background: 'transparent',
-                  fontSize: 13, fontWeight: 700,
-                  cursor: 'pointer',
-                  color: '#374151',
-                  letterSpacing: '.04em',
-                  fontFamily: typography.fontFamily,
-                }}>
-                  FECHAR
-                </button>
-                <button onClick={handleViewSale} style={{
-                  flex: 2, padding: '14px',
-                  borderRadius: 14,
-                  border: 'none',
-                  background: 'linear-gradient(135deg,#1e293b,#0f172a)',
-                  color: '#fff',
-                  fontSize: 13, fontWeight: 800,
-                  cursor: 'pointer',
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase' as const,
-                  boxShadow: '0 6px 20px rgba(15,23,42,0.3)',
-                  fontFamily: typography.fontFamily,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}>
-                  <Receipt size={14} strokeWidth={2.5}/>
-                  VER VENDA →
-                </button>
-              </>
-            ) : isConfirmed ? (
-              <>
-                <button onClick={onClose} style={{
-                  flex: 1, padding: '14px',
-                  borderRadius: 14,
-                  border: '1.5px solid rgba(0,0,0,0.10)',
-                  background: 'transparent',
-                  fontSize: 13, fontWeight: 700,
-                  cursor: 'pointer',
-                  color: '#374151',
-                  letterSpacing: '.04em',
-                  fontFamily: typography.fontFamily,
-                }}>
-                  FECHAR
-                </button>
-                <button
-                  onClick={handleCheckout}
-                  disabled={creatingSale}
-                  style={{
-                    flex: 2, padding: '14px',
-                    borderRadius: 14,
-                    border: 'none',
-                    background: creatingSale
-                      ? 'rgba(0,0,0,0.07)'
-                      : 'linear-gradient(135deg,#1e293b,#0f172a)',
-                    color: creatingSale ? colors.gray.dimText : '#fff',
-                    fontSize: 13, fontWeight: 800,
-                    cursor: creatingSale ? 'not-allowed' : 'pointer',
-                    letterSpacing: '.06em',
-                    textTransform: 'uppercase' as const,
-                    boxShadow: creatingSale ? 'none' : '0 6px 20px rgba(15,23,42,0.3)',
-                    fontFamily: typography.fontFamily,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  }}>
-                  {creatingSale ? (
-                    <>
-                      <Loader2 size={14} style={{ animation: 'bvp-spin 0.8s linear infinite' }}/>
-                      ABRINDO...
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingBag size={14} strokeWidth={2.5}/>
-                      {checkoutLabel} →
-                    </>
-                  )}
-                </button>
-              </>
-            ) : (
-              <button onClick={onClose} style={{
-                flex: 1, padding: '14px',
-                borderRadius: 14,
-                border: '1.5px solid rgba(0,0,0,0.10)',
-                background: 'transparent',
-                fontSize: 13, fontWeight: 700,
-                cursor: 'pointer',
-                color: '#374151',
-                letterSpacing: '.04em',
-                fontFamily: typography.fontFamily,
-              }}>
-                FECHAR
+              <button type="button" className="bvp-btn2" onClick={handleViewSale} disabled={!detail?.sale} style={btn2(true)}>
+                <Receipt size={18} strokeWidth={2}/>
+                Ver venda
               </button>
+            ) : (
+              <>
+                {canEditServices && (
+                  <button type="button" className="bvp-btn2" onClick={handleEditClick} style={btn2(false)}>
+                    <Pencil size={17} strokeWidth={2}/>
+                    Editar
+                  </button>
+                )}
+                <button type="button" className="bvp-btn1" onClick={handleCheckout} disabled={creatingSale}
+                  style={{
+                    flex: 1, height: 52, borderRadius: 14, border: 'none',
+                    background: creatingSale ? '#4b4b52' : INK, color: '#fff',
+                    fontSize: 16, fontWeight: 600, cursor: creatingSale ? 'default' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: typography.fontFamily,
+                  }}>
+                  {creatingSale
+                    ? <><Loader2 size={18} style={{ animation: 'bvp-spin 0.8s linear infinite' }}/>Abrindo…</>
+                    : <><ShoppingBag size={18} strokeWidth={2}/>{hasOpenSale ? 'Continuar checkout' : 'Checkout'}</>}
+                </button>
+              </>
             )}
-            {saving && (
-              <div style={{
-                position: 'absolute', inset: 0,
-                background: 'rgba(255,255,255,0.7)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Loader2 size={20} color={colors.red.DEFAULT} style={{ animation: 'bvp-spin 0.8s linear infinite' }}/>
-              </div>
-            )}
+          </div>
+        )}
+
+        {saving && (
+          <div aria-busy="true" style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
+            <Loader2 size={22} color={INK} style={{ animation: 'bvp-spin 0.8s linear infinite' }}/>
           </div>
         )}
       </div>
