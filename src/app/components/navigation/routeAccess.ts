@@ -28,6 +28,7 @@ export const ROUTE_ACCESS_BY_ROLE: Record<Role, readonly string[]> = {
     '/dashboard/configuracoes/aparencia',
     '/dashboard/promocoes', // @eligi:cpromo-rota-gerente promocao e textos dos avisos do app (o back aceita gerente)
     '/dashboard/configuracoes/avisos-app',
+    '/dashboard/configuracoes/modo-dezembro', // @eligi:xh-rota-gerente dono e gerente ativam (o back confere)
   ],
   RECEPTIONIST: [
     '/dashboard/anamnese', // @eligi:anamnese-rota-recepcao so status e validade; o back esconde as respostas

@@ -7,6 +7,7 @@ import 'dayjs/locale/pt-br'
 import { useAgenda }      from '@/hooks/useAgenda'
 import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
 import AgendaBoard        from '@/features/agenda/components/AgendaBoard'
+import XhFlamePill        from '@/features/extended-hours/XhFlamePill' // @eligi:xh-agenda-import
 
 dayjs.locale('pt-br')
 
@@ -76,6 +77,8 @@ export default function AgendaPage() {
           />
         )
       }
+      {/* @eligi:xh-agenda-pill — Modo Dezembro: convite (pulsa) ou fila ligada */}
+      <XhFlamePill />
     </div>
   )
 }

@@ -95,6 +95,18 @@
     "_motivo": "O canal online tem significado ativo em relatorios e selos e nao existe no pack v1.0. Lacuna reportada para o v1.1.",
     "online": "#7C3AED"
   },
+  "extendedHours": {
+    "_origem": "extensao-produto",
+    "_motivo": "@eligi:brand-xh - Modo Dezembro (nov/2026). Funcao: horario estendido (fila depois do fechamento). So na chama, na pilula da agenda e na faixa da fila; nunca como vermelho de acao. Texto sobre o fundo claro usa ink (#9a3412 sobre #fff7ed, ~7:1).",
+    "flame": "#ea580c",
+    "ink": "#9a3412",
+    "bg": "#fff7ed",
+    "border": "#fed7aa",
+    "stripe": "#ffedd5",
+    "gradientFrom": "#f97316",
+    "gradientTo": "#c2410c",
+    "spark": "#fbbf24"
+  },
   "radius": {
     "_origem": "pack-v1.0 + extensao-produto",
     "brandMin": 2,

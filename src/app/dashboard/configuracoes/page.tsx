@@ -18,7 +18,9 @@ import { typography } from '@/shared/theme'
 import {
   Building2, Clock, CalendarDays, MessageSquare, Sparkles, Globe, Palette, Bell,
   FileText, Lock, UserX, ChevronRight, AlertTriangle, Check, Smartphone,
+  Flame, // @eligi:cfg-hub-xh-icon
 } from 'lucide-react'
+import { fetchXh, isRunning, ddmm } from '@/features/extended-hours/api'
 
 type Tone = 'ok' | 'warn' | 'neutral'
 type Summary = { summary: string; tone: Tone }
@@ -27,7 +29,7 @@ type ChecklistItem = { key: string; label: string; hint: string; done: boolean; 
 type Overview = { modules: Record<ModuleKey, Summary>; checklist: ChecklistItem[] }
 
 type Card = {
-  key: ModuleKey | 'aparencia' | 'avisosapp'
+  key: ModuleKey | 'aparencia' | 'avisosapp' | 'dezembro' // @eligi:cfg-hub-xh-key
   href: string
   icon: React.ElementType
   label: string
@@ -50,6 +52,7 @@ const GROUPS: Group[] = [
       { key: 'agendamento', href: '/dashboard/configuracoes/agendamento', icon: CalendarDays, label: 'Regras do agendamento', what: 'Antecedência, até quando remarcar, CPF e planos no link.' },
       { key: 'mensagens', href: '/dashboard/configuracoes/mensagens', icon: MessageSquare, label: 'Mensagem de confirmação', what: 'O texto que vai pelo WhatsApp quando você confirma o horário.' },
       { key: 'avisosapp', href: '/dashboard/configuracoes/avisos-app', icon: Smartphone, label: 'Avisos do app do cliente', what: 'O texto dos avisos que chegam no celular do cliente. Aniversário e sumido você desliga.' }, // @eligi:cfg-hub-avisosapp
+      { key: 'dezembro', href: '/dashboard/configuracoes/modo-dezembro', icon: Flame, label: 'Modo Dezembro', what: 'Fila depois do fechamento no fim de ano: o link oferece só o horário logo depois do último atendimento.' }, // @eligi:cfg-hub-xh-card
     ],
   },
   {
@@ -155,6 +158,24 @@ export default function ConfiguracoesPage() {
   const cardStyle = useCardStyle()
   const [legal, setLegal] = useState<null | 'termos' | 'privacidade'>(null)
   const [load, setLoad] = useState<Load | null>(null)
+  // @eligi:cfg-hub-xh-state — resumo do Modo Dezembro (null = carregando; undefined = falhou)
+  const [xhSum, setXhSum] = useState<Summary | undefined | null>(null)
+  useEffect(() => {
+    let vivo = true
+    fetchXh()
+      .then((d) => {
+        if (!vivo) return
+        const c = d.config
+        setXhSum(isRunning(d) && c
+          ? { summary: `Ligado · fila até ${c.limitTime} · até ${ddmm(c.endDate)}`, tone: 'ok' }
+          : { summary: 'Desligado · para o fim de ano', tone: 'neutral' })
+      })
+      .catch((e) => {
+        console.error('[configuracoes] modo dezembro', e)
+        if (vivo) setXhSum(undefined)
+      })
+    return () => { vivo = false }
+  }, [])
 
   useEffect(() => {
     let vivo = true
@@ -171,6 +192,7 @@ export default function ConfiguracoesPage() {
   const ov = load?.data ?? null
   const summaryOf = (key: Card['key']): Summary | undefined => {
     if (key === 'avisosapp') return { summary: '12 avisos · lembretes, caixa e relacionamento', tone: 'neutral' }
+    if (key === 'dezembro') return xhSum ?? undefined // @eligi:cfg-hub-xh-summary
     if (key === 'aparencia') return { summary: cardStyle === 'clean' ? 'Suave · tons claros' : 'Clássico · cores cheias' /* @eligi:hub-aparencia-suave */, tone: 'neutral' }
     return ov?.modules[key]
   }
@@ -231,7 +253,7 @@ export default function ConfiguracoesPage() {
                         <div className="cfg-name">{label}</div>
                         <div className="cfg-what">{what}</div>
                       </div>
-                      <StateLine s={summaryOf(key)} loading={loading && key !== 'aparencia' && key !== 'avisosapp'} />
+                      <StateLine s={summaryOf(key)} loading={key === 'dezembro' ? xhSum === null : loading && key !== 'aparencia' && key !== 'avisosapp'} /* @eligi:cfg-hub-xh-loading */ />
                     </Link>
                   ))}
                 </div>

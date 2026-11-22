@@ -65,6 +65,16 @@ export const brand = {
   "channel": {
     "online": "#7C3AED"
   },
+  "extendedHours": {
+    "flame": "#ea580c",
+    "ink": "#9a3412",
+    "bg": "#fff7ed",
+    "border": "#fed7aa",
+    "stripe": "#ffedd5",
+    "gradientFrom": "#f97316",
+    "gradientTo": "#c2410c",
+    "spark": "#fbbf24"
+  },
   "radius": {
     "brandMin": 2,
     "brandMax": 4,
