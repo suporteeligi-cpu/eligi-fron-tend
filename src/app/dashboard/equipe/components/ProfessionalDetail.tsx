@@ -16,7 +16,8 @@
 // essa aba nao paga o GET /products.
 
 import { useState, useEffect } from 'react'
-import { ChevronLeft, Trash2, Pencil, UserRound, Clock, Percent } from 'lucide-react'
+import { ChevronLeft, Trash2, Pencil, UserRound, Clock, Percent, Palmtree } from 'lucide-react'
+import VacationsPane from '@/features/vacations/VacationsPane' // @eligi:vac-fe-detail-import
 
 import api from '@/shared/lib/apiClient'
 import { colors, typography } from '@/shared/theme'
@@ -35,7 +36,7 @@ import CommissionProductsEditor from './CommissionProductsEditor'
 import ProfEditModal            from './ProfEditModal'
 import ConfirmModal             from './ConfirmModal'
 
-type Pane = 'perfil' | 'horarios' | 'comissoes'
+type Pane = 'perfil' | 'horarios' | 'comissoes' | 'ferias' // @eligi:vac-fe-detail-pane
 
 interface Props {
   prof:        Professional
@@ -56,6 +57,7 @@ const PANES: Array<{
   { id: 'perfil',    label: 'Perfil',    Icon: UserRound },
   { id: 'horarios',  label: 'Horários',  Icon: Clock },
   { id: 'comissoes', label: 'Comissões', Icon: Percent },
+  { id: 'ferias',    label: 'Férias',    Icon: Palmtree }, // @eligi:vac-fe-detail-tab
 ]
 
 export default function ProfessionalDetail({
@@ -371,6 +373,11 @@ export default function ProfessionalDetail({
                 />
               )}
             </div>
+          )}
+
+          {/* @eligi:vac-fe-detail-render */}
+          {pane === 'ferias' && (
+            <VacationsPane key={prof.id} professionalId={prof.id} professionalName={prof.name} />
           )}
         </div>
       </div>
