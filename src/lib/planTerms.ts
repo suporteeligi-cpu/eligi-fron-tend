@@ -1,6 +1,6 @@
 // src/lib/planTerms.ts
 // Fonte unica do termo de planos. A versao deve casar com PLAN_TERMS_VERSION do back.
-export const PLAN_TERMS_VERSION = '2026-06-v1'
+export const PLAN_TERMS_VERSION = '2026-11-v1' // @eligi:terms-nov26 (casa com o back)
 
 export interface PlanTermsSection {
   n: number
@@ -10,7 +10,7 @@ export interface PlanTermsSection {
 
 export const PLAN_TERMS_SECTIONS: PlanTermsSection[] = [
   { n: 1, title: 'Teste grátis de 7 dias', body: 'Ao criar sua conta, você tem 7 dias de acesso completo, sem cobrança e sem cadastrar forma de pagamento.' },
-  { n: 2, title: 'Planos e valores', body: 'Autônomo — R$ 59,90/mês (agenda individual, para quem atende sozinho). Estabelecimento — R$ 99,90/mês (equipe com até 3 profissionais ativos inclusos, incluindo você); cada profissional ativo acima de 3 custa R$ 19,90/mês. Valores mensais, cobrados de forma recorrente enquanto a assinatura estiver ativa.' },
+  { n: 2, title: 'Planos e valores', body: /* @eligi:terms-body-nov26 */ 'Autônomo — R$ 49,90/mês (agenda individual, para quem atende sozinho). Estabelecimento — R$ 89,90/mês (equipe com até 3 profissionais ativos inclusos, incluindo você); cada profissional ativo acima de 3 custa R$ 19,90/mês. Valores mensais, cobrados de forma recorrente enquanto a assinatura estiver ativa.' },
   { n: 3, title: 'Forma de pagamento', body: 'As cobranças são por boleto bancário ou Pix. A cada mês geramos uma cobrança que você paga por um desses meios para manter o acesso. Não trabalhamos com cartão de crédito.' },
   { n: 4, title: 'Início e renovação', body: 'A primeira cobrança é gerada quando você ativa a assinatura (ao fim do teste, ou antes se preferir). A partir daí, uma nova cobrança é gerada a cada mês, no mesmo ciclo, enquanto a assinatura estiver ativa.' },
   { n: 5, title: 'Fim do teste sem assinar', body: 'Terminados os 7 dias sem assinatura, o acesso ao painel é bloqueado até a regularização. Seus dados não são apagados — voltam assim que você assinar.' },

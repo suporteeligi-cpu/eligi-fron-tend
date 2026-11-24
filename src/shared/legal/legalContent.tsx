@@ -85,8 +85,8 @@ export const TERMOS_PLANO: LegalDocData = {
   blocks: [
     { kind: 'h', text: '1. Planos e precos' },
     { kind: 'ul', items: [
-      'Autonomo: R$ 59,90/mes - agenda unica do proprio profissional.',
-      'Estabelecimento: R$ 99,90/mes - inclui ate 3 profissionais ativos; cada profissional adicional acima de 3 e cobrado a parte, conforme informado na contratacao.',
+      'Autonomo: R$ 49,90/mes - agenda unica do proprio profissional.', // @eligi:legal-autonomo-nov26
+      /* @eligi:legal-estab-nov26 */ 'Estabelecimento: R$ 89,90/mes - inclui ate 3 profissionais ativos; cada profissional adicional acima de 3 e cobrado a parte, conforme informado na contratacao.',
     ] },
     { kind: 'p', text: 'Os planos e valores vigentes ficam disponiveis na Plataforma e podem variar conforme o porte e os recursos contratados.' },
 

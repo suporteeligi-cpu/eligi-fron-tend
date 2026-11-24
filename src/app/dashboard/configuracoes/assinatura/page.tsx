@@ -61,7 +61,7 @@ const PLAN_DESC: Record<Plan, string> = {
   ESTABELECIMENTO: 'Equipe com até 3 profissionais inclusos.',
 }
 // @eligi:coupon-assinatura-fallback — so se a API responder sem pricing.
-const FALLBACK_PRICING = { base: { AUTONOMO: 59.9, ESTABELECIMENTO: 99.9 }, extraSeat: 19.9, addon: 29.9 }
+const FALLBACK_PRICING = { base: { AUTONOMO: 49.9, ESTABELECIMENTO: 89.9 }, extraSeat: 19.9, addon: 29.9 } // @eligi:assin-fallback-nov26
 const DAY = 86_400_000
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })

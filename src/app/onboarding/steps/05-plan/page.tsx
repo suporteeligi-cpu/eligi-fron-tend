@@ -26,9 +26,8 @@ export default function PlanStep() {
   // Primeira tela de preco da jornada de campanha. O claim roda AQUI porque o
   // onboarding fica fora de /dashboard — o BillingGuard so pega depois.
   const coupon = useCouponClaim();
-  const regular = isBusiness ? 59.9 : 39.9; // placeholder substituido abaixo
-  void regular;
-  const REGULAR_PRICE = isBusiness ? '99,90' : '59,90';
+  // @eligi:ob-preco-nov26 — tabela nov/2026; saiu a constante 'regular' sem uso
+  const REGULAR_PRICE = isBusiness ? '89,90' : '49,90';
   const price = coupon
     ? (isBusiness ? coupon.prices.estabelecimento : coupon.prices.autonomo)
         .toFixed(2)

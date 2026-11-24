@@ -23,7 +23,7 @@ function money(v: number): string {
 }
 
 /** Tabela oficial — usada quando nao ha cupom. Espelha DEFAULT_PRICING do back. */
-const REGULAR = { autonomo: 59.9, estabelecimento: 99.9, extraSeat: 19.9 } // @eligi:coupon-regular
+const REGULAR = { autonomo: 49.9, estabelecimento: 89.9, extraSeat: 19.9 } // @eligi:coupon-regular @eligi:guard-preco-nov26
 
 interface AccessState {
   status: string

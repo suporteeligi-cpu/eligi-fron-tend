@@ -20,7 +20,7 @@ export default function Pricing() {
           <div className={styles.plan}>
             <div className={styles.pname}>Autônomo</div>
             <div className={styles.pdesc}>Pra quem trabalha sozinho</div>
-            <div className={styles.price}><sup>R$</sup>59<small>,90/mês</small></div>
+            <div className={styles.price}><sup>R$</sup>49<small>,90/mês</small></div>{/* @eligi:home-autonomo-nov26 */}
             <div className={styles.pextra}>&nbsp;</div>
             <ul className={styles.pfeats}>
               <li><span className={styles.ck} aria-hidden>✓</span> Agenda completa</li>
@@ -36,7 +36,7 @@ export default function Pricing() {
             <div className={styles.badge}>Mais escolhido</div>
             <div className={styles.pname}>Estabelecimento</div>
             <div className={styles.pdesc}>Pra quem tem equipe</div>
-            <div className={styles.price}><sup>R$</sup>99<small>,90/mês</small></div>
+            <div className={styles.price}><sup>R$</sup>89<small>,90/mês</small></div>{/* @eligi:home-estab-nov26 */}
             <div className={styles.pextra}>+ R$ 19,90/mês por profissional acima de 3</div>
             <ul className={styles.pfeats}>
               <li><span className={styles.ck} aria-hidden>✓</span> Tudo do Autônomo</li>
