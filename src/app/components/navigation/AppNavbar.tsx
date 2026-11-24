@@ -678,6 +678,12 @@ export default function AppNavbar() {
         .nb-title span{font-size:11.5px; color:${NAV_INK3}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
         .nb-link{display:flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:11px; border:1px solid var(--divider); background:var(--surface-2); cursor:pointer; font-family:${typography.fontFamily}; font-size:12.5px; font-weight:600; color:var(--text-primary); white-space:nowrap; transition:all 160ms ease}
         .nb-link:hover{background:var(--surface-1); border-color:var(--glass-border)}
+        /* @eligi:navlink-css */
+        .nb-share{display:flex; align-items:center; gap:7px; height:38px; padding:0 14px 0 12px; border-radius:12px; border:0; background:${NAV_INK}; cursor:pointer; font-family:${typography.fontFamily}; font-size:13px; font-weight:600; color:#fff; white-space:nowrap; box-shadow:0 6px 16px -8px rgba(7,7,11,.55); transition:background 160ms ease, transform 130ms ease; -webkit-tap-highlight-color:transparent}
+        .nb-share span{color:#fff}
+        .nb-share:hover{background:#2a2a30}
+        .nb-share:active{transform:scale(.96)}
+        .nb-share.nb-share-m{height:40px; padding:0 12px 0 10px; margin-right:2px}
         .nb-badge{position:absolute; top:3px; right:2px; min-width:17px; height:17px; padding:0 4px; border-radius:999px; background:${NAV_INK}; color:#fff; font-family:${typography.fontFamily}; font-size:10px; font-weight:700; line-height:13px; text-align:center; border:2px solid #fff; font-variant-numeric:tabular-nums}
         .nb-logo{border-radius:10px; flex-shrink:0; overflow:hidden; display:flex; align-items:center; justify-content:center; background:${NAV_INK}; border:1px solid var(--glass-border)}
         .nb-acct{display:flex; align-items:center; gap:9px; height:44px; padding:0 8px 0 4px; border-radius:14px; border:1px solid transparent; background:transparent; cursor:pointer; min-width:0; max-width:240px; font-family:${typography.fontFamily}; transition:background 160ms ease}
@@ -812,14 +818,16 @@ export default function AppNavbar() {
               </button>
             )}
 
+            {/* @eligi:navlink-btn */}
             {isMobile ? (
-              <button className="eligi-icon-btn" onClick={openShare} aria-label="Link de agendamento">
-                <Share2 size={18} />
+              <button className="nb-share nb-share-m" onClick={openShare} aria-label="Link de agendamento">
+                <Share2 size={16} color="#fff" strokeWidth={2.2} />
+                <span>Link</span>
               </button>
             ) : (
-              <button className="nb-link" onClick={openShare} title="Compartilhar link de agendamento" style={{ marginRight:2 }}>
-                <Share2 size={14} color="var(--text-secondary)" strokeWidth={2} />
-                Link de agendamento
+              <button className="nb-share" onClick={openShare} title="Compartilhar link de agendamento" style={{ marginRight:4 }}>
+                <Share2 size={15} color="#fff" strokeWidth={2.2} />
+                <span>Link de agendamento</span>
               </button>
             )}
 
