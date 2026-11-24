@@ -25,6 +25,7 @@ interface PlanProfessionalRef {
 interface PlanServiceRef {
   serviceId: string
   monthlyLimit?: number | null // @eligi:club-limite-ed-tipo
+  fichas?: number | null // @eligi:club-fichas-ed-tipo — vale no rateio; null = duracao do servico
   service: { id: string; name: string; duration: number; price: number; color: string | null }
 }
 interface ClubPlan {
@@ -88,6 +89,12 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
     })) ?? [],
   )
   const [showAddService, setShowAddService] = useState(false)
+  // @eligi:club-fichas-ed-state — texto digitado por servico. Sem entrada, mostra o
+  // valor salvo no plano ou a duracao; ao salvar, o numero vai para o plano.
+  const [fichasStr, setFichasStr] = useState<Record<string, string>>(
+    () => Object.fromEntries((plan?.services ?? []).filter(s => s.fichas != null).map(s => [s.serviceId, String(s.fichas)])),
+  )
+  const fichasShown = (s: SvcLite) => fichasStr[s.id] ?? String(s.duration)
 
   // @eligi:club-prof-ed-lista — semeia com os do plano; o fetch repoe a equipe toda
   const [professionals, setProfessionals] = useState<ProfLite[]>(() =>
@@ -177,6 +184,19 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
     if (pctNum < 0 || pctNum > 100) { setError('Repasse deve estar entre 0 e 100'); return }
     if (serviceIds.length === 0)  { setError('Selecione pelo menos 1 serviço'); return }
 
+    // @eligi:club-fichas-ed-valida — todo servico do plano sai com o numero salvo
+    const serviceFichas: Record<string, number> = {}
+    for (const id of serviceIds) {
+      const svc = services.find(s => s.id === id)
+      const raw = fichasStr[id] ?? (svc ? String(svc.duration) : '')
+      const n = Number(raw)
+      if (raw.trim() === '' || !Number.isInteger(n) || n < 1 || n > 999) {
+        setError(`Fichas de ${svc?.name ?? 'um serviço'}: use um número de 1 a 999`)
+        return
+      }
+      serviceFichas[id] = n
+    }
+
     setSaving(true)
     try {
       const body = {
@@ -187,6 +207,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
         color,
         serviceIds,
         serviceLimits: Object.fromEntries(serviceIds.map(id => [id, limits[id] ?? null])), // @eligi:club-limite-ed-body
+        serviceFichas, // @eligi:club-fichas-ed-body
         professionalIds, // @eligi:club-prof-ed-body — [] apaga o vinculo e volta a "todos"
         active,          // @eligi:item-online-club-body — antes o Ativo era ignorado no salvar
         availableOnline,
@@ -205,7 +226,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
       setSaving(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, priceNum, pctNum, color, serviceIds, limits, professionalIds, maxOpen, active, availableOnline, isEditing]) // @eligi:item-online-club-deps @eligi:club-limite-ed-deps @eligi:club-aberto-ed-deps @eligi:club-prof-ed-deps
+  }, [name, description, priceNum, pctNum, color, serviceIds, limits, fichasStr, services, professionalIds, maxOpen, active, availableOnline, isEditing]) // @eligi:club-fichas-ed-deps @eligi:item-online-club-deps @eligi:club-limite-ed-deps @eligi:club-aberto-ed-deps @eligi:club-prof-ed-deps
 
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 700, color: colors.gray.dimText,
@@ -354,6 +375,11 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
                 )}
               </div>
 
+              {/* @eligi:club-fichas-ed-dica */}
+              <div style={{ fontSize: 11, color: colors.gray.dimText, lineHeight: 1.5, marginTop: -4 }}>
+                O pote da equipe é dividido pelas fichas: cada atendimento soma as fichas do serviço. Vem preenchido com a duração em minutos.
+              </div>
+
               {/* Picker */}
               {showAddService && availableServices.length > 0 && (
                 <div style={{ background: colors.background.page, borderRadius: 10, border: `1px solid ${colors.gray.border}`, padding: 6, maxHeight: 200, overflowY: 'auto' }}>
@@ -384,7 +410,7 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {selectedServices.map(s => (
-                    <div key={s.id} style={{ background: '#fff', border: `1px solid ${colors.gray.border}`, borderRadius: 11, padding: '11px 12px', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div key={s.id} style={{ background: '#fff', border: `1px solid ${colors.gray.border}`, borderRadius: 11, padding: '11px 12px', position: 'relative', overflow: 'hidden', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>{/* @eligi:club-fichas-ed-row */}
                       <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 3, background: s.color ?? colors.red.DEFAULT }} />
                       <div style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: colors.gray[900], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
@@ -407,6 +433,27 @@ export default function ClubPlanEditorModal({ plan, isMobile, onSaved, onClose }
                       <button onClick={() => removeService(s.id)} aria-label="Remover" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: colors.gray.dimText, WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>
                         <Trash2 size={14} strokeWidth={2} />
                       </button>
+                      {/* @eligi:club-fichas-ed-campo — quanto este servico vale no rateio do pote */}
+                      <div style={{ flexBasis: '100%', display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 6 }}>
+                        <span style={{ fontSize: 11, color: colors.gray.dimText }}>Vale no pote</span>
+                        <input
+                          value={fichasShown(s)}
+                          onChange={e => {
+                            const v = e.target.value.replace(/\D/g, '').slice(0, 3)
+                            setFichasStr(prev => ({ ...prev, [s.id]: v }))
+                          }}
+                          inputMode="numeric"
+                          aria-label={`Fichas de ${s.name}`}
+                          style={{
+                            width: 64, height: 40, boxSizing: 'border-box', padding: '0 8px', borderRadius: 9,
+                            border: `1px solid ${colors.gray.borderMd}`, fontSize: 16, fontWeight: 700, textAlign: 'center',
+                            fontVariantNumeric: 'tabular-nums', color: colors.gray[900], fontFamily: 'inherit', background: '#fff',
+                          }}
+                        />
+                        <span style={{ fontSize: 11, color: colors.gray.dimText }}>
+                          fichas{fichasShown(s) === String(s.duration) ? ' · igual à duração' : ''}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
