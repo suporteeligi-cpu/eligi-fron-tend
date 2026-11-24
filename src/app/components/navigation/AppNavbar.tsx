@@ -22,6 +22,7 @@ import { navigationByRole, activeNavPath, type Role } from './navigation.config'
 import { canAccessRoute } from './routeAccess'
 import { useAgendaStore } from '@/features/agenda/hooks/useAgendaStore'
 import ShareProfileModal from '@/features/sharing/ShareProfileModal'
+import ProfessionalLinkSheet from '@/features/sharing/ProfessionalLinkSheet' // @eligi:prolink-nav-import
 import ProfAvatar from '@/features/agenda/components/shared/ProfAvatar'
 import QRCode from 'qrcode'
 
@@ -467,6 +468,7 @@ export default function AppNavbar() {
   const [showNotifs,  setShowNotifs]  = useState(false)
   const [showShare,   setShowShare]   = useState(false)
   const [qrDataUrl,   setQrDataUrl]   = useState<string | null>(null)
+  const [showProLink, setShowProLink] = useState(false) // @eligi:prolink-nav-state
   const [unreadCount, setUnreadCount] = useState(0)
   const [toast,       setToast]       = useState<ToastState>(null)
   const [refreshKey,  setRefreshKey]  = useState(0)
@@ -601,6 +603,8 @@ export default function AppNavbar() {
   }, [businessId])
 
   const role      = auth?.user?.role ?? ''
+  // @eligi:prolink-nav-open — Staff e Basic Staff veem o PROPRIO link; os demais, o da casa
+  const openShare = () => (role === 'STAFF' || role === 'BASIC_STAFF' ? setShowProLink(true) : setShowShare(true))
   const fullName  = auth?.user?.name ?? ''
   const firstName = fullName.split(' ')[0] ?? ''
   const roleLabel = ROLE_LABEL[role] ?? ''
@@ -699,6 +703,13 @@ export default function AppNavbar() {
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
       {showNotifs && <NotifPanel onClose={() => setShowNotifs(false)} isMobile={isMobile} refreshKey={refreshKey} onUnread={setUnreadCount} />}
       {showShare  && <ShareProfileModal onClose={() => setShowShare(false)} qrDataUrl={qrDataUrl} />}
+      {/* @eligi:prolink-nav-sheet */}
+      {showProLink && (
+        <ProfessionalLinkSheet
+          onClose={() => setShowProLink(false)}
+          onShowHouse={() => { setShowProLink(false); setShowShare(true) }}
+        />
+      )}
       {toast && <NotifToast toast={toast} isMobile={isMobile} onClose={() => setToast(null)} />}
 
       {menuAt && typeof document !== 'undefined' && createPortal(
@@ -722,7 +733,7 @@ export default function AppNavbar() {
               </div>
             ) : (
               <>
-                <button className="nb-mi" role="menuitem" onClick={() => { closeMenu(); setShowShare(true) }}>
+                <button className="nb-mi" role="menuitem" onClick={() => { closeMenu(); openShare() }}>
                   <Share2 size={16} color="#4b4b52" strokeWidth={2} /><span>Link de agendamento</span>
                 </button>
                 {canSettings && (
@@ -802,11 +813,11 @@ export default function AppNavbar() {
             )}
 
             {isMobile ? (
-              <button className="eligi-icon-btn" onClick={() => setShowShare(true)} aria-label="Link de agendamento">
+              <button className="eligi-icon-btn" onClick={openShare} aria-label="Link de agendamento">
                 <Share2 size={18} />
               </button>
             ) : (
-              <button className="nb-link" onClick={() => setShowShare(true)} title="Compartilhar link de agendamento" style={{ marginRight:2 }}>
+              <button className="nb-link" onClick={openShare} title="Compartilhar link de agendamento" style={{ marginRight:2 }}>
                 <Share2 size={14} color="var(--text-secondary)" strokeWidth={2} />
                 Link de agendamento
               </button>

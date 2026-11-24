@@ -30,6 +30,7 @@ import AddProfessionalModal from './components/AddProfessionalModal'
 import AcessosTab           from './components/AcessosTab'
 import TeamList             from './components/TeamList'
 import ProfessionalDetail   from './components/ProfessionalDetail'
+import { useAuth } from '@/hooks/useAuth' // @eligi:prolink-page-import
 
 type TabId = 'profissionais' | 'acessos'
 
@@ -41,6 +42,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
 const TAP = 44
 
 export default function EquipePage() {
+  const authUser = useAuth()?.user // @eligi:prolink-page-auth
   const [tab,           setTab]           = useState<TabId>('profissionais')
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [allServices,   setAllServices]   = useState<ServiceItem[]>([])
@@ -311,6 +313,9 @@ export default function EquipePage() {
                   onUpdated={handleUpdated}
                   onDeleted={handleDeleted}
                   onDelete={handleDelete}
+                  bizSlug={authUser?.businessSlug ?? null} // @eligi:prolink-page-props
+                  businessName={authUser?.businessName ?? null}
+                  canEditLink={authUser?.role === 'BUSINESS_OWNER' || authUser?.role === 'MANAGER'}
                 />
               ) : (
                 <div style={{

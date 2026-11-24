@@ -36,6 +36,7 @@ export interface Professional {
   availableOnline?: boolean
   active:           boolean
   userId?:          string | null
+  publicHandle?:    string | null // @eligi:prolink-type — app.eligi.com.br/<slug>/<publicHandle>
   user?:            { role: string } | null
 
   // Comissão de serviços (Fase 1)

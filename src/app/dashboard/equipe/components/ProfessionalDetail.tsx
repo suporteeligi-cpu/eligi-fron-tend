@@ -16,7 +16,8 @@
 // essa aba nao paga o GET /products.
 
 import { useState, useEffect } from 'react'
-import { ChevronLeft, Trash2, Pencil, UserRound, Clock, Percent, Palmtree } from 'lucide-react'
+import { ChevronLeft, Trash2, Pencil, UserRound, Clock, Percent, Palmtree, Link2 } from 'lucide-react'
+import ProfessionalLinkSheet from '@/features/sharing/ProfessionalLinkSheet' // @eligi:prolink-det-import
 import VacationsPane from '@/features/vacations/VacationsPane' // @eligi:vac-fe-detail-import
 
 import api from '@/shared/lib/apiClient'
@@ -45,6 +46,10 @@ interface Props {
   onUpdated:   (p: Professional) => void
   onDeleted:   (id: string) => void
   onDelete:    (id: string) => Promise<void>
+  // @eligi:prolink-det-props — endereco da casa vem da pagina (um /auth/me so)
+  bizSlug?:      string | null
+  businessName?: string | null
+  canEditLink?:  boolean
 }
 
 const TAP = 44
@@ -62,8 +67,10 @@ const PANES: Array<{
 
 export default function ProfessionalDetail({
   prof, allServices, onBack, onUpdated, onDeleted, onDelete,
+  bizSlug = null, businessName = null, canEditLink = false, // @eligi:prolink-det-state
 }: Props) {
   const [pane, setPane]         = useState<Pane>('perfil')
+  const [showLink, setShowLink] = useState(false)
   const [category, setCategory] = useState<CommissionCategoryId>('services')
 
   const [editing, setEditing]       = useState(false)
@@ -327,6 +334,45 @@ export default function ProfessionalDetail({
         }}>
           {pane === 'perfil' && (
             <div style={{ paddingTop: 12 }}>
+              {/* @eligi:prolink-det-row */}
+              {prof.publicHandle && bizSlug && (
+                <button
+                  type="button"
+                  onClick={() => setShowLink(true)}
+                  style={{
+                    width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 14px', marginBottom: 12, borderRadius: 14, cursor: 'pointer',
+                    border: '1px solid rgba(17,17,20,.1)', background: '#fff', textAlign: 'left',
+                  }}
+                >
+                  <Link2 size={18} color="#111114" aria-hidden="true" />
+                  <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#111114' }}>Link de agendamento</span>
+                    <span style={{ fontSize: 12, color: prof.availableOnline === false ? '#92400e' : '#6b6b73', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {prof.availableOnline === false ? 'Fora do link online' : `app.eligi.com.br/${bizSlug}/${prof.publicHandle}`}
+                    </span>
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#111114' }}>Compartilhar</span>
+                </button>
+              )}
+              {showLink && prof.publicHandle && bizSlug && (
+                <ProfessionalLinkSheet
+                  onClose={() => setShowLink(false)}
+                  canEdit={canEditLink}
+                  onChanged={(h) => onUpdated({ ...prof, publicHandle: h })}
+                  data={{
+                    professionalId: prof.id,
+                    name: prof.name,
+                    avatarUrl: prof.avatarUrl ?? null,
+                    publicHandle: prof.publicHandle,
+                    url: `https://app.eligi.com.br/${bizSlug}/${prof.publicHandle}`,
+                    businessSlug: bizSlug,
+                    businessName,
+                    businessCity: null,
+                    online: prof.active && prof.availableOnline !== false,
+                  }}
+                />
+              )}
               <ServicesReadOnly services={profServices} isMobile />
             </div>
           )}
