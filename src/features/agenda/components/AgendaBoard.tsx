@@ -299,6 +299,7 @@ export default function AgendaBoard({ professionals, businessId, externalDate, o
               onDeleteBlock={handleDeleteBlock}
               onUpdateBlock={handleUpdateBlock}
               onOpenBlockModal={openBlockModal}
+              onVacationChanged={onRefreshBookings /* @eligi:vac-fe-board-refresh */}
             />
           )}
         </div>

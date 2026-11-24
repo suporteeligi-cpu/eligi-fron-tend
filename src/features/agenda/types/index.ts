@@ -5,6 +5,8 @@ export type AgendaProfessional = {
   name:      string
   avatarUrl?: string   // base64, color:gradient ou url
   workingHours?: { open: boolean; startTime: string; endTime: string } | null   // horário do prof no dia; null/ausente = segue o estabelecimento
+  // @eligi:vac-fe-type — de ferias no dia pedido (back: /agenda/day). null/ausente = trabalha
+  vacation?: { startDate: string; endDate: string; returnDate: string } | null
 }
 
 export type BookingStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW'

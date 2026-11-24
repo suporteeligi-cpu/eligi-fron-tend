@@ -32,6 +32,7 @@ import {
   EASE, Z,
 } from '../constants'
 import { WorkingHours } from './AgendaBoard'
+import { vacationLabel, vacationNote } from '@/features/vacations/agenda' // @eligi:vac-fe-grid-import
 
 // ─── Constantes de layout ─────────────────────────────────────────────────────
 const TIME_COL_W = agendaLayout.timeColWidth
@@ -441,15 +442,18 @@ export default function AgendaGrid({
         if (d.currentTime === d.fromTime && d.currentProfId === d.fromProfId) return
 
         const sameProf = d.currentProfId === d.fromProfId
-        const profName = professionals.find(p => p.id === d.currentProfId)?.name
+        const target   = professionals.find(p => p.id === d.currentProfId)
+        const profName = target?.name
+        // @eligi:vac-fe-grid-move — levar para quem esta de ferias pede confirmacao explicita
+        const vacNote  = sameProf ? null : vacationNote(target)
         const title = sameProf
           ? `Mover de ${d.fromTime} para ${d.currentTime}?`
-          : `Mover para ${profName ?? 'outro profissional'}\nàs ${d.currentTime}?`
+          : `Mover para ${profName ?? 'outro profissional'}\nàs ${d.currentTime}?${vacNote ? `\n${vacNote}` : ''}` // @eligi:vac-fe-grid-title
 
         setPendingAction({
           type: 'move',
           title,
-          confirmLabel: 'Salvar alteração',
+          confirmLabel: vacNote ? 'Encaixar mesmo assim' : 'Salvar alteração', // @eligi:vac-fe-grid-cta
           onConfirm: () => {
             setPendingAction(null)
             doReschedule(d.bookingId, d.currentTime, d.currentProfId, false)
@@ -694,6 +698,7 @@ export default function AgendaGrid({
                   postH={offHours.postH}
                   closed={offHours.closed}
                   totalH={TOTAL_H}
+                  label={vacationLabel(p.vacation) /* @eligi:vac-fe-grid-label */}
                 />
 
                 {/* Bloqueios */}

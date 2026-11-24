@@ -49,7 +49,9 @@ export const VAC_CSS = `
 @keyframes vac-fade{ from{opacity:0} to{opacity:1} }
 @keyframes vac-up{ from{transform:translateY(24px); opacity:0} to{transform:none; opacity:1} }
 .vac-sheet{ position:fixed; z-index:9999; left:0; right:0; top:104px; bottom:calc(64px + env(safe-area-inset-bottom)); overflow:auto; background:#fff; border-radius:22px 22px 0 0; padding:14px 18px 18px; display:flex; flex-direction:column; gap:14px; animation:vac-up .22s cubic-bezier(.34,1.56,.64,1); }
+.vac-sheet.small{ top:auto; } /* @eligi:vac-fe-ui-small */
 @media (min-width:1024px){
+  .vac-sheet.small{ top:50%; } /* @eligi:vac-fe-ui-deskq */
   .vac-sheet{ left:calc(50% + var(--sidebar-width, 0px) / 2); right:auto; top:50%; bottom:auto; transform:translate(-50%,-50%); width:480px; max-height:calc(100dvh - 140px); border-radius:22px; padding:20px 22px 22px; animation:vac-fade .18s ease; }
 }
 .vac-head{ display:flex; align-items:flex-start; gap:10px; }

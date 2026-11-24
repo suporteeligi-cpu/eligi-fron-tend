@@ -88,6 +88,12 @@ function adaptBooking(b: ApiBooking): AgendaBooking {
   }
 }
 
+// @eligi:vac-fe-closed-day — ferias no dia = coluna fechada. As 3 visoes ja listram a
+// coluna inteira e marcam o card encaixado quando workingHours.open e false.
+function asAgendaProfessional(p: AgendaProfessional): AgendaProfessional {
+  return p.vacation ? { ...p, workingHours: { open: false, startTime: '00:00', endTime: '00:00' } } : p
+}
+
 // ─── Hook ────────────────────────────────────────────────────────────────────
 export interface AgendaData {
   businessId:    string
@@ -114,7 +120,7 @@ export function useAgenda(date: string) {
       setData({
         businessId:    payload.businessId ?? '',
         date:          payload.date,
-        professionals: payload.professionals ?? [],
+        professionals: (payload.professionals ?? []).map(asAgendaProfessional), // @eligi:vac-fe-adapt-use
         bookings:      (payload.bookings ?? []).map(adaptBooking),
       })
       setError(null)

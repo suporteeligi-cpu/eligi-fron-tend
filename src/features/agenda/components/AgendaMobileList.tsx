@@ -32,6 +32,8 @@ import {
   EASE, Z,
 } from '../constants'
 import { WorkingHours } from './AgendaBoard'
+import { vacationLabel } from '@/features/vacations/agenda' // @eligi:vac-fe-mobile-import
+import VacationQuickSheet from '@/features/vacations/VacationQuickSheet'
 
 // ─── Constantes locais ────────────────────────────────────────────────────────
 const TIME_COL_W = 48
@@ -137,7 +139,7 @@ function ProfTabs({ professionals, selected, bookings, statusOf, onChange }: {
               {st && <span className="ptab-dot" style={{ background: STATUS_DOT[st].color }} />}
             </span>
             <span className="ptab-nm">{first}</span>
-            <span className="ptab-ct">{st === 'off' && count === 0 ? 'folga' : count}</span>
+            <span className="ptab-ct">{st === 'off' && count === 0 ? (p.vacation ? 'férias' : 'folga') /* @eligi:vac-fe-mobile-tab */ : count}</span>
           </button>
         )
       })}
@@ -174,12 +176,14 @@ interface Props {
   onDeleteBlock:    (id: string) => void
   onUpdateBlock:    (block: AgendaBlock) => void
   onOpenBlockModal?:(time?: string, profId?: string) => void
+  /** @eligi:vac-fe-mobile-prop — ferias mudaram pelo atalho: recarrega o dia */
+  onVacationChanged?: () => void
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function AgendaMobileList({
   professionals, bookings, blocks, workingHours,
-  onDeleteBlock, onUpdateBlock, onOpenBlockModal,
+  onDeleteBlock, onUpdateBlock, onOpenBlockModal, onVacationChanged, // @eligi:vac-fe-mobile-arg
 }: Props) {
   const openCreate    = useAgendaStore(s => s.openCreate)
   const openView      = useAgendaStore(s => s.openView)
@@ -226,6 +230,7 @@ export default function AgendaMobileList({
 
   const [drag,          setDragState]   = useState<ActiveDrag | null>(null)
   const [hoverSlot,     setHoverSlot]   = useState<string | null>(null)
+  const [vacProfId,     setVacProfId]   = useState<string | null>(null) // @eligi:vac-fe-mobile-state
   const [editBlock,     setEditBlock]   = useState<AgendaBlock | null>(null)
   const [ctxMenu,       setCtxMenu]     = useState<{ x: number; y: number; time: string; profId: string } | null>(null)
   const [longPressId,   setLongPressId] = useState<string | null>(null)
@@ -591,8 +596,19 @@ export default function AgendaMobileList({
 
       <ProfTabs
         professionals={professionals} selected={activeProfId}
-        bookings={unique} statusOf={statusOf} onChange={setActiveProfId}
+        bookings={unique} statusOf={statusOf}
+        onChange={id => (id === activeProfId ? setVacProfId(id) : setActiveProfId(id)) /* @eligi:vac-fe-mobile-tap */}
       />
+
+      {vacProfId && ( /* @eligi:vac-fe-mobile-quick */
+        <VacationQuickSheet
+          key={vacProfId}
+          professionalId={vacProfId}
+          professionalName={professionals.find(p => p.id === vacProfId)?.name ?? ''}
+          onClose={() => setVacProfId(null)}
+          onChanged={() => onVacationChanged?.()}
+        />
+      )}
 
       {/* Grade */}
       <div
@@ -663,6 +679,7 @@ export default function AgendaMobileList({
             <OffHoursOverlay
               preH={offHours.preH} postTop={offHours.postTop}
               postH={offHours.postH} closed={offHours.closed} totalH={TOTAL_H}
+              label={vacationLabel(professionals.find(p => p.id === activeProfId)?.vacation) /* @eligi:vac-fe-mobile-label */}
             />
 
             {/* Preview ghost */}

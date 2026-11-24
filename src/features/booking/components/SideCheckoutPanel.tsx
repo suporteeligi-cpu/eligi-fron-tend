@@ -26,6 +26,7 @@ import { BOOKING_NOTE_MAX } from './BookingNoteCard' // @eligi:booking-note-scp-
 import RepeatSection, { REPEAT_OFF, repeatProblem, type RepeatValue } from './RepeatSection'
 import SeriesPreviewSheet, { type SeriesCreated } from './SeriesPreviewSheet'
 import { photoBackground } from '@/shared/utils/clientPhoto' // @eligi:client-photo
+import { vacationCovers, vacationNote } from '@/features/vacations/agenda' // @eligi:vac-fe-scp-import
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -789,6 +790,7 @@ export default function SideCheckoutPanel({
   const [success, setSuccess] = useState(false)
   const [error,   setError]   = useState<string|null>(null)
   const [pendingOverlap, setPendingOverlap] = useState(false)
+  const [pendingVacation, setPendingVacation] = useState<string | null>(null) // @eligi:vac-fe-scp-state
   // @eligi:series-scp-state — Repetir (agendamento recorrente)
   const [repeat,     setRepeat]     = useState<RepeatValue>(REPEAT_OFF)
   const [showSeries, setShowSeries] = useState(false)
@@ -1088,7 +1090,7 @@ export default function SideCheckoutPanel({
   }
 
   // ── SAVE ──────────────────────────────────────────────────────────────────
-  async function handleSave(allowOverlap = false) {
+  async function handleSave(allowOverlap = false, vacationOk = false) { // @eligi:vac-fe-scp-sig
     if (!firstItem?.service) { setError('Selecione pelo menos um serviço'); return }
     const invalidExtra = items.slice(1).find(it => !it.service)
     if (invalidExtra) { setError('Selecione o serviço de todos os itens'); return }
@@ -1101,6 +1103,17 @@ export default function SideCheckoutPanel({
     if (semProf) {
       setError(`${semProf.service.name}: escolha um profissional que faz este serviço`)
       return
+    }
+    // @eligi:vac-fe-scp-check — profissional de ferias no dia: o painel deixa
+    // encaixar, mas so com confirmacao. Na edicao, manter o mesmo profissional
+    // (o horario ja estava nas ferias) nao pergunta de novo.
+    if (!vacationOk) {
+      const ds = date.format('YYYY-MM-DD')
+      const onVac = items
+        .filter(it => !(isEdit && existingBooking && it.profId === existingBooking.professionalId))
+        .map(it => professionals.find(p => p.id === it.profId))
+        .find(p => vacationCovers(p?.vacation, ds))
+      if (onVac) { setPendingVacation(vacationNote(onVac)); return }
     }
 
     try {
@@ -1406,8 +1419,18 @@ export default function SideCheckoutPanel({
         <ConfirmModal
           title={'Já existe um agendamento\nnesse horário. Confirmar mesmo assim?'}
           confirmLabel="Confirmar sobreposição"
-          onConfirm={() => { setPendingOverlap(false); handleSave(true) }}
+          onConfirm={() => { setPendingOverlap(false); handleSave(true, true) /* @eligi:vac-fe-scp-overlap */ }}
           onCancel={() => setPendingOverlap(false)}
+          isMobile={isMobile}
+        />
+      )}
+
+      {pendingVacation && ( /* @eligi:vac-fe-scp-modal */
+        <ConfirmModal
+          title={`${pendingVacation}\nEncaixar mesmo assim?`}
+          confirmLabel="Encaixar mesmo assim"
+          onConfirm={() => { setPendingVacation(null); handleSave(false, true) }}
+          onCancel={() => setPendingVacation(null)}
           isMobile={isMobile}
         />
       )}

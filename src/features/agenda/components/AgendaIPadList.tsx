@@ -34,6 +34,7 @@ import {
   EASE, Z,
 } from '../constants'
 import { WorkingHours } from './AgendaBoard'
+import { vacationLabel, vacationNote } from '@/features/vacations/agenda' // @eligi:vac-fe-ipad-import
 
 // ─── Constantes locais ────────────────────────────────────────────────────────
 const TIME_COL_W = agendaLayout.timeColWidth
@@ -458,17 +459,21 @@ export default function AgendaIPadList({
     if (!d) return
 
     if (d.type === 'move' && (d.currentTime !== d.fromTime || d.currentProfId !== d.fromProfId)) {
+      // @eligi:vac-fe-ipad-move — levar para quem esta de ferias pede confirmacao explicita
+      const vacNote = d.currentProfId !== d.fromProfId
+        ? vacationNote(professionals.find(p => p.id === d.currentProfId))
+        : null
       setPendingAction({
         type:'move',
-        title: `Confirmar alteração de\n${d.fromTime} para ${d.currentTime}?`,
-        confirmLabel: 'Salvar alteração',
+        title: `Confirmar alteração de\n${d.fromTime} para ${d.currentTime}?${vacNote ? `\n${vacNote}` : ''}`, // @eligi:vac-fe-ipad-title
+        confirmLabel: vacNote ? 'Encaixar mesmo assim' : 'Salvar alteração', // @eligi:vac-fe-ipad-cta
         onConfirm: () => {
           setPendingAction(null)
           doReschedule(d.booking.id, d.currentTime, d.currentProfId, false)
         },
       })
     }
-  }, [doReschedule, setPendingAction])
+  }, [doReschedule, setPendingAction, professionals]) // @eligi:vac-fe-ipad-deps
 
   const isMove   = drag?.type === 'move'
   const isResize = drag?.type === 'resize'
@@ -681,6 +686,7 @@ export default function AgendaIPadList({
                 <OffHoursOverlay
                   preH={offHours.preH} postTop={offHours.postTop}
                   postH={offHours.postH} closed={offHours.closed} totalH={TOTAL_H}
+                  label={vacationLabel(p.vacation) /* @eligi:vac-fe-ipad-label */}
                 />
 
                 {/* Bloqueios */}
