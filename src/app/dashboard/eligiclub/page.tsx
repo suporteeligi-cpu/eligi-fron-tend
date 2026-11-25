@@ -29,6 +29,7 @@ import { useCanBuyPlan } from '@/shared/utils/useEligiApp' // @eligi:club-gate-a
 import ClubPlanEditorModal from './components/ClubPlanEditorModal'
 import ClubSubscriptionModal from './components/ClubSubscriptionModal'
 import ClubMemberDetailModal from './components/ClubMemberDetailModal'
+import { chargeChip, type CobrarItem, type CobrarList } from './components/CobrarSheet' // @eligi:club-membros-sheet-import
 import { effectiveSubStatus, isManualSub } from './clubStatus' // @eligi:club-lapsed-import-page
 import ClubSettleConfirmModal from './components/ClubSettleConfirmModal' // @eligi:club-front-modal-import
 import ClubAutoSettleCard from './components/ClubAutoSettleCard'
@@ -1598,53 +1599,106 @@ function PlanRow({ plan, isMobile, isLast, onClick }: { plan: ClubPlan; isMobile
 // ═══════════════════════════════════════════════════════════════════════════
 // ABA: Membros
 // ═══════════════════════════════════════════════════════════════════════════
+// @eligi:club-membros-filtros — aba Membros com filtros e a ficha da direcao B (nov/2026).
+// Os filtros sao calculados aqui com a lista inteira; "Cobrar" e a MESMA fila do
+// Painel (GET /club-subscriptions/cobrar), para os dois nunca discordarem.
+type MemberFilter = 'todos' | 'cobrar' | 'semana' | 'emdia' | 'cancelados'
+const MEMBER_FILTERS: { id: MemberFilter; label: string }[] = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'cobrar', label: 'Cobrar' },
+  { id: 'semana', label: 'Vence esta semana' },
+  { id: 'emdia', label: 'Em dia' },
+  { id: 'cancelados', label: 'Cancelados' },
+]
+const SEMANA_MS = 7 * 86_400_000
+function memberMatches(f: MemberFilter, s: ClubSubscription, cobrar: Map<string, CobrarItem>, now: number): boolean {
+  if (f === 'todos') return true
+  if (f === 'cancelados') return s.status === 'CANCELED'
+  if (s.status === 'CANCELED') return false
+  if (f === 'cobrar') return cobrar.has(s.id)
+  if (cobrar.has(s.id) || effectiveSubStatus(s) !== 'ACTIVE') return false
+  if (f === 'emdia') return true
+  const end = s.currentPeriodEnd ? new Date(s.currentPeriodEnd).getTime() : NaN
+  return Number.isFinite(end) && end >= now && end - now <= SEMANA_MS
+}
+
 function MembrosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: string) => void }) {
   const [subs, setSubs] = useState<ClubSubscription[]>([])
+  const [cobrar, setCobrar] = useState<Map<string, CobrarItem>>(() => new Map())
   const [detailSub, setDetailSub] = useState<ClubSubscription | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [filter, setFilter] = useState<MemberFilter>('todos')
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [query, setQuery] = useState('')
+  const [reload, setReload] = useState(0)
+  // "agora" de quando a lista chegou: Date.now() no render reprova a pureza do React Compiler
+  const [now, setNow] = useState(0)
+
   function handleSaved(sub: ClubSubscription) {
     setSubs(prev => [sub, ...prev])
     onToast('Membro assinado')
   }
-  function handleUpdated(updated: ClubSubscription) {
-    setSubs(prev => prev.map(s => s.id === updated.id ? updated : s))
-    setDetailSub(updated)
-  }
-  const [loading, setLoading] = useState(true)
-  const [query, setQuery] = useState('')
-
-  const fetchData = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const res = await api.get('/club-subscriptions', { signal })
-      if (signal?.aborted) return
-      const payload = res.data?.data ?? res.data
-      setSubs(Array.isArray(payload) ? payload : [])
-    } catch {
-      if (!signal?.aborted) setSubs([])
-    } finally {
-      if (!signal?.aborted) setLoading(false)
-    }
+  const handleUpdated = useCallback((updated: ClubSubscription) => {
+    setSubs(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s))
   }, [])
+  const refreshCobrar = useCallback(() => setReload(n => n + 1), [])
 
   useEffect(() => {
     const ctrl = new AbortController()
-    fetchData(ctrl.signal)
+    async function run() {
+      const [subsRes, cobrarRes] = await Promise.allSettled([
+        api.get('/club-subscriptions', { signal: ctrl.signal }),
+        api.get('/club-subscriptions/cobrar', { signal: ctrl.signal }),
+      ])
+      if (ctrl.signal.aborted) return
+      if (subsRes.status === 'fulfilled') {
+        const payload = subsRes.value.data?.data ?? subsRes.value.data
+        setSubs(Array.isArray(payload) ? payload : [])
+        setLoadError(false)
+      } else {
+        console.error('[club-membros] lista falhou', subsRes.reason)
+        setLoadError(true)
+      }
+      // a fila e opcional: sem ela (cargo sem acesso ou falha) o filtro Cobrar fica vazio
+      const items = cobrarRes.status === 'fulfilled' ? ((cobrarRes.value.data?.data as CobrarList | undefined)?.items ?? []) : []
+      setCobrar(new Map(items.map(i => [i.subId, i])))
+      setNow(Date.now())
+      setLoading(false)
+    }
+    void run()
     return () => ctrl.abort()
-  }, [fetchData])
+  }, [reload])
+
+  const counts = useMemo(() => {
+    const c: Record<MemberFilter, number> = { todos: 0, cobrar: 0, semana: 0, emdia: 0, cancelados: 0 }
+    for (const s of subs) for (const f of MEMBER_FILTERS) if (memberMatches(f.id, s, cobrar, now)) c[f.id]++
+    return c
+  }, [subs, cobrar, now])
 
   const stats = useMemo(() => {
-    // @eligi:club-ativos-membros — manual vencido aparece como vencido na lista;
-    // os numeros do topo concordam com ela (mesma regra do Painel e do relatorio)
+    // manual vencido aparece como vencido na lista; os numeros do topo concordam com ela
     const active = subs.filter(s => effectiveSubStatus(s) === 'ACTIVE')
     const mrr = active.reduce((acc, s) => acc + (s.value ?? s.plan.price ?? 0), 0)
     return { activeCount: active.length, mrr, total: subs.length }
   }, [subs])
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return subs
     const q = query.trim().toLowerCase()
-    return subs.filter(s => s.client.name.toLowerCase().includes(q) || s.plan.name.toLowerCase().includes(q))
-  }, [subs, query])
+    const list = subs.filter(s => memberMatches(filter, s, cobrar, now)
+      && (!q || s.client.name.toLowerCase().includes(q) || s.plan.name.toLowerCase().includes(q)))
+    // "Vence esta semana" em ordem de data; os outros mantem a ordem do back
+    if (filter === 'semana') list.sort((a, b) => (a.currentPeriodEnd ?? '').localeCompare(b.currentPeriodEnd ?? ''))
+    return list
+  }, [subs, query, filter, cobrar, now])
+
+  const emptyText: Record<MemberFilter, string> = {
+    todos: `Nada corresponde a "${query}".`,
+    cobrar: 'Ninguém precisa ser cobrado agora.',
+    semana: 'Ninguém renova nos próximos 7 dias.',
+    emdia: 'Nenhum membro em dia neste filtro.',
+    cancelados: 'Nenhuma assinatura cancelada.',
+  }
 
   return (
     <section style={{ animation: 'club-panel .4s cubic-bezier(.22,1,.36,1) both' }}>
@@ -1666,41 +1720,69 @@ function MembrosTab({ isMobile, onToast }: { isMobile: boolean; onToast: (m: str
         <ClubMemberDetailModal
           initialSub={detailSub}
           isMobile={isMobile}
+          charge={cobrar.get(detailSub.id) ?? null}
           onUpdated={handleUpdated}
-          onClose={() => setDetailSub(null)}
+          onCharged={refreshCobrar}
+          onClose={() => { setDetailSub(null); refreshCobrar() }}
         />
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 13 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <SearchBox query={query} setQuery={setQuery} placeholder="Buscar membro..." flex />
         <AddButton label={isMobile ? 'Assinar' : 'Assinar membro'} onClick={() => setModalOpen(true)} />
       </div>
 
-      {loading ? <LoadingState /> : subs.length === 0 ? (
+      <div className="cm-filtros" role="tablist" aria-label="Filtrar membros">
+        <style>{`.cm-filtros{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.cm-filtros::-webkit-scrollbar{display:none}.cm-filtros button{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(17,17,20,.12);background:#fff;color:#111114;font:600 13px var(--font-sans);cursor:pointer;-webkit-tap-highlight-color:transparent}.cm-filtros button span{color:inherit}.cm-filtros button[aria-selected=true]{background:#111114;border-color:#111114;color:#fff}.cm-filtros .n{font-family:var(--font-display);font-variant-numeric:tabular-nums;opacity:.7}`}</style>
+        {MEMBER_FILTERS.map(f => (
+          <button key={f.id} role="tab" aria-selected={filter === f.id} onClick={() => setFilter(f.id)}>
+            <span>{f.label}</span><span className="n">{counts[f.id]}</span>
+          </button>
+        ))}
+      </div>
+
+      {loading ? <LoadingState /> : loadError && subs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 24px', background: '#fff', borderRadius: 14, border: `1px solid ${colors.gray.border}` }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#111114', marginBottom: 10 }}>Não foi possível carregar os membros.</div>
+          <button onClick={() => { setLoading(true); setReload(n => n + 1) }} style={{ minHeight: 44, padding: '0 18px', borderRadius: 12, border: '1px solid rgba(17,17,20,.12)', background: '#fff', font: '600 14px var(--font-sans)', cursor: 'pointer' }}>Tentar de novo</button>
+        </div>
+      ) : subs.length === 0 ? (
         <EmptyState icon={<Users size={34} />} title="Nenhum membro ainda" subtitle="Assine um cliente em um plano de clube para começar a gerar receita recorrente e fichas." />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<Search size={34} />} title="Nenhum membro encontrado" subtitle={`Nada corresponde a "${query}".`} />
+        <EmptyState icon={<Search size={34} />} title="Ninguém aqui" subtitle={query.trim() ? `Nada corresponde a "${query}".` : emptyText[filter]} />
       ) : (
         <ListShell>
-          {filtered.map((s, i) => <MemberRow key={s.id} sub={s} isMobile={isMobile} isLast={i === filtered.length - 1} onClick={() => setDetailSub(s)} />)}
+          {filtered.map((s, i) => <MemberRow key={s.id} sub={s} charge={cobrar.get(s.id) ?? null} isMobile={isMobile} isLast={i === filtered.length - 1} onClick={() => setDetailSub(s)} />)}
         </ListShell>
       )}
     </section>
   )
 }
 
-function MemberRow({ sub, isMobile, isLast, onClick }: { sub: ClubSubscription; isMobile: boolean; isLast: boolean; onClick: () => void }) {
-  // @eligi:club-lapsed-row — manual vencida aparece como vencida (so exibicao)
+const CHARGE_CHIP_STYLE: Record<string, { fg: string; bg: string }> = {
+  'c-hoje':    { fg: '#111114', bg: '#f0f0f3' },
+  'c-atraso':  { fg: '#92400e', bg: '#fffbeb' },
+  'c-cartao':  { fg: '#991b1b', bg: '#fef2f2' },
+  'c-aguarda': { fg: '#1e40af', bg: '#eff6ff' },
+}
+
+function MemberRow({ sub, charge, isMobile, isLast, onClick }: { sub: ClubSubscription; charge: CobrarItem | null; isMobile: boolean; isLast: boolean; onClick: () => void }) {
+  // manual vencida aparece como vencida (so exibicao)
   const status = effectiveSubStatus(sub)
   const manual = isManualSub(sub)
-  const st = SUB_STATUS[status]
+  const chip = charge ? chargeChip(charge) : null
+  const st = chip
+    ? { label: chip.text, ...(CHARGE_CHIP_STYLE[chip.cls] ?? CHARGE_CHIP_STYLE['c-atraso']) }
+    : SUB_STATUS[status]
   const fichas = sub._count?.fichas ?? 0
-  const dateInfo = status === 'PAST_DUE'
-    ? `venceu ${fmtDate(sub.currentPeriodEnd)}`
-    : sub.currentPeriodEnd ? `${manual ? 'renova' : 'próx. cobrança'} ${fmtDate(sub.currentPeriodEnd)}` : 'sem cobrança'
+  const dateInfo = status === 'CANCELED'
+    ? `cancelado ${fmtDate(sub.canceledAt)}`
+    : status === 'PAST_DUE'
+      ? `venceu ${fmtDate(sub.currentPeriodEnd)}`
+      : sub.currentPeriodEnd ? `${manual ? 'renova' : 'próx. cobrança'} ${fmtDate(sub.currentPeriodEnd)}` : 'sem cobrança'
   return (
     <RowShell isMobile={isMobile} isLast={isLast} onClick={onClick}
-      avatar={<span style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 760, color: '#fff', letterSpacing: '-0.02em', background: avatarGrad(sub.client.id) }}>{initials(sub.client.name)}</span>}
+      avatar={<span style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: '#fff', letterSpacing: '-0.02em', background: '#111114' }}>{initials(sub.client.name)}</span>}
       trailing={<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0, minWidth: isMobile ? 70 : 86 }}>
         <StatusPill {...st} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: colors.gray[700] }}>
