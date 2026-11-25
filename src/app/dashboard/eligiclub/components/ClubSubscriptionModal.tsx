@@ -43,6 +43,13 @@ import { clubIncludesText } from '@/shared/utils/whatsapp' // @eligi:club-vis-im
 
 // ── tipos ───────────────────────────────────────────────────────────────────
 type SubStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
+// @eligi:club-forma-tipos — valores aceitos pelo back (CLUB_PAY_METHODS)
+type ManualMethod = 'DINHEIRO' | 'PIX' | 'CARTAO'
+const MANUAL_METHODS: { key: ManualMethod; label: string }[] = [
+  { key: 'DINHEIRO', label: 'Dinheiro' },
+  { key: 'PIX', label: 'Pix' },
+  { key: 'CARTAO', label: 'Cartão' },
+]
 type PayMode = 'CARD' | 'MANUAL'
 
 interface ClubSubscription {
@@ -110,6 +117,8 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
   const [planId, setPlanId] = useState<string | null>(null)
   // sem default: a escolha da forma de cobranca e' deliberada, nao herdada
   const [mode, setMode] = useState<PayMode | null>(null)
+  // @eligi:club-forma-state — como pagou o 1o mes no balcao (obrigatorio no back)
+  const [manualMethod, setManualMethod] = useState<ManualMethod | null>(null)
   const [clientQuery, setClientQuery] = useState('')
   const [searching, setSearching] = useState(false)
 
@@ -204,12 +213,13 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
     if (!clientId) { setError('Selecione o cliente que vai assinar.'); return }
     if (!planId) { setError('Escolha o plano do clube.'); return }
     if (!mode) { setError('Escolha como o cliente vai pagar.'); return }
+    if (mode === 'MANUAL' && !manualMethod) { setError('Escolha como ele pagou o primeiro mês.'); return } // @eligi:club-forma-valida
 
     setSaving(true)
     try {
       if (mode === 'MANUAL') {
         // ── caminho manual: assinatura nasce ACTIVE, sem Asaas ──
-        const res = await api.post('/club-subscriptions', { clientId, planId })
+        const res = await api.post('/club-subscriptions', { clientId, planId, method: manualMethod }) // @eligi:club-forma-post
         const payload = (res.data?.data ?? res.data) as { subscription?: ClubSubscription } & ClubSubscription
         const sub = (payload.subscription ?? payload) as ClubSubscription
         onSaved(sub)
@@ -249,7 +259,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
     } finally {
       setSaving(false)
     }
-  }, [clientId, planId, mode, onSaved, selectedClient, selectedPlan])
+  }, [clientId, planId, mode, manualMethod, onSaved, selectedClient, selectedPlan]) // @eligi:club-forma-deps
 
   const copyLink = useCallback(async () => {
     if (!done?.checkoutUrl) return
@@ -269,7 +279,7 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
   }, [done, selectedPlan])
 
   const concluido = !!done || !!manualDone
-  const podeSalvar = !!clientId && !!planId && !!mode && !saving
+  const podeSalvar = !!clientId && !!planId && !!mode && (mode !== 'MANUAL' || !!manualMethod) && !saving // @eligi:club-forma-pode
 
   const headerTitle = manualDone ? 'Assinatura registrada'
     : done ? 'Assinatura criada'
@@ -316,6 +326,10 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
         }
         .ecs-mode[data-on="1"]{ border-color:#dc2626; box-shadow:0 0 0 3px rgba(220,38,38,.08); }
         .ecs-mode:disabled{ cursor:not-allowed; opacity:.6; }
+        /* @eligi:club-forma-css — selecionado em grafite: vermelho fica para a acao */
+        .ecs-meth{ min-height:44px; border-radius:12px; border:1.5px solid rgba(17,17,20,.12); background:#fff;
+          font-family:inherit; font-size:14.5px; font-weight:650; color:#111114; cursor:pointer; padding:0 6px; }
+        .ecs-meth[data-on="1"]{ border-color:#111114; background:#111114; color:#fff; }
         .ecs-rd{
           width:20px; height:20px; flex-shrink:0; border-radius:50%; border:2px solid rgba(17,17,20,.2);
           display:flex; align-items:center; justify-content:center;
@@ -711,6 +725,23 @@ export default function ClubSubscriptionModal({ onSaved, onClose }: Props) {
                   </ul>
                 </button>
               </div>
+              {/* @eligi:club-forma-picker */}
+              {mode === 'MANUAL' && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b6b73', marginBottom: 8 }}>
+                    Como pagou o 1º mês
+                  </div>
+                  <div role="radiogroup" aria-label="Como pagou o 1º mês" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                    {MANUAL_METHODS.map((m) => (
+                      <button key={m.key} type="button" role="radio" aria-checked={manualMethod === m.key}
+                        className="ecs-meth" data-on={manualMethod === m.key ? '1' : '0'}
+                        onClick={() => setManualMethod(m.key)}>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

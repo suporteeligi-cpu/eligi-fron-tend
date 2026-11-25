@@ -32,6 +32,10 @@ interface ConfirmPreview {
   items: ConfirmItem[]
   pendingCredit?: number
   pendingCount?: number
+  /** @eligi:pote-carry-front-tipos — regra de nov/2026: o que nao caiu vai para o proximo pote */
+  carriedIn?: number
+  carriedInCount?: number
+  nextCarry?: boolean
 }
 
 const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -119,7 +123,23 @@ export default function ClubSettleConfirmModal({
           ))}
         </div>
 
-        {pendente > 0 && (
+        {/* @eligi:pote-carry-front-texto */}
+        {(preview.carriedIn ?? 0) > 0 && (
+          <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 12, background: '#f4f4f6', fontSize: 12.5, color: '#4b4b52', lineHeight: 1.5 }}>
+            Inclui {fmtBRL(preview.carriedIn ?? 0)} de {preview.carriedInCount ?? 0} pagamento{(preview.carriedInCount ?? 0) !== 1 ? 's' : ''} de meses
+            anteriores que caíram na conta agora.
+          </div>
+        )}
+        {pendente > 0 && preview.nextCarry && (
+          <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 12, background: '#f4f4f6', fontSize: 12.5, color: '#4b4b52', lineHeight: 1.5 }}>
+            <b style={{ display: 'block', marginBottom: 2, color: '#111114' }}>
+              {fmtBRL(pendente)} ainda não caiu na sua conta
+            </b>
+            {pendentes} pagamento{pendentes !== 1 ? 's' : ''} no cartão. Não entra neste pote: vai para o próximo
+            fechamento, depois que cair.
+          </div>
+        )}
+        {pendente > 0 && !preview.nextCarry && (
           <div style={{ marginTop: 14, padding: '13px 14px', borderRadius: 12, background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.28)' }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <AlertTriangle size={15} color="#B45309" strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }} />
