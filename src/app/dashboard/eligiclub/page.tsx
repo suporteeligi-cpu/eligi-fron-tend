@@ -33,7 +33,7 @@ import { effectiveSubStatus, isManualSub } from './clubStatus' // @eligi:club-la
 import ClubSettleConfirmModal from './components/ClubSettleConfirmModal' // @eligi:club-front-modal-import
 import ClubAutoSettleCard from './components/ClubAutoSettleCard'
 import ClubAnticipationCard from './components/ClubAnticipationCard' // @eligi:club-ant-page-import
-import ClubPainelTab from './components/ClubPainelTab' // @eligi:club-painel-import
+import ClubHojeTab from './components/ClubHojeTab' // @eligi:club-hoje-import (substitui o painel escuro)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Tipos (espelham os includes do back-end)
@@ -1488,7 +1488,7 @@ export default function EligiClubPage() {
         </div>
 
         {/* @eligi:club-painel-render */}
-        {tab === 'painel' && <ClubPainelTab isMobile={isMobile} onOpenMembers={() => setTab('membros')} />}
+        {tab === 'painel' && <ClubHojeTab isMobile={isMobile} onOpenMembers={() => setTab('membros')} />}{/* @eligi:club-hoje-render */}
         {tab === 'planos' && <PlanosTab isMobile={isMobile} onToast={setToast} />}
         {tab === 'membros' && <MembrosTab isMobile={isMobile} onToast={setToast} />}
         {tab === 'fechamento' && isDono && <FechamentoTab onToast={setToast} isMobile={isMobile} />}
