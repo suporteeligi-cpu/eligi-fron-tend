@@ -14,11 +14,12 @@ import {
   UserPlus, Cake, Package, CreditCard, ReceiptText, Lock,
 } from 'lucide-react'
 import api from '@/shared/lib/apiClient'
+import EligiClubIcon from '@/app/components/navigation/EligiClubIcon' // @eligi:cfg-avisos-club-icon
 import { typography } from '@/shared/theme'
 
 type CatKey =
   | 'DAILY_SUMMARY' | 'BOOKING_ONLINE' | 'RESCHEDULE' | 'CANCELLATION'
-  | 'NEW_CLIENT' | 'BIRTHDAY' | 'STOCK_LOW' | 'BILLING' | 'FISCAL'
+  | 'NEW_CLIENT' | 'BIRTHDAY' | 'STOCK_LOW' | 'BILLING' | 'FISCAL' | 'CLUB' // @eligi:cfg-avisos-club-key
 
 type Cat = { key: CatKey; label: string; when: string; who: string; icon: React.ElementType }
 type Group = { title: string; cats: Cat[] }
@@ -36,6 +37,10 @@ const GROUPS: Group[] = [
   { title: 'Clientes', cats: [
     { key: 'NEW_CLIENT', label: 'Cliente novo',  icon: UserPlus, who: DONO, when: 'Alguém se cadastrou pelo seu link.' },
     { key: 'BIRTHDAY',   label: 'Aniversários',  icon: Cake,     who: DONO, when: 'Os da semana e os do dia, às 9h.' },
+  ] },
+  // @eligi:cfg-avisos-club-grupo — o aviso no celular do cliente e outra coisa (o cliente desliga no app)
+  { title: 'EligiClub', cats: [
+    { key: 'CLUB', label: 'EligiClub', icon: EligiClubIcon, who: DONO, when: 'Vence hoje e atrasados às 9h, pagou e cartão recusado na hora.' },
   ] },
   { title: 'Estoque', cats: [
     { key: 'STOCK_LOW', label: 'Estoque baixo', icon: Package, who: DONO, when: 'Um produto chegou no mínimo ou acabou.' },

@@ -8,6 +8,8 @@ import {
   Sunrise, CalendarPlus, CalendarClock, CalendarX, UserX, Package, CreditCard, UserPlus, CheckCheck,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { Cake, ReceiptText } from 'lucide-react' // @eligi:nav-cat-icons
+import EligiClubIcon from './EligiClubIcon' // @eligi:nav-cat-club
 import { LifeBuoy } from 'lucide-react' // @eligi:help-nav-icon
 import { HELP_OPEN_EVENT } from '@/features/help/help.rules' // @eligi:help-nav-import
 import { colors, typography, radius, shadows, transitions } from '@/shared/theme'
@@ -41,7 +43,7 @@ interface SearchResult {
 type NotifSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
 type NotifCategory =
   | 'DAILY_SUMMARY' | 'BOOKING_ONLINE' | 'RESCHEDULE' | 'CANCELLATION'
-  | 'NO_SHOW' | 'STOCK_LOW' | 'NEW_CLIENT' | 'BILLING'
+  | 'NO_SHOW' | 'STOCK_LOW' | 'NEW_CLIENT' | 'BILLING' | 'FISCAL' | 'BIRTHDAY' | 'CLUB' // @eligi:nav-cat-type
 
 interface NotifItem {
   id:        string
@@ -74,6 +76,9 @@ const CAT_ICON: Record<NotifCategory, LucideIcon> = {
   STOCK_LOW:      Package,
   NEW_CLIENT:     UserPlus,
   BILLING:        CreditCard,
+  FISCAL:         ReceiptText, // @eligi:nav-cat-map
+  BIRTHDAY:       Cake,
+  CLUB:           EligiClubIcon,
 }
 
 // ─── SearchModal ──────────────────────────────────────────────────────────────

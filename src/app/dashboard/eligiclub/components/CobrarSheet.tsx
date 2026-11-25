@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertCircle, Check, Copy, Send, X } from 'lucide-react'
+import { AlertCircle, Check, Copy, Send, Smartphone, X } from 'lucide-react' // @eligi:cobrar-app-icon
 import api from '@/shared/lib/apiClient'
 import { waLink, waShareLink } from '@/shared/utils/whatsapp'
 
@@ -21,7 +21,11 @@ export interface CobrarItem {
   lastCharge: { at: string; kind: 'CARD_LINK' | 'PIX'; link: string | null } | null
 }
 export interface CobrarList { items: CobrarItem[]; canPix: boolean; totals: { hoje: number; atrasados: number; aguardando: number } }
-interface CobrarResult { kind: 'CARD_LINK' | 'PIX'; link: string | null; whatsappText: string; clientPhone: string | null; reused: boolean }
+interface CobrarResult {
+  kind: 'CARD_LINK' | 'PIX'; link: string | null; whatsappText: string; clientPhone: string | null; reused: boolean
+  /** @eligi:cobrar-app-notice — aviso no app Eligi Cliente. Ausente = back antigo. */
+  appNotice?: 'SENT' | 'ALREADY' | 'NO_APP'
+}
 
 /** O minimo que a folha precisa: a ficha monta isso sem ter o item da fila. */
 export interface CobrarTarget { subId: string; clientName: string; planName: string; value: number | null }
@@ -128,6 +132,21 @@ export default function CobrarSheet({ item, onClose, onDone }: { item: CobrarTar
                   : 'Link da fatura em aberto. Ele paga com outro cartão ou pelo Pix.')
                 : 'Sem link de pagamento: a mensagem pede para pagar aqui ou responder.'}
             </div>
+            {/* @eligi:cobrar-app-linha */}
+            {r.appNotice && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, borderRadius: 12, padding: '9px 12px',
+                background: r.appNotice === 'NO_APP' ? '#f4f4f6' : '#ecfdf5',
+                color: r.appNotice === 'NO_APP' ? '#5b5b63' : '#0f6e56',
+              }}>
+                <Smartphone size={16} style={{ flexShrink: 0 }} />
+                <span>
+                  {r.appNotice === 'SENT' && 'Aviso enviado no app Eligi Cliente.'}
+                  {r.appNotice === 'ALREADY' && 'O app já avisou este membro hoje.'}
+                  {r.appNotice === 'NO_APP' && 'Sem o app Eligi Cliente: mande pelo WhatsApp.'}
+                </span>
+              </div>
+            )}
             <div>
               <div className="mono" style={{ marginBottom: 6 }}>Mensagem</div>
               <div className="msg">{r.whatsappText}</div>
